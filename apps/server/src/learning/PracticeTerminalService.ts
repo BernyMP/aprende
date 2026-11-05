@@ -12,7 +12,9 @@ import {
 import * as HostProcess from "@aprende/shared/HostProcess";
 import * as PtyAdapter from "@aprende/shared/PtyAdapter";
 import * as Context from "effect/Context";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
 import * as Semaphore from "effect/Semaphore";
@@ -37,6 +39,7 @@ export class PracticeTerminalService extends Context.Service<
 >()("aprende/learning/PracticeTerminalService") {}
 
 interface Terminal {
+  readonly key: string;
   readonly threadId: ThreadId;
   readonly process: PtyAdapter.PtyProcess;
   /** The last output, up to the scrollback cap; it ends at `written`. */
@@ -46,8 +49,20 @@ interface Terminal {
   /** Set once the shell exits or is closed. */
   exitCode: number | null | undefined;
   readonly listeners: Set<() => void>;
-  readonly detach: () => void;
+  stopOutput: () => void;
+  /** Sends SIGKILL to a closed shell that is still running after the grace period. */
+  reaper: Fiber.Fiber<void> | undefined;
 }
+
+/** An open waiting for its folder or shell; closing its problem or thread cancels it. */
+interface PendingOpen {
+  readonly key: string;
+  readonly threadId: ThreadId;
+  cancelled: boolean;
+}
+
+/** How long a closed shell has to exit after SIGHUP before it gets SIGKILL. */
+export const CLOSE_GRACE = Duration.seconds(2);
 
 const fail = (message: string, cause?: unknown) =>
   new LearningError(cause === undefined ? { message } : { message, cause });
@@ -83,7 +98,11 @@ const make = Effect.gen(function* () {
   const threads = yield* ThreadManagementService.ThreadManagementService;
   const platform = yield* HostProcess.Platform;
   const hostEnv = yield* HostProcess.Environment;
+  // Open shells by problem.
   const terminals = new Map<string, Terminal>();
+  // Every shell until its exit is seen, closed ones included. These count toward the cap.
+  const running = new Set<Terminal>();
+  const pendingOpens = new Set<PendingOpen>();
   // Opening checks the cap and spawns as one step, so two opens cannot both take the last slot.
   const opening = Semaphore.makeUnsafe(1);
 
@@ -92,21 +111,69 @@ const make = Effect.gen(function* () {
     COLORTERM: "truecolor",
   };
 
-  const end = (key: string, terminal: Terminal, exitCode: number | null) => {
+  const end = (terminal: Terminal, exitCode: number | null) => {
     if (terminal.exitCode !== undefined) return;
     terminal.exitCode = exitCode;
-    if (terminals.get(key) === terminal) terminals.delete(key);
-    terminal.detach();
+    if (terminals.get(terminal.key) === terminal) terminals.delete(terminal.key);
+    terminal.stopOutput();
     for (const listener of terminal.listeners) listener();
   };
 
-  const kill = (key: string, terminal: Terminal) => {
-    end(key, terminal, null);
+  const exited = (terminal: Terminal, exitCode: number) => {
+    running.delete(terminal);
+    terminal.reaper?.interruptUnsafe();
+    end(terminal, exitCode);
+  };
+
+  const signal = (terminal: Terminal, name?: string) => {
     try {
-      terminal.process.kill();
+      terminal.process.kill(name);
     } catch {
       // Already gone.
     }
+  };
+
+  // A shell may ignore SIGHUP (`trap '' HUP`), so it stays tracked until its exit is seen.
+  const closeTerminal = Effect.fn("PracticeTerminalService.closeTerminal")(function* (
+    terminal: Terminal,
+  ) {
+    if (terminal.exitCode !== undefined) return;
+    end(terminal, null);
+    // node-pty ends the whole process tree on Windows, which has no signals.
+    if (platform === "win32") {
+      running.delete(terminal);
+      signal(terminal);
+      return;
+    }
+    // Started before the signal, so a shell that exits on SIGHUP at once interrupts it.
+    terminal.reaper = yield* Effect.sleep(CLOSE_GRACE).pipe(
+      Effect.andThen(Effect.sync(() => signal(terminal, "SIGKILL"))),
+      Effect.forkDetach({ startImmediately: true, uninterruptible: false }),
+    );
+    signal(terminal, "SIGHUP");
+  });
+
+  const register = (key: string, threadId: ThreadId, shell: PtyAdapter.PtyProcess) => {
+    const terminal: Terminal = {
+      key,
+      threadId,
+      process: shell,
+      scrollback: "",
+      written: 0,
+      exitCode: undefined,
+      listeners: new Set(),
+      stopOutput: () => {},
+      reaper: undefined,
+    };
+    terminals.set(key, terminal);
+    running.add(terminal);
+    terminal.stopOutput = shell.onData((data) => {
+      terminal.scrollback = (terminal.scrollback + data).slice(-LEARNING_TERMINAL_SCROLLBACK_CHARS);
+      terminal.written += data.length;
+      for (const listener of terminal.listeners) listener();
+    });
+    shell.onExit((event) => exited(terminal, event.exitCode));
+    return terminal;
   };
 
   const resizeProcess = (
@@ -140,45 +207,33 @@ const make = Effect.gen(function* () {
     "PracticeTerminalService.open",
   )(function* (input) {
     const key = keyOf(input);
+    const pending: PendingOpen = { key, threadId: input.threadId, cancelled: false };
+    pendingOpens.add(pending);
     yield* Semaphore.withPermit(
       opening,
-      Effect.gen(function* () {
-        const existing = terminals.get(key);
-        if (existing !== undefined) {
-          resizeProcess(existing, input);
-          return;
-        }
-        if (terminals.size >= LEARNING_MAX_PRACTICE_TERMINALS)
-          return yield* fail(
-            `You have ${LEARNING_MAX_PRACTICE_TERMINALS} practice terminals open, the most at once. Close one to open another.`,
-          );
-        const cwd = yield* learning.practiceFolder(input);
-        const shell = yield* spawnShell(cwd, input);
-        const detachers: Array<() => void> = [];
-        const terminal: Terminal = {
-          threadId: input.threadId,
-          process: shell,
-          scrollback: "",
-          written: 0,
-          exitCode: undefined,
-          listeners: new Set(),
-          detach: () => {
-            for (const detach of detachers) detach();
-          },
-        };
-        terminals.set(key, terminal);
-        detachers.push(
-          shell.onData((data) => {
-            terminal.scrollback = (terminal.scrollback + data).slice(
-              -LEARNING_TERMINAL_SCROLLBACK_CHARS,
+      // A shell spawned here is registered even if the request is interrupted, so it can be killed.
+      Effect.uninterruptibleMask((restore) =>
+        Effect.gen(function* () {
+          if (pending.cancelled) return yield* fail(CLOSED);
+          const existing = terminals.get(key);
+          if (existing !== undefined) {
+            resizeProcess(existing, input);
+            return;
+          }
+          if (running.size >= LEARNING_MAX_PRACTICE_TERMINALS)
+            return yield* fail(
+              `You have ${LEARNING_MAX_PRACTICE_TERMINALS} practice terminals open, the most at once. Close one to open another.`,
             );
-            terminal.written += data.length;
-            for (const listener of terminal.listeners) listener();
-          }),
-          shell.onExit((event) => end(key, terminal, event.exitCode)),
-        );
-      }),
-    );
+          const cwd = yield* restore(learning.practiceFolder(input));
+          const shell = yield* restore(spawnShell(cwd, input));
+          const terminal = register(key, input.threadId, shell);
+          if (pending.cancelled) {
+            yield* closeTerminal(terminal);
+            return yield* fail(CLOSED);
+          }
+        }),
+      ),
+    ).pipe(Effect.ensuring(Effect.sync(() => pendingOpens.delete(pending))));
   });
 
   const runningTerminal = (input: LearningTerminalTarget) => {
@@ -206,8 +261,9 @@ const make = Effect.gen(function* () {
     "PracticeTerminalService.close",
   )(function* (input) {
     const key = keyOf(input);
+    for (const pending of pendingOpens) if (pending.key === key) pending.cancelled = true;
     const terminal = terminals.get(key);
-    if (terminal !== undefined) yield* Effect.sync(() => kill(key, terminal));
+    if (terminal !== undefined) yield* closeTerminal(terminal);
   });
 
   // Each subscriber sends what was written since its last event. One that falls further behind
@@ -255,15 +311,19 @@ const make = Effect.gen(function* () {
       { bufferSize: 1, strategy: "suspend" },
     );
 
-  const closeThread = (threadId: ThreadId) =>
-    Effect.sync(() => {
-      for (const [key, terminal] of terminals)
-        if (terminal.threadId === threadId) kill(key, terminal);
-    });
+  const closeThread = Effect.fn("PracticeTerminalService.closeThread")(function* (
+    threadId: ThreadId,
+  ) {
+    for (const pending of pendingOpens) if (pending.threadId === threadId) pending.cancelled = true;
+    for (const terminal of terminals.values())
+      if (terminal.threadId === threadId) yield* closeTerminal(terminal);
+  });
 
   yield* Effect.addFinalizer(() =>
-    Effect.sync(() => {
-      for (const [key, terminal] of terminals) kill(key, terminal);
+    Effect.gen(function* () {
+      for (const pending of pendingOpens) pending.cancelled = true;
+      for (const terminal of terminals.values()) yield* closeTerminal(terminal);
+      yield* Fiber.awaitAll([...running].flatMap((terminal) => terminal.reaper ?? []));
     }),
   );
   yield* forkParked(

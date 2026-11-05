@@ -12,9 +12,12 @@ import type * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
+import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
+import * as TestClock from "effect/testing/TestClock";
 
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as LearningService from "./LearningService.ts";
@@ -29,12 +32,17 @@ class FakePty implements PtyAdapter.PtyProcess {
   readonly pid = 1;
   readonly writes: Array<string> = [];
   readonly sizes: Array<readonly [number, number]> = [];
+  readonly signals: Array<string | undefined> = [];
   readonly killed = Deferred.makeUnsafe<void>();
+  readonly sigkilled = Deferred.makeUnsafe<void>();
   private dataListeners = new Set<(data: string) => void>();
   private exitListeners = new Set<(event: PtyAdapter.PtyExitEvent) => void>();
   readonly input: PtyAdapter.PtySpawnInput;
-  constructor(input: PtyAdapter.PtySpawnInput) {
+  /** Like a shell that ran `trap '' HUP`: only SIGKILL ends it. */
+  private readonly trapsHangup: boolean;
+  constructor(input: PtyAdapter.PtySpawnInput, trapsHangup: boolean) {
     this.input = input;
+    this.trapsHangup = trapsHangup;
   }
   write(data: string) {
     this.writes.push(data);
@@ -42,8 +50,11 @@ class FakePty implements PtyAdapter.PtyProcess {
   resize(cols: number, rows: number) {
     this.sizes.push([cols, rows]);
   }
-  kill() {
+  kill(signal?: string) {
+    this.signals.push(signal);
     Deferred.doneUnsafe(this.killed, Exit.void);
+    if (signal === "SIGKILL") Deferred.doneUnsafe(this.sigkilled, Exit.void);
+    if (signal === "SIGKILL" || !this.trapsHangup) this.exit(128 + (signal === "SIGKILL" ? 9 : 1));
   }
   onData(callback: (data: string) => void) {
     this.dataListeners.add(callback);
@@ -72,28 +83,55 @@ const folders: Record<string, string> = {
   "prob-e": "/session/practice/e",
 };
 
-const makeHarness = Effect.gen(function* () {
+const makeHarness = Effect.fn(function* (
+  options: {
+    readonly trapsHangup?: boolean;
+    /** Holds every practice folder lookup until released. */
+    readonly folderLookup?: {
+      readonly started: Deferred.Deferred<void>;
+      readonly release: Deferred.Deferred<void>;
+    };
+  } = {},
+) {
   const spawned: Array<FakePty> = [];
   const threadEvents = yield* Queue.unbounded<{ type: string; threadId: ThreadId }>();
+  // Offered each time the service waits for the next thread event, so after it handled the last.
+  const waitingForEvent = yield* Queue.unbounded<void>();
+  /** Delivers a thread event and returns once the service has handled it. */
+  const deliver = (event: { type: string; threadId: ThreadId }) =>
+    Queue.take(waitingForEvent).pipe(
+      Effect.andThen(Queue.offer(threadEvents, event)),
+      Effect.andThen(Queue.take(waitingForEvent)),
+    );
+  const hold = options.folderLookup;
   const layer = PracticeTerminalService.layer.pipe(
     Layer.provide(
       Layer.mock(LearningService.LearningService)({
         practiceFolder: (input) =>
-          folders[input.problemId] === undefined
-            ? Effect.fail(new LearningError({ message: "This problem has no practice folder." }))
-            : Effect.succeed(folders[input.problemId]!),
+          Effect.gen(function* () {
+            if (hold !== undefined) {
+              yield* Deferred.succeed(hold.started, undefined);
+              yield* Deferred.await(hold.release);
+            }
+            const folder = folders[input.problemId];
+            if (folder === undefined)
+              return yield* new LearningError({ message: "This problem has no practice folder." });
+            return folder;
+          }),
       }),
     ),
     Layer.provide(
       Layer.mock(ThreadManagementService.ThreadManagementService)({
-        streamDomainEvents: Stream.fromQueue(threadEvents) as never,
+        streamDomainEvents: Stream.fromEffectRepeat(
+          Queue.offer(waitingForEvent, undefined).pipe(Effect.andThen(Queue.take(threadEvents))),
+        ) as never,
       }),
     ),
     Layer.provide(
       Layer.succeed(PtyAdapter.PtyAdapter)({
         spawn: (input) =>
           Effect.sync(() => {
-            const pty = new FakePty(input);
+            const pty = new FakePty(input, options.trapsHangup ?? false);
             spawned.push(pty);
             return pty;
           }),
@@ -107,14 +145,15 @@ const makeHarness = Effect.gen(function* () {
       }),
     ),
   );
-  return { spawned, threadEvents, layer };
+  return { spawned, deliver, layer };
 });
+type Harness = Effect.Success<ReturnType<typeof makeHarness>>;
 
 const nextEvent = (events: Queue.Dequeue<LearningTerminalEvent, Cause.Done>) => Queue.take(events);
 
 it.effect("opens one shell per problem in its practice folder and forwards input", () =>
   Effect.gen(function* () {
-    const { spawned, layer } = yield* makeHarness;
+    const { spawned, layer } = yield* makeHarness();
     yield* Effect.gen(function* () {
       const terminals = yield* PracticeTerminalService.PracticeTerminalService;
       yield* terminals.open({ ...target("prob-a"), ...size });
@@ -141,7 +180,7 @@ it.effect("opens one shell per problem in its practice folder and forwards input
 
 it.effect("refuses a problem without a practice folder", () =>
   Effect.gen(function* () {
-    const { spawned, layer } = yield* makeHarness;
+    const { spawned, layer } = yield* makeHarness();
     yield* Effect.gen(function* () {
       const terminals = yield* PracticeTerminalService.PracticeTerminalService;
       const error = yield* Effect.flip(terminals.open({ ...target("prob-none"), ...size }));
@@ -155,7 +194,7 @@ it.effect("refuses a problem without a practice folder", () =>
 
 it.effect("replays bounded scrollback to a new subscriber, then streams live output", () =>
   Effect.gen(function* () {
-    const { spawned, layer } = yield* makeHarness;
+    const { spawned, layer } = yield* makeHarness();
     yield* Effect.scoped(
       Effect.gen(function* () {
         const terminals = yield* PracticeTerminalService.PracticeTerminalService;
@@ -188,7 +227,7 @@ it.effect("replays bounded scrollback to a new subscriber, then streams live out
 
 it.effect("caps live terminals and frees a slot when one closes", () =>
   Effect.gen(function* () {
-    const { spawned, layer } = yield* makeHarness;
+    const { spawned, layer } = yield* makeHarness();
     yield* Effect.scoped(
       Effect.gen(function* () {
         const terminals = yield* PracticeTerminalService.PracticeTerminalService;
@@ -219,15 +258,77 @@ it.effect("caps live terminals and frees a slot when one closes", () =>
 
 it.effect("kills a thread's shells when it is archived, and every shell on shutdown", () =>
   Effect.gen(function* () {
-    const { spawned, threadEvents, layer } = yield* makeHarness;
+    const { spawned, deliver, layer } = yield* makeHarness();
     yield* Effect.gen(function* () {
       const terminals = yield* PracticeTerminalService.PracticeTerminalService;
       yield* terminals.open({ ...target("prob-a"), ...size });
       yield* terminals.open({ ...target("prob-b", otherThreadId), ...size });
-      yield* Queue.offer(threadEvents, { type: "thread.archived", threadId });
-      yield* Deferred.await(spawned[0]!.killed);
+      yield* deliver({ type: "thread.archived", threadId });
+      assert.isTrue(yield* isKilled(spawned[0]!));
       assert.isFalse(yield* isKilled(spawned[1]!));
     }).pipe(Effect.provide(layer));
     assert.isTrue(yield* isKilled(spawned[1]!));
+  }),
+);
+
+it.effect("kills a shell whose open was still starting when its problem or thread closed", () =>
+  Effect.gen(function* () {
+    const closers = {
+      close: (_: Harness, terminals: PracticeTerminalService.PracticeTerminalService["Service"]) =>
+        terminals.close(target("prob-a")),
+      archive: (harness: Harness) => harness.deliver({ type: "thread.archived", threadId }),
+    };
+    for (const [name, closeIt] of Object.entries(closers)) {
+      const started = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const harness = yield* makeHarness({ folderLookup: { started, release } });
+      yield* Effect.gen(function* () {
+        const terminals = yield* PracticeTerminalService.PracticeTerminalService;
+        const opening = yield* Effect.forkChild(terminals.open({ ...target("prob-a"), ...size }));
+        yield* Deferred.await(started);
+        yield* closeIt(harness, terminals);
+        yield* Deferred.succeed(release, undefined);
+        const opened = yield* Fiber.await(opening);
+        assert.isTrue(yield* isKilled(harness.spawned[0]!), name);
+        assert.isTrue(Exit.isFailure(opened), name);
+        const write = yield* Effect.flip(terminals.write({ ...target("prob-a"), data: "ls\r" }));
+        assert.include(write.message, "This terminal is closed.", name);
+      }).pipe(Effect.provide(harness.layer));
+    }
+  }),
+);
+
+it.effect("keeps a closed shell that ignores SIGHUP counted until SIGKILL ends it", () =>
+  Effect.gen(function* () {
+    const { spawned, layer } = yield* makeHarness({ trapsHangup: true });
+    const scope = yield* Scope.make();
+    const services = yield* Layer.buildWithScope(layer, scope);
+    yield* Effect.gen(function* () {
+      const terminals = yield* PracticeTerminalService.PracticeTerminalService;
+      for (const problemId of ["prob-a", "prob-b", "prob-c", "prob-d"])
+        yield* terminals.open({ ...target(problemId), ...size });
+      yield* terminals.close(target("prob-a"));
+      const shell = spawned[0]!;
+      assert.deepEqual(shell.signals, ["SIGHUP"]);
+      const write = yield* Effect.flip(terminals.write({ ...target("prob-a"), data: "ls\r" }));
+      assert.include(write.message, "This terminal is closed.");
+      // Still running, so it still takes a slot.
+      const refused = yield* Effect.flip(terminals.open({ ...target("prob-e"), ...size }));
+      assert.include(refused.message, `${LEARNING_MAX_PRACTICE_TERMINALS} practice terminals`);
+
+      yield* TestClock.adjust(PracticeTerminalService.CLOSE_GRACE);
+      yield* Deferred.await(shell.sigkilled);
+      assert.deepEqual(shell.signals, ["SIGHUP", "SIGKILL"]);
+      yield* terminals.open({ ...target("prob-e"), ...size });
+      assert.equal(spawned.at(-1)!.input.cwd, "/session/practice/e");
+    }).pipe(Effect.provide(services));
+
+    // Shutting down gives every shell the same grace, then kills the ones still running.
+    const shutdown = yield* Effect.forkChild(Scope.close(scope, Exit.void));
+    const live = spawned.slice(1);
+    for (const pty of live) yield* Deferred.await(pty.killed);
+    yield* TestClock.adjust(PracticeTerminalService.CLOSE_GRACE);
+    yield* Fiber.join(shutdown);
+    for (const pty of live) assert.deepEqual(pty.signals, ["SIGHUP", "SIGKILL"]);
   }),
 );
