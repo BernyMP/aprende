@@ -1,6 +1,7 @@
 import type { EnvironmentId } from "@aprende/contracts";
 import {
   EMPTY_PRACTICE_TERMINAL,
+  PracticeTerminalInput,
   practiceTerminalUpdate,
   type PracticeTerminalView,
 } from "@aprende/client-runtime/state/practice-terminal";
@@ -30,6 +31,7 @@ export default function PracticeTerminalPanel(props: {
   const [surface, setSurface] = useState<GhosttyTerminalSurface | null>(null);
   const [shell, setShell] = useState<Shell>({ status: "starting" });
   const [error, setError] = useState<string | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
   const size = useRef<{ cols: number; rows: number } | null>(null);
   const shown =
     useRef<Pick<PracticeTerminalView, "snapshot" | "appended">>(EMPTY_PRACTICE_TERMINAL);
@@ -51,9 +53,24 @@ export default function PracticeTerminalPanel(props: {
   const resubscribe = useAtomRefresh(outputAtom);
   const view = output.data;
 
+  const sendInput = useStableCallback(async (data: string) => {
+    const result = await writeShell({ environmentId, input: { ...target, data } });
+    if (result._tag === "Success") {
+      setInputError(null);
+      return true;
+    }
+    setInputError(
+      `Your input did not reach the shell; it is kept and sent when you type again. ${formatEnvironmentQueryError(result.cause)}`,
+    );
+    return false;
+  });
+  const [input] = useState(() => new PracticeTerminalInput(sendInput));
+
   const start = async (cols: number, rows: number) => {
     setShell({ status: "starting" });
     setError(null);
+    input.clear();
+    setInputError(null);
     shown.current = EMPTY_PRACTICE_TERMINAL;
     const result = await openShell({ environmentId, input: { ...target, cols, rows } });
     if (result._tag !== "Success") {
@@ -62,28 +79,19 @@ export default function PracticeTerminalPanel(props: {
     }
     resubscribe();
     setShell({ status: "running" });
+    void input.flush();
     const latest = size.current;
     if (latest !== null && (latest.cols !== cols || latest.rows !== rows))
       void resizeShell({ environmentId, input: { ...target, ...latest } });
   };
 
-  // Keystrokes go one request at a time, in order; those typed meanwhile go together next.
-  const typed = useRef({ pending: "", sending: false });
-  const sendTyped = async () => {
-    const queue = typed.current;
-    if (queue.sending || queue.pending.length === 0) return;
-    const data = queue.pending;
-    queue.pending = "";
-    queue.sending = true;
-    await writeShell({ environmentId, input: { ...target, data } });
-    queue.sending = false;
-    void sendTyped();
-  };
-
   // The surface captures its callbacks once at creation.
   const onData = useStableCallback((data: string) => {
-    typed.current.pending += data;
-    void sendTyped();
+    // Input typed while the shell starts waits for it.
+    if (input.type(data)) {
+      if (shell.status === "running") void input.flush();
+    } else
+      setInputError("That is more input than the terminal can take at once. Paste less at a time.");
   });
   const onResize = useStableCallback((cols: number, rows: number) => {
     const first = size.current === null;
@@ -107,7 +115,8 @@ export default function PracticeTerminalPanel(props: {
     surface?.setVisible(props.visible);
   }, [surface, props.visible]);
 
-  const mountSurface = (element: HTMLDivElement) => {
+  // A new ref callback on each render would dispose the surface and create another.
+  const mountSurface = useStableCallback((element: HTMLDivElement) => {
     let disposed = false;
     let created: GhosttyTerminalSurface | null = null;
     void GhosttyTerminalSurface.create(element, {
@@ -140,7 +149,7 @@ export default function PracticeTerminalPanel(props: {
       created?.dispose();
       setSurface(null);
     };
-  };
+  });
 
   const ended = shell.status === "running" ? (view?.ended ?? null) : null;
   const restart = () => {
@@ -168,6 +177,10 @@ export default function PracticeTerminalPanel(props: {
           {ended.exitCode === null
             ? "This terminal is closed."
             : `The shell exited with code ${ended.exitCode}.`}
+        </p>
+      ) : inputError !== null ? (
+        <p role="alert" className="px-3 py-1.5 text-destructive text-sm">
+          {inputError}
         </p>
       ) : output.error !== null ? (
         <p role="alert" className="px-3 py-1.5 text-destructive text-sm">

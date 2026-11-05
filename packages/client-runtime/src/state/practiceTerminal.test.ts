@@ -1,9 +1,14 @@
-import { LEARNING_TERMINAL_SCROLLBACK_CHARS } from "@aprende/contracts";
+import {
+  LEARNING_TERMINAL_SCROLLBACK_CHARS,
+  LEARNING_TERMINAL_WRITE_MAX_CHARS,
+} from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   applyPracticeTerminalEvent,
   EMPTY_PRACTICE_TERMINAL,
+  PRACTICE_TERMINAL_PENDING_CHARS,
+  PracticeTerminalInput,
   practiceTerminalUpdate,
 } from "./practiceTerminal.ts";
 
@@ -47,5 +52,57 @@ describe("practiceTerminalUpdate", () => {
     expect(applyPracticeTerminalEvent(reconnected, { type: "ended", exitCode: 0 }).ended).toEqual({
       exitCode: 0,
     });
+  });
+});
+
+describe("PracticeTerminalInput", () => {
+  it("splits a large paste into writes under the limit, in order, without breaking characters", async () => {
+    const sent: Array<string> = [];
+    const input = new PracticeTerminalInput(async (data) => {
+      sent.push(data);
+      return true;
+    });
+    const paste = `${"a".repeat(LEARNING_TERMINAL_WRITE_MAX_CHARS - 1)}😀${"b".repeat(LEARNING_TERMINAL_WRITE_MAX_CHARS)}`;
+    expect(input.type(paste)).toBe(true);
+    await input.flush();
+    expect(sent.join("")).toBe(paste);
+    expect(sent.every((data) => data.length <= LEARNING_TERMINAL_WRITE_MAX_CHARS)).toBe(true);
+    expect(sent[0]).toBe("a".repeat(LEARNING_TERMINAL_WRITE_MAX_CHARS - 1));
+  });
+
+  it("sends one write at a time and keeps input until a write of it succeeds", async () => {
+    const sent: Array<string> = [];
+    const first = Promise.withResolvers<boolean>();
+    const results = [first.promise, Promise.resolve(false), Promise.resolve(true)];
+    const input = new PracticeTerminalInput((data) => {
+      sent.push(data);
+      return results[sent.length - 1] ?? Promise.resolve(true);
+    });
+
+    input.type("l");
+    const flushing = input.flush();
+    // Typed while a write is in flight: it waits for that write, then goes next.
+    input.type("s");
+    await input.flush();
+    expect(sent).toEqual(["l"]);
+    first.resolve(true);
+    await flushing;
+    // That write failed, so "s" stays queued and goes again, ahead of what is typed next.
+    expect(sent).toEqual(["l", "s"]);
+    input.type("\r");
+    await input.flush();
+    expect(sent).toEqual(["l", "s", "s\r"]);
+  });
+
+  it("refuses input past the pending limit and keeps what was already queued", async () => {
+    const sent: Array<string> = [];
+    const input = new PracticeTerminalInput(async (data) => {
+      sent.push(data);
+      return true;
+    });
+    expect(input.type("ls")).toBe(true);
+    expect(input.type("x".repeat(PRACTICE_TERMINAL_PENDING_CHARS))).toBe(false);
+    await input.flush();
+    expect(sent).toEqual(["ls"]);
   });
 });

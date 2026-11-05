@@ -293,6 +293,8 @@ export type LearningRunCheckInput = typeof LearningRunCheckInput.Type;
 /** Caps on practice terminals: how many run at once, and how much output reopening replays. */
 export const LEARNING_MAX_PRACTICE_TERMINALS = 4;
 export const LEARNING_TERMINAL_SCROLLBACK_CHARS = 256 * 1024;
+/** The most input one terminal write carries; clients split longer input. */
+export const LEARNING_TERMINAL_WRITE_MAX_CHARS = 64 * 1024;
 
 const TerminalSize = {
   cols: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
@@ -314,7 +316,7 @@ export type LearningTerminalResizeInput = typeof LearningTerminalResizeInput.Typ
 
 export const LearningTerminalWriteInput = Schema.Struct({
   ...LearningTerminalTarget.fields,
-  data: Schema.String.check(Schema.isMaxLength(64 * 1024)),
+  data: Schema.String.check(Schema.isMaxLength(LEARNING_TERMINAL_WRITE_MAX_CHARS)),
 });
 export type LearningTerminalWriteInput = typeof LearningTerminalWriteInput.Type;
 
