@@ -10,7 +10,6 @@ import type {
   ProjectId,
   ServerSettings,
   ServerSettingsError,
-  TerminalSummary,
   WorktreeCleanupRules,
   StorageCleanupReport,
   StorageCleanupReportEntry,
@@ -44,7 +43,6 @@ import * as ProviderSessionManager from "./orchestration-v2/ProviderSessionManag
 import { threadHasQueuedTurnStart } from "./orchestration-v2/ThreadSettlementService.ts";
 import { forkParked } from "./serverActivation.ts";
 import * as Settings from "./serverSettings.ts";
-import * as TerminalManager from "./terminal/Manager.ts";
 import { isFilesystemRoot, managedWorktreesDirectories } from "./worktreesDirectory.ts";
 import * as GitVcsDriver from "./vcs/GitVcsDriver.ts";
 import { isNonRepositoryGitStderr } from "./vcs/GitVcsDriverCore.ts";
@@ -303,17 +301,9 @@ const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const git = yield* GitVcsDriver.GitVcsDriver;
   const gitManager = yield* GitManager.GitManager;
-  const terminals = yield* TerminalManager.TerminalManager;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const liveTerminals = new Map<string, Map<string, TerminalSummary>>();
   const orphanSizes = new Map<string, number | null>();
-  const noteTerminal = (terminal: TerminalSummary) => {
-    const threadTerminals =
-      liveTerminals.get(terminal.threadId) ?? new Map<string, TerminalSummary>();
-    threadTerminals.set(terminal.terminalId, terminal);
-    liveTerminals.set(terminal.threadId, threadTerminals);
-  };
 
   const isWindows = yield* HostProcess.isWindows;
   const pathKey = (target: string) => {
@@ -329,19 +319,6 @@ const make = Effect.gen(function* () {
       !path.isAbsolute(relative)
     );
   };
-  const hasTerminal = (worktreePath: string) =>
-    [...liveTerminals.values()]
-      .flatMap((entries) => [...entries.values()])
-      .some((terminal) => {
-        if (terminal.status !== "starting" && terminal.status !== "running") return false;
-        const cwd = path.resolve(terminal.cwd);
-        return (
-          (terminal.worktreePath !== null &&
-            pathKey(terminal.worktreePath) === pathKey(worktreePath)) ||
-          pathKey(cwd) === pathKey(worktreePath) ||
-          inside(worktreePath, cwd)
-        );
-      });
 
   // pnpm imports packages by clone or reflink when its store shares a device
   // with the worktree. Those files have one link but share blocks with the
@@ -903,7 +880,6 @@ const make = Effect.gen(function* () {
           return keep(waitForStop("thread is running or has pending work"));
         if (group.some((member) => member.branch !== thread.branch))
           return keep("a subagent thread's branch differs from this worktree's branch");
-        if (hasTerminal(worktreePath)) return keep(waitForStop("open terminal"));
         // Compare canonical roots while allowing symlinked parents, never symlinked worktree directories.
         const realPath = yield* fs.realPath(worktreePath);
         const realParent = yield* fs.realPath(path.dirname(worktreePath));
@@ -1063,7 +1039,6 @@ const make = Effect.gen(function* () {
           const latest = (yield* projections.getThreadWorktreePaths({
             includeArchived: true,
           })).filter((entry) => path.resolve(entry.worktreePath) === worktreePath);
-          if (hasTerminal(worktreePath)) return waitForStop("open terminal");
           if (deleted) {
             if (
               !resolveWorktreeCleanup(yield* settingsService.getSettings, thread.projectId)
@@ -1393,21 +1368,6 @@ const make = Effect.gen(function* () {
   });
 
   const start = Effect.fn("StorageCleanup.start")(function* () {
-    const unsubscribe = yield* terminals.subscribeMetadata((event) =>
-      Effect.sync(() => {
-        if (event.type === "snapshot") {
-          liveTerminals.clear();
-          for (const terminal of event.terminals) noteTerminal(terminal);
-        } else if (event.type === "upsert") {
-          noteTerminal(event.terminal);
-        } else {
-          const threadTerminals = liveTerminals.get(event.threadId);
-          threadTerminals?.delete(event.terminalId);
-          if (threadTerminals?.size === 0) liveTerminals.delete(event.threadId);
-        }
-      }),
-    );
-    yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
     const changes = yield* settingsService.subscribeChanges;
     const events = engine.streamDomainEvents;
     let lastSettings = yield* settingsService.getSettings.pipe(Effect.orDie);

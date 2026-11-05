@@ -1,6 +1,5 @@
 import * as WorktreeSetupTracker from "../project/WorktreeSetupTracker.ts";
 import * as ProjectCloneTracker from "../project/ProjectCloneTracker.ts";
-import * as TerminalManager from "../terminal/Manager.ts";
 import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import {
   CommandId,
@@ -205,7 +204,6 @@ const make = Effect.gen(function* () {
   const projects = yield* ProjectService.ProjectService;
   const setupTracker = yield* WorktreeSetupTracker.WorktreeSetupTracker;
   const cloneTracker = yield* ProjectCloneTracker.ProjectCloneTracker;
-  const terminals = yield* TerminalManager.TerminalManager;
   const git = yield* GitWorkflow.GitWorkflowService;
   const setupScripts = yield* ProjectSetupScriptRunner.ProjectSetupScriptRunner;
   const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
@@ -311,7 +309,6 @@ const make = Effect.gen(function* () {
     const tracked = input.workspaceStrategy.type === "worktree" || reused !== undefined;
     let createdWorktreePath: string | null = null;
     let createdBranch: string | null = null;
-    let setupTerminalId: string | null = null;
     let workspaceRecorded = false;
     let runReleased = false;
     // Stop background renames before forgetting worktrees; completed renames record them again.
@@ -609,7 +606,6 @@ const make = Effect.gen(function* () {
 
       let awaitAsyncSetup = Effect.void;
       if (setup.status === "started") {
-        setupTerminalId = setup.terminalId;
         yield* setupTracker.update(threadId, (snapshot) => ({
           ...snapshot,
           setupScript: {
@@ -682,10 +678,6 @@ const make = Effect.gen(function* () {
             cancelled ? "cancelled" : "failed",
             cancelled ? null : failureDetail(Cause.squash(cause)),
           );
-          if (cancelled && setupTerminalId)
-            yield* terminals
-              .close({ threadId, terminalId: setupTerminalId, deleteHistory: true })
-              .pipe(Effect.ignore);
           if (
             tracked &&
             createdWorktreePath &&

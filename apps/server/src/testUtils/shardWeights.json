@@ -170,8 +170,6 @@
   "src/sourceControl/SourceControlProviderRegistry.test.ts": 0.5,
   "src/startupAccess.test.ts": 0.5,
   "src/storageCleanup.test.ts": 1.4,
-  "src/terminal/Manager.test.ts": 0.9,
-  "src/terminal/OutputProtocol.test.ts": 0.9,
   "src/textGeneration/CodexTextGeneration.test.ts": 1,
   "src/textGeneration/ThreadTitleLinks.test.ts": 0.5,
   "src/triage/triageSession.test.ts": 0.5,

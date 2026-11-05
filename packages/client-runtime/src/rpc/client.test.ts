@@ -115,14 +115,14 @@ describe("environment RPC", () => {
       const subscriptions: string[] = [];
       const subscriptionChanges = yield* Queue.make<void>();
       const firstClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("first");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.never;
         },
       } as unknown as WsRpcProtocolClient;
       const secondClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("second");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.never;
@@ -140,7 +140,7 @@ describe("environment RPC", () => {
         }
       });
 
-      const subscriptionFiber = yield* subscribe(WS_METHODS.subscribeTerminalMetadata, {}).pipe(
+      const subscriptionFiber = yield* subscribe(WS_METHODS.subscribeServerLifecycle, {}).pipe(
         Stream.runDrain,
         Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
         Effect.forkChild,
@@ -227,7 +227,7 @@ describe("environment RPC", () => {
       const subscriptions: string[] = [];
       const subscriptionChanges = yield* Queue.make<void>();
       const firstClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("first");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.fail(
@@ -241,7 +241,7 @@ describe("environment RPC", () => {
         },
       } as unknown as WsRpcProtocolClient;
       const secondClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("second");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.never;
@@ -249,7 +249,7 @@ describe("environment RPC", () => {
       } as unknown as WsRpcProtocolClient;
       const { activeSession, retryCount, supervisor } = yield* makeHarness();
 
-      const subscriptionFiber = yield* subscribe(WS_METHODS.subscribeTerminalMetadata, {}).pipe(
+      const subscriptionFiber = yield* subscribe(WS_METHODS.subscribeServerLifecycle, {}).pipe(
         Stream.runDrain,
         Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
         Effect.forkChild,
@@ -273,14 +273,14 @@ describe("environment RPC", () => {
 
   it.effect("surfaces domain subscription failures without reconnecting", () =>
     Effect.gen(function* () {
-      const domainError = new Error("terminal subscription rejected");
+      const domainError = new Error("lifecycle subscription rejected");
       const client = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => Stream.fail(domainError),
+        [WS_METHODS.subscribeServerLifecycle]: () => Stream.fail(domainError),
       } as unknown as WsRpcProtocolClient;
       const { activeSession, retryCount, supervisor } = yield* makeHarness();
 
       yield* SubscriptionRef.set(activeSession, Option.some(session(client)));
-      const error = yield* subscribe(WS_METHODS.subscribeTerminalMetadata, {}).pipe(
+      const error = yield* subscribe(WS_METHODS.subscribeServerLifecycle, {}).pipe(
         Stream.runDrain,
         Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
         Effect.flip,
@@ -293,20 +293,20 @@ describe("environment RPC", () => {
 
   it.effect("keeps handled domain failures dormant until a replacement session arrives", () =>
     Effect.gen(function* () {
-      const domainError = new Error("terminal subscription rejected");
+      const domainError = new Error("lifecycle subscription rejected");
       const subscriptions: string[] = [];
       const subscriptionChanges = yield* Queue.make<void>();
       const observedFailures: Error[] = [];
       const failureObserved = yield* Deferred.make<void>();
       const firstClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("first");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.fail(domainError);
         },
       } as unknown as WsRpcProtocolClient;
       const secondClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("second");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.never;
@@ -316,7 +316,7 @@ describe("environment RPC", () => {
 
       yield* SubscriptionRef.set(activeSession, Option.some(session(firstClient)));
       const subscriptionFiber = yield* subscribe(
-        WS_METHODS.subscribeTerminalMetadata,
+        WS_METHODS.subscribeServerLifecycle,
         {},
         {
           onExpectedFailure: (cause) =>
@@ -358,13 +358,13 @@ describe("environment RPC", () => {
         const defectObserved = yield* Deferred.make<void>();
         const resubscribed = yield* Deferred.make<void>();
         const firstClient = {
-          [WS_METHODS.subscribeTerminalMetadata]: () => {
+          [WS_METHODS.subscribeServerLifecycle]: () => {
             streams += 1;
             return where === "stream" ? Stream.die(defect) : Stream.never;
           },
         } as unknown as WsRpcProtocolClient;
         const secondClient = {
-          [WS_METHODS.subscribeTerminalMetadata]: () => {
+          [WS_METHODS.subscribeServerLifecycle]: () => {
             Deferred.doneUnsafe(resubscribed, Effect.void);
             return Stream.never;
           },
@@ -373,7 +373,7 @@ describe("environment RPC", () => {
 
         yield* SubscriptionRef.set(activeSession, Option.some(session(firstClient)));
         const subscriptionFiber = yield* subscribeDynamicWithSession(
-          WS_METHODS.subscribeTerminalMetadata,
+          WS_METHODS.subscribeServerLifecycle,
           () =>
             Effect.suspend(() => {
               inputs += 1;

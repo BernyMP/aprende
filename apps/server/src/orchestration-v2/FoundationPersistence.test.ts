@@ -1872,7 +1872,7 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
         id: effectId,
         commandId,
         threadId,
-        request: { type: "terminal.cleanup" as const },
+        request: { type: "scheduled-tasks.cleanup" as const },
         status: "running" as const,
         attemptCount: 1,
         availableAt: now,
@@ -2018,7 +2018,7 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
           id: nextCriticalEffectId,
           commandId,
           threadId,
-          request: { type: "terminal.cleanup" },
+          request: { type: "scheduled-tasks.cleanup" },
         },
       ]);
 
@@ -2089,19 +2089,19 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
           id: "effect:foundation-next-claimable:a1",
           commandId,
           threadId: blockedThreadId,
-          request: { type: "terminal.cleanup" },
+          request: { type: "scheduled-tasks.cleanup" },
         },
         {
           id: "effect:foundation-next-claimable:a2",
           commandId,
           threadId: blockedThreadId,
-          request: { type: "terminal.cleanup" },
+          request: { type: "scheduled-tasks.cleanup" },
         },
         {
           id: "effect:foundation-next-claimable:b1",
           commandId,
           threadId: ThreadId.make("thread:foundation-next-claimable:future"),
-          request: { type: "terminal.cleanup" },
+          request: { type: "scheduled-tasks.cleanup" },
           availableAt: future,
         },
       ]);
@@ -2142,7 +2142,7 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
       }
       yield* outbox.cancelUnsettled({
         threadId: ThreadId.make("thread:foundation-next-claimable:future"),
-        effectTypes: ["terminal.cleanup"],
+        effectTypes: ["scheduled-tasks.cleanup"],
         reason: "Test cleanup.",
       });
     }),
@@ -2170,8 +2170,8 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
             effect_id, command_id, thread_id, effect_type, payload_json, status,
             available_at, created_at, updated_at, completed_at
           )
-          SELECT ${prefix} || i, 'command:prune', 'thread:prune', 'terminal.cleanup',
-            '{"type":"terminal.cleanup"}', ${status}, ${createdAt}, ${createdAt}, ${createdAt},
+          SELECT ${prefix} || i, 'command:prune', 'thread:prune', 'scheduled-tasks.cleanup',
+            '{"type":"scheduled-tasks.cleanup"}', ${status}, ${createdAt}, ${createdAt}, ${createdAt},
             ${completedAt}
           FROM n
         `;
@@ -2217,7 +2217,7 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
           id: "effect:foundation-cancellation-wakeup:b-pending",
           commandId,
           threadId,
-          request: { type: "terminal.cleanup" },
+          request: { type: "scheduled-tasks.cleanup" },
         },
       ]);
 
@@ -2244,7 +2244,7 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
       });
       assert.isTrue(Option.isSome(unblocked));
       if (Option.isSome(unblocked)) {
-        assert.equal(unblocked.value.request.type, "terminal.cleanup");
+        assert.equal(unblocked.value.request.type, "scheduled-tasks.cleanup");
         yield* outbox.succeed({
           effectId: unblocked.value.id,
           workerId: "cancellation-wakeup-worker",
@@ -2448,13 +2448,13 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
           id: firstEffectId,
           commandId,
           threadId,
-          request: { type: "terminal.cleanup" },
+          request: { type: "scheduled-tasks.cleanup" },
         },
         {
           id: secondEffectId,
           commandId,
           threadId,
-          request: { type: "terminal.cleanup" },
+          request: { type: "scheduled-tasks.cleanup" },
         },
       ]);
 
@@ -2679,7 +2679,7 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
           id: "effect:activation-b-cleanup",
           commandId,
           threadId,
-          request: { type: "terminal.cleanup" },
+          request: { type: "scheduled-tasks.cleanup" },
         },
       ]);
       const cleanup = yield* outbox.claimNext({
@@ -2688,7 +2688,7 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
       });
       assert.isTrue(Option.isSome(cleanup));
       if (Option.isSome(cleanup)) {
-        assert.equal(cleanup.value.request.type, "terminal.cleanup");
+        assert.equal(cleanup.value.request.type, "scheduled-tasks.cleanup");
         yield* outbox.succeed({ effectId: cleanup.value.id, workerId: "recovery" });
       }
       assert.isTrue(
@@ -2712,7 +2712,7 @@ it.layer(layerTest)("orchestration V2 foundation persistence", (it) => {
   );
 
   it.effect.each([
-    { type: "terminal.cleanup" },
+    { type: "scheduled-tasks.cleanup" },
     { type: "provider-runtime.continue", sourceRunId: RunId.make("run:restart-replay") },
   ] as const)(
     "retires live provider effects and requeues $type after process loss",
@@ -3263,7 +3263,7 @@ it.effect("publishes live events in commit order across concurrent writers", () 
               id: "effect:foundation-publish-order:first",
               commandId: CommandId.make("command:foundation-publish-order:first"),
               threadId: first.id,
-              request: { type: "terminal.cleanup" },
+              request: { type: "scheduled-tasks.cleanup" },
             },
           ],
         })
@@ -3554,7 +3554,7 @@ it.effect.each(["cancel transaction", "fail transaction", "cancel publication"] 
                 id: "effect:interrupted-publish:first",
                 commandId: CommandId.make("command:interrupted-publish:first"),
                 threadId: first.id,
-                request: { type: "terminal.cleanup" },
+                request: { type: "scheduled-tasks.cleanup" },
               },
             ],
           })

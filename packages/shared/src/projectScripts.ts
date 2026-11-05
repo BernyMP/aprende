@@ -20,14 +20,6 @@ export function resolveProjectScripts(
   return legacy ?? (project.scripts.length > 0 ? project.scripts : settings.defaultProjectScripts);
 }
 
-interface ProjectScriptRuntimeEnvInput {
-  project: {
-    cwd: string;
-  };
-  worktreePath?: string | null;
-  extraEnv?: Record<string, string>;
-}
-
 export function projectScriptCwd(input: {
   project: {
     cwd: string;
@@ -37,34 +29,10 @@ export function projectScriptCwd(input: {
   return input.worktreePath ?? input.project.cwd;
 }
 
-export function projectScriptRuntimeEnv(
-  input: ProjectScriptRuntimeEnvInput,
-): Record<string, string> {
-  const env: Record<string, string> = {
-    APRENDE_PROJECT_ROOT: input.project.cwd,
-  };
-  if (input.worktreePath) {
-    env.APRENDE_WORKTREE_PATH = input.worktreePath;
-  }
-  if (input.extraEnv) {
-    return { ...env, ...input.extraEnv };
-  }
-  return env;
-}
-
 export function setupProjectScript(scripts: readonly ProjectScript[]): ProjectScript | null {
   return scripts.find((script) => script.runOnWorktreeCreate) ?? null;
 }
 
 export function settleProjectScript(scripts: readonly ProjectScript[]): ProjectScript | null {
   return scripts.find((script) => script.runOnSettle === true) ?? null;
-}
-
-/**
- * Leading spaces omit scripts from Bash history with ignorespace/ignoreboth,
- * zsh with HIST_IGNORE_SPACE, and fish. Only the first line is prefixed, so later
- * entries from multiline input may still enter history. PowerShell/PSReadLine history is not suppressed.
- */
-export function projectScriptTerminalInput(command: string): string {
-  return ` ${command}\r`;
 }

@@ -255,19 +255,6 @@ import {
   ProjectWriteFileResult,
 } from "./project.ts";
 import {
-  TerminalAttachInput,
-  TerminalObserveInput,
-  TerminalAttachStreamEvent,
-  TerminalClearInput,
-  TerminalCloseInput,
-  TerminalError,
-  TerminalMetadataStreamEvent,
-  TerminalOpenInput,
-  TerminalResizeInput,
-  TerminalSessionSnapshot,
-  TerminalWriteInput,
-} from "./terminal.ts";
-import {
   DiscoveredLocalServerList,
   ConfiguredLocalServerUrls,
   PreviewCloseInput,
@@ -457,14 +444,6 @@ export const WS_METHODS = {
   reviewGetDiffPreview: "review.getDiffPreview",
   reviewGetDiffFileContents: "review.getDiffFileContents",
 
-  terminalOpen: "terminal.open",
-  terminalAttach: "terminal.attach",
-  terminalObserve: "terminal.observe",
-  terminalWrite: "terminal.write",
-  terminalResize: "terminal.resize",
-  terminalClear: "terminal.clear",
-  terminalClose: "terminal.close",
-
   previewOpen: "preview.open",
   previewResize: "preview.resize",
   previewAdjust: "preview.adjust",
@@ -592,7 +571,6 @@ export const WS_METHODS = {
   subscribeVcsStatus: "subscribeVcsStatus",
   subscribeWorktreeSetup: "subscribeWorktreeSetup",
   worktreeSetupCancel: "worktreeSetup.cancel",
-  subscribeTerminalMetadata: "subscribeTerminalMetadata",
   subscribePreviewEvents: "subscribePreviewEvents",
   subscribeDiscoveredLocalServers: "subscribeDiscoveredLocalServers",
   subscribeServerConfig: "subscribeServerConfig",
@@ -1536,46 +1514,6 @@ const WsReviewGetDiffFileContentsRpc = Rpc.make(WS_METHODS.reviewGetDiffFileCont
   error: Schema.Union([ReviewDiffPreviewError, EnvironmentAuthorizationError]),
 });
 
-const WsTerminalOpenRpc = Rpc.make(WS_METHODS.terminalOpen, {
-  payload: TerminalOpenInput,
-  success: TerminalSessionSnapshot,
-  error: Schema.Union([TerminalError, EnvironmentAuthorizationError]),
-});
-
-const WsTerminalAttachRpc = Rpc.make(WS_METHODS.terminalAttach, {
-  payload: TerminalAttachInput,
-  success: TerminalAttachStreamEvent,
-  error: Schema.Union([TerminalError, EnvironmentAuthorizationError]),
-  stream: true,
-});
-
-const WsTerminalObserveRpc = Rpc.make(WS_METHODS.terminalObserve, {
-  payload: TerminalObserveInput,
-  success: TerminalAttachStreamEvent,
-  error: Schema.Union([TerminalError, EnvironmentAuthorizationError]),
-  stream: true,
-});
-
-const WsTerminalWriteRpc = Rpc.make(WS_METHODS.terminalWrite, {
-  payload: TerminalWriteInput,
-  error: Schema.Union([TerminalError, EnvironmentAuthorizationError]),
-});
-
-const WsTerminalResizeRpc = Rpc.make(WS_METHODS.terminalResize, {
-  payload: TerminalResizeInput,
-  error: Schema.Union([TerminalError, EnvironmentAuthorizationError]),
-});
-
-const WsTerminalClearRpc = Rpc.make(WS_METHODS.terminalClear, {
-  payload: TerminalClearInput,
-  error: Schema.Union([TerminalError, EnvironmentAuthorizationError]),
-});
-
-const WsTerminalCloseRpc = Rpc.make(WS_METHODS.terminalClose, {
-  payload: TerminalCloseInput,
-  error: Schema.Union([TerminalError, EnvironmentAuthorizationError]),
-});
-
 const WsPreviewOpenRpc = Rpc.make(WS_METHODS.previewOpen, {
   payload: PreviewOpenInput,
   success: PreviewSessionSnapshot,
@@ -1788,13 +1726,6 @@ const WsOrchestrationV2SubscribeCommandOutputRpc = Rpc.make(
     stream: true,
   },
 );
-
-const WsSubscribeTerminalMetadataRpc = Rpc.make(WS_METHODS.subscribeTerminalMetadata, {
-  payload: Schema.Struct({}),
-  success: TerminalMetadataStreamEvent,
-  error: EnvironmentAuthorizationError,
-  stream: true,
-});
 
 export const WsSubscribeServerConfigRpc = Rpc.make(WS_METHODS.subscribeServerConfig, {
   payload: Schema.Struct({
@@ -2115,14 +2046,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsReviewGetBranchCommitsRpc,
   WsReviewGetDiffPreviewRpc,
   WsReviewGetDiffFileContentsRpc,
-  WsTerminalOpenRpc,
-  WsTerminalAttachRpc,
-  WsTerminalObserveRpc,
-  WsTerminalWriteRpc,
-  WsTerminalResizeRpc,
-  WsTerminalClearRpc,
-  WsTerminalCloseRpc,
-  WsSubscribeTerminalMetadataRpc,
   WsPreviewOpenRpc,
   WsPreviewResizeRpc,
   WsPreviewAdjustRpc,
