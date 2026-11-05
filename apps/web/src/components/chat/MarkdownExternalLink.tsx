@@ -1,36 +1,16 @@
-import { faviconUrlForOrigin } from "@aprende/shared/favicon";
 import { GlobeIcon } from "lucide-react";
-import { Children, memo, useState, type ReactNode } from "react";
-
-import { cn } from "../../lib/utils";
+import { Children, memo, type ReactNode } from "react";
 
 const MARKDOWN_LINK_FAVICON_CLASS_NAME = "block size-full shrink-0 select-none";
 
-const failedFaviconHosts = new Set<string>();
-
-const MarkdownLinkFavicon = memo(function MarkdownLinkFavicon({ host }: { host: string }) {
-  const [failedHost, setFailedHost] = useState<string | null>(null);
-  const faviconUrl = faviconUrlForOrigin(`https://${host}`);
+// A generic icon: fetching a favicon would tell a third party every host a session links to.
+const MarkdownLinkFavicon = memo(function MarkdownLinkFavicon(_props: { host: string }) {
   return (
     <span
       className="ms-[0.25em] me-[0.2em] inline-flex size-[14px] [vertical-align:-0.125em]"
       aria-hidden
     >
-      {faviconUrl === null || failedHost === host || failedFaviconHosts.has(host) ? (
-        <GlobeIcon className={MARKDOWN_LINK_FAVICON_CLASS_NAME} />
-      ) : (
-        <img
-          src={faviconUrl}
-          alt=""
-          loading="lazy"
-          draggable={false}
-          className={cn(MARKDOWN_LINK_FAVICON_CLASS_NAME, "rounded-sm")}
-          onError={() => {
-            failedFaviconHosts.add(host);
-            setFailedHost(host);
-          }}
-        />
-      )}
+      <GlobeIcon className={MARKDOWN_LINK_FAVICON_CLASS_NAME} />
     </span>
   );
 });
