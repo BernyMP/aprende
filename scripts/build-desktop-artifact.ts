@@ -3848,10 +3848,10 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
     private: true,
     packageManager: rootPackageJson.packageManager,
     description:
-      "aprende is an open-source desktop app for coding agents. Work with your existing agent subscriptions, review code changes, and run commands in your projects. Connect from desktop, web, or mobile to continue working remotely.",
+      "aprende is an open-source desktop app for learning difficult things, with a tutor that runs on your own Claude or Codex. A fork of T3 Code.",
     license: "MIT",
     homepage: "https://github.com/BernyMP/aprende",
-    author: "T3 Tools",
+    author: "Berny Peralta",
     main: "apps/desktop/dist-electron/boot.cjs",
     build: yield* createBuildConfig(
       options.platform,

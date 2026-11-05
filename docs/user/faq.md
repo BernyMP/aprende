@@ -4,8 +4,8 @@
 
 aprende is a fork of [T3 Code](https://github.com/pingdotgg/t3code), an open-source app for driving
 coding agents, made by T3 Tools Inc. and released under the MIT license. aprende keeps T3 Code's
-server, provider runtime, desktop shell and web client, and replaces the coding features with a
-tutor. aprende is not affiliated with T3 Tools Inc. Questions about aprende belong in
+server, provider runtime, desktop shell and web client, and adds a tutor on top. The coding features
+it inherited are being removed. aprende is not affiliated with T3 Tools Inc. Questions about aprende belong in
 [aprende's issues](https://github.com/BernyMP/aprende/issues), not T3 Code's.
 
 ## What do I need to use aprende?
