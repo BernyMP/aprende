@@ -27,6 +27,21 @@ A session starts with what you want to understand. Type your goal in the compose
 
 After you answer, the card shows the correct answer and why.
 
+## Practice
+
+Practice problems make you use what you learned, not just recognise it. The tutor offers them after
+teaching a step and near the end of a session. To start whenever you like, ask for it, for example
+"Let me practice this" or "Give me problems on eigenvectors".
+
+- Work the problem in the card. Your work, how sure you are and your thinking all go to the tutor.
+- **Hint** shows one hint at a time, gentlest first. The tutor sees how many you used.
+- **Give up** sends what you have so far. It tells the tutor where to help.
+- After the tutor judges your work, the card shows its verdict and a complete solution. Choose
+  **Next problem** for another.
+
+Problems you missed, or got right while unsure, come back as a **Retest** in a new form before the
+practice ends.
+
 ## Files
 
 Mention files with `@` or by path, such as a PDF of lecture notes or a photo of a worked problem.

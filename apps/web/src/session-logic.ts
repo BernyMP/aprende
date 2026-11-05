@@ -2,6 +2,7 @@ import type { ThreadStructure, ThreadStructureRuntime } from "@aprende/client-ru
 import { resolveThreadWorkingStartedAt } from "@aprende/client-runtime/state/models";
 import {
   type AssetResource,
+  type LearningToolName,
   type OrchestrationV2Checkpoint,
   type OrchestrationV2ExecutionNode,
   type OrchestrationV2PlanArtifact,
@@ -116,6 +117,28 @@ export type TimelineAttempt = Pick<
   "id" | "runId" | "attemptOrdinal" | "rootNodeId" | "status" | "completedAt"
 >;
 
+/** Tutor tools that show a card. The others update cards already shown, or show nothing. */
+export type LearningCardTool = "ask_question" | "pose_problem" | "finish_measuring" | "set_plan";
+
+function learningCardFor(learning: {
+  readonly tool: LearningToolName;
+  readonly recordId: string | null;
+}): { readonly tool: LearningCardTool; readonly recordId: string | null } | undefined {
+  switch (learning.tool) {
+    case "ask_question":
+    case "pose_problem":
+      // A failed call stored nothing to show.
+      return learning.recordId === null
+        ? undefined
+        : { tool: learning.tool, recordId: learning.recordId };
+    case "finish_measuring":
+    case "set_plan":
+      return { tool: learning.tool, recordId: null };
+    default:
+      return undefined;
+  }
+}
+
 export type TimelineEntry = (
   | {
       readonly id: string;
@@ -142,8 +165,9 @@ export type TimelineEntry = (
       readonly kind: "learning";
       readonly createdAt: string;
       readonly runId: RunId | null;
-      readonly tool: "ask_question" | "finish_measuring" | "set_plan";
-      readonly questionId: string | null;
+      readonly tool: LearningCardTool;
+      /** The question or problem the card shows. */
+      readonly recordId: string | null;
       /** Only the newest plan or assessment shows in full; earlier ones were replaced. */
       readonly latest: boolean;
     }
@@ -713,19 +737,15 @@ export function deriveTimelineEntriesFromVisibleTurnItems(
       item.type === "dynamic_tool" && item.status === "completed"
         ? learningToolFromToolItem(item)
         : undefined;
-    if (
-      learning !== undefined &&
-      learning.tool !== "graph_search" &&
-      learning.tool !== "graph_record" &&
-      (learning.tool !== "ask_question" || learning.questionId !== null)
-    ) {
+    const learningCard = learning === undefined ? undefined : learningCardFor(learning);
+    if (learningCard !== undefined) {
       entries.push({
         id: item.id,
         kind: "learning",
         createdAt,
         runId: item.runId,
-        tool: learning.tool,
-        questionId: learning.questionId,
+        tool: learningCard.tool,
+        recordId: learningCard.recordId,
         latest: false,
         ...attemptMetadata,
       });

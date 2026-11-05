@@ -3,6 +3,7 @@ import { use } from "react";
 import { TimelineRowCtx, type TimelineRow } from "../chat/timelineRowContext";
 import { AssessmentCard } from "./AssessmentCard";
 import { PlanMap } from "./PlanMap";
+import { ProblemCard } from "./ProblemCard";
 import { QuestionCard } from "./QuestionCard";
 import { useLearningThread } from "./useLearningThread";
 
@@ -11,8 +12,29 @@ export function LearningTimelineRow({ row }: { row: Extract<TimelineRow, { kind:
   const state = useLearningThread(ctx.threadRef);
   if (state === null || ctx.threadRef === null) return null;
 
+  if (row.tool === "pose_problem") {
+    const problem = state.problems.find((entry) => entry.id === row.recordId);
+    if (problem === undefined) return null;
+    const send = ctx.onSendAppMessage;
+    const canAskNext =
+      send !== undefined &&
+      problem.status === "concluded" &&
+      state.problems.at(-1)?.id === problem.id &&
+      !state.questions.some((question) => question.status === "open");
+    return (
+      <div className="min-w-0 px-1">
+        <ProblemCard
+          problem={problem}
+          threadRef={ctx.threadRef}
+          markdownCwd={ctx.markdownCwd}
+          onNextProblem={canAskNext ? () => send("Next problem.") : undefined}
+        />
+      </div>
+    );
+  }
+
   if (row.tool === "ask_question") {
-    const question = state.questions.find((entry) => entry.id === row.questionId);
+    const question = state.questions.find((entry) => entry.id === row.recordId);
     return question === undefined ? null : (
       <div className="min-w-0 px-1">
         <QuestionCard question={question} threadRef={ctx.threadRef} markdownCwd={ctx.markdownCwd} />

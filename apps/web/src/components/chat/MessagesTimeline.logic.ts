@@ -39,6 +39,7 @@ import {
   workEntryIndicatesToolSuccess,
   workEntryIndicatesToolNeutralStatus,
   workLogEntryIsToolLike,
+  type LearningCardTool,
   type TimelineEntry,
   type WorkLogEntry,
 } from "../../session-logic";
@@ -636,8 +637,8 @@ type MessagesTimelineRowContent =
       kind: "learning";
       id: string;
       createdAt: string;
-      tool: "ask_question" | "finish_measuring" | "set_plan";
-      questionId: string | null;
+      tool: LearningCardTool;
+      recordId: string | null;
       latest: boolean;
     }
   | {
@@ -1965,7 +1966,7 @@ export function deriveMessagesTimelineRows(input: {
         id: timelineEntry.id,
         createdAt: timelineEntry.createdAt,
         tool: timelineEntry.tool,
-        questionId: timelineEntry.questionId,
+        recordId: timelineEntry.recordId,
         latest: timelineEntry.latest,
       });
       continue;
@@ -2466,7 +2467,7 @@ function isRowUnchanged(a: MessagesTimelineRow, b: MessagesTimelineRow): boolean
       return (
         a.createdAt === bl.createdAt &&
         a.tool === bl.tool &&
-        a.questionId === bl.questionId &&
+        a.recordId === bl.recordId &&
         a.latest === bl.latest
       );
     }
