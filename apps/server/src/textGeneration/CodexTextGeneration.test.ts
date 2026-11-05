@@ -162,7 +162,6 @@ function withFakeCodexEnv<A, E, R>(
     launchArgs?: string;
     environment?: NodeJS.ProcessEnv;
     models?: ReadonlyArray<string>;
-    managedRuntime?: boolean;
   },
   effectFn: (textGeneration: TextGeneration.TextGeneration["Service"]) => Effect.Effect<A, E, R>,
 ) {
@@ -182,13 +181,6 @@ function withFakeCodexEnv<A, E, R>(
           capabilities: null,
         })),
       ),
-      input.managedRuntime
-        ? Effect.succeed({
-            config,
-            environment: input.environment ?? process.env,
-            revision: "test",
-          })
-        : undefined,
     );
     return yield* effectFn(textGeneration);
   }).pipe(Effect.scoped);
@@ -243,24 +235,6 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
             expect(result.title).toBe("Bedrock title");
           }),
       ),
-  );
-
-  it.effect("omits a persisted service tier for managed ChatGPT text generation", () =>
-    withFakeCodexEnv(
-      {
-        output: JSON.stringify({ title: "Update project" }),
-        managedRuntime: true,
-        forbidArg: 'service_tier="priority"',
-      },
-      (textGeneration) =>
-        textGeneration.generateThreadTitle({
-          cwd: process.cwd(),
-          message: "Update the README",
-          modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.4", [
-            { id: "serviceTier", value: "priority" },
-          ]),
-        }),
-    ),
   );
 
   it.effect("generates titles with the user's MCP servers and plugins off", () =>

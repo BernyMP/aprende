@@ -684,7 +684,7 @@ describe("UsageService", () => {
       }).pipe(Effect.scoped),
   );
 
-  it.live("reads shared managed default and disabled extra account history once", () =>
+  it.live("reads a shared default and disabled extra account history once", () =>
     Effect.gen(function* () {
       const { home, settings } = yield* setup;
       const summary = yield* Effect.gen(function* () {
@@ -720,7 +720,7 @@ describe("UsageService", () => {
         Effect.scoped,
         Effect.provide(
           layerService({
-            prefix: "usage-managed-accounts",
+            prefix: "usage-shared-accounts",
             home,
             settings: {
               ...settings,
@@ -729,7 +729,6 @@ describe("UsageService", () => {
                 [ProviderInstanceId.make("codex")]: {
                   driver: ProviderDriverKind.make("codex"),
                   config: {
-                    setupMode: "managed",
                     homePath: NodePath.join(home, "shared-codex"),
                   },
                 },
@@ -737,7 +736,6 @@ describe("UsageService", () => {
                   driver: ProviderDriverKind.make("codex"),
                   enabled: false,
                   config: {
-                    setupMode: "managed",
                     homePath: NodePath.join(home, "shared-codex"),
                     shadowHomePath: NodePath.join(home, "personal-shadow"),
                   },
@@ -745,7 +743,6 @@ describe("UsageService", () => {
                     {
                       name: "CODEX_HOME",
                       value: NodePath.join(home, "ignored-environment"),
-                      sensitive: false,
                     },
                   ],
                 },
@@ -809,11 +806,11 @@ describe("UsageService", () => {
                 [ProviderInstanceId.make("claude-work")]: {
                   driver: ProviderDriverKind.make("claudeAgent"),
                   enabled: false,
-                  environment: [{ name: "CLAUDE_CONFIG_DIR", value: claudeHome, sensitive: false }],
+                  environment: [{ name: "CLAUDE_CONFIG_DIR", value: claudeHome }],
                 },
                 [ProviderInstanceId.make("codex-work")]: {
                   driver: ProviderDriverKind.make("codex"),
-                  environment: [{ name: "CODEX_HOME", value: codexHome, sensitive: false }],
+                  environment: [{ name: "CODEX_HOME", value: codexHome }],
                 },
                 [ProviderInstanceId.make("codex-alias")]: {
                   driver: ProviderDriverKind.make("codex"),
@@ -822,9 +819,7 @@ describe("UsageService", () => {
                 [ProviderInstanceId.make("codex-shadow")]: {
                   driver: ProviderDriverKind.make("codex"),
                   config: { homePath: codexHome, shadowHomePath: NodePath.join(home, "shadow") },
-                  environment: [
-                    { name: "CODEX_HOME", value: NodePath.join(home, "ignored"), sensitive: false },
-                  ],
+                  environment: [{ name: "CODEX_HOME", value: NodePath.join(home, "ignored") }],
                 },
               },
             },
@@ -902,9 +897,7 @@ describe("UsageService", () => {
               [ProviderInstanceId.make("claudeAgent")]: {
                 driver: ProviderDriverKind.make("claudeAgent"),
                 config: { homePath: "" },
-                environment: [
-                  { name: "CLAUDE_CONFIG_DIR", value: environmentHome, sensitive: false },
-                ],
+                environment: [{ name: "CLAUDE_CONFIG_DIR", value: environmentHome }],
               },
             },
           });
@@ -931,9 +924,7 @@ describe("UsageService", () => {
                   [ProviderInstanceId.make("claudeAgent")]: {
                     driver: ProviderDriverKind.make("claudeAgent"),
                     config: { homePath: configured },
-                    environment: [
-                      { name: "CLAUDE_CONFIG_DIR", value: environmentHome, sensitive: false },
-                    ],
+                    environment: [{ name: "CLAUDE_CONFIG_DIR", value: environmentHome }],
                   },
                 },
               },

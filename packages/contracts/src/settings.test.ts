@@ -142,8 +142,8 @@ describe("ServerSettings saved by older builds", () => {
     expect(Object.keys(decoded)).not.toContain("secretProviders");
     expect(Object.keys(decoded)).not.toContain("usageLimitSources");
     expect(decoded.providerInstances[ProviderInstanceId.make("codex")]?.environment).toEqual([
-      { name: "OPENAI_API_KEY", value: "", sensitive: true },
-      { name: "BASE_URL", value: "https://example.test", sensitive: false },
+      { name: "OPENAI_API_KEY", value: "" },
+      { name: "BASE_URL", value: "https://example.test" },
     ]);
   });
 });

@@ -10,7 +10,6 @@ import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "~/lib/utils";
 import { ModelPickerContent, resolveModelPickerSelectedModel } from "./ModelPickerContent";
-import { ChatGptSharingControl } from "./ChatGptSharingControl";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
 import { ModelEsque, getDisplayModelName, getTriggerDisplayModelName } from "./providerIconUtils";
 import { shouldShowInstanceBadge, type ProviderInstanceEntry } from "../../providerInstances";
@@ -268,10 +267,6 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
         ? {
             docked,
             onFocusEffort: () => void focusEffort("any"),
-            // Inside the fixed height, so switching to or from a ChatGPT plan never resizes it.
-            ...(props.selectedModels === undefined
-              ? { listFooter: <ChatGptSharingControl provider={activeEntry?.snapshot ?? null} /> }
-              : {}),
           }
         : {})}
     />
@@ -437,9 +432,6 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
         ) : (
           picker
         )}
-        {props.selectedModels === undefined && !docked ? (
-          <ChatGptSharingControl provider={activeEntry?.snapshot ?? null} />
-        ) : null}
       </PopoverPopup>
     </Popover>
   );

@@ -27,11 +27,16 @@ export const ProviderInstanceEnvironmentVariableName = TrimmedNonEmptyString.che
 export type ProviderInstanceEnvironmentVariableName =
   typeof ProviderInstanceEnvironmentVariableName.Type;
 
+const CREDENTIAL_VARIABLE_NAME_PATTERN = /(?:^|_)(?:API_KEY|TOKEN)$|SECRET|PASSWORD/i;
+
+/** Learners sign in through their own CLI, so aprende refuses to hold anything named like a credential. */
+export const isCredentialEnvironmentVariableName = (name: string): boolean =>
+  CREDENTIAL_VARIABLE_NAME_PATTERN.test(name.trim());
+
+/** Plain CLI configuration, stored as written in settings.json. */
 export const ProviderInstanceEnvironmentVariable = Schema.Struct({
   name: ProviderInstanceEnvironmentVariableName,
   value: Schema.String.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-  sensitive: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  valueRedacted: Schema.optionalKey(Schema.Boolean),
 });
 export type ProviderInstanceEnvironmentVariable = typeof ProviderInstanceEnvironmentVariable.Type;
 

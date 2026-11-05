@@ -1,8 +1,4 @@
-import {
-  ProviderInstanceId,
-  ProviderSetupError,
-  type OrchestrationV2ProviderCapabilities,
-} from "@aprende/contracts";
+import { ProviderInstanceId, type OrchestrationV2ProviderCapabilities } from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -12,8 +8,6 @@ import * as Scope from "effect/Scope";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import { ProviderAdapterDriverCreateError } from "@aprende/provider-core/server/adapterDriver";
 import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
-
-const isProviderSetupError = Schema.is(ProviderSetupError);
 
 export class ProviderAdapterRegistryLookupError extends Schema.TaggedError<ProviderAdapterRegistryLookupError>()(
   "ProviderAdapterRegistryLookupError",
@@ -69,62 +63,15 @@ export const layerFromProviderInstanceRegistry: Layer.Layer<
     const instances = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
     return ProviderAdapterRegistryV2.of({
       get: Effect.fn("ProviderAdapterRegistryV2.get")(function (instanceId) {
-        return instances.getInstance(instanceId).pipe(
-          Effect.flatMap((instance) => {
-            if (instance === undefined)
-              return new ProviderAdapterRegistryLookupError({ instanceId });
-            const adapter = instance.orchestrationAdapter;
-            const auth = instance.auth;
-            if (!auth) return Effect.succeed(adapter);
-            return Effect.succeed({
-              ...adapter,
-              openSession: (input) => {
-                const open = Effect.gen(function* () {
-                  const binding = auth.credentialBinding;
-                  const related = binding
-                    ? (yield* instances.listInstances).filter(
-                        (instance) =>
-                          instance.auth?.credentialBinding?.key === binding.key &&
-                          instance.auth.credentialBinding.owner === binding.owner,
-                      )
-                    : [instance];
-                  for (const instance of related) {
-                    if (
-                      instance.auth?.isChangingCredentials &&
-                      (yield* instance.auth.isChangingCredentials)
-                    )
-                      return yield* new ProviderSetupError({
-                        instanceId,
-                        operation: "session",
-                        detail: "This provider's sign-in is changing. Try again after it finishes.",
-                      });
-                  }
-                  let admitted: Effect.Effect<
-                    ProviderAdapter.ProviderAdapterV2SessionRuntime,
-                    ProviderAdapter.ProviderAdapterV2Error | ProviderSetupError,
-                    Scope.Scope
-                  > = adapter.openSession(input);
-                  // Shared credential changes must interrupt a peer's startup too.
-                  for (const peer of related) {
-                    if (peer.auth?.withAccess) admitted = peer.auth.withAccess(admitted);
-                  }
-                  return yield* admitted;
-                });
-                return open.pipe(
-                  Effect.mapError((cause) =>
-                    isProviderSetupError(cause)
-                      ? new ProviderAdapter.ProviderAdapterOpenSessionError({
-                          driver: adapter.driver,
-                          providerSessionId: input.providerSessionId,
-                          cause,
-                        })
-                      : cause,
-                  ),
-                );
-              },
-            } satisfies ProviderAdapter.ProviderAdapterV2["Service"]);
-          }),
-        );
+        return instances
+          .getInstance(instanceId)
+          .pipe(
+            Effect.flatMap((instance) =>
+              instance === undefined
+                ? new ProviderAdapterRegistryLookupError({ instanceId })
+                : Effect.succeed(instance.orchestrationAdapter),
+            ),
+          );
       }),
       list: Effect.fn("ProviderAdapterRegistryV2.list")(function () {
         return instances.listInstances.pipe(

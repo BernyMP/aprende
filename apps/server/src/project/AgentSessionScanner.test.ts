@@ -637,14 +637,12 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
           providerInstances: {
             [ProviderInstanceId.make("claudeAgent")]: {
               driver: ProviderDriverKind.make("claudeAgent"),
-              environment: [
-                { name: "CLAUDE_CONFIG_DIR", value: claudeEnvironmentHome, sensitive: false },
-              ],
+              environment: [{ name: "CLAUDE_CONFIG_DIR", value: claudeEnvironmentHome }],
               config: {},
             },
             [ProviderInstanceId.make("codex")]: {
               driver: ProviderDriverKind.make("codex"),
-              environment: [{ name: "CODEX_HOME", value: codexEnvironmentHome, sensitive: false }],
+              environment: [{ name: "CODEX_HOME", value: codexEnvironmentHome }],
               config: {},
             },
           },

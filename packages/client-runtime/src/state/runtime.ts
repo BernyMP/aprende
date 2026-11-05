@@ -117,7 +117,6 @@ export type QueryAnswerHandler<Input, A> = (
 ) => Effect.Effect<void>;
 
 interface EnvironmentSubscriptionAtomOptions<Input, A, E, R> {
-  readonly sensitiveInput?: boolean;
   readonly label: string;
   readonly subscribe: (input: Input) => Stream.Stream<A, E, R>;
   readonly completeWhen?: (value: A) => boolean;
@@ -828,11 +827,7 @@ export function createEnvironmentSubscriptionAtomFamily<R, ER, Input, A, E>(
       )
       .pipe(
         Atom.setIdleTTL(options.idleTtlMs ?? 5 * 60_000),
-        Atom.withLabel(
-          options.sensitiveInput
-            ? `${options.label}:${target.environmentId}`
-            : `${options.label}:${key}`,
-        ),
+        Atom.withLabel(`${options.label}:${key}`),
       );
   });
   return (target: { readonly environmentId: EnvironmentIdType; readonly input: Input }) =>

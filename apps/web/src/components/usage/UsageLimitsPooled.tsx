@@ -1,5 +1,4 @@
 import {
-  CHATGPT_USAGE_URL,
   collectLimitAccounts,
   collectExternalUsageLinks,
   collectLimitNotices,
@@ -34,7 +33,6 @@ import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { providerClients } from "../settings/providerDriverMeta";
 import { RedactedSensitiveText } from "../settings/RedactedSensitiveText";
 import { Button } from "../ui/button";
-import { OpenAI } from "../Icons";
 import { Alert, AlertTitle } from "../ui/alert";
 import { Popover, PopoverCreateHandle, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import {
@@ -623,19 +621,12 @@ export function UsageLimitsPooled({
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            {link.url === CHATGPT_USAGE_URL ? (
-              <OpenAI className="size-5 shrink-0" aria-hidden="true" />
-            ) : null}
             <div className="min-w-0 space-y-1">
               <h2 className="text-sm font-medium">{link.label}</h2>
               <p className="text-xs break-words text-muted-foreground">
                 {link.accounts.join(", ")}
               </p>
-              {link.url === CHATGPT_USAGE_URL ? (
-                <p className="text-xs text-muted-foreground">
-                  View usage in ChatGPT with your connected account.
-                </p>
-              ) : link.message ? (
+              {link.message ? (
                 <p className="max-w-xl text-xs text-muted-foreground">{link.message}</p>
               ) : null}
             </div>

@@ -14,15 +14,3 @@ export class ProviderDriverError extends Schema.TaggedError<ProviderDriverError>
     return `Provider driver '${this.driver}' failed to create instance '${this.instanceId}': ${this.detail}`;
   }
 }
-
-export class ProviderCredentialError extends Schema.TaggedError<ProviderCredentialError>()(
-  "ProviderCredentialError",
-  {
-    operation: Schema.Literals(["get", "set", "remove"]),
-    cause: Schema.Defect(),
-  },
-) {
-  override get message(): string {
-    return `Could not ${this.operation} stored provider credentials.`;
-  }
-}

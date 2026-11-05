@@ -19,7 +19,6 @@ import {
   exhaustedUsageWindow,
   paceOf,
   paceRemainingPercent,
-  usesChatGptSharing,
   resolveNewThreadModelSelection,
 } from "./usageLimits.ts";
 
@@ -941,21 +940,5 @@ describe("external usage settings", () => {
     ]);
     expect(collectLimitAccounts(presentations)).toEqual([]);
     expect(collectLimitNotices(presentations)).toEqual([]);
-  });
-});
-
-describe("ChatGPT sharing presentation", () => {
-  it("requires verified sharing metadata rather than the Codex driver or login type", () => {
-    const codex = provider({ auth: { status: "authenticated", type: "chatgpt" } });
-    expect(usesChatGptSharing(codex)).toBe(false);
-    expect(
-      usesChatGptSharing({ ...codex, auth: { ...codex.auth, subscriptionSharing: true } }),
-    ).toBe(true);
-    expect(
-      usesChatGptSharing({
-        ...codex,
-        auth: { status: "unauthenticated", subscriptionSharing: true },
-      }),
-    ).toBe(false);
   });
 });

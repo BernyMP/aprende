@@ -5,14 +5,6 @@ export type ProviderSettingsSchema = {
   readonly fields: Readonly<Record<string, Schema.Top>>;
 } & Schema.Top;
 
-export interface ProviderEnvironmentField {
-  readonly name: string;
-  readonly label: string;
-  readonly description?: string;
-  readonly placeholder?: string;
-  readonly sensitive?: boolean;
-}
-
 export interface ProviderIcon {
   readonly viewBox: string;
   readonly fill: { readonly light: string; readonly dark: string };
@@ -39,7 +31,6 @@ export interface ProviderClientDefinition {
   /** Model-name family prefixes the provider's own icon already shows, e.g. "Claude ". */
   readonly modelFamilies?: ReadonlyArray<string>;
   readonly settingsSchema: ProviderSettingsSchema;
-  readonly environmentFields?: ReadonlyArray<ProviderEnvironmentField>;
   readonly hasDefaultInstance?: boolean;
   readonly badgeLabel?: string;
 }

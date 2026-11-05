@@ -142,9 +142,8 @@ describe("settings mutation authorization", () => {
             driver: ProviderDriverKind.make("codex"),
             environment: [
               {
-                name: "OPENAI_API_KEY",
-                sensitive: true,
-                value: "sk-test",
+                name: "CODEX_HOME",
+                value: "/tmp/codex-work",
               },
             ],
           },

@@ -65,7 +65,6 @@ export const ServerProviderAuth = Schema.Struct({
   label: Schema.optional(TrimmedNonEmptyString),
   email: Schema.optional(TrimmedNonEmptyString),
   canLogout: Schema.optional(Schema.Boolean),
-  subscriptionSharing: Schema.optional(Schema.Boolean),
   profileId: Schema.optional(TrimmedNonEmptyString),
   workspaceId: Schema.optional(TrimmedNonEmptyString),
 });
@@ -220,12 +219,6 @@ export const ServerProvider = Schema.Struct({
       canAuthenticate: Schema.Boolean,
       canInstall: Schema.Boolean,
       documentationUrl: Schema.optionalKey(TrimmedNonEmptyString.check(Schema.isMaxLength(2_048))),
-    }),
-  ),
-  runtimePaths: Schema.optionalKey(
-    Schema.Struct({
-      homePath: TrimmedNonEmptyString,
-      shadowHomePath: Schema.NullOr(TrimmedNonEmptyString),
     }),
   ),
   enabled: Schema.Boolean,

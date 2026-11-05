@@ -1,7 +1,5 @@
 import { CodexSettings, ProviderDriverKind } from "@aprende/contracts";
 import * as Digest from "effect/crypto/Digest";
-import * as SecureRandom from "effect/crypto/SecureRandom";
-import type * as Signature from "effect/crypto/Signature";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -51,12 +49,9 @@ import {
   materializeCodexShadowHome,
   resolveCodexHomeLayout,
 } from "./CodexHomeLayout.ts";
-import { makeManagedCodexProvider } from "./CodexManagedProvider.ts";
 import { codexUsageReader } from "./codexUsage.ts";
-import * as CodexInstallation from "../CodexInstallation.ts";
-import * as CodexManagedTokenBroker from "../CodexManagedTokenBroker.ts";
-import * as ServerSecretStore from "../../auth/ServerSecretStore.ts";
-import * as ServerEnvironment from "../../environment/ServerEnvironment.ts";
+import * as ModelManifest from "../ModelManifest.ts";
+import { resolveProviderCompatibility } from "../providerCompatibility.ts";
 import * as HostProcess from "@aprende/shared/HostProcess";
 const decodeCodexSettings = Schema.decodeSync(CodexSettings);
 
@@ -101,8 +96,6 @@ export type CodexDriverEnv =
   | ChildProcessSpawner.ChildProcessSpawner
   | ResetCreditCoordinator.ResetCreditCoordinator
   | Digest.Digest
-  | SecureRandom.SecureRandom
-  | Signature.Signature
   | FileSystem.FileSystem
   | HttpClient.HttpClient
   | ProviderLatestVersions.ProviderLatestVersions
@@ -110,10 +103,7 @@ export type CodexDriverEnv =
   | Path.Path
   | ProviderEventLoggers.ProviderEventLoggers
   | ServerConfig.ServerConfig
-  | ServerSecretStore.ServerSecretStore
-  | ServerEnvironment.ServerEnvironmentIdentity
-  | CodexInstallation.CodexInstallation
-  | CodexManagedTokenBroker.CodexManagedTokenBroker;
+  | ModelManifest.ModelManifest;
 
 export const CodexDriver: ProviderDriver<
   CodexSettings,
@@ -136,22 +126,13 @@ export const CodexDriver: ProviderDriver<
     enabled,
     config,
   }) {
-    if (config.setupMode === "managed")
-      return yield* makeManagedCodexProvider({
-        instanceId,
-        displayName,
-        accentColor,
-        environment,
-        enabled,
-        config,
-      });
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const resetCreditCoordinator = yield* ResetCreditCoordinator.ResetCreditCoordinator;
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
     const httpClient = yield* HttpClient.HttpClient;
     const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
-    const installation = yield* CodexInstallation.CodexInstallation;
+    const manifest = yield* ModelManifest.ModelManifest;
     const modelCatalog = yield* ModelCatalog.ModelCatalog;
     const currentCatalog = modelCatalog.current(DRIVER_KIND);
     const processEnv = yield* mergeProviderInstanceEnvironment(
@@ -214,7 +195,18 @@ export const CodexDriver: ProviderDriver<
       },
       {
         onUsageLimits: (update) => snapshot.applyUsageLimits(update),
-        compatibility: installation.compatibility,
+        compatibility: (version) =>
+          manifest.current.pipe(
+            Effect.map(
+              (current) =>
+                resolveProviderCompatibility(current.compatibility, DRIVER_KIND, version) ??
+                resolveProviderCompatibility(
+                  ModelManifest.BUNDLED_MODEL_MANIFEST.compatibility,
+                  DRIVER_KIND,
+                  version,
+                ),
+            ),
+          ),
       },
     ).pipe(
       Effect.mapError(

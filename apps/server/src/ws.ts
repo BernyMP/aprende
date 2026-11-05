@@ -14,7 +14,6 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { rpcInitialItems } from "./rpcInitialItems.ts";
-import { subscribeChatGptHandoff } from "./provider/CodexChatGptHandoff.ts";
 import {
   authScopeResponse,
   AuthAccessStreamError,
@@ -131,8 +130,6 @@ import { userFacingDispatchErrorMessage } from "./orchestration-v2/UserFacingErr
 import * as ProviderRegistry from "./provider/ProviderRegistry.ts";
 import * as ProviderInstanceRegistry from "./provider/ProviderInstanceRegistry.ts";
 import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner.ts";
-import * as ProviderAuthService from "./provider/ProviderAuthService.ts";
-import { makeProviderInstallation } from "./provider/providerInstallation.ts";
 import * as ServerSelfUpdate from "./service/selfUpdate.ts";
 import * as NpmRelease from "./service/npmRelease.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
@@ -1224,8 +1221,6 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
       const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
       const providerInstances = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
       const providerMaintenanceRunner = yield* ProviderMaintenanceRunner.ProviderMaintenanceRunner;
-      const providerAuth = yield* ProviderAuthService.ProviderAuthService;
-      const providerInstallation = yield* makeProviderInstallation();
       const serverSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
       const npmRelease = yield* NpmRelease.NpmRelease;
       const config = yield* ServerConfig.ServerConfig;
@@ -1287,9 +1282,7 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
         const providers = options.workspaceSnapshotsOnDemand
           ? withoutWorkspaceSnapshots(commandProviders)
           : commandProviders;
-        const settings = ServerSettings.redactServerSettingsForClient(
-          yield* serverSettings.getSettings,
-        );
+        const settings = yield* serverSettings.getSettings;
         const environment = yield* serverEnvironment.getDescriptor;
         const auth = yield* serverAuth.getDescriptor();
         const scratchWorkspaceRoot = yield* managedFolders.scratchRoot;
@@ -1831,25 +1824,6 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
             );
             return { outcome };
           }),
-        [WS_METHODS.providerAuthStart]: (input) => providerAuth.start(input, currentSessionId),
-        [WS_METHODS.providerAuthRespond]: (input) =>
-          Effect.annotateCurrentSpan({ instanceId: input.instanceId }).pipe(
-            Effect.andThen(providerAuth.respond(input, currentSessionId)),
-          ),
-        [WS_METHODS.providerAuthComplete]: (input) =>
-          providerAuth.complete(input, currentSessionId),
-        [WS_METHODS.chatGptReconnectProfile]: (input) => providerAuth.reconnectProfile(input),
-        [WS_METHODS.chatGptImportProfile]: (input) => providerAuth.importProfile(input),
-        [WS_METHODS.chatGptHandoffSubscribe]: (input) =>
-          subscribeChatGptHandoff(input, currentSessionId),
-        [WS_METHODS.providerAuthCancel]: (input) => providerAuth.cancel(input, currentSessionId),
-        [WS_METHODS.providerAuthLogout]: (input) => providerAuth.logout(input),
-        [WS_METHODS.providerAuthSubscribe]: (input) =>
-          providerAuth.subscribe(input, currentSessionId),
-        [WS_METHODS.providerInstallStart]: (input) => providerInstallation.start(input),
-        [WS_METHODS.providerInstallCancel]: (input) => providerInstallation.cancel(input),
-        [WS_METHODS.providerInstallSubscribe]: (input) => providerInstallation.subscribe(input),
-        [WS_METHODS.providerInstallRemove]: (input) => providerInstallation.remove(input),
         [WS_METHODS.serverUpdateServer]: (input) => serverSelfUpdate.update(input),
         [WS_METHODS.serverGetNpmRelease]: (input) => npmRelease.get(input),
         [WS_METHODS.serverUpdateServerWithProgress]: (input) =>
@@ -1872,10 +1846,9 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
         [WS_METHODS.serverUpdateSettings]:
           /* Request instrumentation already owns the span; keep this helper in that context. */
           Effect.fnUntraced(function* ({ patch, providerInstanceMutation }) {
-            const settings = yield* providerInstanceMutation === undefined
+            return yield* providerInstanceMutation === undefined
               ? serverSettings.updateSettings(patch)
               : serverSettings.updateProviderInstance(providerInstanceMutation, patch);
-            return ServerSettings.redactServerSettingsForClient(settings);
           }),
         [WS_METHODS.serverGetTraceDiagnostics]: (_input) =>
           TraceDiagnostics.readTraceDiagnostics({
@@ -2182,7 +2155,6 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
                     )
                   : Stream.empty;
               const settingsUpdates = settingsChanges.pipe(
-                Stream.map((settings) => ServerSettings.redactServerSettingsForClient(settings)),
                 Stream.map((settings) => ({
                   version: 1 as const,
                   type: "settingsUpdated" as const,

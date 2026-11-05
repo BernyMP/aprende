@@ -69,7 +69,7 @@ async function type(selector: string, value: string) {
 async function prepareCodexInstance() {
   await using stack = new AsyncDisposableStack();
   const screen = stack.use(await render(dialog()));
-  await click("Configure manually");
+  await click("Next");
   await type("#add-provider-label", "Work");
   await click("Next");
   stack.move();
@@ -92,7 +92,7 @@ describe("AddProviderInstanceDialog environment routing", () => {
       providerInstances: { codex_2: { driver: "codex", enabled: false } },
     });
     await using _screen = await render(dialog());
-    await click("Configure manually");
+    await click("Next");
     await click("Next");
     await click("Add instance");
     expect(settingsHooks.mutate).toHaveBeenCalledWith({
@@ -102,7 +102,6 @@ describe("AddProviderInstanceDialog environment routing", () => {
         driver: "codex",
         enabled: true,
         displayName: "Codex",
-        config: { setupMode: "existing" },
       },
     });
   });
@@ -110,7 +109,7 @@ describe("AddProviderInstanceDialog environment routing", () => {
   it("includes the explicitly added default accent color when creating a provider", async () => {
     setup();
     await using _screen = await render(dialog());
-    await click("Configure manually");
+    await click("Next");
     await act(async () =>
       document
         .querySelector<HTMLButtonElement>('button[aria-label="Add accent color for Codex"]')!

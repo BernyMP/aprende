@@ -33,7 +33,6 @@ import {
   createEnvironmentQueryAtomFamily,
   createEnvironmentRpcQueryAtomFamily,
   createEnvironmentRpcSubscriptionAtomFamily,
-  createEnvironmentSubscriptionAtomFamily,
   createRuntimeCommand,
   scheduleAtomCommandEffect,
 } from "./runtime.ts";
@@ -1211,72 +1210,6 @@ export function createServerEnvironmentAtoms<R, E>(
     hiddenThreadTagsAtom,
     usageModelFilterAtom,
     providersValueAtom,
-    providerAuthState: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
-      label: "environment-data:provider:auth-state",
-      tag: WS_METHODS.providerAuthSubscribe,
-      idleTtlMs: 0,
-    }),
-    startProviderAuth: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:provider:auth-start",
-      tag: WS_METHODS.providerAuthStart,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) => JSON.stringify([environmentId, input]),
-      },
-    }),
-    respondProviderAuth: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:provider:auth-respond",
-      tag: WS_METHODS.providerAuthRespond,
-    }),
-    completeProviderAuth: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:provider:auth-complete",
-      tag: WS_METHODS.providerAuthComplete,
-    }),
-    chatGptReconnectProfile: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:chatgpt:reconnect-profile",
-      tag: WS_METHODS.chatGptReconnectProfile,
-    }),
-    chatGptImportProfile: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:chatgpt:import-profile",
-      tag: WS_METHODS.chatGptImportProfile,
-    }),
-    chatGptHandoffState: createEnvironmentSubscriptionAtomFamily(runtime, {
-      label: "environment-data:chatgpt:handoff",
-      sensitiveInput: true,
-      // OAuth must not be replayed when the connection recovers.
-      subscribe: (input: EnvironmentRpcInput<typeof WS_METHODS.chatGptHandoffSubscribe>) =>
-        runStream(WS_METHODS.chatGptHandoffSubscribe, input),
-      idleTtlMs: 0,
-    }),
-    cancelProviderAuth: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:provider:auth-cancel",
-      tag: WS_METHODS.providerAuthCancel,
-    }),
-    logoutProviderAuth: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:provider:auth-logout",
-      tag: WS_METHODS.providerAuthLogout,
-    }),
-    providerInstallState: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
-      label: "environment-data:provider:install-state",
-      tag: WS_METHODS.providerInstallSubscribe,
-      idleTtlMs: 0,
-    }),
-    startProviderInstall: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:provider:install-start",
-      tag: WS_METHODS.providerInstallStart,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) => JSON.stringify([environmentId, input]),
-      },
-    }),
-    cancelProviderInstall: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:provider:install-cancel",
-      tag: WS_METHODS.providerInstallCancel,
-    }),
-    removeProviderInstallation: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:provider:install-remove",
-      tag: WS_METHODS.providerInstallRemove,
-    }),
     traceDiagnostics: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:server:trace-diagnostics",
       tag: WS_METHODS.serverGetTraceDiagnostics,

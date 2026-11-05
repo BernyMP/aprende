@@ -332,8 +332,6 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   docked?: boolean;
   /** Right at the end of the search text moves into the popup's effort column. */
   onFocusEffort?: () => void;
-  /** Closes the list column, inside the popup's fixed height. */
-  listFooter?: ReactNode;
 }) {
   const {
     searchInputRef,
@@ -997,7 +995,6 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
               onRequestClose={onRequestClose}
               onOpenProviderSetup={onOpenProviderSetup}
             />
-            {props.listFooter}
           </div>
         </Combobox>
       </div>

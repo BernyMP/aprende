@@ -2,19 +2,15 @@ import type { ReactNode } from "react";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
-  isSecretSetting,
   type ProviderSettingsFormAnnotation,
   type ProviderSettingsFormControl,
   type ProviderSettingsFormOption,
   type ProviderSettingsFormSchemaAnnotation,
 } from "@aprende/contracts";
-import { XIcon } from "lucide-react";
 
 import { cn } from "../../lib/utils";
-import { Button } from "../ui/button";
 import { DraftInput } from "../ui/draft-input";
 import { Input } from "../ui/input";
-import { SecretInput } from "./SecretInput";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
@@ -32,8 +28,6 @@ export interface ProviderSettingsFieldModel {
   readonly description?: string | undefined;
   readonly placeholder?: string | undefined;
   readonly clearWhenEmpty: "omit" | "persist";
-  /** Kept in the server's secret store: a saved value arrives as `SECRET_REDACTED` and never shows. */
-  readonly secret?: boolean | undefined;
   readonly defaultBooleanValue?: boolean | undefined;
 
   readonly options?: ReadonlyArray<ProviderSettingsFormOption> | undefined;
@@ -116,7 +110,6 @@ export function deriveProviderSettingsFields(
             ? { placeholder: formAnnotation.placeholder }
             : {}),
           clearWhenEmpty: formAnnotation.clearWhenEmpty ?? "omit",
-          ...(isSecretSetting(fieldSchema) ? { secret: true } : {}),
           ...(formAnnotation.control === "switch"
             ? { defaultBooleanValue: readFieldBooleanDefault(fieldSchema) }
             : {}),
@@ -287,8 +280,6 @@ function ProviderSettingsFieldRow({
 
   if (variant === "settings") {
     const descriptionId = field.description ? `${inputId}-description` : undefined;
-    const secretConfigured =
-      field.secret === true && readProviderConfigString(value, field.key).length > 0;
     const control =
       field.control === "switch" ? (
         <Switch
@@ -320,37 +311,12 @@ function ProviderSettingsFieldRow({
           placeholder={field.placeholder}
           spellCheck={false}
         />
-      ) : field.secret ? (
-        <div className="flex w-full min-w-0 items-center gap-2 @min-[32rem]/settings-row:w-56">
-          <SecretInput
-            id={inputId}
-            aria-describedby={descriptionId}
-            size="sm"
-            className="min-w-0 flex-1"
-            configured={secretConfigured}
-            value=""
-            onCommit={(next) => onChange(nextProviderConfigWithFieldValue(value, field, next))}
-          />
-          {secretConfigured ? (
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost-destructive"
-              onClick={() => onChange(nextProviderConfigWithFieldValue(value, field, ""))}
-              aria-label={`Clear ${field.label}`}
-            >
-              <XIcon className="size-3.5" />
-            </Button>
-          ) : null}
-        </div>
       ) : (
         <DraftInput
           id={inputId}
           aria-describedby={descriptionId}
           size="sm"
           className="w-full max-w-full @min-[32rem]/settings-row:w-56"
-          type={field.control === "password" ? "password" : undefined}
-          autoComplete={field.control === "password" ? "off" : undefined}
           value={readProviderConfigString(value, field.key)}
           placeholder={field.placeholder}
           onCommit={(next) => {
@@ -434,30 +400,23 @@ function ProviderSettingsFieldRow({
     );
   }
 
-  const type = field.control === "password" ? "password" : undefined;
-  const BufferedInput = field.secret ? SecretInput : DraftInput;
-  const ControlledInput = field.secret ? SecretInput : Input;
   return (
     <FieldFrame variant={variant}>
       <label htmlFor={inputId} className={cn(variant === "card" && "block")}>
         {label}
         {variant === "card" ? (
-          <BufferedInput
+          <DraftInput
             id={inputId}
             size="sm"
             className="mt-1.5"
-            type={field.secret ? undefined : type}
-            autoComplete={!field.secret && field.control === "password" ? "off" : undefined}
             value={readProviderConfigString(value, field.key)}
             onCommit={(next) => onChange(nextProviderConfigWithFieldValue(value, field, next))}
             placeholder={field.placeholder}
             spellCheck={false}
           />
         ) : (
-          <ControlledInput
+          <Input
             id={inputId}
-            type={field.secret ? undefined : type}
-            autoComplete={!field.secret && field.control === "password" ? "off" : undefined}
             value={readProviderConfigString(value, field.key)}
             onChange={(event) =>
               onChange(nextProviderConfigWithFieldValue(value, field, event.target.value))

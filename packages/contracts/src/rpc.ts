@@ -16,29 +16,12 @@ import {
   McpAppToolInfoInput,
   McpAppUpdateModelContextInput,
 } from "./mcpApps.ts";
-import {
-  ChatGptReconnectProfileInput,
-  ChatGptReconnectProfile,
-  ChatGptImportProfileInput,
-  ChatGptHandoffInput,
-  ChatGptHandoffState,
-} from "./providerSetup.ts";
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
 import * as RpcGroup from "effect/rpc/RpcGroup";
 import * as RpcMiddleware from "effect/rpc/RpcMiddleware";
 import { TrimmedNonEmptyString } from "./baseSchemas.ts";
-import {
-  ProviderAuthCancelInput,
-  ProviderAuthCompleteInput,
-  ProviderAuthState,
-  ProviderAuthStartInput,
-  ProviderAuthRespondInput,
-  ProviderInstallCancelInput,
-  ProviderInstallState,
-  ProviderSetupError,
-  ProviderSetupInput,
-} from "./providerSetup.ts";
+import { ProviderSetupError } from "./providerSetup.ts";
 
 import { ExternalLauncherError, LaunchEditorInput } from "./editor.ts";
 import {
@@ -219,20 +202,7 @@ export const WS_METHODS = {
   mcpAppsUpdateModelContext: "mcpApps.updateModelContext",
 
   providerUploadFeedback: "provider.uploadFeedback",
-  providerAuthStart: "provider.auth.start",
   providerConsumeResetCredit: "provider.consumeResetCredit",
-  providerAuthComplete: "provider.auth.complete",
-  chatGptReconnectProfile: "provider.chatgpt.reconnect-profile",
-  chatGptImportProfile: "provider.chatgpt.import-profile",
-  chatGptHandoffSubscribe: "provider.chatgpt.handoff.subscribe",
-  providerAuthRespond: "provider.auth.respond",
-  providerAuthCancel: "provider.auth.cancel",
-  providerAuthLogout: "provider.auth.logout",
-  providerAuthSubscribe: "provider.auth.subscribe",
-  providerInstallStart: "provider.install.start",
-  providerInstallCancel: "provider.install.cancel",
-  providerInstallSubscribe: "provider.install.subscribe",
-  providerInstallRemove: "provider.install.remove",
 
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
@@ -330,91 +300,10 @@ const WsServerUpdateProviderRpc = Rpc.make(WS_METHODS.serverUpdateProvider, {
   error: Schema.Union([ServerProviderUpdateError, EnvironmentAuthorizationError]),
 });
 
-const ProviderSetupRpcError = Schema.Union([ProviderSetupError, EnvironmentAuthorizationError]);
-
 const WsProviderConsumeResetCreditRpc = Rpc.make(WS_METHODS.providerConsumeResetCredit, {
   payload: ProviderConsumeResetCreditInput,
   success: ProviderConsumeResetCreditResult,
   error: Schema.Union([ProviderSetupError, EnvironmentAuthorizationError]),
-});
-
-const WsProviderAuthStartRpc = Rpc.make(WS_METHODS.providerAuthStart, {
-  payload: ProviderAuthStartInput,
-  success: ProviderAuthState,
-  error: ProviderSetupRpcError,
-});
-
-const WsProviderAuthRespondRpc = Rpc.make(WS_METHODS.providerAuthRespond, {
-  payload: ProviderAuthRespondInput,
-  success: ProviderAuthState,
-  error: ProviderSetupRpcError,
-});
-
-const WsProviderAuthCompleteRpc = Rpc.make(WS_METHODS.providerAuthComplete, {
-  payload: ProviderAuthCompleteInput,
-  success: ProviderAuthState,
-  error: ProviderSetupRpcError,
-});
-
-const WsChatGptReconnectProfileRpc = Rpc.make(WS_METHODS.chatGptReconnectProfile, {
-  payload: ChatGptReconnectProfileInput,
-  success: Schema.NullOr(ChatGptReconnectProfile),
-  error: ProviderSetupRpcError,
-});
-const WsChatGptImportProfileRpc = Rpc.make(WS_METHODS.chatGptImportProfile, {
-  payload: ChatGptImportProfileInput,
-  success: ProviderAuthState,
-  error: ProviderSetupRpcError,
-});
-const WsChatGptHandoffSubscribeRpc = Rpc.make(WS_METHODS.chatGptHandoffSubscribe, {
-  payload: ChatGptHandoffInput,
-  success: ChatGptHandoffState,
-  error: ProviderSetupRpcError,
-  stream: true,
-});
-
-const WsProviderAuthCancelRpc = Rpc.make(WS_METHODS.providerAuthCancel, {
-  payload: ProviderAuthCancelInput,
-  success: ProviderAuthState,
-  error: ProviderSetupRpcError,
-});
-
-const WsProviderAuthLogoutRpc = Rpc.make(WS_METHODS.providerAuthLogout, {
-  payload: ProviderSetupInput,
-  success: ProviderAuthState,
-  error: ProviderSetupRpcError,
-});
-
-const WsProviderAuthSubscribeRpc = Rpc.make(WS_METHODS.providerAuthSubscribe, {
-  payload: ProviderSetupInput,
-  success: ProviderAuthState,
-  error: ProviderSetupRpcError,
-  stream: true,
-});
-
-const WsProviderInstallStartRpc = Rpc.make(WS_METHODS.providerInstallStart, {
-  payload: ProviderSetupInput,
-  success: ProviderInstallState,
-  error: ProviderSetupRpcError,
-});
-
-const WsProviderInstallCancelRpc = Rpc.make(WS_METHODS.providerInstallCancel, {
-  payload: ProviderInstallCancelInput,
-  success: ProviderInstallState,
-  error: ProviderSetupRpcError,
-});
-
-const WsProviderInstallSubscribeRpc = Rpc.make(WS_METHODS.providerInstallSubscribe, {
-  payload: ProviderSetupInput,
-  success: ProviderInstallState,
-  error: ProviderSetupRpcError,
-  stream: true,
-});
-
-const WsProviderInstallRemoveRpc = Rpc.make(WS_METHODS.providerInstallRemove, {
-  payload: ProviderSetupInput,
-  success: ProviderInstallState,
-  error: ProviderSetupRpcError,
 });
 
 const WsServerGetNpmReleaseRpc = Rpc.make(WS_METHODS.serverGetNpmRelease, {
@@ -932,19 +821,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerRefreshProvidersRpc,
   WsServerUpdateProviderRpc,
   WsProviderConsumeResetCreditRpc,
-  WsProviderAuthStartRpc,
-  WsProviderAuthCompleteRpc,
-  WsChatGptReconnectProfileRpc,
-  WsChatGptImportProfileRpc,
-  WsChatGptHandoffSubscribeRpc,
-  WsProviderAuthRespondRpc,
-  WsProviderAuthCancelRpc,
-  WsProviderAuthLogoutRpc,
-  WsProviderAuthSubscribeRpc,
-  WsProviderInstallStartRpc,
-  WsProviderInstallCancelRpc,
-  WsProviderInstallSubscribeRpc,
-  WsProviderInstallRemoveRpc,
   WsServerUpdateServerRpc,
   WsServerGetNpmReleaseRpc,
   WsServerUpdateServerWithProgressRpc,

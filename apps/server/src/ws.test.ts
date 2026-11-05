@@ -39,7 +39,6 @@ import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
 import * as AgentSessionScanner from "./project/AgentSessionScanner.ts";
 import * as BackgroundPolicy from "./background/BackgroundPolicy.ts";
 import * as CommandOutputHub from "./orchestration-v2/CommandOutputHub.ts";
-import * as CodexInstallation from "./provider/CodexInstallation.ts";
 import * as DocumentText from "./provider/DocumentText.ts";
 import * as DirectEndpoints from "./environment/DirectEndpoints.ts";
 import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
@@ -54,7 +53,6 @@ import * as OtlpEndpointCheck from "./observability/OtlpEndpointCheck.ts";
 import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
 import * as ProcessDiagnostics from "./diagnostics/ProcessDiagnostics.ts";
 import * as ProcessResourceMonitor from "./diagnostics/ProcessResourceMonitor.ts";
-import * as ProviderAuthService from "./provider/ProviderAuthService.ts";
 import * as ProviderInstanceRegistry from "./provider/ProviderInstanceRegistry.ts";
 import * as ProviderLatestVersions from "@aprende/provider-core/server/ProviderLatestVersions";
 import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner.ts";
@@ -634,7 +632,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(AgentSessionScanner.AgentSessionScanner)({}),
   Layer.mock(BackgroundPolicy.BackgroundPolicy)({}),
   Layer.mock(CommandOutputHub.CommandOutputHub)({}),
-  Layer.mock(CodexInstallation.CodexInstallation)({ managedDirectory: "/unused" }),
   Layer.mock(EnvironmentTheme.EnvironmentThemeService)({}),
   Layer.mock(HostResources.HostResources)({}),
   Layer.mock(McpAppRequests.McpAppRequests)({}),
@@ -647,7 +644,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(ProcessResourceMonitor.ProcessResourceMonitor)({}),
   Layer.mock(ProjectService.ProjectService)({}),
   Layer.mock(ProjectStore.ProjectStoreV2)({}),
-  Layer.mock(ProviderAuthService.ProviderAuthService)({}),
   Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({}),
   Layer.mock(ProviderLatestVersions.ProviderLatestVersions)({}),
   Layer.mock(ProviderMaintenanceRunner.ProviderMaintenanceRunner)({}),
@@ -864,9 +860,7 @@ it.effect.each([
         key: "mod+alt+z",
         command: "terminal.split",
       });
-      const expectedSettings = [duringDiscovery, latestSettings].map((value) =>
-        ServerSettings.redactServerSettingsForClient(value),
-      );
+      const expectedSettings = [duringDiscovery, latestSettings];
       const expectedKeybindings = [duringAck.keybindings, latestKeybindings.keybindings];
       // The two sources can interleave, but each must retain its own publication order.
       for (let i = 0; i < 4; i++) {
@@ -891,10 +885,7 @@ it.effect.each([
         assert.equal(resolved.type, "snapshot");
         if (resolved.type !== "snapshot") return yield* Effect.die("Missing remote targets");
         assert.deepEqual(resolved.config.remoteOpenTargets, targets);
-        assert.deepEqual(
-          resolved.config.settings,
-          ServerSettings.redactServerSettingsForClient(latestSettings),
-        );
+        assert.deepEqual(resolved.config.settings, latestSettings);
         assert.deepEqual(resolved.config.keybindings, latestKeybindings.keybindings);
         yield* acknowledge;
       }
@@ -906,10 +897,7 @@ it.effect.each([
           assert.equal(resolved.type, "snapshot");
           if (resolved.type !== "snapshot") return yield* Effect.die("Missing direct endpoints");
           assert.deepEqual(resolved.config.directEndpoints, endpoints);
-          assert.deepEqual(
-            resolved.config.settings,
-            ServerSettings.redactServerSettingsForClient(latestSettings),
-          );
+          assert.deepEqual(resolved.config.settings, latestSettings);
           assert.deepEqual(resolved.config.keybindings, latestKeybindings.keybindings);
           yield* acknowledge;
         } else if (discovery === "direct-failed") {

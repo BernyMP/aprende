@@ -4,7 +4,6 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
@@ -41,7 +40,6 @@ export const layer = (
         yield* fileSystem.makeDirectory(directory, { recursive: true }).pipe(Effect.orDie);
       }
       const settings = yield* Ref.make(options.settings ?? DEFAULT_SERVER_SETTINGS);
-      const credentials = new Map<string, Uint8Array>();
       const host = ProviderHost.ProviderHost.of({
         paths: {
           cwd: options.cwd ?? process.cwd(),
@@ -60,17 +58,6 @@ export const layer = (
           return Effect.succeed(options.runBackgroundWork ?? true);
         }),
         resolveAttachmentPath: (attachment) => path.join(attachmentsDir, attachment.id),
-        credentials: Effect.fn("ProviderHost.credentials")(function (namespace, bindingId) {
-          return Effect.sync(() => {
-            const key = `${namespace}:${bindingId}`;
-            return {
-              binding: { owner: "t3" as const, key },
-              get: Effect.sync(() => Option.fromUndefinedOr(credentials.get(key))),
-              set: (value: Uint8Array) => Effect.sync(() => void credentials.set(key, value)),
-              remove: Effect.sync(() => void credentials.delete(key)),
-            };
-          });
-        }),
       });
       return Context.make(ProviderHost.ProviderHost, host).pipe(
         Context.add(TestProviderHostSettings, {

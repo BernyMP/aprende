@@ -2013,7 +2013,6 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadShell?.latestRun
       ? usageLimitRecoveryBannerItem({
           runId: activeThreadShell.latestRun.runId,
-          errorCode: serverRuntime.lastErrorCode ?? null,
           resetAt: serverRuntime.usageLimitResetAt ?? null,
           stoppedAt: activeThreadShell.latestRun.completedAt ?? activeThreadShell.updatedAt,
           recovery: activeThreadShell.limitRecovery ?? null,
@@ -2660,9 +2659,6 @@ export default function ChatView(props: ChatViewProps) {
               threadError={timelineThreadError}
               threadErrorClass={
                 threadErrorIsServerRuntimeError ? (serverRuntime?.lastErrorClass ?? null) : null
-              }
-              threadErrorCode={
-                threadErrorIsServerRuntimeError ? (serverRuntime?.lastErrorCode ?? null) : null
               }
               threadErrorBannerKey={threadErrorBannerKey}
               setThreadError={setThreadError}

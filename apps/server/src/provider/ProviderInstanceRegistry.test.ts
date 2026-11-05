@@ -1,6 +1,4 @@
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
-import * as CodexInstallation from "./CodexInstallation.ts";
-import * as CodexManagedTokenBroker from "./CodexManagedTokenBroker.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as ClaudeSdk from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "@effect/vitest";
@@ -157,17 +155,7 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
   const layerBaseDeps = ServerConfig.layerTest(process.cwd(), {
     prefix: "provider-instance-registry-test",
   }).pipe(
-    Layer.provideMerge(
-      Layer.mock(CodexManagedTokenBroker.CodexManagedTokenBroker)({
-        endpoint: Effect.succeed("unused-private-pipe"),
-      }),
-    ),
     Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
-    Layer.provideMerge(
-      Layer.mock(CodexInstallation.CodexInstallation)({
-        managedDirectory: "unused-managed-installation",
-      }),
-    ),
     Layer.provideMerge(Layer.mock(ServerSecretStore.ServerSecretStore)({})),
     Layer.provideMerge(
       Layer.succeed(ServerEnvironment.ServerEnvironmentIdentity, {
@@ -384,7 +372,6 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
             {
               name: "T3_CODEX_COLLAB_SCRIPT",
               value: fixtures.codexScriptPath,
-              sensitive: false,
             },
           ],
           config: makeCodexConfig({ enabled: true, binaryPath: fixtures.codexBinaryPath }),
@@ -436,7 +423,7 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
             driver: ProviderDriverKind.make("claudeAgent"),
             enabled: true,
             // Packaged desktop starts in $HOME, where some claude wrappers refuse to run.
-            environment: [{ name: "T3_CLAUDE_REQUIRED_CWD", value: stateDir, sensitive: false }],
+            environment: [{ name: "T3_CLAUDE_REQUIRED_CWD", value: stateDir }],
             config: makeClaudeConfig({
               enabled: true,
               binaryPath: fixtures.claudeBinaryPath,
@@ -606,7 +593,7 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
           driver: ProviderDriverKind.make("claudeAgent"),
           enabled: true,
           environment: [
-            { name: "T3_CLAUDE_PROBE_LOG", value: probeLog, sensitive: false },
+            { name: "T3_CLAUDE_PROBE_LOG", value: probeLog },
             ...(state === "ready"
               ? []
               : [
@@ -616,7 +603,6 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
                         ? "T3_CLAUDE_LOGIN_MARKER"
                         : "T3_CLAUDE_USAGE_FAILS_UNTIL",
                     value: recovered,
-                    sensitive: false,
                   },
                 ]),
           ],

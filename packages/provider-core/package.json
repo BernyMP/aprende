@@ -19,10 +19,6 @@
       "types": "./src/server/attachmentPrompt.ts",
       "import": "./src/server/attachmentPrompt.ts"
     },
-    "./server/auth": {
-      "types": "./src/server/auth.ts",
-      "import": "./src/server/auth.ts"
-    },
     "./server/collectStreamText": {
       "types": "./src/server/collectStreamText.ts",
       "import": "./src/server/collectStreamText.ts"
@@ -106,10 +102,6 @@
     "./server/ProviderAdapter": {
       "types": "./src/server/ProviderAdapter.ts",
       "import": "./src/server/ProviderAdapter.ts"
-    },
-    "./server/providerAuthFlow": {
-      "types": "./src/server/providerAuthFlow.ts",
-      "import": "./src/server/providerAuthFlow.ts"
     },
     "./server/ProviderContinuationRequests": {
       "types": "./src/server/ProviderContinuationRequests.ts",
