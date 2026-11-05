@@ -1,4 +1,4 @@
-import { EnvironmentId, ProjectId, SourceControlProviderKind } from "@aprende/contracts";
+import { EnvironmentId, ProjectId } from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import type { EnvironmentProject } from "./models.ts";
@@ -85,7 +85,6 @@ const repositoryIdentity = {
     remoteName: "upstream",
     remoteUrl: "https://github.com/bernymp/aprende.git",
   },
-  provider: SourceControlProviderKind.make("github"),
   owner: "bernymp",
   name: "aprende",
   displayName: "aprende",

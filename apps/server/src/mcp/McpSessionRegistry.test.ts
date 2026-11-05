@@ -50,7 +50,7 @@ it.effect("stores only a token hash, resolves the bearer token, and revokes by t
 
     const resolved = yield* registry.resolve(token);
     expect(resolved?.thread.threadId).toBe(threadId);
-    expect(resolved?.capabilities).toEqual(new Set(["orchestration", "worktree", "pull-requests"]));
+    expect(resolved?.capabilities).toEqual(new Set(["orchestration", "worktree"]));
 
     yield* registry.revokeThread(threadId);
     expect(yield* registry.resolve(token)).toBeUndefined();

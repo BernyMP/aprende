@@ -10,7 +10,7 @@ agent can use this endpoint to:
 - cancel an active delegated task; and
 - create one or more ordinary top-level T3 threads;
 - list a project's threads and incrementally read any thread;
-- rename threads, regenerate titles, and link or unlink pull requests;
+- rename threads and regenerate titles;
 - send or steer follow-up messages;
 - wait for or interrupt ordinary thread runs; and
 - schedule recurring work that runs without an active turn.
@@ -329,10 +329,9 @@ the published task result.
 
 Stops the child thread with the internal `thread.stop` command, then stops every
 task the child delegated, and disposes automatic parent delivery. Like a user Stop,
-`thread.stop` interrupts the running turn, holds queued turns, and ends pull request
-watches. A nonterminal task with no interruptible run is rejected. A terminal task
+`thread.stop` interrupts the running turn and holds queued turns. A nonterminal task with no interruptible run is rejected. A terminal task
 returns its existing status, and its child thread still stops, including later
-runs and watch wakes. Published task results remain available. It accepts an
+runs. Published task results remain available. It accepts an
 optional cancellation reason.
 
 ### `create_threads`
@@ -425,16 +424,13 @@ runs, background wakes, and delegated completions keep it snoozed.
 ### `t3_thread_update`
 
 Updates metadata for the calling thread or any other thread in the environment.
-The typed actions are `rename`, `regenerate_title`, `link_pull_request`, and
-`unlink_pull_request`. A link input supplies the repository, number, and URL;
-the server records the target thread's project ID. Branch and workspace changes
-are outside this tool.
+The typed actions are `rename` and `regenerate_title`. Branch and workspace
+changes are outside this tool.
 
 The result includes the command ID and durable event sequence together with the
-resultant title, title-regeneration marker, and linked pull request. Reusing a
-`clientRequestId` for the same action and thread replays the same command
-receipt. Thread list and read results expose the linked pull request, and thread
-detail also exposes an in-flight title regeneration.
+resultant title and title-regeneration marker. Reusing a `clientRequestId` for
+the same action and thread replays the same command receipt. Thread detail also
+exposes an in-flight title regeneration.
 
 ### `t3_thread_send`
 

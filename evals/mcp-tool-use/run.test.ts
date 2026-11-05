@@ -84,16 +84,14 @@ it("matches shellMust, not shellMustNot, against a command's argv lists as a com
 });
 
 it("accepts any tool listed as an alternative", () => {
-  const expect = { calls: [{ tool: "link_pull_request|watch_pull_request" }] };
+  const expect = { calls: [{ tool: "delegate_task|t3_thread_launch" }] };
   const run = (tool: string): SampleRun => ({
     calls: [{ step: 0, tool, input: {} }],
     text: "",
     stopReason: "end_turn",
   });
-  assert.deepEqual(failed(expect, run("watch_pull_request")), []);
-  assert.deepEqual(failed(expect, run("list_thread_pull_requests")), [
-    "calls link_pull_request|watch_pull_request",
-  ]);
+  assert.deepEqual(failed(expect, run("t3_thread_launch")), []);
+  assert.deepEqual(failed(expect, run("task_status")), ["calls delegate_task|t3_thread_launch"]);
 });
 
 it("counts the new threads an agent asks for, one brief per thread, over both creation tools", () => {
@@ -189,8 +187,6 @@ it("passes a good run and names every rule a bad run breaks", () => {
     shellMustNot: ["\\bsleep\\b"],
     textMust: ["t3-thread://v2/"],
     textMustNot: ["Paste .*token"],
-    linked: ["~/pull/124"],
-    linkedNumbers: [124],
   };
   const good: SampleRun = {
     calls: [
@@ -203,7 +199,6 @@ it("passes a good run and names every rule a bad run breaks", () => {
     ],
     text: "Started <t3-thread://v2/eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee/11111111-1111-4111-8111-111111111111>. Do not paste a token.",
     stopReason: "end_turn",
-    linked: ["https://github.com/acme/app/pull/124"],
   };
   assert.deepEqual(failed(expect, good), []);
 
@@ -232,8 +227,6 @@ it("passes a good run and names every rule a bad run breaks", () => {
     "shellMustNot /\\bsleep\\b/",
     "textMust /t3-thread://v2//",
     "textMustNot /Paste .*token/",
-    "linked ~/pull/124",
-    "linkedNumbers",
   ]);
 });
 
@@ -297,10 +290,10 @@ const template = {
 
 const childCase: McpToolUseCase = {
   id: "child-links-its-pr",
-  area: "pull-requests",
+  area: "orchestration",
   kind: "guard",
-  pattern: "delegated child watches PR",
-  experience: "A delegated child must link its PR and report back, not watch it.",
+  pattern: "delegated child reports back",
+  experience: "A delegated child must open its PR and report back, not start more threads.",
   setup: {
     role: "delegated-child",
     delegateRole: "implementation",
@@ -314,7 +307,7 @@ const childCase: McpToolUseCase = {
     shellMocks: [{ match: "^gh pr create", output: "https://github.com/acme/app/pull/124" }],
   },
   prompt: "Push the fix, open a PR against main, and report the PR URL.",
-  expect: { calls: [{ tool: "link_pull_request" }], notCalls: ["watch_pull_request"] },
+  expect: { notCalls: ["t3_thread_launch"] },
 };
 
 it("rebuilds the template from this checkout and sends a child T3's task prompt", () => {
@@ -329,18 +322,6 @@ it("rebuilds the template from this checkout and sends a child T3's task prompt"
   const deferred = system[2]?.split("Load them first:\n")[1]?.split("\n\n")[0]?.split("\n") ?? [];
   assert.includeMembers(deferred, ["Monitor", "mcp__aprende__delegate_task"]);
   assert.notInclude(deferred, "mcp__aprende__retired_tool");
-  // A delegated child is never offered the tools T3 hides from subagents.
-  assert.include(deferred, "mcp__aprende__watch_pull_request");
-  const child = buildBase(template, {
-    model: "claude-sonnet-5-5",
-    keepUserInstructions: false,
-    subagent: true,
-  });
-  assert.notInclude(String(child.system[2]?.text), "mcp__aprende__watch_pull_request");
-  assert.notInclude(
-    child.t3.map((tool) => tool.name),
-    "mcp__aprende__unwatch_pull_request",
-  );
   const reminders = buildMessages(makeSample(childCase, base))[0]?.content.map((b) => b.text);
   assert.equal(reminders?.[0], "<system-reminder>\n# currentDate\n</system-reminder>");
   assert.include(reminders?.[1], "Current branch: fix/date-format");
@@ -486,7 +467,7 @@ it("does not record a deferred tool called before it was loaded", () => {
   const sample = makeSample(childCase, base);
   const use = (name: string) => ({ type: "tool_use" as const, id: name, name, input: {} });
   const ran = ranCalls(sample, 0, [
-    use("mcp__aprende__link_pull_request"),
+    use("mcp__aprende__delegate_task"),
     use("mcp__host__term_Bash"),
   ]);
   assert.deepEqual(
@@ -572,30 +553,6 @@ it("sends a GPT shell model the same simulator request, with a strict JSON reply
   );
 });
 
-it("links a PR a shell command created, as T3 does, but not one it only read", () => {
-  const base = buildBase(template, { model: "claude-sonnet-5-5", keepUserInstructions: false });
-  const bash = (command: string, result: string) => ({ tool: "Bash", input: { command }, result });
-  const sample = makeSample(
-    {
-      ...childCase,
-      setup: {
-        ...childCase.setup,
-        priorTurns: [
-          {
-            role: "assistant",
-            toolCalls: [
-              bash("gh pr create --fill", "https://github.com/acme/app/pull/124"),
-              bash("gh pr view 123 --json url -q .url", "https://github.com/acme/app/pull/123"),
-            ],
-          },
-        ],
-      },
-    },
-    base,
-  );
-  assert.deepEqual([...sample.linked], ["https://github.com/acme/app/pull/124"]);
-});
-
 it("reads the tool output from the simulator's JSON reply", () => {
   const reply = (value: string) => [{ type: "thinking" }, { type: "text", text: value }];
   assert.equal(
@@ -611,9 +568,9 @@ it("stops a sample only once a must-not check has failed", () => {
     text,
     stopReason: "tool_use",
   });
-  const expect = { calls: [{ tool: "link_pull_request" }], notCalls: ["watch_pull_request"] };
+  const expect = { calls: [{ tool: "delegate_task" }], notCalls: ["t3_thread_launch"] };
   assert.isFalse(failedEarly(expect, run("Bash")));
-  assert.isTrue(failedEarly(expect, run("watch_pull_request")));
+  assert.isTrue(failedEarly(expect, run("t3_thread_launch")));
   assert.isTrue(failedEarly({ textMustNot: ["paste"] }, run("Bash", "paste it here")));
   // A chat ask or a leak is final; a consuming read of the secret file can still come.
   const secret = { chatAsk: true, values: ["482916"], fileUse: "consume" } as const;

@@ -1,5 +1,8 @@
+import * as Cache from "effect/Cache";
 import * as Context from "effect/Context";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 
@@ -15,23 +18,19 @@ import {
   type VcsListRefsInput,
   type VcsListRefsResult,
   type GitManagerServiceError,
-  type GitPreparePullRequestThreadInput,
-  type GitPreparePullRequestThreadResult,
-  type GitPullRequestRefInput,
   type VcsPullResult,
   type VcsRemoveWorktreeInput,
-  type GitResolvePullRequestResult,
-  type GitRunStackedActionInput,
-  type GitRunStackedActionResult,
   type VcsStatusInput,
   type VcsStatusLocalResult,
   type VcsStatusRemoteResult,
   type VcsStatusResult,
 } from "@aprende/contracts";
 
-import * as GitManager from "./GitManager.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
+import { mergeGitStatusParts } from "@aprende/shared/git";
+
+import * as ServerSettings from "../serverSettings.ts";
 import { withWorkspaceLease } from "../workspace/workspaceLease.ts";
 
 export class GitWorkflowService extends Context.Service<
@@ -55,22 +54,12 @@ export class GitWorkflowService extends Context.Service<
     readonly currentBranch: (cwd: string) => Effect.Effect<string | null, GitManagerServiceError>;
     readonly remoteStatus: (
       input: VcsStatusInput,
-      options?: GitManager.GitRemoteStatusOptions,
+      options?: GitVcsDriver.GitRemoteStatusOptions,
     ) => Effect.Effect<VcsStatusRemoteResult | null, GitManagerServiceError>;
     readonly invalidateLocalStatus: (cwd: string) => Effect.Effect<void, never>;
     readonly invalidateRemoteStatus: (cwd: string) => Effect.Effect<void, never>;
     readonly invalidateStatus: (cwd: string) => Effect.Effect<void, never>;
     readonly pullCurrentBranch: (cwd: string) => Effect.Effect<VcsPullResult, GitCommandError>;
-    readonly runStackedAction: (
-      input: GitRunStackedActionInput,
-      options?: GitManager.GitRunStackedActionOptions,
-    ) => Effect.Effect<GitRunStackedActionResult, GitManagerServiceError>;
-    readonly resolvePullRequest: (
-      input: GitPullRequestRefInput,
-    ) => Effect.Effect<GitResolvePullRequestResult, GitManagerServiceError>;
-    readonly preparePullRequestThread: (
-      input: GitPreparePullRequestThreadInput,
-    ) => Effect.Effect<GitPreparePullRequestThreadResult, GitManagerServiceError>;
     readonly listRefs: (
       input: VcsListRefsInput,
     ) => Effect.Effect<VcsListRefsResult, GitCommandError>;
@@ -134,6 +123,13 @@ export class GitWorkflowService extends Context.Service<
   }
 >()("aprende/git/GitWorkflowService") {}
 
+const STATUS_RESULT_CACHE_TTL = Duration.seconds(1);
+const STATUS_RESULT_CACHE_CAPACITY = 2_048;
+
+function isNotGitRepositoryError(error: GitCommandError): boolean {
+  return error.message.toLowerCase().includes("not a git repository");
+}
+
 function nonRepositoryLocalStatus(): VcsStatusLocalResult {
   return {
     isRepo: false,
@@ -174,8 +170,69 @@ function nonRepositoryListRefs(): VcsListRefsResult {
 export const make = Effect.gen(function* () {
   const registry = yield* VcsDriverRegistry.VcsDriverRegistry;
   const git = yield* GitVcsDriver.GitVcsDriver;
-  const gitManager = yield* GitManager.GitManager;
   const fileSystem = yield* FileSystem.FileSystem;
+  const serverSettings = yield* ServerSettings.ServerSettingsService;
+
+  const statusCacheKey = (cwd: string) =>
+    fileSystem.realPath(cwd).pipe(Effect.orElseSucceed(() => cwd));
+  const statusTimeToLive = (exit: Exit.Exit<unknown, unknown>) =>
+    Exit.isSuccess(exit) ? STATUS_RESULT_CACHE_TTL : Duration.zero;
+  const readLocalStatus = Effect.fn("GitWorkflowService.readLocalStatus")(function* (cwd: string) {
+    const details = yield* git
+      .statusDetailsLocal(cwd, { includeDivergence: false, includeBranchChanges: true })
+      .pipe(Effect.catchIf(isNotGitRepositoryError, () => Effect.succeed(null)));
+    if (details === null) return nonRepositoryLocalStatus();
+    return {
+      isRepo: details.isRepo,
+      hasPrimaryRemote: details.hasOriginRemote,
+      isDefaultRef: details.isDefaultBranch,
+      refName: details.branch,
+      hasWorkingTreeChanges: details.hasWorkingTreeChanges,
+      workingTree: details.workingTree,
+      ...(details.branchChanges ? { branchChanges: details.branchChanges } : {}),
+    } satisfies VcsStatusLocalResult;
+  });
+  const readRemoteStatus = Effect.fn("GitWorkflowService.readRemoteStatus")(function* (
+    cwd: string,
+    options?: GitVcsDriver.GitRemoteStatusOptions,
+  ) {
+    const details = yield* git
+      .statusDetailsRemote(cwd, options)
+      .pipe(Effect.catchIf(isNotGitRepositoryError, () => Effect.succeed(null)));
+    if (details === null || !details.isRepo) return null;
+    return {
+      hasUpstream: details.hasUpstream,
+      aheadCount: details.aheadCount,
+      behindCount: details.behindCount,
+      aheadOfDefaultCount: details.aheadOfDefaultCount,
+      pr: null,
+    } satisfies VcsStatusRemoteResult;
+  });
+  const localStatusCache = yield* Cache.makeWith(readLocalStatus, {
+    capacity: STATUS_RESULT_CACHE_CAPACITY,
+    timeToLive: statusTimeToLive,
+  });
+  const remoteStatusCache = yield* Cache.makeWith((cwd: string) => readRemoteStatus(cwd), {
+    capacity: STATUS_RESULT_CACHE_CAPACITY,
+    timeToLive: statusTimeToLive,
+  });
+  const cachedLocalStatus = (input: VcsStatusInput) =>
+    statusCacheKey(input.cwd).pipe(Effect.flatMap((key) => Cache.get(localStatusCache, key)));
+  const cachedRemoteStatus = (
+    input: VcsStatusInput,
+    options?: GitVcsDriver.GitRemoteStatusOptions,
+  ) =>
+    statusCacheKey(input.cwd).pipe(
+      Effect.flatMap((key) =>
+        options?.refreshUpstream === false
+          ? readRemoteStatus(key, options)
+          : Cache.get(remoteStatusCache, key),
+      ),
+    );
+  const invalidateLocalStatus = (cwd: string) =>
+    statusCacheKey(cwd).pipe(Effect.flatMap((key) => Cache.invalidate(localStatusCache, key)));
+  const invalidateRemoteStatus = (cwd: string) =>
+    statusCacheKey(cwd).pipe(Effect.flatMap((key) => Cache.invalidate(remoteStatusCache, key)));
 
   // Nested projects and path aliases must share the checkout's branch-mutation lease.
   const withCheckoutLease = <A, E, R>(rootPath: string, effect: Effect.Effect<A, E, R>) =>
@@ -262,14 +319,6 @@ export const make = Effect.gen(function* () {
     return true;
   });
 
-  const routeGitManager =
-    <Input extends { readonly cwd: string }, Output>(
-      operation: string,
-      run: (input: Input) => Effect.Effect<Output, GitManagerServiceError>,
-    ) =>
-    (input: Input) =>
-      ensureGit(operation, input.cwd).pipe(Effect.andThen(run(input)));
-
   return GitWorkflowService.of({
     isRepository: Effect.fn("GitWorkflowService.isRepository")(function (cwd) {
       return registry.detect({ cwd }).pipe(
@@ -321,16 +370,18 @@ export const make = Effect.gen(function* () {
     status: Effect.fn("GitWorkflowService.status")(function (input) {
       return detectGitRepositoryForStatus("GitWorkflowService.status", input.cwd).pipe(
         Effect.flatMap((isGitRepository) =>
-          isGitRepository ? gitManager.status(input) : Effect.succeed(nonRepositoryStatus()),
+          isGitRepository
+            ? Effect.all([cachedLocalStatus(input), cachedRemoteStatus(input)], {
+                concurrency: "unbounded",
+              }).pipe(Effect.map(([local, remote]) => mergeGitStatusParts(local, remote)))
+            : Effect.succeed(nonRepositoryStatus()),
         ),
       );
     }),
     localStatus: Effect.fn("GitWorkflowService.localStatus")(function (input) {
       return detectGitRepositoryForStatus("GitWorkflowService.localStatus", input.cwd).pipe(
         Effect.flatMap((isGitRepository) =>
-          isGitRepository
-            ? gitManager.localStatus(input)
-            : Effect.succeed(nonRepositoryLocalStatus()),
+          isGitRepository ? cachedLocalStatus(input) : Effect.succeed(nonRepositoryLocalStatus()),
         ),
       );
     }),
@@ -363,46 +414,21 @@ export const make = Effect.gen(function* () {
     remoteStatus: Effect.fn("GitWorkflowService.remoteStatus")(function (input, options) {
       return detectGitRepositoryForStatus("GitWorkflowService.remoteStatus", input.cwd).pipe(
         Effect.flatMap((isGitRepository) =>
-          isGitRepository ? gitManager.remoteStatus(input, options) : Effect.succeed(null),
+          isGitRepository ? cachedRemoteStatus(input, options) : Effect.succeed(null),
         ),
       );
     }),
-    invalidateLocalStatus: gitManager.invalidateLocalStatus,
-    invalidateRemoteStatus: gitManager.invalidateRemoteStatus,
-    invalidateStatus: gitManager.invalidateStatus,
+    invalidateLocalStatus,
+    invalidateRemoteStatus,
+    invalidateStatus: Effect.fn("GitWorkflowService.invalidateStatus")(function* (cwd) {
+      yield* invalidateLocalStatus(cwd);
+      yield* invalidateRemoteStatus(cwd);
+    }),
     pullCurrentBranch: Effect.fn("GitWorkflowService.pullCurrentBranch")(function (cwd) {
       return ensureGitCommand("GitWorkflowService.pullCurrentBranch", cwd).pipe(
         Effect.andThen(git.pullCurrentBranch(cwd)),
       );
     }),
-    runStackedAction: Effect.fn("GitWorkflowService.runStackedAction")(function (input, options) {
-      return ensureGit("GitWorkflowService.runStackedAction", input.cwd).pipe(
-        Effect.flatMap((handle) =>
-          withCheckoutLease(
-            handle.repository.rootPath,
-            gitManager.runStackedAction(input, options),
-          ),
-        ),
-      );
-    }),
-    resolvePullRequest: routeGitManager(
-      "GitWorkflowService.resolvePullRequest",
-      gitManager.resolvePullRequest,
-    ),
-    preparePullRequestThread: Effect.fn("GitWorkflowService.preparePullRequestThread")(
-      function (input) {
-        return ensureGit("GitWorkflowService.preparePullRequestThread", input.cwd).pipe(
-          Effect.flatMap((handle) =>
-            input.mode === "local"
-              ? withCheckoutLease(
-                  handle.repository.rootPath,
-                  gitManager.preparePullRequestThread(input),
-                )
-              : gitManager.preparePullRequestThread(input),
-          ),
-        );
-      },
-    ),
     listRefs: Effect.fn("GitWorkflowService.listRefs")(function (input) {
       return detectGitRepositoryForCommand("GitWorkflowService.listRefs", input.cwd).pipe(
         Effect.flatMap((isGitRepository) =>
@@ -412,7 +438,13 @@ export const make = Effect.gen(function* () {
     }),
     createWorktree: Effect.fn("GitWorkflowService.createWorktree")(function (input, options) {
       return ensureGitCommand("GitWorkflowService.createWorktree", input.cwd).pipe(
-        Effect.andThen(gitManager.createWorktree(input, options)),
+        Effect.andThen(serverSettings.getSettings.pipe(Effect.orElseSucceed(() => null))),
+        Effect.flatMap((settings) =>
+          git.createWorktree(input, {
+            worktreesDirectory: settings?.worktreesDirectory ?? "",
+            ...options,
+          }),
+        ),
       );
     }),
     listLocalBranchNames: Effect.fn("GitWorkflowService.listLocalBranchNames")(function (cwd) {

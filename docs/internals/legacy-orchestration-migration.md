@@ -11,9 +11,8 @@ needs investigation.
 
 The shell import preserves the project and thread identifiers, title, provider and model selection,
 runtime and interaction modes, branch, worktree path, creation and update times, archive and delete
-times, settlement override and timestamps, snooze timestamps, pin timestamp and order, and linked
-pull request. The metadata repair path fills snooze, pin order, `unsettledAt`, and linked pull request
-fields for threads imported before those fields were covered.
+times, settlement override and timestamps, snooze timestamps, and pin timestamp and order. The metadata
+repair path fills snooze, pin order, and `unsettledAt` fields for threads imported before those fields were covered.
 
 Transcript import reads user and assistant rows from `projection_thread_messages`. It preserves
 message identifiers, text, supported attachments, timestamps, role, and ordering. A message that was

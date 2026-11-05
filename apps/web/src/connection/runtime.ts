@@ -4,7 +4,6 @@ import {
   BoundedThreadSnapshotLoader,
   ThreadHistoryController,
 } from "@aprende/client-runtime/state/threads";
-import { PullRequestDiffLoader } from "@aprende/client-runtime/state/pull-requests";
 import * as Layer from "effect/Layer";
 import { Atom } from "effect/reactivity";
 
@@ -18,7 +17,6 @@ const layerSnapshotLoader = Layer.mergeAll(
   BoundedThreadSnapshotLoader.layer,
   ShellSnapshotLoader.layer,
   ThreadHistoryController.layer,
-  PullRequestDiffLoader.layer,
 );
 
 type ConnectionLayerSource =

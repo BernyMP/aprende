@@ -364,22 +364,11 @@ it.effect("keeps unexpected handler defects private through the production regis
   ),
 );
 
-it("keeps MCP preference output allowlisted and Unicode-bounded", () => {
-  const settings = {
-    ...DEFAULT_SERVER_SETTINGS,
-    privateCredential: "must-not-escape",
-    sourceControlWritingStyle: {
-      ...DEFAULT_SERVER_SETTINGS.sourceControlWritingStyle,
-      customInstructions: "🙂".repeat(4001),
-    },
-  };
+it("keeps MCP preference output allowlisted", () => {
+  const settings = { ...DEFAULT_SERVER_SETTINGS, privateCredential: "must-not-escape" };
   const result = EnvironmentHandlers.preferences(settings);
   expect(result).not.toHaveProperty("privateCredential");
   expect(result).not.toHaveProperty("providers");
-  expect(result.sourceControlWritingStyle).toMatchObject({
-    customInstructions: "🙂".repeat(4000),
-    truncated: true,
-  });
 });
 
 it.effect("resolves reused attachment references from stored metadata", () =>
@@ -423,7 +412,7 @@ const clientScope = (
   thread: undefined,
   client: { sessionId: "session-1", label: "Claude Code", access },
   issuedAt: 0,
-  capabilities: new Set(["orchestration", "worktree", "pull-requests"]),
+  capabilities: new Set(["orchestration", "worktree"]),
 });
 
 it.effect("a client caller targets any thread within its ceiling and cannot act as a thread", () =>

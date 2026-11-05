@@ -13,8 +13,7 @@ connections are local to a client profile; the server's identity and state are
 not. A repository identity can correlate clones across environments, but never
 routes work between them. A project and its threads belong to one environment;
 an agent reaches another environment's threads only through a peer link.
-The canonical key follows the `upstream` remote when one exists, so pull request
-features target the repository a fork tracks. A fork also reports its own
+The canonical key follows the `upstream` remote when one exists. A fork also reports its own
 `origin`, and clients group and label by that, so a fork never collapses into a
 checkout of its upstream.
 
@@ -63,9 +62,6 @@ whose public address is NATed to a private interface. It is not a firewall:
 T3 Connect and Tailscale Serve reach the server over loopback by design, and a
 proxy that rewrites the source address looks private. One listener per address would
 miss a DHCP change, and the wildcard keeps the reported addresses current.
-
-Pull request routing trust covers the whole route list. Adding or changing a route
-revokes it; reordering does not, because the same addresses remain trusted.
 
 ## Hosted web is a client
 

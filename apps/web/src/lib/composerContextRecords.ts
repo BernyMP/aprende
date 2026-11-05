@@ -1,8 +1,4 @@
 import {
-  capitalizeTerm,
-  sourceControlClients,
-} from "@aprende/client-runtime/source-control-clients";
-import {
   COMPOSER_CONTEXT_REVIEW_DIFF_MAX_CHARS,
   COMPOSER_CONTEXT_REVIEW_TEXT_MAX_CHARS,
   COMPOSER_CONTEXT_TERMINAL_TEXT_MAX_CHARS,
@@ -104,12 +100,9 @@ export function pullRequestContextDisplayState(
 }
 
 export function pullRequestContextKindLabel(comment: ReviewCommentPresentation): string {
-  const url = comment.pullRequest?.url;
-  const host = url === undefined ? null : sourceControlClients.findByChangeRequestUrl(url);
-  const term = (host ?? sourceControlClients.get(undefined)).changeRequest.singular;
   const state = pullRequestContextDisplayState(comment);
-  if (state === null) return capitalizeTerm(term);
-  return `${capitalizeTerm(state)} ${term}`;
+  if (state === null) return "Pull request";
+  return `${state.charAt(0).toUpperCase()}${state.slice(1)} pull request`;
 }
 
 export function previewAnnotationContextLabel(annotation: PreviewAnnotationPayload): string {

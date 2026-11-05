@@ -147,9 +147,6 @@ export default defineConfig({
       "pnpm-lock.yaml",
       "*.tsbuildinfo",
       "**/routeTree.gen.ts",
-      "**/*.graphql.ts",
-      "packages/source-control-github/schema/**",
-      "apps/server/schema/**",
       "*.icon/**",
     ],
     sortPackageJson: {},
@@ -172,9 +169,6 @@ export default defineConfig({
       "pnpm-lock.yaml",
       "*.tsbuildinfo",
       "**/routeTree.gen.ts",
-      "**/*.graphql.ts",
-      "packages/source-control-github/schema/**",
-      "apps/server/schema/**",
     ],
     plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
     jsPlugins: ["./oxlint-plugin-aprende/index.ts", "@shadcn/lint"],
@@ -357,66 +351,6 @@ export default defineConfig({
       {
         files: ["apps/web/src/components/pullRequest/pullRequestIcons.tsx"],
         rules: { "eslint/no-restricted-imports": ["error", { paths: RESTRICTED_IMPORT_PATHS }] },
-      },
-      {
-        // The server and every client load a forge's shared definition, so a UI runtime
-        // imported there would break the server; client-only forge code goes in `src/client/`.
-        files: ["packages/source-control-*/src/shared/**"],
-        rules: {
-          "eslint/no-restricted-imports": [
-            "error",
-            {
-              paths: [...RESTRICTED_IMPORT_PATHS, RESTRICTED_PULL_REQUEST_GLYPH_IMPORTS],
-              patterns: [
-                {
-                  group: [
-                    "react",
-                    "react/*",
-                    "react-*",
-                    "expo",
-                    "expo-*",
-                    "lucide-react",
-                    "@aprende/client-runtime",
-                    "@aprende/client-runtime/*",
-                    "../client/*",
-                    "../server/*",
-                    "../../client/*",
-                    "../../server/*",
-                    "../../../client/*",
-                    "../../../server/*",
-                    "@aprende/source-control-*/client/*",
-                    "@aprende/source-control-*/server/*",
-                  ],
-                  message:
-                    "Shared forge definitions load on the server and every client; keep UI and server code out.",
-                },
-              ],
-            },
-          ],
-        },
-      },
-      {
-        files: ["apps/server/src/**", "packages/source-control-*/src/server/**"],
-        rules: {
-          "eslint/no-restricted-imports": [
-            "error",
-            {
-              paths: [...RESTRICTED_IMPORT_PATHS, RESTRICTED_PULL_REQUEST_GLYPH_IMPORTS],
-              patterns: [
-                {
-                  group: [
-                    "@aprende/source-control-*/client/*",
-                    "../client/*",
-                    "../../client/*",
-                    "../../../client/*",
-                  ],
-                  message:
-                    "A forge's client entry is UI-only; the server reads its `shared/definition`.",
-                },
-              ],
-            },
-          ],
-        },
       },
       {
         // Raw ResizeObserver state commits miss the paint; observeResize flushes derived layout together.

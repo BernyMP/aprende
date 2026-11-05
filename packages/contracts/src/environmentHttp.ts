@@ -56,12 +56,6 @@ import {
   OrchestrationV2ThreadTranscript,
 } from "./orchestrationV2.ts";
 import { Project, ProjectMutation, ProjectSnapshot } from "./project.ts";
-import {
-  PullRequestDiffInput,
-  PullRequestDiffResult,
-  PullRequestOperationError,
-  PullRequestUnavailableError,
-} from "./pullRequest.ts";
 
 const OptionalBearerHeaders = Schema.Struct({
   authorization: Schema.optionalKey(Schema.String),
@@ -673,21 +667,6 @@ class EnvironmentProjectsHttpApi extends HttpApiGroup.make("projects")
     }).middleware(EnvironmentAuthenticatedAuth),
   ) {}
 
-class EnvironmentPullRequestsHttpApi extends HttpApiGroup.make("pullRequests").add(
-  HttpApiEndpoint.post("diff", "/api/pull-requests/diff", {
-    headers: OptionalBearerHeaders,
-    payload: PullRequestDiffInput,
-    success: PullRequestDiffResult,
-    error: [
-      PullRequestUnavailableError,
-      PullRequestOperationError,
-      EnvironmentAuthInvalidError,
-      EnvironmentScopeRequiredError,
-      EnvironmentInternalError,
-    ],
-  }).middleware(EnvironmentAuthenticatedAuth),
-) {}
-
 // Path tokens and optional body signatures authenticate webhooks; read raw bytes to verify signatures.
 const WebhookParams = Schema.Struct({
   hookId: TrimmedNonEmptyString,
@@ -713,6 +692,5 @@ export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(EnvironmentAuthHttpApi)
   .add(EnvironmentMcpOAuthHttpApi)
   .add(EnvironmentOrchestrationHttpApi)
-  .add(EnvironmentPullRequestsHttpApi)
   .add(EnvironmentProjectsHttpApi)
   .add(EnvironmentWebhooksHttpApi) {}

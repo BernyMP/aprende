@@ -189,18 +189,6 @@ describe("scoreThreadSearch", () => {
     ).toBe("aprende vs Gemini Token Volume");
   });
 
-  it("matches pull request numbers, branches, and projects with every token somewhere", () => {
-    const subject = thread("Trim model lists", {
-      branch: "aprende/trim-mcp-models",
-      projectTitle: "aprende",
-      pullRequests: [{ number: 22889, title: "Smaller MCP payloads" }],
-    });
-    for (const query of ["#22889", "22889", "trim mcp", "payloads aprende", "models trim"]) {
-      expect(scoreThreadSearch(foldSearchQuery(query), subject, NOW), query).not.toBeNull();
-    }
-    expect(scoreThreadSearch("trim lakebed", subject, NOW)).toBeNull();
-  });
-
   it("forgives one typo only when nothing matches exactly", () => {
     const threads = [thread("Hosting alternatives to Railway"), thread("Trim MCP model lists")];
     expect(rankTitles("railwya", threads)).toEqual(["Hosting alternatives to Railway"]);
@@ -208,9 +196,6 @@ describe("scoreThreadSearch", () => {
     expect(
       rankTitles("drga", [thread("Restore drag handles"), thread("Organize indicators")]),
     ).toEqual(["Restore drag handles"]);
-    expect(rankTitles("22889", [thread("Stats", { pullRequests: [{ number: 22189 }] })])).toEqual(
-      [],
-    );
     // Words with digits still forgive one.
     expect(rankTitles("bsae64", [thread("base64 perf audit"), thread("Other")])).toEqual([
       "base64 perf audit",
@@ -248,8 +233,7 @@ describe("scoreThreadSearch", () => {
 });
 
 describe("queries that fold to empty words", () => {
-  it("returns for a hash and a space, or marks that fold to nothing", () => {
-    expect(rankTitles("# fix", [thread("Fix sidebar lag")])).toEqual(["Fix sidebar lag"]);
+  it("returns nothing for marks that fold to nothing", () => {
     expect(rankTitles("#", [thread("Fix sidebar lag")])).toEqual([]);
     expect(rankTitles("´´´", [thread("Fix sidebar lag")])).toEqual([]);
     expect(scoreSearchTerms("# fix", ["Fix sidebar"])).toBeNull();
@@ -259,38 +243,8 @@ describe("queries that fold to empty words", () => {
 });
 
 describe("scoreThreadSearch beyond Latin text and titles", () => {
-  it("leaves out a row whose words only meet across unrelated fields", () => {
-    const scattered = thread("eMudhra certificate update request", {
-      pullRequests: [
-        { number: 22645, title: "fix model picker" },
-        { number: 22649, title: "CI speedups" },
-      ],
-    });
-    expect(scoreThreadSearch("fix ci", scattered, NOW)).toBeNull();
-    // The project explains its own words; one field explains the rest.
-    const lakebed = thread("Weekly notes", {
-      projectTitle: "lakebed",
-      pullRequests: [{ number: 243, title: "perf: faster cold starts" }],
-    });
-    expect(scoreThreadSearch("lakebed perf", lakebed, NOW)?.explain?.()).toEqual({
-      label: "PR",
-      text: "#243 perf: faster cold starts",
-      ranges: [{ start: 5, end: 9 }],
-    });
-  });
-
   it("says which field matched when the title does not", () => {
-    const subject = thread("Trim model lists", {
-      branch: "aprende/cleanup-payloads",
-      pullRequests: [{ number: 22889, title: "Smaller MCP payloads" }],
-    });
-    for (const query of ["#22889", "pr 22889", "pr22889", "pull request #22889"]) {
-      expect(scoreThreadSearch(foldSearchQuery(query), subject, NOW)?.explain?.(), query).toEqual({
-        label: "PR",
-        text: "#22889 Smaller MCP payloads",
-        ranges: [{ start: 1, end: 6 }],
-      });
-    }
+    const subject = thread("Trim model lists", { branch: "aprende/cleanup-payloads" });
     // The app's own worktree prefix is not part of what the branch says.
     expect(scoreThreadSearch("cleanup", subject, NOW)?.explain?.()).toEqual({
       label: "Branch",
@@ -407,30 +361,13 @@ describe("scoreThreadSearch with heavy use and loose input", () => {
     }
   });
 
-  it("matches pieces of references that hold a number, and environment names", () => {
+  it("matches pieces of an id that hold a number, and environment names", () => {
     const subject = thread("Trim model lists", {
       id: "thread-5fe6f59c-4976",
       environmentLabel: "BeeBox",
-      pullRequests: [
-        {
-          number: 22889,
-          references: ["BernyMP/aprende#22889", "https://github.com/BernyMP/aprende/pull/22889"],
-        },
-      ],
     });
-    for (const query of [
-      "aprende#22889",
-      "github.com/BernyMP/aprende/pull/22889",
-      "https://github.com/BernyMP/aprende/pull/22889/files",
-      "5fe6f59c",
-      "beebox",
-    ]) {
+    for (const query of ["5fe6f59c", "beebox"]) {
       expect(scoreThreadSearch(foldSearchQuery(query), subject, NOW), query).not.toBeNull();
-    }
-    expect(scoreThreadSearch("github.com", subject, NOW)).toBeNull();
-    // A number is never cut short.
-    for (const query of ["github.com/BernyMP/aprende/pull/2288", "aprende#2288"]) {
-      expect(scoreThreadSearch(foldSearchQuery(query), subject, NOW), query).toBeNull();
     }
   });
 });

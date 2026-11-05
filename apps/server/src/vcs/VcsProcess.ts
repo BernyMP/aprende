@@ -20,7 +20,6 @@ import {
   VcsProcessTimeoutError,
 } from "@aprende/contracts";
 import * as HostProcess from "@aprende/shared/HostProcess";
-import type { SourceControlProcessInput } from "@aprende/source-control-core/server/SourceControlHost";
 
 import { gitCommandDuration, gitCommandsTotal, withMetrics } from "../observability/Metrics.ts";
 import * as ProcessRunner from "../processRunner.ts";
@@ -39,9 +38,9 @@ export interface VcsProcessInput {
   readonly maxOutputBytes?: number;
   readonly outputMode?: ProcessRunner.ProcessRunInput["outputMode"];
   readonly appendTruncationMarker?: boolean;
-  readonly classifyFailure?: SourceControlProcessInput["classifyFailure"];
+  readonly classifyFailure?: (stderr: string) => VcsProcessExitFailureKind | null;
   readonly notFoundDetail?: string;
-  readonly concurrency?: SourceControlProcessInput["concurrency"];
+  readonly concurrency?: { readonly key: string; readonly limit: number };
 }
 
 export interface VcsProcessOutput {

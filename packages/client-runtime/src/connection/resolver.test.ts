@@ -20,19 +20,9 @@ import {
   type ConnectionProfile,
 } from "./catalog.ts";
 import * as ConnectionCredentialStore from "./credentialStore.ts";
-import {
-  ConnectionTransientError,
-  PrimaryConnectionTarget,
-  SshConnectionTarget,
-  type ConnectionTarget,
-} from "./model.ts";
+import { PrimaryConnectionTarget, SshConnectionTarget, type ConnectionTarget } from "./model.ts";
 import * as ConnectionProfileStore from "./profileStore.ts";
 import * as RpcHttp from "../rpc/http.ts";
-import {
-  PullRequestRoutingPermissions,
-  pullRequestRoutingConnectionKey,
-  makePullRequestRoutingPermissions,
-} from "./pullRequestRoutingPermissions.ts";
 
 const ENVIRONMENT_ID = EnvironmentId.make("environment-1");
 const ENDPOINT = {
@@ -251,8 +241,8 @@ describe("ConnectionResolver", () => {
     }),
   );
 
-  it.effect.each(["unchanged", "changed", "revocation-failed"] as const)(
-    "handles %s SSH routing consent before saving or authorizing",
+  it.effect.each(["unchanged", "changed"] as const)(
+    "saves the %s SSH profile before authorizing",
     (scenario) =>
       Effect.gen(function* () {
         const calls: string[] = [];
@@ -272,25 +262,6 @@ describe("ConnectionResolver", () => {
           scenario === "unchanged"
             ? SSH_TARGET
             : { ...SSH_TARGET, hostname: "replacement.example.test" };
-        const failure = new ConnectionTransientError({
-          reason: "remote-unavailable",
-          detail: "Could not persist routing consent.",
-        });
-        const permissions = yield* makePullRequestRoutingPermissions({
-          read: Effect.succeed([
-            {
-              environmentId: ENVIRONMENT_ID,
-              connectionKey: pullRequestRoutingConnectionKey(entry)!,
-              permission: "read-write",
-            },
-          ]),
-          write: () =>
-            Effect.sync(() => {
-              calls.push("revoke");
-            }).pipe(
-              Effect.andThen(scenario === "revocation-failed" ? Effect.fail(failure) : Effect.void),
-            ),
-        });
         let savedProfile: ConnectionProfile = profile;
         const layerBroker = yield* makeDependencies({
           profileStore: {
@@ -327,23 +298,9 @@ describe("ConnectionResolver", () => {
         const broker = yield* ConnectionResolver.ConnectionResolver.pipe(
           Effect.provide(layerBroker),
         );
-        const prepare = broker
-          .prepare(entry)
-          .pipe(Effect.provideService(PullRequestRoutingPermissions, permissions));
-        if (scenario === "revocation-failed") {
-          expect(yield* Effect.flip(prepare)).toBe(failure);
-          expect(savedProfile).toBe(profile);
-          expect(calls).toEqual(["revoke"]);
-        } else {
-          expect((yield* prepare).socketUrl).toContain("wsTicket=ssh");
-          expect(savedProfile).toMatchObject({ target: preparedTarget });
-          expect(calls).toEqual(
-            scenario === "unchanged"
-              ? ["profile", "authorize"]
-              : ["revoke", "profile", "authorize"],
-          );
-        }
-        expect(yield* permissions.get(entry)).toBe(scenario === "changed" ? "off" : "read-write");
+        expect((yield* broker.prepare(entry)).socketUrl).toContain("wsTicket=ssh");
+        expect(savedProfile).toMatchObject({ target: preparedTarget });
+        expect(calls).toEqual(["profile", "authorize"]);
       }),
   );
 });

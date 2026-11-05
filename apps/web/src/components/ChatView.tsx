@@ -12,7 +12,6 @@ import {
   presentThreadShellFromProjection,
 } from "./ChatView.logic";
 import { useComposerSelection } from "./chat/useComposerSelection";
-import { useProjectCloneBanner } from "./chat/useProjectCloneBanner";
 import { useAttachmentPreviewHandoff } from "./chat/useAttachmentPreviewHandoff";
 import {
   applyOptimisticUserMessagesAction,
@@ -936,8 +935,6 @@ export default function ChatView(props: ChatViewProps) {
     activeProject?.id ?? null,
     activeProject ?? undefined,
   );
-  const { projectCloneBannerItem, projectCloneSendBlockReason } =
-    useProjectCloneBanner(activeProjectRef);
   const activeProjectDefaultModelSelection =
     !isServerThread && draftFallback
       ? draftFallback.selection
@@ -2098,13 +2095,11 @@ export default function ChatView(props: ChatViewProps) {
         : [];
     const limitRecoveryItems = limitRecoveryBanner === null ? [] : [limitRecoveryBanner];
     const usageLimitsItems = usageLimitsBanner === null ? [] : [usageLimitsBanner];
-    const projectCloneItems = projectCloneBannerItem === null ? [] : [projectCloneBannerItem];
     return [
       ...feedbackBannerItems,
       ...fallbackItems,
       ...limitRecoveryItems,
       ...usageLimitsItems,
-      ...projectCloneItems,
       ...systemComposerBannerItems,
     ];
   })() as ComposerBannerStackItem[];
@@ -2941,7 +2936,7 @@ export default function ChatView(props: ChatViewProps) {
                                           ? "Messages loading"
                                           : worktreeSetupBlocksSend
                                             ? "Preparing worktree"
-                                            : projectCloneSendBlockReason
+                                            : null
                               }
                               isPreparingWorktree={isPreparingWorktree && !sendQueuesBehindSetup}
                               bannerItems={

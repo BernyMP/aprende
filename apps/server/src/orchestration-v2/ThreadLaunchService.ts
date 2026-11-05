@@ -1,6 +1,4 @@
 import * as WorktreeSetupTracker from "../project/WorktreeSetupTracker.ts";
-import * as ProjectCloneTracker from "../project/ProjectCloneTracker.ts";
-import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import {
   CommandId,
   type ChatAttachment,
@@ -24,7 +22,6 @@ import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
-import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
@@ -42,9 +39,6 @@ import * as GitWorkflow from "../git/GitWorkflowService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.ts";
 import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
-import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
-import * as ServerSettings from "../serverSettings.ts";
-import * as TextGeneration from "../textGeneration/TextGeneration.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import type * as Orchestrator from "./Orchestrator.ts";
@@ -203,12 +197,9 @@ function failureDetail(error: unknown): string {
 const make = Effect.gen(function* () {
   const projects = yield* ProjectService.ProjectService;
   const setupTracker = yield* WorktreeSetupTracker.WorktreeSetupTracker;
-  const cloneTracker = yield* ProjectCloneTracker.ProjectCloneTracker;
   const git = yield* GitWorkflow.GitWorkflowService;
   const setupScripts = yield* ProjectSetupScriptRunner.ProjectSetupScriptRunner;
-  const providerRegistry = yield* ProviderRegistry.ProviderRegistry;
-  const serverSettings = yield* ServerSettings.ServerSettingsService;
-  const textGeneration = yield* TextGeneration.TextGeneration;
+
   const receipts = yield* CommandReceiptStore.CommandReceiptStoreV2;
   const ids = yield* IdAllocator.IdAllocatorV2;
   const threads = yield* ThreadManagement.ThreadManagementService;
@@ -311,8 +302,6 @@ const make = Effect.gen(function* () {
     let createdBranch: string | null = null;
     let workspaceRecorded = false;
     let runReleased = false;
-    // Stop background renames before forgetting worktrees; completed renames record them again.
-    let branchRename: Fiber.Fiber<unknown> | null = null;
     if (input.workspaceStrategy.type === "worktree") {
       yield* setupTracker.begin({
         threadId,
@@ -331,43 +320,6 @@ const make = Effect.gen(function* () {
       });
     }
     yield* Effect.gen(function* () {
-      const initialMessage = input.initialMessage;
-      const generateBranchNameFor = Effect.fn("ThreadLaunchService.generateBranchNameFor")(
-        function* (cwd: string, message: ThreadLaunchInitialMessage) {
-          const settings = resolveProjectSettings(
-            yield* serverSettings.getSettings,
-            input.projectId,
-          ).settings;
-          const modelSelection =
-            settings.sourceControlWriterModelSelection === null
-              ? settings.textGenerationModelSelection
-              : ServerSettings.resolveSourceControlWriterModelSelection(
-                  settings,
-                  yield* providerRegistry.getProviders,
-                  input.projectId,
-                );
-          return yield* textGeneration
-            .generateBranchName({
-              naming: {
-                mode: settings.branchNamingMode,
-                prefix: settings.branchNamePrefix,
-                instructions: settings.branchNameInstructions,
-              },
-              cwd,
-              message: message.text,
-              attachments: message.attachments,
-              ...(message.context ? { context: message.context } : {}),
-              modelSelection,
-            })
-            .pipe(
-              Effect.map((result) => ({
-                branch: result.branch,
-                exactName: settings.branchNamingMode === "custom",
-              })),
-            );
-        },
-      );
-
       const requestedBranch = input.workspaceStrategy.branch;
       let branch: string | null;
       if (input.workspaceStrategy.type === "worktree" && requestedBranch === undefined) {
@@ -475,97 +427,6 @@ const make = Effect.gen(function* () {
           .pipe(Effect.mapError(mapError(input, "update-thread", threadId)));
       }
       workspaceRecorded = true;
-
-      if (
-        reused === undefined &&
-        worktreePath !== null &&
-        branch !== null &&
-        initialMessage !== undefined &&
-        isTemporaryWorktreeBranch(branch)
-      ) {
-        const oldBranch = branch;
-        const worktreeCwd = worktreePath;
-        branchRename = yield* generateBranchNameFor(worktreeCwd, initialMessage).pipe(
-          Effect.flatMap(({ branch: newBranch, exactName }) =>
-            git
-              .renameBranch({
-                cwd: worktreeCwd,
-                oldBranch,
-                newBranch,
-                ...(exactName ? { exactName: true } : {}),
-              })
-              .pipe(
-                // A cancel must see the renamed branch, or its cleanup deletes the old name.
-                Effect.tap((renamed) =>
-                  Effect.sync(() => {
-                    createdBranch = renamed.branch;
-                  }),
-                ),
-                Effect.uninterruptible,
-              ),
-          ),
-          Effect.flatMap((renamed) =>
-            Effect.gen(function* () {
-              yield* threads
-                .dispatch({
-                  type: "thread.metadata.update",
-                  commandId: CommandId.make(`${input.commandId}:branch-rename`),
-                  threadId,
-                  branch: renamed.branch,
-                  worktreePath: worktreeCwd,
-                  expectedBranch: oldBranch,
-                  expectedWorktreePath: worktreeCwd,
-                })
-                .pipe(
-                  Effect.catchCause((cause) =>
-                    Effect.logWarning("Parent thread worktree branch update failed", {
-                      threadId,
-                      cause,
-                    }),
-                  ),
-                );
-              // Update parents first so children inherit names; reread each pass for newly updated descendants.
-              const visited = new Set([threadId]);
-              while (true) {
-                const snapshot = yield* threads.getShellSnapshot({ worktreePath: worktreeCwd });
-                const sharing = [...snapshot.threads, ...snapshot.archivedThreads].filter(
-                  (thread) => !visited.has(thread.id) && thread.branch === oldBranch,
-                );
-                if (sharing.length === 0) break;
-                for (const thread of sharing) {
-                  visited.add(thread.id);
-                  yield* threads
-                    .dispatch({
-                      type: "thread.metadata.update",
-                      commandId: CommandId.make(`${input.commandId}:branch-rename:${thread.id}`),
-                      threadId: thread.id,
-                      branch: renamed.branch,
-                      expectedBranch: oldBranch,
-                      expectedWorktreePath: worktreeCwd,
-                    })
-                    .pipe(
-                      Effect.catchCause((cause) =>
-                        Effect.logWarning("Shared thread worktree branch update failed", {
-                          threadId: thread.id,
-                          cause,
-                        }),
-                      ),
-                    );
-                }
-              }
-            }),
-          ),
-          Effect.catchCause((cause) =>
-            Effect.logWarning("Thread worktree branch rename failed", {
-              commandId: input.commandId,
-              threadId,
-              oldBranch,
-              cause,
-            }),
-          ),
-          Effect.forkIn(preparationScope),
-        );
-      }
 
       if (runId !== null && worktreePath !== null) {
         yield* threads
@@ -683,7 +544,6 @@ const make = Effect.gen(function* () {
             createdWorktreePath &&
             ((cancelled && !runReleased) || !workspaceRecorded)
           ) {
-            if (branchRename !== null) yield* Fiber.interrupt(branchRename);
             const removedPath = createdWorktreePath;
             const removedBranch = createdBranch;
             // Forget worktrees only after removal succeeds; failed removals must not reuse partially written checkouts.
@@ -833,10 +693,6 @@ const make = Effect.gen(function* () {
         (yield* managedFolders.isScratchProject(request.projectId))
           ? { ...request, workspaceStrategy: { type: "root" } }
           : request;
-      yield* ProjectCloneTracker.rejectCommandsDuringClone(cloneTracker, {
-        type: "thread.create",
-        projectId: input.projectId,
-      }).pipe(Effect.mapError(mapError(input, "resolve-project")));
       const project = yield* projects.getById(input.projectId).pipe(
         Effect.mapError(mapError(input, "resolve-project")),
         Effect.flatMap(

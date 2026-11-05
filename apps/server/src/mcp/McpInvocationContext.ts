@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import { formatThreadLink } from "@aprende/shared/threadLinks";
 
-const ALL_MCP_CAPABILITIES = ["orchestration", "worktree", "pull-requests"] as const;
+const ALL_MCP_CAPABILITIES = ["orchestration", "worktree"] as const;
 export type McpCapability = (typeof ALL_MCP_CAPABILITIES)[number];
 
 export interface McpThreadCaller {
@@ -133,16 +133,6 @@ export class McpInvocationContext extends Context.Service<
   McpInvocationContext,
   McpInvocationScope
 >()("aprende/mcp/McpInvocationContext") {}
-
-/**
- * `McpSchema.EnabledWhen` for tools a delegated child must not see or call.
- * EnabledWhen only receives the MCP client profile, so read the T3 caller from the request fiber.
- */
-export const hiddenFromSubagents = (): boolean => {
-  const fiber = Fiber.getCurrent();
-  const scope = fiber && Context.getOrUndefined(fiber.context, McpInvocationContext);
-  return scope?.thread?.subagent !== true;
-};
 
 /** `McpSchema.EnabledWhen` for tools that only serve links, hidden while the beta is off. */
 export const hiddenWhileLinksOff = (): boolean => {

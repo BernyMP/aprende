@@ -1,18 +1,14 @@
-import { SourceControlProviderKind } from "@aprende/contracts";
 import type { VcsStatusRemoteResult, VcsStatusResult } from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   applyGitStatusStreamEvent,
-  formatGeneratedBranchName,
   buildTemporaryWorktreeBranchName,
   flattenTemporaryWorktreeBranchName,
   isBareGitConfig,
   isTemporaryWorktreeBranch,
   normalizeGitRemoteUrl,
   parseOriginUrlFromGitConfig,
-  resolveAutoFeatureBranchName,
-  sanitizeFeatureBranchName,
   WORKTREE_BRANCH_PREFIX,
 } from "./git.ts";
 
@@ -217,11 +213,6 @@ describe("applyGitStatusStreamEvent", () => {
   it("preserves local-only fields when applying a remote update", () => {
     const current: VcsStatusResult = {
       isRepo: true,
-      sourceControlProvider: {
-        kind: SourceControlProviderKind.make("github"),
-        name: "GitHub",
-        baseUrl: "https://github.com",
-      },
       hasPrimaryRemote: true,
       isDefaultRef: false,
       refName: "feature/demo",
@@ -251,69 +242,5 @@ describe("applyGitStatusStreamEvent", () => {
       behindCount: 1,
       pr: null,
     });
-  });
-});
-
-describe("sanitizeFeatureBranchName", () => {
-  it("sanitizes an explicit namespace before preserving it", () => {
-    expect(sanitizeFeatureBranchName(' "FIX//Calendar recruitment filter" ')).toBe(
-      "fix/calendar-recruitment-filter",
-    );
-  });
-
-  // regression: #15615 generated branch namespaces are preserved
-  it.each([
-    ["refine toolbar", "feature/refine-toolbar"],
-    [" /?. / ", "feature/update"],
-    ["fix///", "feature/fix"],
-  ])("keeps the fallback for unprefixed input %s", (input, expected) => {
-    expect(sanitizeFeatureBranchName(input)).toBe(expected);
-  });
-
-  it("keeps accented letters as their plain letters", () => {
-    expect(sanitizeFeatureBranchName("fix/Añadir validación del café")).toBe(
-      "fix/anadir-validacion-del-cafe",
-    );
-  });
-});
-
-describe("resolveAutoFeatureBranchName", () => {
-  it("resolves case-insensitive collisions within the generated namespace", () => {
-    expect(
-      resolveAutoFeatureBranchName(
-        ["FIX/refine-toolbar", "fix/refine-toolbar-2"],
-        "fix/refine-toolbar",
-      ),
-    ).toBe("fix/refine-toolbar-3");
-  });
-
-  // regression: #15615 generated branch namespaces are preserved
-  it.each([
-    ["fix/name", ["fix"], "fix-2/name"],
-    ["fix/name", ["fix/name/child"], "fix/name-2"],
-    ["fix/name", ["fixes", "fix/name-extra/child"], "fix/name"],
-  ])("resolves %s against namespace blockers %j", (preferredBranch, existingNames, expected) => {
-    expect(resolveAutoFeatureBranchName(existingNames, preferredBranch)).toBe(expected);
-  });
-});
-
-describe("formatGeneratedBranchName", () => {
-  it.each([
-    [" Team / Jules.lock/", "Team/Jules-lock/add-search"],
-    ["-team//feature@{new}", "team/feature-new/add-search"],
-    [" /?. / ", "add-search"],
-  ])("normalizes invalid static prefix %s", (prefix, expected) => {
-    expect(
-      formatGeneratedBranchName("Add Search", { mode: "static", prefix, instructions: "" }),
-    ).toBe(expected);
-  });
-  it("uses the model's semantic prefix without the stored static prefix", () => {
-    expect(
-      formatGeneratedBranchName("feat/Add Search", {
-        mode: "semantic",
-        prefix: "aprende",
-        instructions: "",
-      }),
-    ).toBe("feat/add-search");
   });
 });

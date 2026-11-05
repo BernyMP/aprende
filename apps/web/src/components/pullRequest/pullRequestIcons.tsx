@@ -8,7 +8,7 @@ import {
   Unlink2Icon,
   TriangleAlertIcon,
 } from "lucide-react";
-import type { PullRequestState } from "@aprende/contracts";
+type PullRequestState = "open" | "closed" | "merged";
 
 export const PullRequestGlyph = {
   pullRequest: GitPullRequestArrowIcon,

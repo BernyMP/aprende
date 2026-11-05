@@ -3,14 +3,7 @@ import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeHttpPlatform from "@effect/platform-node/NodeHttpPlatform";
 import * as NodeFSP from "node:fs/promises";
-import {
-  AssetAccessError,
-  AssetCreateUrlInput,
-  AssetPreviewTypeValidationError,
-  SOURCE_CONTROL_MEDIA_ASSET,
-  ThreadId,
-  TurnItemId,
-} from "@aprende/contracts";
+import { AssetPreviewTypeValidationError, ThreadId, TurnItemId } from "@aprende/contracts";
 import { PROJECT_FAVICON_FALLBACK_MARKER } from "@aprende/shared/projectFavicon";
 import { MCP_APP_MAX_HTML_BYTES } from "@aprende/shared/mcpApp";
 import { describe, expect, it } from "@effect/vitest";
@@ -20,9 +13,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
-import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
-import { HttpClientRequest, HttpClientResponse, HttpServerResponse } from "effect/http";
+import { HttpServerResponse } from "effect/http";
 import { vi } from "vite-plus/test";
 
 import * as AssetSigner from "./AssetSigner.ts";
@@ -36,10 +28,6 @@ import { assetFileResponse } from "../http.ts";
 import { ASSET_ROUTE_PREFIX, issueAssetUrl, readMcpAppHtml, resolveAsset } from "./AssetAccess.ts";
 import * as NativeAppIconResolver from "./NativeAppIconResolver.ts";
 import { symlinksSupported } from "@aprende/shared/testing/symlinks";
-import { fakeSourceControlDriverInstance } from "@aprende/source-control-testing/fakeSourceControlDriver";
-import * as BuiltInDrivers from "../sourceControl/builtInDrivers.ts";
-import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
-import { sourceControlMediaResponse } from "./sourceControlMediaResponse.ts";
 import * as HostProcess from "@aprende/shared/HostProcess";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
@@ -1468,75 +1456,6 @@ describe("AssetAccess", () => {
 
       expect(result.sourcePath).toBe(path.join("brand", "saved.svg"));
       expect(result.relativeUrl).toMatch(/\/v[0-9a-f]{64}-saved\.svg$/);
-    }).pipe(Effect.provide(layerTest)),
-  );
-
-  it.effect("serves a host's credentialed media through that host's driver", () => {
-    const fetched: Array<{ url: string; headers: Readonly<Record<string, string>> }> = [];
-    const url = "https://github.com/owner/repo/blob/main/docs/shot.png";
-    const media = sourceControlDefinitions.mediaUrl(url)!;
-    const layerDrivers = Layer.succeed(BuiltInDrivers.SourceControlDrivers, [
-      {
-        driver: { kind: media.definition.kind, definition: media.definition },
-        instance: fakeSourceControlDriverInstance(media.definition.kind, {
-          pullRequests: null,
-          fetchMedia: (request) =>
-            Effect.sync(() => {
-              fetched.push(request);
-              return HttpClientResponse.fromWeb(
-                HttpClientRequest.get(request.url),
-                new Response("bytes", { status: 206, headers: { "content-length": "5" } }),
-              );
-            }),
-        }),
-      },
-    ]);
-    return Effect.gen(function* () {
-      const decodeAssetCreateUrlInput = Schema.decodeEffect(AssetCreateUrlInput);
-
-      // Every client and server release spells the resource this way on the wire.
-      const { resource } = yield* decodeAssetCreateUrlInput({
-        resource: { _tag: "github-media", cwd: "/repo", url },
-      });
-      const issued = yield* issueAssetUrl({ resource });
-      const suffix = issued.relativeUrl.slice(`${ASSET_ROUTE_PREFIX}/`.length);
-      const separator = suffix.indexOf("/");
-      const asset = yield* resolveAsset(suffix.slice(0, separator), suffix.slice(separator + 1));
-      expect(asset).toEqual({
-        kind: "source-control-media",
-        url: media.fetchUrl,
-        cwd: "/repo",
-        expiresAt: issued.expiresAt,
-      });
-      if (asset?.kind !== "source-control-media") return;
-
-      const response = yield* sourceControlMediaResponse(asset, {
-        range: "bytes=0-4",
-        cookie: "session",
-      });
-      expect(fetched).toEqual([{ url: media.fetchUrl, headers: { range: "bytes=0-4" } }]);
-      expect(response.status).toBe(206);
-      // The upstream sent no type, so it comes from the file name the host gave the media.
-      expect(response.headers["content-type"]).toBe("image/png");
-      expect(response.headers["content-length"]).toBe("5");
-    }).pipe(Effect.provide(Layer.merge(layerTest, layerDrivers)), Effect.scoped);
-  });
-
-  it.effect("refuses media no host keeps behind a credential, without echoing the URL", () =>
-    Effect.gen(function* () {
-      const encodeAssetAccessError = Schema.encodeEffect(Schema.fromJsonString(AssetAccessError));
-
-      for (const url of [
-        "https://example.com/shot.png",
-        "https://example.com/shot.png?token=private-media-token",
-      ]) {
-        const error = yield* issueAssetUrl({
-          resource: { _tag: SOURCE_CONTROL_MEDIA_ASSET, cwd: "/repo", url },
-        }).pipe(Effect.flip);
-        expect(error._tag).toBe("AssetGitHubMediaUrlValidationError");
-        const encoded = yield* encodeAssetAccessError(error);
-        expect(encoded).not.toContain(url);
-      }
     }).pipe(Effect.provide(layerTest)),
   );
 });

@@ -6,24 +6,18 @@ import {
   defaultInstanceIdForDriver,
   globalIdleCompaction,
   type IdleCompactionMode,
-  isProviderAvailable,
   isUnconfiguredDefaultInstanceEnabled,
-  resolveProjectProviderInstanceEnabled,
   resolveProviderInstanceEnabled,
-  isProviderTextGenerationCapable,
   type ModelSelection,
-  type ProjectId,
   type ProjectScopedServerSettingKey,
   ProjectSettingsOverrides,
   ProviderDriverKind,
   ProviderInstanceId,
-  type ServerProvider,
   ServerSettings,
   type ServerSettingsPatch,
   withIdleCompaction,
 } from "@aprende/contracts";
 import * as Option from "effect/Option";
-import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 import { deepMerge } from "./Struct.ts";
 import { fromLenientJson } from "./schemaJson.ts";
@@ -102,53 +96,6 @@ function defaultTextGenerationModel(driver: ProviderDriverKind): string {
   );
 }
 
-export function resolveSourceControlWriterModelSelection(
-  settings: ServerSettings,
-  providers: ReadonlyArray<ServerProvider> | undefined,
-  projectId: ProjectId | null,
-): ModelSelection {
-  const selection = settings.sourceControlWriterModelSelection;
-  if (
-    !selection ||
-    !resolveProjectProviderInstanceEnabled(settings, projectId, selection.instanceId)
-  ) {
-    return settings.textGenerationModelSelection;
-  }
-  if (providers === undefined) {
-    return selection;
-  }
-
-  const provider = providers.find((candidate) => candidate.instanceId === selection.instanceId);
-  return provider?.enabled === true &&
-    isProviderAvailable(provider) &&
-    isProviderTextGenerationCapable(provider)
-    ? selection
-    : settings.textGenerationModelSelection;
-}
-
-export function resolveReviewGuideModelSelection(
-  settings: ServerSettings,
-  providers: ReadonlyArray<ServerProvider> | undefined,
-  projectId: ProjectId | null,
-): ModelSelection {
-  const selection = settings.reviewGuideModelSelection;
-  if (
-    selection &&
-    resolveProjectProviderInstanceEnabled(settings, projectId, selection.instanceId)
-  ) {
-    const provider = providers?.find((candidate) => candidate.instanceId === selection.instanceId);
-    if (
-      providers === undefined ||
-      (provider?.enabled === true &&
-        isProviderAvailable(provider) &&
-        isProviderTextGenerationCapable(provider))
-    ) {
-      return selection;
-    }
-  }
-  return resolveSourceControlWriterModelSelection(settings, providers, projectId);
-}
-
 export interface PersistedServerObservabilitySettings {
   readonly otlpTracesUrl: string | undefined;
   readonly otlpMetricsUrl: string | undefined;
@@ -224,15 +171,6 @@ function mergeSettingsEntries<Value>(
   }
   return Object.fromEntries(next);
 }
-
-// Secret persistence keys tokens by trimmed, lowercased host, so merge on the same key.
-const byHost = (tokens: unknown) =>
-  Object.fromEntries(
-    Object.entries(Predicate.isObject(tokens) ? tokens : {}).map(([host, token]) => [
-      host.trim().toLowerCase(),
-      token,
-    ]),
-  );
 
 const knownProjectOverrideKeys = new Set(Object.keys(ProjectSettingsOverrides.fields));
 
@@ -361,7 +299,6 @@ export function applyServerSettingsPatch(
     // Merged per entry below; its `null` removals must not reach deepMerge.
     usageLimitSources: usageLimitSourcesPatch,
     secretProviders: secretProvidersPatch,
-    sourceControlHosts: sourceControlHostsPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     usageModelAliases: usageModelAliasesPatch,
     // Entry replacement: deepMerge would keep keys the client meant to clear.
@@ -514,36 +451,6 @@ export function applyServerSettingsPatch(
           ],
         }
       : {}),
-    // Per host, a patched field replaces the saved one: deepMerge would keep a cleared account pin.
-    ...(sourceControlHostsPatch !== undefined
-      ? {
-          sourceControlHosts: {
-            ...current.sourceControlHosts,
-            ...Object.fromEntries(
-              Object.entries(sourceControlHostsPatch).map(([kind, fields]) => {
-                const saved = current.sourceControlHosts[kind];
-                return [
-                  kind,
-                  {
-                    ...saved,
-                    ...fields,
-                    // Older clients send the whole token map; a host missing from it keeps its saved
-                    // token. An empty map still clears them all.
-                    ...(Predicate.isObject(fields.tokens) && Object.keys(fields.tokens).length > 0
-                      ? {
-                          tokens: {
-                            ...byHost(saved?.tokens),
-                            ...byHost(fields.tokens),
-                          },
-                        }
-                      : {}),
-                  },
-                ];
-              }),
-            ),
-          },
-        }
-      : {}),
     ...(projectSettingsOverridesPatch !== undefined
       ? {
           projectSettingsOverrides: Object.fromEntries(
@@ -591,12 +498,6 @@ export function applyServerSettingsPatch(
             usageModelAliasesPatch,
           ),
         }
-      : {}),
-    ...(patch.sourceControlWriterModelSelection !== undefined
-      ? { sourceControlWriterModelSelection: patch.sourceControlWriterModelSelection }
-      : {}),
-    ...(patch.reviewGuideModelSelection !== undefined
-      ? { reviewGuideModelSelection: patch.reviewGuideModelSelection }
       : {}),
     ...(automaticGitFetchInterval !== undefined ? { automaticGitFetchInterval } : {}),
     ...(providerHealthRefreshInterval !== undefined ? { providerHealthRefreshInterval } : {}),

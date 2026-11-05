@@ -1,22 +1,11 @@
 import {
-  EnvironmentId,
-  ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
-  ThreadId,
-  type PullRequestLinkedThreadsResult,
   type RepositoryIdentity,
-  type ThreadPullRequestLink,
 } from "@aprende/contracts";
-import { AsyncResult } from "effect/reactivity";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  findPromptLinkProjects,
-  findPromptLinkPullRequestThread,
-  pickPromptLinkPullRequestThread,
-  resolvePromptLinkModelSelection,
-} from "./promptLinks.ts";
+import { findPromptLinkProjects, resolvePromptLinkModelSelection } from "./promptLinks.ts";
 
 const identity = (canonicalKey: string, origin?: string): RepositoryIdentity => ({
   canonicalKey,
@@ -40,88 +29,6 @@ describe("findPromptLinkProjects", () => {
     expect(ids("BernyMP", "aprende")).toEqual(["recent", "older"]);
     expect(ids("me", "aprende")).toEqual(["fork"]);
     expect(ids("gitlab", "x")).toEqual([]);
-  });
-
-  it("matches a checkout of the repository's GitCafe mirror", () => {
-    const projects = [
-      { id: "gitcafe", repositoryIdentity: identity("git.cafe/BernyMP/aprende") },
-      { id: "staging", repositoryIdentity: identity("staging.git.cafe/BernyMP/aprende") },
-      { id: "gitlab", repositoryIdentity: identity("gitlab.com/BernyMP/aprende") },
-    ];
-    expect(
-      findPromptLinkProjects(projects, { owner: "BernyMP", name: "aprende" }).map(
-        (project) => project.id,
-      ),
-    ).toEqual(["gitcafe", "staging"]);
-  });
-});
-
-describe("findPromptLinkPullRequestThread", () => {
-  it("takes the newest linked thread, never a side chat that inherited the link", () => {
-    const link: ThreadPullRequestLink = {
-      host: "github.com",
-      repository: "acme/web",
-      number: 7,
-      url: "https://github.com/acme/web/pull/7",
-      source: "manual",
-      linkedAt: "2026-01-01T00:00:00.000Z",
-      snapshot: null,
-      stack: null,
-    };
-    const thread = (id: string, updatedAt: string, sideChat?: boolean) => ({
-      id,
-      updatedAt,
-      pullRequests: [link],
-      ...(sideChat === undefined ? {} : { lineage: { sideChat } }),
-    });
-    const found = findPromptLinkPullRequestThread(
-      [
-        thread("old", "2026-01-01T00:00:00.000Z"),
-        thread("parent", "2026-01-02T00:00:00.000Z", false),
-        thread("side-chat", "2026-01-03T00:00:00.000Z", true),
-      ],
-      { owner: "acme", name: "web", number: 7 },
-    );
-    expect(found?.id).toBe("parent");
-  });
-});
-
-describe("pickPromptLinkPullRequestThread", () => {
-  it("takes the first open thread in order once every earlier lookup has answered", () => {
-    const laptop = EnvironmentId.make("laptop");
-    const server = EnvironmentId.make("server");
-    const linked = (
-      id: string,
-      archivedAt: string | null = null,
-    ): PullRequestLinkedThreadsResult => ({
-      threads: [{ id: ThreadId.make(id), projectId: ProjectId.make("p"), title: id, archivedAt }],
-    });
-    const none: PullRequestLinkedThreadsResult = { threads: [] };
-    const pick = (
-      ...results: ReadonlyArray<AsyncResult.AsyncResult<PullRequestLinkedThreadsResult, unknown>>
-    ) =>
-      pickPromptLinkPullRequestThread(
-        results.map((result, index) => ({ environmentId: index === 0 ? laptop : server, result })),
-      );
-    // A value shown while it refetches is not an answer yet.
-    expect(pick(AsyncResult.success(none, { waiting: true }))).toBeUndefined();
-    expect(pick(AsyncResult.success(none), AsyncResult.initial(true))).toBeUndefined();
-    expect(pick(AsyncResult.initial(true), AsyncResult.success(linked("b")))).toBeUndefined();
-    const laptopThread = { environmentId: laptop, id: ThreadId.make("a") };
-    expect(pick(AsyncResult.success(linked("a")), AsyncResult.initial(true))).toEqual(laptopThread);
-    expect(pick(AsyncResult.success(linked("a")), AsyncResult.success(linked("b")))).toEqual(
-      laptopThread,
-    );
-    expect(pick(AsyncResult.success(none), AsyncResult.success(linked("old")))).toEqual({
-      environmentId: server,
-      id: ThreadId.make("old"),
-    });
-    expect(
-      pick(
-        AsyncResult.success(linked("archived", "2026-01-01T00:00:00.000Z")),
-        AsyncResult.fail(1),
-      ),
-    ).toBeNull();
   });
 });
 

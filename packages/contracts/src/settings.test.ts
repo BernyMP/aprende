@@ -368,32 +368,6 @@ describe("ServerSettings worktree defaults", () => {
   });
 });
 
-describe("ServerSettings.sourceControlWritingStyle", () => {
-  it.each([
-    { legacy: "", mode: "repo_conventions", customInstructions: "" },
-    { legacy: " \t\n ", mode: "repo_conventions", customInstructions: "" },
-    {
-      legacy: "  Prefer concise wording.\nKeep issue references.  ",
-      mode: "custom",
-      customInstructions: "Prefer concise wording.\nKeep issue references.",
-    },
-  ])("normalizes legacy writing style $legacy in snapshots only", ({ legacy, ...expected }) => {
-    const style = { ...expected, followChangeRequestTemplates: true };
-    for (const [input, normalized] of [
-      [{ sourceControlWritingStyle: legacy }, { sourceControlWritingStyle: style }],
-      [
-        { projectSettingsOverrides: { project: { sourceControlWritingStyle: legacy } } },
-        { projectSettingsOverrides: { project: { sourceControlWritingStyle: style } } },
-      ],
-    ] as const) {
-      const settings = decodeServerSettings(input);
-      expect(settings).toMatchObject(normalized);
-      expect(encodeServerSettings(settings)).toMatchObject(normalized);
-      expect(() => decodeServerSettingsPatch(input)).toThrow();
-    }
-  });
-});
-
 describe("ServerSettings environment icon", () => {
   it("decodes a kind from a newer server as null instead of failing the snapshot", () => {
     expect(decodeServerSettings({ environmentIcon: "toaster" }).environmentIcon).toBeNull();

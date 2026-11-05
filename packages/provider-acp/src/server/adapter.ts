@@ -552,13 +552,6 @@ export interface AcpAdapterV2Flavor {
    * fail before `session/prompt`.
    */
   readonly supportsImagePrompts?: boolean;
-  /**
-   * True when this session's native system prompt carries T3's PR-linking instructions, so
-   * turns omit them. Must use the same negotiated check that sent them on session setup.
-   */
-  readonly sessionCarriesPullRequestLinking?: (
-    initializeResult: EffectAcpSchema.InitializeResponse,
-  ) => boolean;
 }
 
 function acpSupportsImagePrompts(input: {
@@ -7982,15 +7975,11 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
             });
           }
           if (!isNativeSlashCommand) {
-            const sessionSetup = yield* Ref.get(activeSessionSetup);
             prompt.push({
               type: "text",
               text: buildRuntimeInstructions({
                 harness: flavor.runtimeHarness ?? driver,
                 model: turnInput.modelSelection.model,
-                pullRequestLinking:
-                  sessionSetup === null ||
-                  flavor.sessionCarriesPullRequestLinking?.(sessionSetup.initializeResult) !== true,
               }),
             });
           }

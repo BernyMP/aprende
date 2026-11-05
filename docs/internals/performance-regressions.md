@@ -105,7 +105,7 @@ queries use a covering thread/run index for item counts and a partial index for 
 background items, including idle items. Latest user-message reads use an index ordered by update
 time.
 
-Command palette results keep live VCS and linked pull-request queries leased to the visible
+Command palette results keep live VCS queries leased to the visible
 viewport, including a small overscan region. Cached badges remain available while leases are
 released. Local Git status reads skip divergence calculations; callers that need ahead/behind
 counts keep the full status path. Cached fetch failures share the existing backoff and log only

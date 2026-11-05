@@ -1,4 +1,3 @@
-import { applyThreadPullRequestLinkUpdate } from "../threadPullRequests.ts";
 import type {
   OrchestrationV2DomainEvent,
   OrchestrationV2Run,
@@ -267,11 +266,10 @@ export function applyOrchestrationV2ProjectionEvent(
   const latestLocalTurnOrdinal = options?.latestLocalTurnOrdinal;
   const base = { ...projection, updatedAt: event.occurredAt };
   switch (event.type) {
+    // Pull requests are gone; their stored events change nothing.
     case "thread.pull-request-link-updated":
-      return {
-        ...base,
-        thread: applyThreadPullRequestLinkUpdate(projection.thread, event.payload),
-      };
+    case "thread.pull-request-synced":
+      return projection;
     case "thread.created":
     case "thread.archived":
     case "thread.unarchived":
@@ -286,7 +284,6 @@ export function applyOrchestrationV2ProjectionEvent(
     case "thread.pin-reordered":
     case "thread.active-reordered":
     case "thread.metadata-updated":
-    case "thread.pull-request-synced":
     case "thread.runtime-mode-updated":
     case "thread.interaction-mode-updated":
     case "thread.model-selection-updated":

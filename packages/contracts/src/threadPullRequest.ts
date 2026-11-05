@@ -8,13 +8,22 @@ import {
   ProjectId,
   TrimmedNonEmptyString,
 } from "./baseSchemas.ts";
-import {
-  PullRequestActor,
-  PullRequestChecksState,
-  PullRequestMergeability,
-  PullRequestReviewDecision,
-  PullRequestState,
-} from "./pullRequest.ts";
+
+// Pull requests are gone; these schemas still decode stored thread links and their events.
+const PullRequestState = Schema.Literals(["open", "closed", "merged"]);
+const PullRequestReviewDecision = Schema.Literals([
+  "approved",
+  "changes-requested",
+  "review-required",
+]);
+const PullRequestChecksState = Schema.Literals(["passing", "failing", "pending"]);
+const PullRequestMergeability = Schema.Literals(["mergeable", "conflicting", "unknown"]);
+const PullRequestActor = Schema.Struct({
+  isBot: Schema.optional(Schema.Boolean),
+  login: TrimmedNonEmptyString,
+  name: Schema.NullOr(Schema.String),
+  avatarUrl: Schema.NullOr(Schema.String),
+});
 
 export const ThreadLinkedPullRequest = Schema.Struct({
   projectId: ProjectId,

@@ -80,7 +80,6 @@ const SNAPSHOT: OrchestrationV2ShellSnapshot = {
       archivedAt: null,
       settledOverride: null,
       settledAt: null,
-      pullRequests: [],
       latestUserMessageAt: null,
       hasActionableProposedPlan: false,
     },

@@ -15,8 +15,7 @@ the V2 desktop app copies stashed prompts, unsent drafts, layout, and theme from
 change in V2 afterwards stays in V2.
 
 The migrated thread keeps its title, project, provider and model selection, permission and
-interaction modes, branch or worktree, archive state, settlement state, snooze and pin state, and
-linked pull request. aprende also brings over user and assistant messages, their timestamps, and
+interaction modes, branch or worktree, archive state, settlement state, and snooze and pin state. aprende also brings over user and assistant messages, their timestamps, and
 supported attachments. Large histories may appear in stages while the server imports transcripts.
 
 The migration does not recreate the old provider's live session. It also does not convert old run

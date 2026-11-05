@@ -14,7 +14,6 @@ import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as Statement from "effect/sql/Statement";
 
-import { listLinkedPullRequestThreads } from "../../pullRequest/linkedThreads.ts";
 import * as EventSink from "../EventSink.ts";
 import * as EventStore from "../EventStore.ts";
 import * as LegacyV1ThreadImporter from "./LegacyV1ThreadImporter.ts";
@@ -490,20 +489,6 @@ it.layer(layerTest)("LegacyV1ThreadImporter", (it) => {
         shellProjection.thread.unsettledAt,
         DateTime.makeUnsafe("2026-01-03T12:00:00.000Z"),
       );
-      assert.equal(shellProjection.thread.linkedPullRequest?.number, 9000);
-      assert.deepStrictEqual(
-        (shellProjection.thread.pullRequests ?? []).map((link) => link.number),
-        [9002, 9003, 9000],
-      );
-      assert.equal(shellProjection.thread.pullRequests?.[0]?.snapshot?.title, "Second PR");
-      assert.deepStrictEqual(
-        (yield* listLinkedPullRequestThreads({
-          host: "github.com",
-          repository: "BernyMP/aprende",
-          number: 9002,
-        })).threads.map((thread) => thread.id),
-        [threadId],
-      );
       const shellSnapshot = yield* projections.getShellSnapshot();
       assert.equal(
         shellSnapshot.threads.find((thread) => thread.id === threadId)?.historyOrigin,
@@ -636,12 +621,6 @@ it.layer(layerTest)("LegacyV1ThreadImporter", (it) => {
         repaired.thread.unsettledAt,
         DateTime.makeUnsafe("2026-01-03T12:00:00.000Z"),
       );
-      assert.equal(repaired.thread.linkedPullRequest?.number, 9000);
-      assert.deepStrictEqual(
-        (repaired.thread.pullRequests ?? []).map((link) => link.number),
-        [9002, 9003, 9000],
-      );
-      assert.equal(repaired.thread.pullRequests?.[0]?.snapshot?.title, "Second PR");
       const eventCountBeforeRetry = yield* sql<{ readonly count: number }>`
         SELECT COUNT(*) AS count
         FROM orchestration_events
@@ -714,19 +693,12 @@ it.layer(layerTest)("LegacyV1ThreadImporter", (it) => {
       yield* importer.reconcileShells;
       yield* maintenance.rebuild;
       const shellProjection = yield* projections.getThreadProjection(threadId);
-      assert.deepStrictEqual(
-        (shellProjection.thread.pullRequests ?? []).map((link) => link.number),
-        [9000],
-      );
       const previousRepairThread = {
         ...shellProjection.thread,
         title: "Renamed in v2",
         pinnedAt: null,
         pinOrderKey: null,
-        linkedPullRequest: null,
-        pullRequests: [],
       };
-      delete previousRepairThread.branchPullRequest;
       delete previousRepairThread.activeOrderKey;
       yield* eventSink.write({
         events: [
@@ -749,9 +721,6 @@ it.layer(layerTest)("LegacyV1ThreadImporter", (it) => {
       assert.equal(repaired.thread.title, "Renamed in v2");
       assert.isNull(repaired.thread.pinnedAt);
       assert.isNull(repaired.thread.pinOrderKey);
-      assert.isNull(repaired.thread.linkedPullRequest);
-      assert.deepStrictEqual(repaired.thread.pullRequests, []);
-      assert.equal(repaired.thread.branchPullRequest?.number, 9001);
       assert.equal(repaired.thread.activeOrderKey, "az");
 
       const eventsBeforeRetry = yield* sql<{ readonly event_id: string }>`

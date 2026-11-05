@@ -195,7 +195,7 @@ export function startAppServices(): AppRouter {
     shellStateAtom: environmentShell.stateAtom,
   });
   startMainAppLocationTracking(router);
-  startWorkspaceFocus(router);
+  startWorkspaceFocus();
   startBackgroundThreadAnnouncements(appAtomRegistry, router);
   startThreadVisitedMigration(appAtomRegistry);
 

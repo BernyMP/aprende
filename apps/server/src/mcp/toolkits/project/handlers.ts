@@ -16,10 +16,8 @@ import * as ThreadLaunch from "../../../orchestration-v2/ThreadLaunchService.ts"
 import * as ThreadMessageIntake from "../../../orchestration-v2/ThreadMessageIntake.ts";
 import * as Claims from "../../../orchestration-v2/AttachmentClaims.ts";
 import * as Project from "../../../project/ProjectService.ts";
-import * as ProjectCloneTracker from "../../../project/ProjectCloneTracker.ts";
-import { mutateProjectWithClone } from "../../../project/ProjectMutation.ts";
+import { projectMutationOperation } from "../../../project/ProjectMutation.ts";
 import * as ManagedProjectFolders from "../../../project/ManagedProjectFolders.ts";
-import * as Repositories from "../../../sourceControl/SourceControlRepositoryService.ts";
 import * as GitVcsDriver from "../../../vcs/GitVcsDriver.ts";
 import * as ServerSettings from "../../../serverSettings.ts";
 import * as ProviderRegistry from "../../../provider/ProviderRegistry.ts";
@@ -365,29 +363,11 @@ export const layer = McpToolAccess.toLayer(ProjectToolkit, {
   t3_project_delete: McpToolAccess.writesEnvironment((input) =>
     Effect.gen(function* () {
       const projects = yield* Project.ProjectService;
-      const clones = yield* ProjectCloneTracker.ProjectCloneTracker;
-      return yield* mutateProjectWithClone(projects, clones, {
+      return yield* projectMutationOperation(projects, {
         ...input,
         type: "project.delete",
         commandId: yield* newCommandId(),
       }).pipe(Effect.mapError(projectFailure));
     }),
-  ),
-  t3_project_clone: McpToolAccess.writesEnvironment(
-    (input) =>
-      Effect.gen(function* () {
-        const repositories = yield* Repositories.SourceControlRepositoryService;
-        return yield* repositories.cloneRepository(input).pipe(
-          Effect.mapError(
-            (error) =>
-              new OrchestratorMcpFailure({
-                code: "orchestration_error",
-                message: error.detail,
-              }),
-          ),
-        );
-      }),
-    // An existing destination is never adopted.
-    { linkedCallers: "allowed" },
   ),
 });

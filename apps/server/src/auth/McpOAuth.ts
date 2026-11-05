@@ -598,7 +598,6 @@ export const layerMcpClientAuthenticator = Layer.effect(
                   capabilities: new Set<McpInvocationContext.McpCapability>([
                     "orchestration",
                     "worktree",
-                    "pull-requests",
                   ]),
                   issuedAt,
                 })),

@@ -1,5 +1,4 @@
 import type {
-  BranchNamingOptions,
   VcsRef,
   VcsStatusLocalResult,
   VcsStatusRemoteResult,
@@ -14,81 +13,6 @@ const TEMP_WORKTREE_HEX_TOKEN = "[0-9a-f]{8}";
 const TEMP_WORKTREE_BRANCH_PATTERN = new RegExp(
   `^${WORKTREE_BRANCH_PREFIX}[-/]${TEMP_WORKTREE_HEX_TOKEN}$`,
 );
-
-export function sanitizeBranchFragment(raw: string): string {
-  const normalized = raw
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/['"`]/g, "")
-    .replace(/^[./\s_-]+|[./\s_-]+$/g, "");
-
-  const branchFragment = normalized
-    .replace(/[^a-z0-9/_-]+/g, "-")
-    .replace(/\/+/g, "/")
-    .replace(/-+/g, "-")
-    .replace(/^[./_-]+|[./_-]+$/g, "")
-    .slice(0, 64)
-    .replace(/[./_-]+$/g, "");
-
-  return branchFragment.length > 0 ? branchFragment : "update";
-}
-
-export function formatGeneratedBranchName(raw: string, naming?: BranchNamingOptions): string {
-  if (naming?.mode === "custom") return raw.trim();
-  const branch = sanitizeBranchFragment(raw);
-  if (naming?.mode !== "static") return branch;
-  const prefix = naming.prefix
-    .split("/")
-    .map((part) =>
-      part
-        .replace(/[^a-zA-Z0-9_-]+/g, "-")
-        .replace(/-+/g, "-")
-        .replace(/^-+|-+$/g, ""),
-    )
-    .filter(Boolean)
-    .join("/");
-  return prefix ? `${prefix}/${branch}` : branch;
-}
-
-export function sanitizeFeatureBranchName(raw: string): string {
-  const sanitized = sanitizeBranchFragment(raw);
-  return sanitized.includes("/") ? sanitized : `feature/${sanitized}`;
-}
-
-const AUTO_FEATURE_BRANCH_FALLBACK = "feature/update";
-
-export function resolveAutoFeatureBranchName(
-  existingBranchNames: readonly string[],
-  preferredBranch?: string,
-): string {
-  const preferred = preferredBranch?.trim();
-  const resolvedBase = sanitizeFeatureBranchName(
-    preferred && preferred.length > 0 ? preferred : AUTO_FEATURE_BRANCH_FALLBACK,
-  );
-  const existingNames = existingBranchNames.map((refName) => refName.toLowerCase());
-  const existingRefs = new Set(existingNames);
-  const parts = resolvedBase.split("/");
-  let resolved = "";
-
-  for (const [index, part] of parts.entries()) {
-    const base = resolved ? `${resolved}/${part}` : part;
-    let candidate = base;
-    let suffix = 2;
-    while (
-      existingRefs.has(candidate) ||
-      (index === parts.length - 1 &&
-        existingNames.some((refName) => refName.startsWith(`${candidate}/`)))
-    ) {
-      candidate = `${base}-${suffix}`;
-      suffix += 1;
-    }
-    resolved = candidate;
-  }
-
-  return resolved;
-}
 
 function deriveLocalBranchNameFromRemoteRef(branchName: string): string {
   const firstSeparatorIndex = branchName.indexOf("/");
@@ -132,7 +56,7 @@ function lowerCaseRemote(value: string): string {
  * The host and repository path a remote names, lower case and without a port, or null for a
  * remote that names no host, such as a local path.
  */
-export function parseGitRemoteRepository(
+function parseGitRemoteRepository(
   value: string,
 ): { readonly host: string; readonly path: string } | null {
   const normalized = lowerCaseRemote(value);
@@ -342,9 +266,6 @@ function toRemoteStatusPart(status: VcsStatusResult): VcsStatusRemoteResult {
 function toLocalStatusPart(status: VcsStatusResult): VcsStatusLocalResult {
   return {
     isRepo: status.isRepo,
-    ...(status.sourceControlProvider
-      ? { sourceControlProvider: status.sourceControlProvider }
-      : {}),
     hasPrimaryRemote: status.hasPrimaryRemote,
     isDefaultRef: status.isDefaultRef,
     refName: status.refName,

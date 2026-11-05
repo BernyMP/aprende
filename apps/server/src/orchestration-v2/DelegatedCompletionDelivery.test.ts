@@ -1,4 +1,3 @@
-import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
 import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -54,12 +53,7 @@ import * as ProviderContinuationRequests from "@aprende/provider-core/server/Pro
 import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as ProviderContinuationService from "./ProviderContinuationService.ts";
 
-const layerPlatformTest = Layer.merge(
-  Layer.mergeAll(NodeServices.layer, NodeCrypto.layer),
-  Layer.mock(SourceControlProviderRegistry.SourceControlProviderRegistry)({
-    resolveLink: () => Effect.die("unused title link"),
-  }),
-);
+const layerPlatformTest = Layer.mergeAll(NodeServices.layer, NodeCrypto.layer);
 
 const layerServerConfig = ServerConfig.layerTest(process.cwd(), {
   prefix: "t3-orchestration-v2-delegated-completion-",

@@ -132,9 +132,8 @@ Checkpoint rollback restores your files as usual. ACP agents cannot rewind their
 so the next turn after a rollback starts a fresh agent session that no longer remembers the
 conversation from before the checkpoint.
 
-Registry instances are not used for T3's app-owned text generation, such as thread titles, commit
-messages, branch names, or pull request descriptions. Configure a text-generation-capable provider
-for those actions.
+Registry instances are not used for aprende's thread titles. Configure a text-generation-capable
+provider for them.
 
 ## Advanced configuration
 

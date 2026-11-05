@@ -172,28 +172,6 @@ function registerWorkspaceFocusCommands(): () => void {
   };
 }
 
-// Escape leaves the pull requests page when no scope (a selection, a dialog,
-// a drag) claimed it, so it observes after every other scope.
-function registerPullRequestsEscapeCommand(router: AnyRouter): () => void {
-  return registerCommands(
-    {},
-    {
-      observe: (event, consumed) => {
-        if (consumed || event.repeat || event.isComposing || event.key !== "Escape") return;
-        if (router.state.location.pathname !== "/pull-requests") return;
-        event.preventDefault();
-        const activeElement = document.activeElement;
-        if (activeElement instanceof HTMLElement) activeElement.blur();
-        if (router.state.location.state.__TSR_index !== 0) {
-          window.history.back();
-          return;
-        }
-        void router.navigate({ to: "/" });
-      },
-    },
-  );
-}
-
 const MODIFIER_KEYS = new Set(["Alt", "Control", "Meta", "Shift"]);
 
 // A held key undoes once. Module state: undoing an archive navigates, and the
@@ -272,7 +250,6 @@ function registerAppShellCommands(router: AnyRouter, shellElement: Element): () 
     registerThreadUndoCommands(router, readSidebarVisible),
     registerNavigationHistoryCommands(router),
     registerWorkspaceFocusCommands(),
-    registerPullRequestsEscapeCommand(router),
     registerMenuAction("open-settings", () => {
       if (!/^\/settings(\/|$)/.test(router.state.location.pathname))
         void router.navigate({ to: "/settings" });

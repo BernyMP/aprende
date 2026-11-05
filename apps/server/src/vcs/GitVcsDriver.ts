@@ -8,6 +8,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as PlatformError from "effect/PlatformError";
+import * as Schema from "effect/Schema";
 import { ChildProcessSpawner } from "effect/process";
 
 import {
@@ -34,8 +36,8 @@ import {
   type VcsStatusInput,
   type VcsStatusResult,
   type WorktreeSubmodules,
+  VcsProcessSpawnError,
 } from "@aprende/contracts";
-import { isMissingExecutable } from "@aprende/source-control-core/server/discovery";
 import * as HostProcess from "@aprende/shared/HostProcess";
 import {
   makeGitVcsDriverCore,
@@ -44,6 +46,17 @@ import {
 } from "./GitVcsDriverCore.ts";
 import * as VcsDriver from "./VcsDriver.ts";
 import * as VcsProcess from "./VcsProcess.ts";
+
+const isVcsProcessSpawnError = Schema.is(VcsProcessSpawnError);
+
+function isMissingExecutable(error: unknown): boolean {
+  return (
+    isVcsProcessSpawnError(error) &&
+    PlatformError.isPlatformError(error.cause) &&
+    error.cause.reason._tag === "NotFound" &&
+    error.cause.reason.module === "ChildProcess"
+  );
+}
 
 export interface ExecuteGitInput {
   readonly operation: string;
@@ -73,7 +86,6 @@ export interface ExecuteGitResult {
 
 export interface GitStatusDetails {
   isRepo: boolean;
-  sourceControlProvider?: VcsStatusResult["sourceControlProvider"];
   hasOriginRemote: boolean;
   isDefaultBranch: boolean;
   branch: string | null;
@@ -1549,7 +1561,7 @@ export const makeVcsDriver = Effect.gen(function* () {
   return VcsDriver.VcsDriver.of(driver);
 });
 
-export const make = Effect.gen(function* () {
+const make = Effect.gen(function* () {
   const git = yield* makeGitVcsDriverCore();
   return GitVcsDriver.of(git);
 });

@@ -32,7 +32,7 @@ import {
   type ReviewDiffPreviewSource,
   type VcsRef,
 } from "@aprende/contracts";
-import { dedupeRemoteBranchesWithLocalMatches } from "@aprende/shared/git";
+import { dedupeRemoteBranchesWithLocalMatches, normalizeGitRemoteUrl } from "@aprende/shared/git";
 import * as HostProcess from "@aprende/shared/HostProcess";
 import { compactTraceAttributes } from "@aprende/shared/observability";
 import { decodeJsonResult } from "@aprende/shared/schemaJson";
@@ -52,7 +52,6 @@ import {
 } from "../git/remoteRefs.ts";
 import { makeIsServerInternalPath } from "../auth/serverInternalPaths.ts";
 import * as ServerConfig from "../config.ts";
-import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 /** T3's record of the branch, named as on the host, that a branch was cut from. */
@@ -1784,7 +1783,7 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     "ensureRemote",
   )(function* (input) {
     const preferredName = sanitizeRemoteName(input.preferredName);
-    const normalizedTargetUrl = sourceControlDefinitions.repositoryKeyFromRemote(input.url);
+    const normalizedTargetUrl = normalizeGitRemoteUrl(input.url);
     const listRemoteFetchUrls = runGitStdout(
       "GitVcsDriver.ensureRemote.listRemoteUrls",
       input.cwd,
@@ -1792,8 +1791,7 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     ).pipe(Effect.map((stdout) => parseRemoteFetchUrls(stdout)));
     const findMatchingRemote = (remoteFetchUrls: Map<string, string>) =>
       Array.from(remoteFetchUrls.entries()).find(
-        ([, remoteUrl]) =>
-          sourceControlDefinitions.repositoryKeyFromRemote(remoteUrl) === normalizedTargetUrl,
+        ([, remoteUrl]) => normalizeGitRemoteUrl(remoteUrl) === normalizedTargetUrl,
       )?.[0];
 
     const remoteFetchUrls = yield* listRemoteFetchUrls;

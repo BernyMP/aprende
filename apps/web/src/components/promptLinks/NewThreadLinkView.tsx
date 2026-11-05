@@ -1,17 +1,8 @@
 import { scopeProjectRef } from "@aprende/client-runtime/environment";
 import {
-  getAddProjectInitialQuery,
-  getCloneDestinationPath,
-  getCloneDirectoryPath,
-} from "@aprende/client-runtime/operations/projects";
-import {
   findPromptLinkProjects,
   resolvePromptLinkModelSelection,
 } from "@aprende/client-runtime/prompt-links";
-import {
-  isAtomCommandInterrupted,
-  squashAtomCommandFailure,
-} from "@aprende/client-runtime/state/runtime";
 import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 import { type NewThreadLink, type PromptLinkRepository } from "@aprende/shared/promptLinks";
 import { useAtomValue } from "@effect/atom-react";
@@ -22,21 +13,16 @@ import { useComposerDraftStore } from "~/composerDraftStore";
 import { isElectron } from "~/env";
 import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
 import { useScratchProject } from "~/hooks/useScratchProject";
-import { newProjectId } from "~/lib/utils";
-import { useProjects, useThreadShells, waitForProject } from "~/state/entities";
+import { useProjects, useThreadShells } from "~/state/entities";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
-import { useEnvironments, usePrimaryEnvironmentId } from "~/state/environments";
+import { usePrimaryEnvironmentId } from "~/state/environments";
 import { environmentPresentations } from "~/state/presentation";
 import { allReachableShellsLiveAtom } from "~/state/shell";
-import { sourceControlEnvironment } from "~/state/sourceControl";
-import { useAtomCommand } from "~/state/use-atom-command";
 
 import { sortScopedProjectsForSidebar } from "../Sidebar.logic";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
 import { SidebarInset } from "../ui/sidebar";
-import { stackedThreadToast, toastManager } from "../ui/toast";
-import { suggestAppAccessForRemote } from "../sourceControlAppAccessToast";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { placeLinkedPrompt } from "./linkedPrompt";
 
@@ -58,13 +44,9 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
   const ready = useAtomValue(allReachableShellsLiveAtom);
   const projects = useProjects();
   const threads = useThreadShells();
-  const { environments } = useEnvironments();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const handleNewThread = useNewThreadHandler();
   const { scratchEnvironmentId, openScratchProject } = useScratchProject();
-  const startProjectClone = useAtomCommand(sourceControlEnvironment.startProjectClone, {
-    reportFailure: false,
-  });
   const [state, setState] = useState<LinkState>(() =>
     openedLinkKeys.has(locationKey) ? { status: "opened" } : { status: "opening" },
   );
@@ -97,7 +79,7 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
     }
     setState({ status: "opened" });
     const notes: Array<string> = [];
-    if (link.kind === "new" && link.provider !== null) {
+    if (link.provider !== null) {
       const providers =
         appAtomRegistry
           .get(environmentPresentations.providersByEnvironmentAtom)
@@ -120,13 +102,8 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
         );
       }
     }
-    const text = link.prompt?.text ?? "";
-    if (text.length === 0) return;
-    placeLinkedPrompt(
-      opened.draftId,
-      { text, hiddenCharacters: link.prompt?.hiddenCharacters ?? 0 },
-      notes,
-    );
+    if (link.prompt.text.length === 0) return;
+    placeLinkedPrompt(opened.draftId, link.prompt, notes);
   };
 
   const openScratchDraft = async () => {
@@ -147,75 +124,12 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
     void openScratchDraft();
   };
 
-  const cloneRepository = async (repository: PromptLinkRepository) => {
-    const environmentId = lastActiveEnvironmentId();
-    const environment = environments.find((entry) => entry.environmentId === environmentId);
-    const serverConfig = environment?.serverConfig ?? null;
-    const newProjectsRoot = serverConfig?.newProjectsRoot ?? null;
-    if (environmentId === null || serverConfig === null || newProjectsRoot === null) {
-      setState({
-        status: "failed",
-        message:
-          "This machine cannot clone from a link. Update aprende on it, or clone the repository from the command palette.",
-      });
-      return;
-    }
-    setState({ status: "opening" });
-    const projectId = newProjectId();
-    const remoteUrl = `https://github.com/${repository.owner}/${repository.name}.git`;
-    const settings = serverConfig.settings;
-    const result = await startProjectClone({
-      environmentId,
-      input: {
-        projectId,
-        title: repository.name,
-        createdAt: new Date().toISOString(),
-        remoteUrl,
-        destinationPath: getCloneDestinationPath(
-          settings.ghqCloneLayout
-            ? getAddProjectInitialQuery(settings.addProjectBaseDirectory)
-            : newProjectsRoot,
-          getCloneDirectoryPath(remoteUrl, settings.ghqCloneLayout === true),
-        ),
-      },
-    });
-    if (result._tag === "Failure") {
-      if (!isAtomCommandInterrupted(result)) {
-        const error = squashAtomCommandFailure(result);
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Clone failed",
-            description: error instanceof Error ? error.message : "An error occurred.",
-          }),
-        );
-      }
-      setState({ status: "missing-repository", repository });
-      return;
-    }
-    void suggestAppAccessForRemote(
-      environmentId,
-      `https://github.com/${repository.owner}/${repository.name}.git`,
-    );
-    const project = await waitForProject(scopeProjectRef(environmentId, projectId), 5_000).catch(
-      () => null,
-    );
-    if (project === null) {
-      setState({ status: "failed", message: "The clone started, but its project did not appear." });
-      return;
-    }
-    await openDraft(project);
-  };
-
   if (ready && state.status === "opening" && !started) {
     setStarted(true);
-    const repository = link.kind === "new" ? link.repository : null;
+    const repository = link.repository;
     const project =
       repository === null ? undefined : findPromptLinkProjects(recentProjects(), repository)[0];
-    if (link.kind === "pull-request") {
-      setState({ status: "failed", message: "aprende does not open pull requests." });
-      setLaunch({ kind: "settled" });
-    } else if (repository === null) {
+    if (repository === null) {
       setLaunch({ kind: "scratch" });
     } else if (project === undefined) {
       setState({ status: "missing-repository", repository });
@@ -273,12 +187,9 @@ export function NewThreadLinkView({ link }: { readonly link: NewThreadLink }) {
       return (
         <LinkPage
           title={`You don't have ${name}`}
-          description="Clone it to work on it here, or start without a project."
+          description="Add its folder as a project to work on it here, or start without a project."
         >
-          <Button size="sm" onClick={() => void cloneRepository(state.repository)}>
-            Clone {name}
-          </Button>
-          <Button size="sm" variant="outline" onClick={openWithoutProject}>
+          <Button size="sm" onClick={openWithoutProject}>
             Use without project
           </Button>
         </LinkPage>

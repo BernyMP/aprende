@@ -41,7 +41,7 @@ For presets that differ only in API keys or endpoints, use the instance's
 **Environment variables**. Variable assignments do not belong in **Launch arguments**.
 
 Claude Code's verbose mode can stay enabled when you use Claude for text generation, including
-thread titles, branch names, commit messages, and pull request descriptions. On a remote connection,
+thread titles. On a remote connection,
 aprende uses the Claude configuration on the connected server.
 
 ## Compact long conversations

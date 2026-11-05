@@ -25,10 +25,14 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
-import { isBareGitConfig, parseOriginUrlFromGitConfig } from "@aprende/shared/git";
+import {
+  isBareGitConfig,
+  normalizeGitRemoteUrl,
+  parseOriginUrlFromGitConfig,
+} from "@aprende/shared/git";
 import * as HostProcess from "@aprende/shared/HostProcess";
 import { normalizeProjectPathForComparison } from "@aprende/shared/path";
-import { repositoryPathFromRemoteUrl } from "@aprende/source-control-core/server/SourceControlProvider";
+import { repositoryPathFromRemoteUrl } from "./RepositoryIdentityResolver.ts";
 
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
@@ -36,7 +40,6 @@ import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
 import { expandHomePath } from "@aprende/provider-core/server/pathExpansion";
 import * as ServerSettings from "../serverSettings.ts";
-import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import {
   createTranscriptJsonReader,
   createTranscriptJsonSelector,
@@ -842,8 +845,7 @@ export const make = Effect.gen(function* () {
       identities.set(directory, {
         _tag: "Repository",
         git: {
-          remoteKey:
-            originUrl === null ? null : sourceControlDefinitions.repositoryKeyFromRemote(originUrl),
+          remoteKey: originUrl === null ? null : normalizeGitRemoteUrl(originUrl),
           repository: repositoryPathFromRemoteUrl(originUrl),
         },
       });

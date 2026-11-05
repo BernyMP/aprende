@@ -17,7 +17,6 @@ import {
 } from "@aprende/shared/t3McpToolPresentation";
 import { classifyMarkdownImageSource } from "@aprende/client-runtime/markdown-images";
 import { resolveMediaSource } from "@aprende/client-runtime/media-source";
-import { sourceControlClients } from "@aprende/client-runtime/source-control-clients";
 import { isWorkspaceImagePreviewPath } from "@aprende/shared/mediaPreview";
 import { formatTokens } from "@aprende/shared/usageFormat";
 import { classifyToolActivity } from "@aprende/shared/toolActivity";
@@ -195,18 +194,17 @@ function resolveT3McpToolPresentation(
   const payload = asRecord(data);
   const input =
     asRecord(payload?.arguments) ?? asRecord(payload?.input) ?? asRecord(payload?.rawInput);
-  const urlTarget =
-    typeof input?.url === "string" ? sourceControlClients.parseChangeRequestUrl(input.url) : null;
-  const number = urlTarget?.link.number ?? input?.number;
-  const { shortLabel } = (urlTarget?.definition ?? sourceControlClients.get(undefined))
-    .changeRequest;
+  // Pull request tools are gone; their calls stay in older transcripts.
+  const urlNumber =
+    typeof input?.url === "string" ? /\/pull\/(\d+)/.exec(input.url)?.[1] : undefined;
+  const number = urlNumber === undefined ? input?.number : Number(urlNumber);
   const target =
     actionKind !== undefined &&
     actionKind !== "list-prs" &&
     typeof number === "number" &&
     Number.isSafeInteger(number) &&
     number > 0
-      ? `${shortLabel} #${number}`
+      ? `PR #${number}`
       : detail;
   return {
     displayName: `${verb} ${target}`,

@@ -27,7 +27,7 @@ import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
 import * as RpcGroup from "effect/rpc/RpcGroup";
 import * as RpcMiddleware from "effect/rpc/RpcMiddleware";
-import { NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { TrimmedNonEmptyString } from "./baseSchemas.ts";
 import {
   ProviderAuthCancelInput,
   ProviderAuthCompleteInput,
@@ -113,10 +113,10 @@ import {
   WorktreeSetupSubscribeInput,
 } from "./worktreeSetup.ts";
 import {
-  GitActionProgressEvent,
   VcsSwitchRefInput,
   VcsSwitchRefResult,
   GitCommandError,
+  GitManagerServiceError,
   VcsCreateRefInput,
   VcsCreateRefResult,
   VcsCreateWorktreeInput,
@@ -124,15 +124,9 @@ import {
   VcsInitInput,
   VcsListRefsInput,
   VcsListRefsResult,
-  GitManagerServiceError,
-  GitPreparePullRequestThreadInput,
-  GitPreparePullRequestThreadResult,
   VcsPullInput,
-  GitPullRequestRefInput,
   VcsPullResult,
   VcsRemoveWorktreeInput,
-  GitResolvePullRequestResult,
-  GitRunStackedActionInput,
   VcsStatusInput,
   VcsStatusSubscriptionInput,
   VcsStatusResult,
@@ -146,49 +140,6 @@ import {
   ProviderUploadFeedbackResult,
 } from "./provider.ts";
 import { ProviderInstanceId, ProviderInstanceMutation } from "./providerInstance.ts";
-import { PullRequestReviewGuideResult } from "./pullRequestReviewGuide.ts";
-import {
-  PullRequestActionInput,
-  PullRequestActivity,
-  PullRequestChangeBreakdown,
-  PullRequestCommentInput,
-  PullRequestCommentUpdateInput,
-  PullRequestDetail,
-  PullRequestPreview,
-  PullRequestChecks,
-  PullRequestDiffFileContentsInput,
-  PullRequestDiffFileContentsResult,
-  PullRequestFilesViewedResult,
-  PullRequestInvalidateInput,
-  PullRequestReportStateInput,
-  PullRequestListInput,
-  PullRequestListResult,
-  PullRequestListStatsInput,
-  PullRequestListStatsResult,
-  PullRequestFilterOptions,
-  PullRequestFilterOptionsInput,
-  PullRequestOperationError,
-  PullRequestReactionInput,
-  PullRequestRef,
-  PullRequestRoutingResult,
-  PullRequestRoutingIdentityInput,
-  PullRequestRoutingIdentityResult,
-  PullRequestStack,
-  PullRequestLinkedThreadsResult,
-  PullRequestSummary,
-  PullRequestReviewerCandidateList,
-  PullRequestReviewerRequestInput,
-  PullRequestLabelCandidateList,
-  PullRequestLabelChangeInput,
-  PullRequestSetFilesViewedInput,
-  PullRequestSubmitReviewInput,
-  PullRequestThreadCommentsInput,
-  PullRequestThreadCommentsResult,
-  PullRequestThreadReplyInput,
-  PullRequestThreadResolutionInput,
-  PullRequestUnavailableError,
-  PullRequestUpdateInput,
-} from "./pullRequest.ts";
 import {
   ORCHESTRATION_V2_WS_METHODS,
   OrchestrationGetWorkflowScriptError,
@@ -306,31 +257,6 @@ import {
   LearningTutorPrompt,
 } from "./learning.ts";
 import { SecretRequestAnswerInput, SecretRequestError } from "./secretRequest.ts";
-import {
-  ProjectCloneActionInput,
-  ProjectCloneActionResult,
-  ProjectCloneListEvent,
-  ProjectCloneStartInput,
-  ProjectCloneStartResult,
-  ProjectCloneSubscribeInput,
-} from "./projectClone.ts";
-import {
-  SourceControlCloneRepositoryInput,
-  SourceControlCloneRepositoryResult,
-  SourceControlDiscoveryResult,
-  SourceControlPublishRepositoryInput,
-  SourceControlPublishRepositoryResult,
-  SourceControlRepositoryError,
-  SourceControlRepositoryInfo,
-  SourceControlRepositoryLookupInput,
-  SourceControlAppAccess,
-  SourceControlAppAccessInput,
-  SourceControlStarredInput,
-  SourceControlSignInError,
-  SourceControlSignInInput,
-  SourceControlSignInPrompt,
-  SourceControlSignInResult,
-} from "./sourceControl.ts";
 import { VcsError } from "./vcs.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
 
@@ -387,10 +313,6 @@ export const WS_METHODS = {
   vcsSwitchRef: "vcs.switchRef",
   vcsInit: "vcs.init",
 
-  gitRunStackedAction: "git.runStackedAction",
-  gitResolvePullRequest: "git.resolvePullRequest",
-  gitPreparePullRequestThread: "git.preparePullRequestThread",
-
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
   serverGetNpmRelease: "server.getNpmRelease",
@@ -405,7 +327,6 @@ export const WS_METHODS = {
   serverGetStorageCleanupReport: "server.getStorageCleanupReport",
   serverGetDatabaseStorage: "server.getDatabaseStorage",
   serverUpdateSettings: "server.updateSettings",
-  serverDiscoverSourceControl: "server.discoverSourceControl",
   serverSearchAcpRegistry: "server.searchAcpRegistry",
   serverPrepareAcpRegistryAgent: "server.prepareAcpRegistryAgent",
   serverUninstallAcpRegistryManagedBinary: "server.uninstallAcpRegistryManagedBinary",
@@ -447,55 +368,6 @@ export const WS_METHODS = {
   secretsAnswerRequest: "secrets.answerRequest",
   scheduledTasksListWebhookDeliveries: "scheduledTasks.listWebhookDeliveries",
   scheduledTasksGetWebhookDelivery: "scheduledTasks.getWebhookDelivery",
-
-  pullRequestsList: "pullRequests.list",
-  pullRequestsListStats: "pullRequests.listStats",
-  pullRequestsFilterOptions: "pullRequests.filterOptions",
-  pullRequestsSummary: "pullRequests.summary",
-  pullRequestsRouting: "pullRequests.routing",
-  pullRequestsRoutingIdentity: "pullRequests.routingIdentity",
-  pullRequestsStack: "pullRequests.stack",
-  pullRequestsLinkedThreads: "pullRequests.linkedThreads",
-  pullRequestsDetail: "pullRequests.detail",
-  pullRequestsPreview: "pullRequests.preview",
-  pullRequestsChecks: "pullRequests.checks",
-  pullRequestsActivity: "pullRequests.activity",
-  pullRequestsReviewGuide: "pullRequests.reviewGuide",
-  pullRequestsGenerateReviewGuide: "pullRequests.generateReviewGuide",
-  pullRequestsThreadComments: "pullRequests.threadComments",
-  pullRequestsDiffFileContents: "pullRequests.diffFileContents",
-  pullRequestsFilesViewed: "pullRequests.filesViewed",
-  pullRequestsChangeBreakdown: "pullRequests.changeBreakdown",
-  pullRequestsSetFilesViewed: "pullRequests.setFilesViewed",
-  pullRequestsRunAction: "pullRequests.runAction",
-  pullRequestsUpdate: "pullRequests.update",
-  pullRequestsComment: "pullRequests.comment",
-  pullRequestsUpdateComment: "pullRequests.updateComment",
-  pullRequestsSubmitReview: "pullRequests.submitReview",
-  pullRequestsReplyToThread: "pullRequests.replyToThread",
-  pullRequestsSetThreadResolution: "pullRequests.setThreadResolution",
-  pullRequestsSetReaction: "pullRequests.setReaction",
-  pullRequestsInvalidate: "pullRequests.invalidate",
-  pullRequestsReportState: "pullRequests.reportState",
-  pullRequestsSubscribeRefreshes: "pullRequests.subscribeRefreshes",
-  pullRequestsReviewerCandidates: "pullRequests.reviewerCandidates",
-  pullRequestsRequestReviewers: "pullRequests.requestReviewers",
-  pullRequestsLabelCandidates: "pullRequests.labelCandidates",
-  pullRequestsSetLabels: "pullRequests.setLabels",
-
-  sourceControlLookupRepository: "sourceControl.lookupRepository",
-  sourceControlCloneRepository: "sourceControl.cloneRepository",
-  sourceControlPublishRepository: "sourceControl.publishRepository",
-  sourceControlSignInStart: "sourceControl.signInStart",
-  sourceControlSignInWait: "sourceControl.signInWait",
-  sourceControlSignInCancel: "sourceControl.signInCancel",
-  sourceControlAppAccess: "sourceControl.appAccess",
-  sourceControlStarred: "sourceControl.starred",
-  sourceControlStar: "sourceControl.star",
-  projectCloneStart: "projectClone.start",
-  projectCloneCancel: "projectClone.cancel",
-  projectCloneRetry: "projectClone.retry",
-  subscribeProjectClones: "subscribeProjectClones",
 
   subscribeVcsStatus: "subscribeVcsStatus",
   subscribeWorktreeSetup: "subscribeWorktreeSetup",
@@ -698,12 +570,6 @@ const WsServerUpdateSettingsRpc = Rpc.make(WS_METHODS.serverUpdateSettings, {
   error: Schema.Union([ServerSettingsError, EnvironmentAuthorizationError]),
 });
 
-const WsServerDiscoverSourceControlRpc = Rpc.make(WS_METHODS.serverDiscoverSourceControl, {
-  payload: Schema.Struct({}),
-  success: SourceControlDiscoveryResult,
-  error: EnvironmentAuthorizationError,
-});
-
 const WsServerSearchAcpRegistryRpc = Rpc.make(WS_METHODS.serverSearchAcpRegistry, {
   payload: AcpRegistrySearchInput,
   success: AcpRegistrySearchResult,
@@ -842,308 +708,6 @@ const WsServerSignalProcessRpc = Rpc.make(WS_METHODS.serverSignalProcess, {
 const WsServerReportClientActivityRpc = Rpc.make(WS_METHODS.serverReportClientActivity, {
   payload: ClientActivityReportInput,
   error: EnvironmentAuthorizationError,
-});
-
-const PullRequestRpcError = Schema.Union([
-  PullRequestUnavailableError,
-  PullRequestOperationError,
-  EnvironmentAuthorizationError,
-]);
-
-const WsPullRequestsListRpc = Rpc.make(WS_METHODS.pullRequestsList, {
-  payload: PullRequestListInput,
-  success: PullRequestListResult,
-  error: PullRequestRpcError,
-});
-
-// GitHub line counts cost 40-60% of the listing read; fetch separately so rows arrive first.
-const WsPullRequestsListStatsRpc = Rpc.make(WS_METHODS.pullRequestsListStats, {
-  payload: PullRequestListStatsInput,
-  success: PullRequestListStatsResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsFilterOptionsRpc = Rpc.make(WS_METHODS.pullRequestsFilterOptions, {
-  payload: PullRequestFilterOptionsInput,
-  success: PullRequestFilterOptions,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsRoutingRpc = Rpc.make(WS_METHODS.pullRequestsRouting, {
-  payload: PullRequestRef,
-  success: PullRequestRoutingResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsRoutingIdentityRpc = Rpc.make(WS_METHODS.pullRequestsRoutingIdentity, {
-  payload: PullRequestRoutingIdentityInput,
-  success: PullRequestRoutingIdentityResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsSummaryRpc = Rpc.make(WS_METHODS.pullRequestsSummary, {
-  payload: PullRequestRef,
-  success: PullRequestSummary,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsStackRpc = Rpc.make(WS_METHODS.pullRequestsStack, {
-  payload: PullRequestRef,
-  success: Schema.NullOr(PullRequestStack),
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsLinkedThreadsRpc = Rpc.make(WS_METHODS.pullRequestsLinkedThreads, {
-  payload: PullRequestRef,
-  success: PullRequestLinkedThreadsResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsDetailRpc = Rpc.make(WS_METHODS.pullRequestsDetail, {
-  payload: PullRequestRef,
-  success: PullRequestDetail,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsPreviewRpc = Rpc.make(WS_METHODS.pullRequestsPreview, {
-  payload: PullRequestRef,
-  success: PullRequestPreview,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsChecksRpc = Rpc.make(WS_METHODS.pullRequestsChecks, {
-  payload: PullRequestRef,
-  success: Schema.NullOr(PullRequestChecks),
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsActivityRpc = Rpc.make(WS_METHODS.pullRequestsActivity, {
-  payload: PullRequestRef,
-  success: PullRequestActivity,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsReviewGuideRpc = Rpc.make(WS_METHODS.pullRequestsReviewGuide, {
-  payload: PullRequestRef,
-  success: PullRequestReviewGuideResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsGenerateReviewGuideRpc = Rpc.make(WS_METHODS.pullRequestsGenerateReviewGuide, {
-  payload: PullRequestRef,
-  success: PullRequestReviewGuideResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsThreadCommentsRpc = Rpc.make(WS_METHODS.pullRequestsThreadComments, {
-  payload: PullRequestThreadCommentsInput,
-  success: PullRequestThreadCommentsResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsDiffFileContentsRpc = Rpc.make(WS_METHODS.pullRequestsDiffFileContents, {
-  payload: PullRequestDiffFileContentsInput,
-  success: PullRequestDiffFileContentsResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsFilesViewedRpc = Rpc.make(WS_METHODS.pullRequestsFilesViewed, {
-  payload: PullRequestRef,
-  success: PullRequestFilesViewedResult,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsChangeBreakdownRpc = Rpc.make(WS_METHODS.pullRequestsChangeBreakdown, {
-  payload: PullRequestRef,
-  success: PullRequestChangeBreakdown,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsSetFilesViewedRpc = Rpc.make(WS_METHODS.pullRequestsSetFilesViewed, {
-  payload: PullRequestSetFilesViewedInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsRunActionRpc = Rpc.make(WS_METHODS.pullRequestsRunAction, {
-  payload: PullRequestActionInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsUpdateRpc = Rpc.make(WS_METHODS.pullRequestsUpdate, {
-  payload: PullRequestUpdateInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsCommentRpc = Rpc.make(WS_METHODS.pullRequestsComment, {
-  payload: PullRequestCommentInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsUpdateCommentRpc = Rpc.make(WS_METHODS.pullRequestsUpdateComment, {
-  payload: PullRequestCommentUpdateInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsSubmitReviewRpc = Rpc.make(WS_METHODS.pullRequestsSubmitReview, {
-  payload: PullRequestSubmitReviewInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsReplyToThreadRpc = Rpc.make(WS_METHODS.pullRequestsReplyToThread, {
-  payload: PullRequestThreadReplyInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsSetThreadResolutionRpc = Rpc.make(WS_METHODS.pullRequestsSetThreadResolution, {
-  payload: PullRequestThreadResolutionInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsSetReactionRpc = Rpc.make(WS_METHODS.pullRequestsSetReaction, {
-  payload: PullRequestReactionInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsInvalidateRpc = Rpc.make(WS_METHODS.pullRequestsInvalidate, {
-  payload: PullRequestInvalidateInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsReportStateRpc = Rpc.make(WS_METHODS.pullRequestsReportState, {
-  payload: PullRequestReportStateInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsSubscribeRefreshesRpc = Rpc.make(WS_METHODS.pullRequestsSubscribeRefreshes, {
-  payload: Schema.Struct({}),
-  success: NonNegativeInt,
-  error: EnvironmentAuthorizationError,
-  stream: true,
-});
-
-// Fetch reviewer candidates only when the menu opens to avoid unused host requests.
-const WsPullRequestsReviewerCandidatesRpc = Rpc.make(WS_METHODS.pullRequestsReviewerCandidates, {
-  payload: PullRequestRef,
-  success: PullRequestReviewerCandidateList,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsRequestReviewersRpc = Rpc.make(WS_METHODS.pullRequestsRequestReviewers, {
-  payload: PullRequestReviewerRequestInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsLabelCandidatesRpc = Rpc.make(WS_METHODS.pullRequestsLabelCandidates, {
-  payload: PullRequestRef,
-  success: PullRequestLabelCandidateList,
-  error: PullRequestRpcError,
-});
-
-const WsPullRequestsSetLabelsRpc = Rpc.make(WS_METHODS.pullRequestsSetLabels, {
-  payload: PullRequestLabelChangeInput,
-  success: Schema.Void,
-  error: PullRequestRpcError,
-});
-
-const WsSourceControlLookupRepositoryRpc = Rpc.make(WS_METHODS.sourceControlLookupRepository, {
-  payload: SourceControlRepositoryLookupInput,
-  success: SourceControlRepositoryInfo,
-  error: Schema.Union([SourceControlRepositoryError, EnvironmentAuthorizationError]),
-});
-
-const WsSourceControlCloneRepositoryRpc = Rpc.make(WS_METHODS.sourceControlCloneRepository, {
-  payload: SourceControlCloneRepositoryInput,
-  success: SourceControlCloneRepositoryResult,
-  error: Schema.Union([SourceControlRepositoryError, EnvironmentAuthorizationError]),
-});
-
-// Starts a device-flow sign-in the server finishes on its own, so a client can leave meanwhile.
-const WsSourceControlSignInStartRpc = Rpc.make(WS_METHODS.sourceControlSignInStart, {
-  payload: SourceControlSignInInput,
-  success: SourceControlSignInPrompt,
-  error: Schema.Union([SourceControlSignInError, EnvironmentAuthorizationError]),
-});
-
-// Resolves when the sign-in `signInStart` began ends, however long the user takes.
-const WsSourceControlSignInWaitRpc = Rpc.make(WS_METHODS.sourceControlSignInWait, {
-  payload: SourceControlSignInInput,
-  success: SourceControlSignInResult,
-  error: Schema.Union([SourceControlSignInError, EnvironmentAuthorizationError]),
-});
-
-// Ends the sign-in `signInStart` began, so approving the code afterwards signs nothing in.
-const WsSourceControlSignInCancelRpc = Rpc.make(WS_METHODS.sourceControlSignInCancel, {
-  payload: SourceControlSignInInput,
-  success: Schema.Void,
-  error: Schema.Union([SourceControlSignInError, EnvironmentAuthorizationError]),
-});
-
-const WsSourceControlAppAccessRpc = Rpc.make(WS_METHODS.sourceControlAppAccess, {
-  payload: SourceControlAppAccessInput,
-  success: SourceControlAppAccess,
-  error: EnvironmentAuthorizationError,
-});
-
-// False when the server's forge account has not starred the repository or the forge cannot say.
-const WsSourceControlStarredRpc = Rpc.make(WS_METHODS.sourceControlStarred, {
-  payload: SourceControlStarredInput,
-  success: Schema.Boolean,
-  error: EnvironmentAuthorizationError,
-});
-
-// Stars the repository as the server's forge account. False when the forge refused or cannot star.
-const WsSourceControlStarRpc = Rpc.make(WS_METHODS.sourceControlStar, {
-  payload: SourceControlStarredInput,
-  success: Schema.Boolean,
-  error: EnvironmentAuthorizationError,
-});
-
-// Returns when the project exists and cloning starts; progress uses the subscription.
-const WsProjectCloneStartRpc = Rpc.make(WS_METHODS.projectCloneStart, {
-  payload: ProjectCloneStartInput,
-  success: ProjectCloneStartResult,
-  error: Schema.Union([
-    SourceControlRepositoryError,
-    OrchestrationDispatchCommandError,
-    EnvironmentAuthorizationError,
-  ]),
-});
-
-const WsProjectCloneCancelRpc = Rpc.make(WS_METHODS.projectCloneCancel, {
-  payload: ProjectCloneActionInput,
-  success: ProjectCloneActionResult,
-  error: EnvironmentAuthorizationError,
-});
-
-const WsProjectCloneRetryRpc = Rpc.make(WS_METHODS.projectCloneRetry, {
-  payload: ProjectCloneActionInput,
-  success: ProjectCloneActionResult,
-  error: Schema.Union([SourceControlRepositoryError, EnvironmentAuthorizationError]),
-});
-
-const WsSubscribeProjectClonesRpc = Rpc.make(WS_METHODS.subscribeProjectClones, {
-  payload: ProjectCloneSubscribeInput,
-  success: ProjectCloneListEvent,
-  error: EnvironmentAuthorizationError,
-  stream: true,
-});
-
-const WsSourceControlPublishRepositoryRpc = Rpc.make(WS_METHODS.sourceControlPublishRepository, {
-  payload: SourceControlPublishRepositoryInput,
-  success: SourceControlPublishRepositoryResult,
-  error: Schema.Union([SourceControlRepositoryError, EnvironmentAuthorizationError]),
 });
 
 const WsProjectsSearchEntriesRpc = Rpc.make(WS_METHODS.projectsSearchEntries, {
@@ -1325,25 +889,6 @@ const WsWorktreeSetupCancelRpc = Rpc.make(WS_METHODS.worktreeSetupCancel, {
   payload: WorktreeSetupCancelInput,
   success: WorktreeSetupCancelResult,
   error: EnvironmentAuthorizationError,
-});
-
-const WsGitRunStackedActionRpc = Rpc.make(WS_METHODS.gitRunStackedAction, {
-  payload: GitRunStackedActionInput,
-  success: GitActionProgressEvent,
-  error: Schema.Union([GitManagerServiceError, EnvironmentAuthorizationError]),
-  stream: true,
-});
-
-const WsGitResolvePullRequestRpc = Rpc.make(WS_METHODS.gitResolvePullRequest, {
-  payload: GitPullRequestRefInput,
-  success: GitResolvePullRequestResult,
-  error: Schema.Union([GitManagerServiceError, EnvironmentAuthorizationError]),
-});
-
-const WsGitPreparePullRequestThreadRpc = Rpc.make(WS_METHODS.gitPreparePullRequestThread, {
-  payload: GitPreparePullRequestThreadInput,
-  success: GitPreparePullRequestThreadResult,
-  error: Schema.Union([GitManagerServiceError, EnvironmentAuthorizationError]),
 });
 
 const WsVcsListRefsRpc = Rpc.make(WS_METHODS.vcsListRefs, {
@@ -1713,7 +1258,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetStorageCleanupReportRpc,
   WsServerGetDatabaseStorageRpc,
   WsServerUpdateSettingsRpc,
-  WsServerDiscoverSourceControlRpc,
   WsServerSearchAcpRegistryRpc,
   WsServerPrepareAcpRegistryAgentRpc,
   WsServerUninstallAcpRegistryManagedBinaryRpc,
@@ -1753,53 +1297,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsScheduledTasksListWebhookDeliveriesRpc,
   WsScheduledTasksGetWebhookDeliveryRpc,
   WsServerReportClientActivityRpc,
-  WsPullRequestsListRpc,
-  WsPullRequestsListStatsRpc,
-  WsPullRequestsFilterOptionsRpc,
-  WsPullRequestsSummaryRpc,
-  WsPullRequestsRoutingRpc,
-  WsPullRequestsRoutingIdentityRpc,
-  WsPullRequestsStackRpc,
-  WsPullRequestsLinkedThreadsRpc,
-  WsPullRequestsDetailRpc,
-  WsPullRequestsPreviewRpc,
-  WsPullRequestsChecksRpc,
-  WsPullRequestsActivityRpc,
-  WsPullRequestsReviewGuideRpc,
-  WsPullRequestsGenerateReviewGuideRpc,
-  WsPullRequestsThreadCommentsRpc,
-  WsPullRequestsDiffFileContentsRpc,
-  WsPullRequestsFilesViewedRpc,
-  WsPullRequestsChangeBreakdownRpc,
-  WsPullRequestsSetFilesViewedRpc,
-  WsPullRequestsRunActionRpc,
-  WsPullRequestsUpdateRpc,
-  WsPullRequestsCommentRpc,
-  WsPullRequestsUpdateCommentRpc,
-  WsPullRequestsSubmitReviewRpc,
-  WsPullRequestsReplyToThreadRpc,
-  WsPullRequestsSetThreadResolutionRpc,
-  WsPullRequestsSetReactionRpc,
-  WsPullRequestsInvalidateRpc,
-  WsPullRequestsReportStateRpc,
-  WsPullRequestsSubscribeRefreshesRpc,
-  WsPullRequestsReviewerCandidatesRpc,
-  WsPullRequestsRequestReviewersRpc,
-  WsPullRequestsLabelCandidatesRpc,
-  WsPullRequestsSetLabelsRpc,
-  WsSourceControlLookupRepositoryRpc,
-  WsSourceControlCloneRepositoryRpc,
-  WsSourceControlPublishRepositoryRpc,
-  WsSourceControlSignInStartRpc,
-  WsSourceControlSignInWaitRpc,
-  WsSourceControlSignInCancelRpc,
-  WsSourceControlAppAccessRpc,
-  WsSourceControlStarredRpc,
-  WsSourceControlStarRpc,
-  WsProjectCloneStartRpc,
-  WsProjectCloneCancelRpc,
-  WsProjectCloneRetryRpc,
-  WsSubscribeProjectClonesRpc,
   WsProjectsListEntriesRpc,
   WsProjectsListIgnoredFilesRpc,
   WsProjectsReadFileRpc,
@@ -1829,9 +1326,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsWorktreeSetupCancelRpc,
   WsVcsPullRpc,
   WsVcsRefreshStatusRpc,
-  WsGitRunStackedActionRpc,
-  WsGitResolvePullRequestRpc,
-  WsGitPreparePullRequestThreadRpc,
   WsVcsListRefsRpc,
   WsVcsCreateWorktreeRpc,
   WsVcsRemoveWorktreeRpc,

@@ -802,12 +802,6 @@ export interface ThreadSearchSubject {
   readonly projectTitle?: string | null;
   /** Only set with two or more environments; it tells same-named threads apart. */
   readonly environmentLabel?: string | null;
-  readonly pullRequests?: ReadonlyArray<{
-    readonly number: number;
-    readonly title?: string | null;
-    /** Values such as URLs, matched only by the whole query. */
-    readonly references?: ReadonlyArray<string>;
-  }>;
   /** Latest user activity, in epoch ms. */
   readonly activityAt: number | null;
   readonly opens?: ThreadOpenStats | null;
@@ -849,10 +843,7 @@ function matchReference(
           (normalizedQuery.startsWith(folded) && notCut(normalizedQuery, folded.length))
       : at === 0;
   };
-  return (thread.id && matches(thread.id)) ||
-    thread.pullRequests?.some((pullRequest) => pullRequest.references?.some(matches))
-    ? { quality: 0.6, strong: true, primaryRanges: [] }
-    : null;
+  return thread.id && matches(thread.id) ? { quality: 0.6, strong: true, primaryRanges: [] } : null;
 }
 
 // Picks expire from the pick time; opening a thread another way must not extend their priority.
@@ -932,10 +923,6 @@ function matchHint(
   typos: boolean,
 ): SearchMatchHint | undefined {
   const candidates: Array<{ readonly label: string; readonly text: string | null | undefined }> = [
-    ...(thread.pullRequests ?? []).map((pullRequest) => ({
-      label: "PR",
-      text: `#${pullRequest.number}${pullRequest.title ? ` ${pullRequest.title}` : ""}`,
-    })),
     { label: "Branch", text: searchableBranch(thread.branch) },
     { label: "Project", text: thread.projectTitle },
     { label: "Environment", text: thread.environmentLabel },
@@ -968,10 +955,6 @@ function threadSearchFields(thread: ThreadSearchSubject): ReadonlyArray<Weighted
   const cached = threadFieldsCache.get(thread);
   if (cached) return cached;
   const fields: WeightedSearchField[] = [{ value: thread.title, weight: 1, midWord: true }];
-  for (const pullRequest of thread.pullRequests ?? []) {
-    fields.push({ value: `#${pullRequest.number}`, weight: 1 });
-    if (pullRequest.title) fields.push({ value: pullRequest.title, weight: 0.5 });
-  }
   const branch = searchableBranch(thread.branch);
   if (branch) fields.push({ value: branch, weight: 0.6 });
   if (thread.projectTitle) {
@@ -986,15 +969,12 @@ function threadSearchFields(thread: ThreadSearchSubject): ReadonlyArray<Weighted
 
 let lastFieldQuery: { readonly query: string; readonly fieldQuery: string } | undefined;
 
-// Strip pull request prefixes and the worktree prefix so queries match the stored fields.
+// Strip the worktree prefix so queries match the stored fields.
 function threadFieldQuery(normalizedQuery: string): string {
   if (lastFieldQuery?.query !== normalizedQuery) {
     lastFieldQuery = {
       query: normalizedQuery,
-      fieldQuery: normalizedQuery
-        .replace(/^(?:pr|pull request|pull)\s*(?=#?\d)/, "")
-        .replace(/^#\s*/, "")
-        .replace(WORKTREE_BRANCH_PREFIX_PATTERN, ""),
+      fieldQuery: normalizedQuery.replace(WORKTREE_BRANCH_PREFIX_PATTERN, ""),
     };
   }
   return lastFieldQuery.fieldQuery;

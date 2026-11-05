@@ -7,7 +7,6 @@ import {
 import type { ProviderInstance } from "@aprende/provider-core/server/driver";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
@@ -249,16 +248,14 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
   it.effect("omits a persisted service tier for managed ChatGPT text generation", () =>
     withFakeCodexEnv(
       {
-        output: JSON.stringify({ subject: "Update project", body: "" }),
+        output: JSON.stringify({ title: "Update project" }),
         managedRuntime: true,
         forbidArg: 'service_tier="priority"',
       },
       (textGeneration) =>
-        textGeneration.generateCommitMessage({
+        textGeneration.generateThreadTitle({
           cwd: process.cwd(),
-          branch: "feature/chatgpt",
-          stagedSummary: "M README.md",
-          stagedPatch: "diff --git a/README.md b/README.md",
+          message: "Update the README",
           modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.4", [
             { id: "serviceTier", value: "priority" },
           ]),
@@ -293,19 +290,19 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
   it.effect("still generates when Codex cannot list its MCP servers", () =>
     withFakeCodexEnv(
       {
-        output: JSON.stringify({ branch: "remove-default-shapes" }),
+        output: JSON.stringify({ title: "Remove default shapes" }),
         mcpServers: 2,
         requireArg: "--config features.plugins=false --config features.apps=false --ephemeral",
         forbidArg: "mcp_servers=",
       },
       (textGeneration) =>
         Effect.gen(function* () {
-          const result = yield* textGeneration.generateBranchName({
+          const result = yield* textGeneration.generateThreadTitle({
             cwd: process.cwd(),
             message: "Remove default shapes from characters",
             modelSelection: DEFAULT_TEST_MODEL_SELECTION,
           });
-          expect(result.branch).toBe("remove-default-shapes");
+          expect(result.title).toBe("Remove default shapes");
         }),
     ),
   );
@@ -333,31 +330,24 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
   it.effect("passes exec-safe launch args into codex exec", () =>
     withFakeCodexEnv(
       {
-        output: JSON.stringify({
-          subject: "Add important change",
-          body: "",
-        }),
+        output: JSON.stringify({ title: "Add important change" }),
         launchArgs: "--strict-config --listen off",
         requireArg: "--strict-config",
         forbidArg: "--listen",
       },
       (textGeneration) =>
-        textGeneration.generateCommitMessage({
+        textGeneration.generateThreadTitle({
           cwd: process.cwd(),
-          branch: "feature/codex-effect",
-          stagedSummary: "M README.md",
-          stagedPatch: "diff --git a/README.md b/README.md",
+          message: "Add the important change",
           modelSelection: DEFAULT_TEST_MODEL_SELECTION,
         }),
     ),
   );
 
-  it.effect("generates branch names even when the ambient scope is already closed", () =>
+  it.effect("generates titles even when the ambient scope is already closed", () =>
     withFakeCodexEnv(
       {
-        output: JSON.stringify({
-          branch: "feat/background-generation",
-        }),
+        output: JSON.stringify({ title: "Background generation" }),
       },
       (textGeneration) =>
         Effect.gen(function* () {
@@ -366,14 +356,14 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
           yield* Scope.close(closedScope, Exit.void);
 
           const generated = yield* textGeneration
-            .generateBranchName({
+            .generateThreadTitle({
               cwd: process.cwd(),
               message: "Please update session handling.",
               modelSelection: DEFAULT_TEST_MODEL_SELECTION,
             })
             .pipe(Effect.provideService(Scope.Scope, closedScope));
 
-          expect(generated.branch).toBe("feat/background-generation");
+          expect(generated.title).toBe("Background generation");
         }),
     ),
   );
@@ -397,9 +387,7 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
   it.effect("resolves persisted attachment ids to files for codex image inputs", () =>
     withFakeCodexEnv(
       {
-        output: JSON.stringify({
-          branch: "fix/ui-regression",
-        }),
+        output: JSON.stringify({ title: "Fix UI regression" }),
         requireImage: true,
       },
       (textGeneration) =>
@@ -413,7 +401,7 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
           yield* fs.writeFile(imagePath, Buffer.from("hello"));
 
           const generated = yield* textGeneration
-            .generateBranchName({
+            .generateThreadTitle({
               modelSelection: DEFAULT_TEST_MODEL_SELECTION,
               cwd: process.cwd(),
               message: "Fix layout bug from screenshot.",
@@ -438,7 +426,7 @@ it.layer(layerCodexTextGenerationTest)("CodexTextGeneration", (it) => {
               Effect.ensuring(fs.remove(imagePath).pipe(Effect.ignore)),
             );
 
-          expect(generated.branch).toBe("fix/ui-regression");
+          expect(generated.title).toBe("Fix UI regression");
         }),
     ),
   );
@@ -486,10 +474,6 @@ it.effect.each([false, true])("text generation preflight: exhausted=%s", (exhaus
         snapshot: { getSnapshot: Effect.succeed(snapshot) } as ProviderInstance["snapshot"],
         orchestrationAdapter: {} as ProviderInstance["orchestrationAdapter"],
         textGeneration: TextGeneration.TextGeneration.of({
-          generateCommitMessage: () => Effect.die("unused"),
-          generatePrContent: () => Effect.die("unused"),
-          generateBranchName: () => Effect.die("unused"),
-          generateReviewGuide: () => Effect.die("unused"),
           generateThreadTitle: (input) =>
             Effect.sync(() => {
               calls.push(input.modelSelection);
@@ -511,9 +495,6 @@ it.effect.each([false, true])("text generation preflight: exhausted=%s", (exhaus
               [fallback]: { driver: ProviderDriverKind.make("claudeAgent"), config: {} },
             },
           }),
-          Layer.mock(SourceControlProviderRegistry.SourceControlProviderRegistry)({
-            resolveLink: () => Effect.die("unused"),
-          }),
         ),
       ),
     );
@@ -521,7 +502,6 @@ it.effect.each([false, true])("text generation preflight: exhausted=%s", (exhaus
       yield* service.generateThreadTitle({
         cwd: "/tmp",
         message: "hello",
-        linkedContext: "",
         modelSelection: selection,
       }),
     ).toEqual({ title: "Generated title" });

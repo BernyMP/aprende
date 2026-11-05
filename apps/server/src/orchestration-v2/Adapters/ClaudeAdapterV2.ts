@@ -1964,12 +1964,8 @@ export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__create_threads",
   "mcp__aprende__delegate_task",
   "mcp__aprende__delete_scheduled_task",
-  "mcp__aprende__link_pull_request",
-  "mcp__aprende__link_pull_requests",
   "mcp__aprende__list_scheduled_tasks",
-  "mcp__aprende__list_thread_pull_requests",
   "mcp__aprende__orchestrator_capabilities",
-  "mcp__aprende__read_pull_request_guide",
   "mcp__aprende__request_secret",
   "mcp__aprende__run_scheduled_task_now",
   "mcp__aprende__schedule_task",
@@ -1979,7 +1975,6 @@ export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__t3_environment_preferences_update",
   "mcp__aprende__t3_environment_read",
   "mcp__aprende__t3_pending_request",
-  "mcp__aprende__t3_project_clone",
   "mcp__aprende__t3_project_create",
   "mcp__aprende__t3_project_delete",
   "mcp__aprende__t3_project_list",
@@ -2004,11 +1999,6 @@ export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__t3_worktree_status",
   "mcp__aprende__task_cancel",
   "mcp__aprende__task_status",
-  "mcp__aprende__unlink_pull_request",
-  "mcp__aprende__unlink_pull_requests",
-  "mcp__aprende__unwatch_pull_request",
-  "mcp__aprende__watch_pull_request",
-  "mcp__aprende__write_pull_request_guides",
 ];
 
 // T3 waits can block for an hour; exceed Claude's default 60 s timeout.

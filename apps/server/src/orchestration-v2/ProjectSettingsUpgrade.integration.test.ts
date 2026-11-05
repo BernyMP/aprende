@@ -23,7 +23,6 @@ import * as ProjectEnrichmentService from "../project/ProjectEnrichmentService.t
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
@@ -116,12 +115,7 @@ const unusedEnrichment = {
 };
 
 const layerRuntime = (dbPath: string) => {
-  const layerPlatform = Layer.merge(
-    Layer.mergeAll(NodeServices.layer, NodeCrypto.layer),
-    Layer.mock(SourceControlProviderRegistry.SourceControlProviderRegistry)({
-      resolveLink: () => Effect.die("unused"),
-    }),
-  );
+  const layerPlatform = Layer.mergeAll(NodeServices.layer, NodeCrypto.layer);
   const layerServerConfig = ServerConfig.layerTest(process.cwd(), {
     prefix: "t3-project-upgrade-",
   });
