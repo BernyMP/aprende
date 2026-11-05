@@ -1,3 +1,4 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
   type ManagedPolicySummary,
@@ -11,7 +12,9 @@ import {
 } from "@aprende/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 
 import type { ProviderInstance } from "@aprende/provider-core/server/driver";
@@ -111,6 +114,7 @@ const layerWithPolicy = (policy?: ManagedPolicySummary) =>
           }),
       }),
     ),
+    Layer.provideMerge(NodeServices.layer),
   );
 
 const layerTest = layerWithPolicy();
@@ -136,6 +140,23 @@ it.layer(layerTest)("RuntimePolicyV2", (it) => {
       assert.equal(acpPermissionDisposition(yield* resolve("auto-accept-edits"), request), "ask");
       assert.equal(acpPermissionDisposition(yield* resolve("full-access"), request), "allow");
     }),
+  );
+
+  it.effect("runs a thread whose recorded worktree is gone in its project root", () =>
+    Effect.gen(function* () {
+      const policy = yield* RuntimePolicy.RuntimePolicyV2;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const now = yield* DateTime.now;
+      const worktree = yield* fileSystem.makeTempDirectoryScoped();
+      const cwdFor = (worktreePath: string) =>
+        policy
+          .resolve({ thread: makeThread({ now, worktreePath }), modelSelection })
+          .pipe(Effect.map((resolved) => resolved.cwd));
+
+      assert.equal(yield* cwdFor(worktree), worktree);
+      assert.equal(yield* cwdFor(path.join(worktree, "removed")), "/project-root");
+    }).pipe(Effect.scoped),
   );
 
   it.effect("runs a mode the provider does not offer in Supervised", () =>

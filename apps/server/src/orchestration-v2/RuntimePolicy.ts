@@ -10,6 +10,7 @@ import {
 } from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -17,6 +18,7 @@ import * as Schema from "effect/Schema";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
 import * as ServerSettings from "../serverSettings.ts";
+import { existingThreadWorktree } from "../workspace/threadWorktree.ts";
 import * as ProjectStore from "./ProjectStore.ts";
 
 export class RuntimePolicyResolveError extends Schema.TaggedError<RuntimePolicyResolveError>()(
@@ -143,9 +145,11 @@ export const layerFromProjectStore: Layer.Layer<
   | ProjectStore.ProjectStoreV2
   | ProviderInstanceRegistry.ProviderInstanceRegistry
   | ServerSettings.ServerSettingsService
+  | FileSystem.FileSystem
 > = Layer.effect(
   RuntimePolicyV2,
   Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
     const projects = yield* ProjectStore.ProjectStoreV2;
     const providerInstances = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
     // The same ceiling the orchestrator enforces, fixed for the server's life.
@@ -160,7 +164,7 @@ export const layerFromProjectStore: Layer.Layer<
             ? undefined
             : (yield* instance.snapshot.getSnapshot).supportedRuntimeModes;
         const cwd =
-          input.thread.worktreePath ??
+          (yield* existingThreadWorktree(fileSystem, input.thread.worktreePath)) ??
           (yield* projects.get(input.thread.projectId).pipe(
             Effect.mapError(
               (cause) =>

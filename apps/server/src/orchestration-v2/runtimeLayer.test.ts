@@ -629,7 +629,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: `/tmp/t3-${name}`,
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "message.dispatch",
@@ -2396,7 +2396,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
           runtimeMode: "full-access",
           interactionMode: "default",
           branch: null,
-          worktreePath: "/tmp/runtime-layer-restart",
+          worktreePath: process.cwd(),
         });
         yield* orchestrator.dispatch({
           type: "message.dispatch",
@@ -2518,7 +2518,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
           runtimeMode: "full-access",
           interactionMode: "default",
           branch: null,
-          worktreePath: "/tmp/runtime-layer-restart-failed",
+          worktreePath: process.cwd(),
         });
         yield* orchestrator.dispatch({
           type: "message.dispatch",
@@ -2609,7 +2609,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: "/tmp/runtime-layer-active-settle",
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "thread.settle",
@@ -2678,7 +2678,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: "/tmp/runtime-layer-settle-after-run",
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "message.dispatch",
@@ -2744,7 +2744,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: "/tmp/runtime-layer-settle-automatic",
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "message.dispatch",
@@ -4649,7 +4649,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: "/tmp/runtime-layer-queued-edit",
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "message.dispatch",
@@ -4880,7 +4880,7 @@ it.layer(layerTest)("snooze queued runs", (it) => {
           runtimeMode: "full-access",
           interactionMode: "default",
           branch: null,
-          worktreePath: "/tmp/snooze-queued",
+          worktreePath: process.cwd(),
           createdBy: "user",
           creationSource: "web",
         });
@@ -5019,7 +5019,7 @@ it.layer(layerTest)("snooze queued runs", (it) => {
           runtimeMode: "full-access",
           interactionMode: "default",
           branch: null,
-          worktreePath: "/tmp/snooze-wake",
+          worktreePath: process.cwd(),
           createdBy: "user",
           creationSource: "web",
         });

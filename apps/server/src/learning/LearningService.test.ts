@@ -61,6 +61,8 @@ const makeLayer = (
     readonly sendFails?: boolean;
     /** The session's folder, where practice folders go. */
     readonly root?: string;
+    /** A worktree an older release recorded for the session. */
+    readonly worktreePath?: string;
     readonly spawn?: (command: Spawned) => Effect.Effect<ChildProcessSpawner.ChildProcessHandle>;
   },
 ) =>
@@ -70,7 +72,7 @@ const makeLayer = (
         getThreadShell: () =>
           Effect.succeed({
             projectId: ProjectId.make("project-learning"),
-            worktreePath: null,
+            worktreePath: options?.worktreePath ?? null,
           } as never),
         sendToThread: (input) =>
           options?.sendFails === true
@@ -513,7 +515,10 @@ it.effect("writes starter files into a fresh practice folder and never into an e
       const escaped = yield* learning.poseProblem(otherThreadId, codingProblem).pipe(Effect.exit);
       assert.isTrue(Exit.isFailure(escaped));
       assert.deepEqual(yield* fileSystem.readDirectory(outside), []);
-    }).pipe(Effect.provide(makeLayer(sent, { root })));
+    }).pipe(
+      // A removed worktree leaves the session in its project folder.
+      Effect.provide(makeLayer(sent, { root, worktreePath: path.join(root, "removed-worktree") })),
+    );
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 
