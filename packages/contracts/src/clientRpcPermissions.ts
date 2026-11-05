@@ -51,6 +51,8 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.learningAnswer]: AuthOrchestrationOperateScope,
   [WS_METHODS.learningRevealHint]: AuthOrchestrationOperateScope,
   [WS_METHODS.learningSubmitSolution]: AuthOrchestrationOperateScope,
+  // Runs the tutor's check command on the learner's machine, like their own terminal.
+  [WS_METHODS.learningRunCheck]: AuthOrchestrationOperateScope,
   [WS_METHODS.learningSetTutorPrompt]: AuthSettingsWriteScope,
   [WS_METHODS.scheduledTasksUpsert]: AuthOrchestrationOperateScope,
   [WS_METHODS.scheduledTasksSetEnabled]: AuthOrchestrationOperateScope,

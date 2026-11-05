@@ -10,6 +10,7 @@ import {
   formatSolutionMessage,
   gradeAnswer,
   planProblem,
+  practiceFolderName,
   problemDraftProblem,
   questionDraftProblem,
   shuffleOptions,
@@ -177,6 +178,17 @@ describe("formatAnswerMessage", () => {
   });
 });
 
+const file = (path: string) => ({ path, contents: "" });
+
+describe("practiceFolderName", () => {
+  it("makes a readable slug with the problem's short id", () => {
+    expect(practiceFolderName("Fizz Buzz, día 1!", "prob-1a2b3c4d-5e6f")).toBe(
+      "fizz-buzz-dia-1-1a2b3c4d",
+    );
+    expect(practiceFolderName("¿?", "prob-0000aaaa-1")).toBe("problem-0000aaaa");
+  });
+});
+
 describe("problemDraftProblem", () => {
   const base = {
     mode: "compose" as const,
@@ -193,6 +205,43 @@ describe("problemDraftProblem", () => {
     ["takes at most three hints", { ...base, hints: ["a", "b", "c", "d"] }, "1 to 3"],
     ["refuses an empty hint", { ...base, hints: ["a", " "] }, "empty"],
     ["needs a target", { ...base, targets: [] }, "target"],
+    [
+      "accepts a workspace of relative paths",
+      { ...base, workspace: { files: [file("main.py"), file("tests/test_main.py")] } },
+      undefined,
+    ],
+    ["needs a starter file", { ...base, workspace: { files: [] } }, "1 to 20"],
+    [
+      "takes at most twenty starter files",
+      { ...base, workspace: { files: Array.from({ length: 21 }, (_, i) => file(`f${i}.py`)) } },
+      "1 to 20",
+    ],
+    ["refuses an absolute path", { ...base, workspace: { files: [file("/etc/x")] } }, "relative"],
+    ["refuses a drive path", { ...base, workspace: { files: [file("C:/x.py")] } }, "relative"],
+    ["refuses climbing out", { ...base, workspace: { files: [file("a/../../x.py")] } }, '".."'],
+    ["refuses a dot part", { ...base, workspace: { files: [file("./x.py")] } }, '"."'],
+    ["refuses backslashes", { ...base, workspace: { files: [file("a\\x.py")] } }, "/"],
+    ["refuses a colon", { ...base, workspace: { files: [file("ab:c.py")] } }, "character"],
+    [
+      "refuses the same path in another case",
+      { ...base, workspace: { files: [file("Main.py"), file("main.py")] } },
+      "clashes",
+    ],
+    [
+      "refuses a file that is another's folder",
+      { ...base, workspace: { files: [file("lib"), file("lib/x.py")] } },
+      "clashes",
+    ],
+    [
+      "refuses a huge file",
+      { ...base, workspace: { files: [{ path: "x.py", contents: "x".repeat(100_001) }] } },
+      "longer",
+    ],
+    [
+      "refuses a blank check command",
+      { ...base, workspace: { files: [file("x.py")], checkCommand: " " } },
+      "checkCommand",
+    ],
   ] as const)("%s", (_name, draft, expected) => {
     const problem = problemDraftProblem(draft);
     if (expected === undefined) expect(problem).toBeUndefined();
@@ -211,6 +260,7 @@ describe("formatSolutionMessage", () => {
     ],
     hintCount: 3,
     retestOf: "prob-0",
+    workspace: null,
   };
 
   it("names the problem and carries the work, hints and confidence", () => {
@@ -234,6 +284,32 @@ describe("formatSolutionMessage", () => {
     expect(text).toContain("Hints used: 2 of 3");
     expect(text).toContain("Confidence: 40%");
     expect(text).toContain("Their thinking: no cycle");
+  });
+
+  it("names the practice folder and carries the check's output in a fence it cannot close", () => {
+    const text = formatSolutionMessage(
+      {
+        ...problem,
+        workspace: {
+          folder: "practice/plans-1a2b3c4d",
+          files: ["main.py", "test_main.py"],
+          checkCommand: "python3 -m unittest",
+        },
+      },
+      {
+        gaveUp: false,
+        check: { exitCode: 1, timedOut: false },
+        submittedAt: "2026-11-04T00:00:00.000Z",
+      },
+      0,
+      { exitCode: 1, timedOut: false, output: "FAILED ```x```\n", truncated: true },
+    );
+    expect(text).not.toContain("Their work:");
+    expect(text).toContain(
+      "Practice folder: practice/plans-1a2b3c4d/ (starter files: main.py, test_main.py)",
+    );
+    expect(text).toContain("Check `python3 -m unittest` exited with code 1. Output (cut to fit):");
+    expect(text).toContain("````\nFAILED ```x```\n````");
   });
 
   it("says when they gave up", () => {

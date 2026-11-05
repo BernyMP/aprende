@@ -39,11 +39,12 @@ describe("RPC authorization scopes", () => {
     }
   });
 
-  it("keeps learner answers and practice, which start tutor turns, behind operate scope", () => {
+  it("keeps learner answers and practice, which start tutor turns or run code, behind operate scope", () => {
     for (const method of [
       WS_METHODS.learningAnswer,
       WS_METHODS.learningRevealHint,
       WS_METHODS.learningSubmitSolution,
+      WS_METHODS.learningRunCheck,
     ]) {
       expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
     }

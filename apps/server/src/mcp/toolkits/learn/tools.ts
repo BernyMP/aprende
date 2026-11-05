@@ -1,5 +1,7 @@
 import {
+  LEARNING_CHECK_TIMEOUT_SECONDS,
   LEARNING_MAX_OPTIONS,
+  LEARNING_MAX_WORKSPACE_FILES,
   LearningKnowledge,
   LearningMissType,
   LearningPlanEdge,
@@ -75,7 +77,7 @@ const AskQuestionTool = Tool.make("ask_question", {
   .annotate(Tool.OpenWorld, false);
 
 const PoseProblemTool = Tool.make("pose_problem", {
-  description: `Show the learner one practice problem as a card. Commit a complete model solution and graded hints before they see it. After calling, end your turn without writing more: their work, the hints they used, their confidence (0-100) and their thinking arrive as their next message. Posing replaces an unanswered question or problem.`,
+  description: `Show the learner one practice problem as a card. Commit a complete model solution and graded hints before they see it. For programming practice, add a workspace: the app writes your starter files into a new project folder, where the learner edits and runs them. After calling, end your turn without writing more: their work, the hints they used, their confidence (0-100) and their thinking arrive as their next message. Posing replaces an unanswered question or problem.`,
   parameters: Schema.Struct({
     mode: LearningProblemMode.annotate({
       description:
@@ -96,6 +98,28 @@ const PoseProblemTool = Tool.make("pose_problem", {
     retestOf: Schema.optional(
       Schema.String.annotate({
         description: "The id of an earlier problem this retests in a new form.",
+      }),
+    ),
+    workspace: Schema.optional(
+      Schema.Struct({
+        name: Schema.optional(
+          Schema.String.annotate({ description: "A short folder name, like fizzbuzz." }),
+        ),
+        files: Schema.Array(
+          Schema.Struct({
+            path: Schema.String.annotate({ description: "Relative, with /, like src/main.py." }),
+            contents: Schema.String.annotate({
+              description: "Starter code that leaves out the part to write. Never the solution.",
+            }),
+          }),
+        ).annotate({
+          description: `1 to ${LEARNING_MAX_WORKSPACE_FILES} files, the one to edit first.`,
+        }),
+        checkCommand: Schema.optional(
+          Schema.String.annotate({
+            description: `Run in the folder by the learner and on submit, stopped after ${LEARNING_CHECK_TIMEOUT_SECONDS} s. Test the behavior asked for, like \`python3 -m unittest\`.`,
+          }),
+        ),
       }),
     ),
   }),

@@ -7,34 +7,96 @@ import {
   learningAnswerMessageQuestionId,
   learningSolutionMessageProblemId,
 } from "@aprende/contracts";
+import * as Clock from "effect/Clock";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import * as Sink from "effect/Sink";
+import * as Stream from "effect/Stream";
+import * as TestClock from "effect/testing/TestClock";
+import { ChildProcessSpawner } from "effect/process";
 import * as SqlClient from "effect/sql/SqlClient";
 
 import { ServerConfig } from "../config.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
+import * as ProcessRunner from "../processRunner.ts";
+import * as ProjectService from "../project/ProjectService.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as LearningService from "./LearningService.ts";
 
 const threadId = ThreadId.make("thread-learning");
 const otherThreadId = ThreadId.make("thread-learning-other");
 
+interface Spawned {
+  readonly args: ReadonlyArray<string>;
+  readonly options: { readonly cwd?: string };
+}
+
+const makeHandle = (input: {
+  readonly stdout: Stream.Stream<Uint8Array>;
+  readonly exitCode: Effect.Effect<ChildProcessSpawner.ExitCode>;
+}) =>
+  ChildProcessSpawner.makeHandle({
+    pid: ChildProcessSpawner.ProcessId(1),
+    exitCode: input.exitCode,
+    isRunning: Effect.succeed(false),
+    kill: () => Effect.void,
+    unref: Effect.succeed(Effect.void),
+    stdin: Sink.drain,
+    stdout: input.stdout,
+    stderr: Stream.empty,
+    all: Stream.empty,
+    getInputFd: () => Sink.drain,
+    getOutputFd: () => Stream.empty,
+  });
+
 const makeLayer = (
   sent: Ref.Ref<ReadonlyArray<string>>,
-  options?: { readonly sendFails?: boolean },
+  options?: {
+    readonly sendFails?: boolean;
+    /** The session's folder, where practice folders go. */
+    readonly root?: string;
+    readonly spawn?: (command: Spawned) => Effect.Effect<ChildProcessSpawner.ChildProcessHandle>;
+  },
 ) =>
   LearningService.layer.pipe(
     Layer.provide(
       Layer.mock(ThreadManagementService.ThreadManagementService)({
         getThreadShell: () =>
-          Effect.succeed({ projectId: ProjectId.make("project-learning") } as never),
+          Effect.succeed({
+            projectId: ProjectId.make("project-learning"),
+            worktreePath: null,
+          } as never),
         sendToThread: (input) =>
           options?.sendFails === true
             ? Effect.die("provider is down")
             : Ref.update(sent, (texts) => [...texts, input.text]).pipe(Effect.as({} as never)),
       }),
+    ),
+    Layer.provide(
+      Layer.mock(ProjectService.ProjectService)({
+        getById: () =>
+          Effect.succeedSome({ workspaceRoot: options?.root ?? process.cwd() } as never),
+      }),
+    ),
+    Layer.provide(
+      ProcessRunner.layer.pipe(
+        Layer.provide(
+          Layer.succeed(
+            ChildProcessSpawner.ChildProcessSpawner,
+            ChildProcessSpawner.make((command) =>
+              options?.spawn === undefined
+                ? Effect.die("no process expected")
+                : options.spawn(command as unknown as Spawned),
+            ),
+          ),
+        ),
+      ),
     ),
     Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "aprende-learning-" })),
     Layer.provideMerge(SqlitePersistence.layerMemory),
@@ -184,6 +246,7 @@ it.effect("keeps the solution and unrevealed hints on the server until the tutor
 
       const posed = yield* problemOf;
       assert.equal(posed.status, "open");
+      assert.isNull(posed.workspace);
       assert.deepEqual(posed.hints, []);
       assert.equal(posed.hintCount, 2);
       assert.isNull(posed.modelSolution);
@@ -396,4 +459,187 @@ it.effect("links propositions across sessions instead of duplicating them", () =
       );
     }).pipe(Effect.provide(makeLayer(sent)));
   }),
+);
+
+const codingProblem = {
+  ...problemDraft,
+  statement: "Print the build order.",
+  workspace: {
+    name: "Build order",
+    files: [
+      { path: "main.py", contents: "print('todo')\n" },
+      { path: "tests/test_main.py", contents: "import unittest\n" },
+    ],
+    checkCommand: "python3 -m unittest",
+  },
+};
+
+it.effect("writes starter files into a fresh practice folder and never into an existing one", () =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-practice-" });
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const first = yield* learning.poseProblem(threadId, codingProblem);
+      const workspace = (yield* learning.getThreadState(threadId)).problems[0]!.workspace!;
+      assert.match(workspace.folder, /^practice\/build-order-[0-9a-f]{8}$/);
+      assert.deepEqual(workspace.files, ["main.py", "tests/test_main.py"]);
+      assert.equal(workspace.checkCommand, "python3 -m unittest");
+      const main = path.join(root, workspace.folder, "main.py");
+      assert.equal(
+        yield* fileSystem.readFileString(path.join(root, workspace.folder, "tests/test_main.py")),
+        "import unittest\n",
+      );
+
+      yield* fileSystem.writeFileString(main, "print('mine')\n");
+      yield* learning.poseProblem(threadId, { ...codingProblem, retestOf: first.problemId });
+      const second = (yield* learning.getThreadState(threadId)).problems[1]!.workspace!;
+      assert.notEqual(second.folder, workspace.folder);
+      assert.equal(yield* fileSystem.readFileString(main), "print('mine')\n");
+
+      // A folder that cannot be made leaves no problem behind for the learner.
+      yield* fileSystem.remove(path.join(root, "practice"), { recursive: true });
+      yield* fileSystem.writeFileString(path.join(root, "practice"), "not a folder");
+      const blocked = yield* learning.poseProblem(otherThreadId, codingProblem).pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(blocked));
+      assert.deepEqual((yield* learning.getThreadState(otherThreadId)).problems, []);
+
+      // A symlinked practice folder must not carry starter files out of the session folder.
+      const outside = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-outside-" });
+      yield* fileSystem.remove(path.join(root, "practice"));
+      yield* fileSystem.symlink(outside, path.join(root, "practice"));
+      const escaped = yield* learning.poseProblem(otherThreadId, codingProblem).pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(escaped));
+      assert.deepEqual(yield* fileSystem.readDirectory(outside), []);
+    }).pipe(Effect.provide(makeLayer(sent, { root })));
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("runs the check in the practice folder, capping its output and stopping it at 30 s", () =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-practice-" });
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    const spawned = yield* Ref.make<ReadonlyArray<Spawned>>([]);
+    const spawnedAt = yield* Ref.make<ReadonlyArray<number>>([]);
+    const hang = yield* Ref.make(false);
+    const drained = yield* Deferred.make<void>();
+    const spawn = (command: Spawned) =>
+      Effect.gen(function* () {
+        yield* Ref.update(spawned, (all) => [...all, command]);
+        const now = yield* Clock.currentTimeMillis;
+        yield* Ref.update(spawnedAt, (all) => [...all, now]);
+        if (yield* Ref.get(hang))
+          return makeHandle({
+            stdout: Stream.encodeText(Stream.make("started\n")).pipe(
+              Stream.ensuring(Deferred.succeed(drained, undefined)),
+            ),
+            exitCode: Effect.never,
+          });
+        return makeHandle({
+          stdout: Stream.encodeText(Stream.make("x".repeat(40_000), "y".repeat(40_000))),
+          exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(1)),
+        });
+      });
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const { problemId } = yield* learning.poseProblem(threadId, codingProblem);
+      const folder = (yield* learning.getThreadState(threadId)).problems[0]!.workspace!.folder;
+
+      const capped = yield* learning.runCheck({ threadId, problemId });
+      assert.equal(capped.exitCode, 1);
+      assert.isFalse(capped.timedOut);
+      assert.isTrue(capped.truncated);
+      assert.equal(capped.output.length, 64 * 1024);
+      const [command] = yield* Ref.get(spawned);
+      assert.equal(command!.options.cwd, path.join(root, folder));
+      assert.include(command!.args.join(" "), "python3 -m unittest");
+
+      yield* Ref.set(hang, true);
+      const running = yield* learning
+        .runCheck({ threadId, problemId })
+        .pipe(Effect.forkChild({ startImmediately: true }));
+      yield* Deferred.await(drained);
+      yield* Ref.set(hang, false);
+      const overlapping = yield* learning
+        .runCheck({ threadId, problemId })
+        .pipe(Effect.forkChild({ startImmediately: true }));
+      yield* TestClock.adjust("30 seconds");
+      // Output written before the timeout still reaches the learner.
+      assert.deepEqual(yield* Fiber.join(running), {
+        exitCode: null,
+        timedOut: true,
+        output: "started\n",
+        truncated: false,
+      });
+      // A second check in the same folder waits for the first instead of overlapping it.
+      assert.equal((yield* Fiber.join(overlapping)).exitCode, 1);
+      assert.isAtLeast((yield* Ref.get(spawnedAt))[2]!, 30_000);
+
+      yield* fileSystem.remove(path.join(root, folder), { recursive: true });
+      const gone = yield* learning.runCheck({ threadId, problemId });
+      assert.isNull(gone.exitCode);
+      assert.include(gone.output, "is gone");
+      assert.equal((yield* Ref.get(spawned)).length, 3);
+
+      yield* learning.poseProblem(threadId, problemDraft);
+      const plain = (yield* learning.getThreadState(threadId)).problems[1]!;
+      assert.isTrue(
+        Exit.isFailure(
+          yield* learning.runCheck({ threadId, problemId: plain.id }).pipe(Effect.exit),
+        ),
+      );
+    }).pipe(Effect.provide(makeLayer(sent, { root, spawn })));
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("runs the check once more on submit and hands the tutor the folder and the result", () =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-practice-" });
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    const runs = yield* Ref.make(0);
+    const spawn = () =>
+      Ref.update(runs, (count) => count + 1).pipe(
+        Effect.as(
+          makeHandle({
+            stdout: Stream.encodeText(Stream.make("Ran 2 tests\nOK\n")),
+            exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+          }),
+        ),
+      );
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const { problemId } = yield* learning.poseProblem(threadId, codingProblem);
+      const folder = (yield* learning.getThreadState(threadId)).problems[0]!.workspace!.folder;
+
+      const { problem } = yield* learning.submitSolution({
+        threadId,
+        problemId,
+        gaveUp: false,
+        confidence: 80,
+      });
+      assert.equal(problem.status, "submitted");
+      assert.deepEqual(problem.attempt?.check, { exitCode: 0, timedOut: false });
+      assert.equal(yield* Ref.get(runs), 1);
+      const [text] = yield* Ref.get(sent);
+      assert.equal(learningSolutionMessageProblemId(text!), problemId);
+      assert.include(
+        text!,
+        `Practice folder: ${folder}/ (starter files: main.py, tests/test_main.py)`,
+      );
+      assert.include(text!, "Check `python3 -m unittest` exited with code 0. Output:");
+      assert.include(text!, "Ran 2 tests\nOK");
+
+      // Text-only problems still need written work.
+      const plain = yield* learning.poseProblem(otherThreadId, problemDraft);
+      const empty = yield* learning
+        .submitSolution({ threadId: otherThreadId, problemId: plain.problemId, gaveUp: false })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(empty));
+    }).pipe(Effect.provide(makeLayer(sent, { root, spawn })));
+  }).pipe(Effect.provide(NodeServices.layer)),
 );

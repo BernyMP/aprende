@@ -1559,6 +1559,10 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:learning:submit-solution",
       tag: WS_METHODS.learningSubmitSolution,
     }),
+    runLearningCheck: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:run-check",
+      tag: WS_METHODS.learningRunCheck,
+    }),
     setTutorPrompt: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:learning:set-tutor-prompt",
       tag: WS_METHODS.learningSetTutorPrompt,

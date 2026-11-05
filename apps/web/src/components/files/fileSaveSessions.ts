@@ -124,6 +124,36 @@ export function createFileSaveSessions(deps: FileSaveSessionDeps) {
   return {
     /** Holds the file's session open until the returned release runs. */
     acquire,
+    /**
+     * Writes pending edits to files under `folder` now, including drafts of `files` whose editor
+     * already closed. Resolves false if any edit stays unsaved.
+     */
+    async flushFolder(
+      target: Omit<FileSaveTarget, "relativePath"> & {
+        readonly folder: string;
+        readonly files: readonly string[];
+      },
+    ): Promise<boolean> {
+      const { folder, files, ...base } = target;
+      const prefix = fileSaveKey({ ...base, relativePath: `${folder}/` });
+      const targets = files.map((file) => ({ ...base, relativePath: `${folder}/${file}` }));
+      const releases: Array<() => void> = [];
+      for (const fileTarget of targets) {
+        // A closed editor whose save failed leaves its draft behind; reopening recovers it.
+        if (!sessions.has(fileSaveKey(fileTarget)) && deps.readUnsaved(fileTarget) !== null)
+          releases.push(acquire(fileTarget, () => {}));
+      }
+      const inFolder = [...sessions]
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([, session]) => session.coordinator);
+      await Promise.all(inFolder.map((coordinator) => coordinator.flushed()));
+      // A draft recovery could not load, e.g. without write access, is still unsaved.
+      const saved =
+        inFolder.every((coordinator) => coordinator.unconfirmedContents === null) &&
+        targets.every((fileTarget) => deps.readUnsaved(fileTarget) === null);
+      for (const release of releases) release();
+      return saved;
+    },
     /** Edits for a file nobody holds open are dropped, so retired editors stay inert. */
     change(target: FileSaveTarget, contents: string): void {
       const session = sessions.get(fileSaveKey(target));
@@ -176,3 +206,6 @@ export function useFileSaveSession(
 export function changeFileSaveSession(target: FileSaveTarget, contents: string): void {
   fileSaveSessions.change(target, contents);
 }
+
+/** Saves the open editors' pending edits under `folder` before something reads the files. */
+export const flushFileSaveFolder = fileSaveSessions.flushFolder;
