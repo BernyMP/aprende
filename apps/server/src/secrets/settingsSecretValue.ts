@@ -1,9 +1,4 @@
-import {
-  isSecretReference,
-  secretReferencesInSettings,
-  type SettingsSecretValue,
-  withSettingsSecrets,
-} from "@aprende/contracts";
+import { secretReferencesInSettings, withSettingsSecrets } from "@aprende/contracts";
 import type * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -22,30 +17,4 @@ export const resolveSettingsSecrets = Effect.fn("SettingsSecrets.resolve")(funct
     settings,
     pending.map((slot, index) => ({ ...slot, value: values[index] ?? "" })),
   );
-});
-
-export class SettingsSecretUnresolvedError extends Schema.TaggedError<SettingsSecretUnresolvedError>()(
-  "SettingsSecretUnresolvedError",
-  { provider: Schema.String },
-) {
-  override get message(): string {
-    return `Could not read the credential from the secret provider "${this.provider}". Unlock or fix it in Settings, then try again.`;
-  }
-}
-
-/**
- * The secret a credential setting holds or names. A named secret that cannot be read, or reads
- * empty, fails instead of passing for a missing token, so callers that would fall back to another
- * credential cannot silently switch accounts.
- */
-export const requireSettingsSecret = Effect.fn("SettingsSecrets.require")(function* (
-  resolver: SecretResolver.SecretResolver["Service"],
-  value: SettingsSecretValue,
-) {
-  if (!isSecretReference(value)) return value;
-  const [secret] = yield* resolver.read([value]);
-  if (secret === undefined || secret.trim() === "") {
-    return yield* new SettingsSecretUnresolvedError({ provider: value.provider });
-  }
-  return secret;
 });

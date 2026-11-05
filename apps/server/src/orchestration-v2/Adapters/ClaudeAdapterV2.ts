@@ -1744,8 +1744,6 @@ export function makeClaudeQueryOptions(input: {
   readonly sdkSettings?: string | ClaudeSdkSettings;
   readonly environment?: NodeJS.ProcessEnv;
   readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
-  /** The thread's T3 MCP session holds the `device` capability. */
-  readonly deviceToolsAvailable?: boolean;
   readonly tools?: ClaudeAgentSdkQueryTools;
   readonly allowedTools?: ReadonlyArray<string>;
   readonly disallowedTools?: ReadonlyArray<string>;
@@ -1980,10 +1978,6 @@ export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__create_threads",
   "mcp__aprende__delegate_task",
   "mcp__aprende__delete_scheduled_task",
-  "mcp__aprende__device_close",
-  "mcp__aprende__device_list",
-  "mcp__aprende__device_open",
-  "mcp__aprende__device_screenshot",
   "mcp__aprende__link_pull_request",
   "mcp__aprende__link_pull_requests",
   "mcp__aprende__list_scheduled_tasks",
@@ -10930,7 +10924,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             ...(mcpOverrides.mcpServers === undefined
               ? {}
               : { mcpServers: mcpOverrides.mcpServers }),
-            deviceToolsAvailable: mcpSession?.capabilities?.has("device") === true,
             permissionMode: queryPolicy.permissionMode,
             ...(queryPolicy.allowDangerouslySkipPermissions === undefined
               ? {}

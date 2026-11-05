@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { DeviceHostId, SecretProviderId, UsageLimitSourceId } from "@aprende/contracts";
+import { SecretProviderId, UsageLimitSourceId } from "@aprende/contracts";
 import * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
 import * as Effect from "effect/Effect";
 
@@ -139,19 +139,7 @@ it.effect("reads a collected reference again once it is invalidated", () =>
         enabled: true,
       },
     } as const;
-    const easDeviceHosts = [
-      {
-        kind: "eas" as const,
-        id: DeviceHostId.make("ref"),
-        label: "Ref",
-        maxSessionMinutes: 30,
-        idleMinutes: 10,
-        maxConcurrentSessions: 2,
-        accessToken: source("expo#token"),
-      },
-    ];
     cache.set("cliproxy#key", "stale");
-    cache.set("expo#token", "stale");
     assert.deepEqual((yield* read()).bitbucket, {
       email: "me@example.test",
       accessToken: "stale",
@@ -159,10 +147,9 @@ it.effect("reads a collected reference again once it is invalidated", () =>
     current = "rotated";
     yield* invalidateSettingsSecrets(
       resolver,
-      Effect.succeed({ sourceControlHosts: hosts, usageLimitSources, easDeviceHosts }),
+      Effect.succeed({ sourceControlHosts: hosts, usageLimitSources }),
     );
     assert.isFalse(cache.has("cliproxy#key"));
-    assert.isFalse(cache.has("expo#token"));
     assert.deepEqual((yield* read()).bitbucket, {
       email: "me@example.test",
       accessToken: "rotated",

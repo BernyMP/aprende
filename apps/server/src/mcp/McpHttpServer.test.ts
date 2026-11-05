@@ -6,8 +6,6 @@ import { NodeHttpServer } from "@effect/platform-node";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
-  DeviceId,
-  DeviceOperationError,
   EnvironmentId,
   OrchestratorMcpEnvironmentTarget,
   OrchestratorMcpFailure,
@@ -35,7 +33,6 @@ import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as Sqlite from "../persistence/Sqlite.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 
-import * as DeviceService from "../device/DeviceService.ts";
 import * as PullRequestReviewGuideService from "../pullRequest/PullRequestReviewGuideService.ts";
 import * as ServerConfig from "../config.ts";
 import * as ServerSettings from "../serverSettings.ts";
@@ -152,86 +149,6 @@ const callTool = (name: string, args: Record<string, unknown>) =>
   });
 
 const callSnapshot = (args: Record<string, unknown>) => callTool("preview_snapshot", args);
-
-it.effect.each([
-  { input: {}, open: false, message: "No device is open in this thread. Call device_open first." },
-  {
-    input: { deviceId: "missing" },
-    open: false,
-    message: "Device missing is not open in this thread. Call device_open first.",
-  },
-  {
-    input: {},
-    open: true,
-    message:
-      "Device screenshot failed: Could not communicate with device support. Try refreshing devices.",
-  },
-  {
-    input: {},
-    open: true,
-    rejected: true,
-    message:
-      "Device screenshot failed: The device hub could not complete the request. Call device_list to check the device state, and device_open if it needs to be reopened.",
-  },
-])(
-  "preserves actionable screenshot failure text: $message",
-  ({ input, open, message, ...options }) =>
-    Effect.gen(function* () {
-      const server = yield* McpServer.McpServer;
-      const result = yield* server.callTool({ name: "device_screenshot", arguments: input }).pipe(
-        Effect.provideService(McpInvocationContext.McpInvocationContext, {
-          ...invocation,
-          capabilities: new Set(["device"] as const),
-        }),
-        Effect.provideService(McpSchema.McpServerClient, client),
-      );
-      expect(result.isError).toBe(true);
-      expect(result.content).toEqual([{ type: "text", text: message }]);
-      expect(result.structuredContent).toMatchObject({
-        error: { message, operation: "screenshot" },
-      });
-      expect(JSON.stringify(result)).not.toContain("private hub output");
-    }).pipe(
-      Effect.provide(
-        McpHttpServer.layerDeviceToolkit.pipe(
-          Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
-          Layer.provide(McpToolAccessTestkit.liveThreadsLayer),
-          Layer.provide(
-            Layer.mock(DeviceService.DeviceService)({
-              locateSession: () => Effect.succeedNone,
-              sessionsForThread: () =>
-                Effect.succeed(
-                  open
-                    ? [
-                        {
-                          threadId,
-                          hostId: "local",
-                          deviceId: DeviceId.make("phone"),
-                          platform: "ios",
-                          openedAt: "2026-10-23T00:00:00Z",
-                        },
-                      ]
-                    : [],
-                ),
-              screenshot: () =>
-                Effect.fail(
-                  new DeviceOperationError({
-                    operation: "screenshot",
-                    reason:
-                      "rejected" in options && options.rejected ? "hub_rejected" : "request_failed",
-                    cause: new Error("private hub output"),
-                  }),
-                ),
-            }),
-          ),
-          Layer.provide(Layer.mock(ProjectService.ProjectService)({})),
-          Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-device-mcp-test-" })),
-          Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
-        ),
-      ),
-      Effect.scoped,
-    ),
-);
 
 const layerRecordingTools = (calls: Array<unknown>) => {
   const RecordingToolkit = Toolkit.make(
