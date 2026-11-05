@@ -1,5 +1,5 @@
 import { HOSTED_APP_CHANNEL } from "~/branding";
-import { isElectron, isSecretsFeatureEnabled } from "~/env";
+import { isElectron } from "~/env";
 import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/utils";
 import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@aprende/contracts";
 import type { EnvironmentId } from "@aprende/contracts";
@@ -22,10 +22,8 @@ export type SettingsPath =
   | "/settings/snap-shot"
   | "/settings/providers"
   | "/settings/threads"
-  | "/settings/scheduled-tasks"
   | "/settings/connections"
   | "/settings/access"
-  | "/settings/secrets"
   | "/settings/maintenance"
   | "/settings/labs"
   | "/settings/about"
@@ -50,7 +48,6 @@ export interface SettingsSearchItem {
   readonly macOnly?: boolean;
   readonly windowsOnly?: boolean;
   readonly releaseChannelOnly?: boolean;
-  readonly secretsFeatureOnly?: boolean;
   readonly environmentOnly?: boolean;
   readonly providerSettingsOnly?: boolean;
   readonly localBackendManagementOnly?: boolean;
@@ -82,10 +79,8 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
   "/settings/threads": "Threads",
-  "/settings/scheduled-tasks": "Scheduled tasks",
   "/settings/connections": "Environments",
   "/settings/access": "Sharing & access",
-  "/settings/secrets": "Secrets",
   "/settings/maintenance": "Maintenance",
   "/settings/labs": "Labs",
   "/settings/about": "About",
@@ -107,11 +102,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
   },
   {
     heading: "Connections",
-    paths: [
-      "/settings/connections",
-      "/settings/access",
-      ...(isSecretsFeatureEnabled ? (["/settings/secrets"] as const) : []),
-    ],
+    paths: ["/settings/connections", "/settings/access"],
   },
   {
     heading: null,
@@ -759,21 +750,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
-    id: "secret-providers",
-    title: "Secret providers",
-    to: "/settings/secrets",
-    searchTerms: ["1password vault credentials api key"],
-    secretsFeatureOnly: true,
-  },
-  {
-    id: "secret-providers-add",
-    title: "Add secret provider",
-    to: "/settings/secrets",
-    targetId: "secret-providers",
-    searchTerms: ["new 1password vault op cli account"],
-    secretsFeatureOnly: true,
-  },
-  {
     id: "archive",
     title: "Archived threads",
     to: "/settings/archived",
@@ -798,8 +774,6 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/threads": null,
   "/settings/connections": "connections",
   "/settings/access": "connections",
-  "/settings/secrets": null,
-  "/settings/scheduled-tasks": null,
   "/settings/maintenance": null,
   "/settings/labs": null,
   "/settings/about": null,
@@ -937,7 +911,6 @@ export function settingsForThisPlatform(
     (item) =>
       (isElectron || item.desktopOnly !== true) &&
       (!item.releaseChannelOnly || isElectron || HOSTED_APP_CHANNEL !== null) &&
-      (!item.secretsFeatureOnly || isSecretsFeatureEnabled) &&
       (!item.macOnly || isMacPlatform(platform)) &&
       (!item.windowsOnly || isWindowsPlatform(platform)),
   );

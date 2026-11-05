@@ -13,7 +13,6 @@ import type {
   ThreadId,
 } from "@aprende/contracts";
 import { resolveUserMessagePresentation } from "@aprende/client-runtime/user-message";
-import { Link } from "@tanstack/react-router";
 import {
   ArrowUpIcon,
   CalendarClockIcon,
@@ -502,19 +501,6 @@ function QueuedMessage(props: {
             {attribution === "agent" && senderThreadId ? (
               <InlineButton tone="muted" onClick={() => props.onOpenThread(senderThreadId)}>
                 Open thread
-              </InlineButton>
-            ) : null}
-            {scheduledTaskId ? (
-              <InlineButton
-                tone="muted"
-                render={
-                  <Link
-                    to="/settings/scheduled-tasks"
-                    search={{ environmentId: props.environmentId, taskId: scheduledTaskId }}
-                  />
-                }
-              >
-                Open automation
               </InlineButton>
             ) : null}
             <TimelineRowTimestamp
