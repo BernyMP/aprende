@@ -16,7 +16,6 @@ import * as Schema from "effect/Schema";
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai";
 
 import { OrchestratorProjectionError } from "../orchestration-v2/Orchestrator.ts";
-import * as PeerForwarding from "../peer/PeerForwarding.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import * as McpHttpServer from "./McpHttpServer.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
@@ -398,24 +397,17 @@ const linkedProbeServer = McpHttpServer.toolkitRegistration(
       getThreadShell: (threadId) => Effect.succeed(shells.get(threadId) ?? null),
     }),
   ),
-  // Stands in for the linked environment, answering with where the call went.
-  Layer.provide(
-    Layer.mock(PeerForwarding.PeerForwarding)({
-      call: (_scope, tool, environmentId) =>
-        Effect.succeed({ ran: `${tool.name} in ${environmentId}` } as never),
-    }),
-  ),
 );
 
 it.effect.each([
-  ["reads", supervised, { environmentId: box }, "reads in environment-box"],
+  ["reads", supervised, { environmentId: box }, "orchestration_error"],
   ["reads", supervised, { environmentId: here }, "here"],
   ["reads", supervised, {}, "here"],
 
   // The caller is checked here before anything goes.
   ["writes", readOnlyClient, { environmentId: box }, "capability_denied"],
   ["writes", ended, { environmentId: box }, "parent_not_active"],
-  ["writes", supervised, { environmentId: box }, "writes in environment-box"],
+  ["writes", supervised, { environmentId: box }, "orchestration_error"],
   ["writes_with_capability", readOnlyClient, { environmentId: box }, "capability_denied"],
   [
     "starts_threads",
@@ -423,14 +415,9 @@ it.effect.each([
     { environmentId: box, interactionMode: "default" },
     "interaction_mode_escalation_denied",
   ],
-  ["starts_threads", plan, { environmentId: box }, "starts_threads in environment-box"],
+  ["starts_threads", plan, { environmentId: box }, "orchestration_error"],
   ["writes_environment", supervised, { environmentId: box }, "capability_denied"],
-  [
-    "writes_environment",
-    fullAccess,
-    { environmentId: box },
-    "writes_environment in environment-box",
-  ],
+  ["writes_environment", fullAccess, { environmentId: box }, "orchestration_error"],
   ["writes_environment", fullAccess, { environmentId: here }, "here"],
 
   // A thread id names a thread where the call runs, and is checked there.
@@ -438,7 +425,7 @@ it.effect.each([
     "writes_threads",
     supervised,
     { environmentId: box, threadId: fullAccessThreadId },
-    "writes_threads in environment-box",
+    "orchestration_error",
   ],
   [
     "writes_threads",

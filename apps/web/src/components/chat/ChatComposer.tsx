@@ -182,7 +182,6 @@ import {
 import { rememberCopiedComposerAttachments } from "~/lib/copiedComposerAttachments";
 import { useThreadContextDrop, threadContextDropTargetProps } from "./threadContextDrag";
 import { readThreadShell } from "~/state/entities";
-import { useLinkedEnvironments } from "~/state/peerLinks";
 import { encodeComposerContextFragment } from "@aprende/shared/composerContextClipboard";
 import type { ComposerContextRecord } from "@aprende/contracts";
 import { threadContextAttachment } from "~/lib/threadContextAttachment";
@@ -275,6 +274,9 @@ import {
 } from "./preparingComposerImages";
 import { ComposerControlsBar } from "./ComposerControlsBar";
 import { composerCommandKeyHandler } from "./composerCommandKey";
+
+// Threads can only name threads on their own environment.
+const NO_LINKED_ENVIRONMENTS: ReadonlyMap<EnvironmentId, string> = new Map();
 
 function consumePasteAsTextShortcut(deadline: { current: number }): boolean {
   const armed = Date.now() <= deadline.current;
@@ -1110,7 +1112,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     composerTerminalContexts.length === 0 &&
     composerPreviewAnnotations.length === 0 &&
     composerReviewComments.length === 0;
-  const linkedEnvironments = useLinkedEnvironments(environmentId);
+  const linkedEnvironments = NO_LINKED_ENVIRONMENTS;
   const {
     items: composerMenuItems,
     isLoading: isComposerMenuLoading,
@@ -1130,7 +1132,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     selectedProviderSlashCommands,
     showSkillsInSlashMenu: settings.showSkillsInSlashMenu,
     workspaceSkillsScanning,
-    questionAttachmentTarget,
   });
 
   const composerMenuOpen = Boolean(composerTrigger);

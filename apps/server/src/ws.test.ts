@@ -57,8 +57,6 @@ import * as ModelManifest from "./provider/ModelManifest.ts";
 import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
 import * as OtlpEndpointCheck from "./observability/OtlpEndpointCheck.ts";
 import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
-import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
-import * as PeerLinks from "./peer/PeerLinks.ts";
 import * as ProcessDiagnostics from "./diagnostics/ProcessDiagnostics.ts";
 import * as ProcessResourceMonitor from "./diagnostics/ProcessResourceMonitor.ts";
 import * as ProjectCloneTracker from "./project/ProjectCloneTracker.ts";
@@ -72,19 +70,17 @@ import * as ProviderSessionManager from "./orchestration-v2/ProviderSessionManag
 import * as PullRequestReviewGuideService from "./pullRequest/PullRequestReviewGuideService.ts";
 import * as PullRequestService from "./pullRequest/PullRequestService.ts";
 import * as PullRequestSyncReactor from "./orchestration-v2/PullRequestSyncReactor.ts";
-import * as RelayClient from "@aprende/shared/relayClient";
 import * as RemoteOpenTargets from "./environment/RemoteOpenTargets.ts";
 import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolver.ts";
 import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
 import * as ScheduledTasks from "./scheduledTasks/ScheduledTaskService.ts";
 import * as Learning from "./learning/LearningService.ts";
 import * as SecretRequests from "./secrets/SecretRequests.ts";
-import * as GuestShareService from "./guest/GuestShareService.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
-import * as ServerSelfUpdate from "./cloud/selfUpdate.ts";
-import * as NpmRelease from "./cloud/npmRelease.ts";
+import * as ServerSelfUpdate from "./service/selfUpdate.ts";
+import * as NpmRelease from "./service/npmRelease.ts";
 import * as SessionStore from "./auth/SessionStore.ts";
 import * as SourceControlDiscovery from "./sourceControl/SourceControlDiscovery.ts";
 import * as SourceControlRepositoryService from "./sourceControl/SourceControlRepositoryService.ts";
@@ -669,8 +665,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(Orchestrator.OrchestratorV2)({}),
   Layer.mock(OtlpEndpointCheck.OtlpEndpointCheck)({}),
   Layer.mock(PairingGrantStore.PairingGrantStore)({}),
-  Layer.mock(PeerLinks.PeerLinks)({}),
-  Layer.mock(PeerLinkRequests.PeerLinkRequests)({}),
   Layer.mock(ProcessDiagnostics.ProcessDiagnostics)({}),
   Layer.mock(ProcessResourceMonitor.ProcessResourceMonitor)({}),
   Layer.mock(ProjectCloneTracker.ProjectCloneTracker)({}),
@@ -685,14 +679,12 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(PullRequestReviewGuideService.PullRequestReviewGuideService)({}),
   Layer.mock(PullRequestService.PullRequestService)({}),
   Layer.mock(PullRequestSyncReactor.PullRequestSyncReactor)({}),
-  Layer.mock(RelayClient.RelayClient)({}),
   Layer.mock(RepositoryIdentityResolver.RepositoryIdentityResolver)({}),
   Layer.mock(ResourceTelemetry.ResourceTelemetry)({}),
   Layer.mock(ScheduledTasks.ScheduledTaskService)({}),
   Layer.mock(Learning.LearningService)({}),
   Layer.mock(SecretRequests.SecretRequests)({}),
   Layer.mock(SecretResolver.SecretResolver)({}),
-  Layer.mock(GuestShareService.GuestShareService)({}),
   Layer.mock(ServerLifecycleEvents.ServerLifecycleEvents)({}),
   Layer.mock(ServerRuntimeStartup.ServerRuntimeStartup)({}),
   Layer.mock(ServerSelfUpdate.ServerSelfUpdate)({}),

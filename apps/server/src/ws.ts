@@ -2,8 +2,6 @@ import { OrchestrationDispatchCommandError } from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
-import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
-import * as PeerLinks from "./peer/PeerLinks.ts";
 
 import * as Duration from "effect/Duration";
 import * as Base64 from "effect/encoding/Base64";
@@ -69,8 +67,6 @@ import {
   ProjectMutationError,
   ProviderUploadFeedbackError,
   ProviderSetupError,
-  RelayClientInstallFailedError,
-  type RelayClientInstallProgressEvent,
   type ServerConfig as ClientServerConfig,
   type ServerConfigStreamEvent,
   type ServerLifecycleStreamEvent,
@@ -115,7 +111,6 @@ import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as ScheduledTasks from "./scheduledTasks/ScheduledTaskService.ts";
 import * as Learning from "./learning/LearningService.ts";
 import * as SecretRequests from "./secrets/SecretRequests.ts";
-import * as GuestShareService from "./guest/GuestShareService.ts";
 import {
   bufferShellLiveStream,
   coalesceShellApplicationEvents,
@@ -167,8 +162,8 @@ import * as AcpRegistryRuntimeCoordinator from "@aprende/provider-acp-registry/s
 import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner.ts";
 import * as ProviderAuthService from "./provider/ProviderAuthService.ts";
 import { makeProviderInstallation } from "./provider/providerInstallation.ts";
-import * as ServerSelfUpdate from "./cloud/selfUpdate.ts";
-import * as NpmRelease from "./cloud/npmRelease.ts";
+import * as ServerSelfUpdate from "./service/selfUpdate.ts";
+import * as NpmRelease from "./service/npmRelease.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
 import * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
@@ -236,7 +231,6 @@ import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
 import * as SessionStore from "./auth/SessionStore.ts";
 import { failEnvironmentAuthInvalid, failEnvironmentInternal } from "./auth/http.ts";
 import { isNetworkPath } from "@aprende/shared/path";
-import * as RelayClient from "@aprende/shared/relayClient";
 import {
   SOCKET_FRAME_PARTS_QUERY_PARAM,
   splitLargeSocketFrames,
@@ -1283,7 +1277,6 @@ export const layerWsRpc = (
       const scheduledTasks = yield* ScheduledTasks.ScheduledTaskService;
       const learning = yield* Learning.LearningService;
       const secretRequests = yield* SecretRequests.SecretRequests;
-      const guestShares = yield* GuestShareService.GuestShareService;
       const pullRequests = yield* PullRequestService.PullRequestService;
       const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
       const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
@@ -1337,8 +1330,6 @@ export const layerWsRpc = (
       const databaseStorage = yield* DatabaseStorage.DatabaseStorage;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
       const secretResolver = yield* SecretResolver.SecretResolver;
-      const peerLinks = yield* PeerLinks.PeerLinks;
-      const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
       const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
       const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
       const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
@@ -1372,7 +1363,6 @@ export const layerWsRpc = (
       const hostResources = yield* HostResources.HostResources;
       const processResourceMonitor = yield* ProcessResourceMonitor.ProcessResourceMonitor;
       const resourceTelemetry = yield* ResourceTelemetry.ResourceTelemetry;
-      const relayClient = yield* RelayClient.RelayClient;
       // Webhook URLs start agents; expose them only to operate-scoped sessions while keeping tasks readable.
       const withVisibleWebhookUrls = (result: ScheduledTaskListResult): ScheduledTaskListResult =>
         currentSession.scopes.includes(AuthOrchestrationOperateScope)
@@ -2151,10 +2141,6 @@ export const layerWsRpc = (
           Effect.annotateCurrentSpan({ "scheduled_task.id": input.id }).pipe(
             Effect.andThen(scheduledTasks.rotateWebhookToken(input)),
           ),
-        [WS_METHODS.guestShareCreate]: (input) =>
-          Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
-            Effect.andThen(guestShares.create(input)),
-          ),
         [WS_METHODS.secretsAnswerRequest]: (input) =>
           Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
             Effect.andThen(secretRequests.answer(input)),
@@ -2476,15 +2462,6 @@ export const layerWsRpc = (
         [WS_METHODS.serverRunStorageCleanup]: () => storageCleanup.runNow,
         [WS_METHODS.serverGetStorageCleanupReport]: () => storageCleanup.reports,
         [WS_METHODS.serverGetDatabaseStorage]: () => databaseStorage.status,
-        [WS_METHODS.peerLinksList]: (_input) =>
-          peerLinks.list.pipe(Effect.map((links) => ({ links }))),
-        [WS_METHODS.peerLinksLink]: (input) => peerLinks.link(input),
-        [WS_METHODS.peerLinksUnlink]: ({ environmentId }) =>
-          peerLinks.unlink(environmentId).pipe(Effect.map((removed) => ({ removed }))),
-        [WS_METHODS.peerLinksAnswerRequest]: (input) =>
-          Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
-            Effect.andThen(peerLinkRequests.answer(input)),
-          ),
         [WS_METHODS.serverUpdateSettings]:
           /* Request instrumentation already owns the span; keep this helper in that context. */
           Effect.fnUntraced(function* ({ patch, providerInstanceMutation }) {
@@ -2523,32 +2500,6 @@ export const layerWsRpc = (
                 input,
               ),
             ),
-          ),
-        [WS_METHODS.cloudGetRelayClientStatus]: (_input) => relayClient.resolve,
-        [WS_METHODS.cloudInstallRelayClient]: (_input) =>
-          Stream.callback<RelayClientInstallProgressEvent, RelayClientInstallFailedError>((queue) =>
-            relayClient
-              .installWithProgress((event) => Queue.offer(queue, event).pipe(Effect.asVoid))
-              .pipe(
-                Effect.flatMap((status) =>
-                  Queue.offer(queue, {
-                    type: "complete",
-                    status,
-                  }),
-                ),
-                Effect.catchTags({
-                  RelayClientInstallError: (error) =>
-                    Queue.fail(
-                      queue,
-                      new RelayClientInstallFailedError({
-                        reason: error.reason,
-                        message: error.message,
-                      }),
-                    ),
-                }),
-                Effect.andThen(Queue.end(queue)),
-                Effect.forkScoped,
-              ),
           ),
         [WS_METHODS.pullRequestsList]: (input) => pullRequests.list(input),
         [WS_METHODS.pullRequestsListStats]: (input) => pullRequests.listStats(input),
@@ -3187,8 +3138,6 @@ export const layer = Layer.unwrap(
     const npmRelease = yield* NpmRelease.NpmRelease;
     const pullRequests = yield* PullRequestService.PullRequestService;
     const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
-    const peerLinks = yield* PeerLinks.PeerLinks;
-    const peerLinkRequests = yield* PeerLinkRequests.PeerLinkRequests;
     const sql = yield* SqlClient.SqlClient;
     return HttpRouter.add(
       "GET",
@@ -3249,8 +3198,6 @@ export const layer = Layer.unwrap(
                   reviewGuides,
                 ),
               ),
-              Layer.provide(Layer.succeed(PeerLinks.PeerLinks, peerLinks)),
-              Layer.provide(Layer.succeed(PeerLinkRequests.PeerLinkRequests, peerLinkRequests)),
               Layer.provide(
                 SourceControlDiscovery.layer.pipe(
                   Layer.provide(

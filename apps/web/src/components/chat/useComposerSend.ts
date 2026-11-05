@@ -110,7 +110,6 @@ import {
 } from "../../lib/attachmentUploadQueue";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { fileAttachmentCapabilityBlockReason } from "./composerAttachmentFiles";
-import { useLinkedEnvironments } from "../../state/peerLinks";
 import { readEnvironmentScope } from "../../state/session";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import {
@@ -144,6 +143,9 @@ import type { useQueuedRunEdit } from "./useQueuedRunEdit";
 import type { useTimelineFollow } from "./useTimelineFollow";
 import type { useUsageLimitsPanel } from "./useUsageLimitsPanel";
 import type { useWorktreeSetup } from "./useWorktreeSetup";
+
+// Threads can only name threads on their own environment.
+const NO_LINKED_ENVIRONMENTS: ReadonlyMap<EnvironmentId, string> = new Map();
 
 const ENVIRONMENT_UNAVAILABLE_SEND_TOAST_TRAIL_SIZE = 3;
 
@@ -329,7 +331,7 @@ export function useComposerSend(input: ComposerSendInput) {
     handleNewThreadInActiveProject,
     persistThreadSettingsForNextTurn,
   } = input;
-  const linkedEnvironments = useLinkedEnvironments(environmentId);
+  const linkedEnvironments = NO_LINKED_ENVIRONMENTS;
   const handleNewThread = useNewThreadHandler();
   const navigate = useNavigate();
   const clientSettingsHydrated = useClientSettingsHydrated();

@@ -55,10 +55,6 @@
       "types": "./src/secretRequest.ts",
       "default": "./src/secretRequest.ts"
     },
-    "./link-request": {
-      "types": "./src/linkRequest.ts",
-      "default": "./src/linkRequest.ts"
-    },
     "./connection": {
       "types": "./src/connection/index.ts",
       "default": "./src/connection/index.ts"

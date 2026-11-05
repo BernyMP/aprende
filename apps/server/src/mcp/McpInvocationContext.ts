@@ -11,7 +11,7 @@ import {
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import { formatThreadLink, hostedThreadLink } from "@aprende/shared/threadLinks";
+import { formatThreadLink } from "@aprende/shared/threadLinks";
 
 const ALL_MCP_CAPABILITIES = ["orchestration", "worktree", "pull-requests"] as const;
 export type McpCapability = (typeof ALL_MCP_CAPABILITIES)[number];
@@ -38,8 +38,6 @@ export interface McpClientCaller {
    * another environment passing on the limits of the agent it calls for.
    */
   readonly narrowedTo?: ClientModes | undefined;
-  /** An outside client's thread links go through this hosted app, as Copy thread's do. */
-  readonly hostedAppUrl?: string | undefined;
 }
 
 /**
@@ -126,18 +124,10 @@ export interface McpInvocationScope {
   readonly linkedEnvironments?: boolean;
 }
 
-/**
- * aprende renders `t3-thread://` links as thread chips. Other MCP clients cannot open them, so
- * they get the hosted link Copy thread copies, which opens the thread in either app or a browser.
- */
 export const threadLinkFor = (
-  scope: Pick<McpInvocationScope, "environmentId" | "client">,
+  scope: Pick<McpInvocationScope, "environmentId">,
   threadId: ThreadId,
-): string => {
-  const hostedAppUrl = scope.client?.hostedAppUrl;
-  const ref = { environmentId: scope.environmentId, threadId };
-  return hostedAppUrl === undefined ? formatThreadLink(ref) : hostedThreadLink(ref, hostedAppUrl);
-};
+): string => formatThreadLink({ environmentId: scope.environmentId, threadId });
 
 export class McpInvocationContext extends Context.Service<
   McpInvocationContext,

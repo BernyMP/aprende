@@ -72,7 +72,7 @@ export class ServerSelfUpdate extends Context.Service<
       onHandoffAccepted?: () => Effect.Effect<void>,
     ) => Effect.Effect<never, ServerSelfUpdateError>;
   }
->()("aprende/cloud/selfUpdate/ServerSelfUpdate") {}
+>()("aprende/service/selfUpdate/ServerSelfUpdate") {}
 
 /**
  * A server starting from the runtime its launcher settled on means runtimes left by earlier

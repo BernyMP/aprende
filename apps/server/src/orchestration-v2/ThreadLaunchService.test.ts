@@ -63,7 +63,6 @@ import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 import * as ThreadTitleRegeneration from "./ThreadTitleRegenerationService.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
-import * as RemoteDelegation from "../peer/RemoteDelegation.ts";
 import type * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
 
 const projectId = ProjectId.make("project:launch-test");
@@ -335,7 +334,6 @@ it.effect.each(
           Scheduler.layer,
           Layer.mock(SecretRequests.SecretRequests)({}),
           ManagedPolicy.layerTest(),
-          Layer.mock(RemoteDelegation.RemoteDelegation)({}),
         ),
       ),
     );

@@ -32,7 +32,6 @@ import * as ServerSettings from "../../../serverSettings.ts";
 import * as Project from "../../../project/ProjectService.ts";
 import * as ProjectCloneTracker from "../../../project/ProjectCloneTracker.ts";
 import * as ManagedProjectFolders from "../../../project/ManagedProjectFolders.ts";
-import * as PeerForwarding from "../../../peer/PeerForwarding.ts";
 import * as GitVcsDriver from "../../../vcs/GitVcsDriver.ts";
 import * as VcsProcess from "../../../vcs/VcsProcess.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
@@ -50,7 +49,6 @@ const clientLaunchHarness = (input: {
   readonly launched: Array<ThreadLaunch.ThreadLaunchInput>;
   readonly workspaceRoot?: string;
   readonly checkWorktreeBase?: ThreadLaunch.ThreadLaunchService["Service"]["checkWorktreeBase"];
-  readonly hostedAppUrl?: string;
   /** The orchestrator refuses the new thread's mode, as under a managed ceiling. */
   readonly refusedByCeiling?: true;
 }) => {
@@ -89,7 +87,6 @@ const clientLaunchHarness = (input: {
         sessionId: "session-1",
         label: "Claude Code",
         access: input.runtimeModeCeiling,
-        hostedAppUrl: input.hostedAppUrl,
       },
       issuedAt: 0,
       capabilities: new Set(["orchestration" as const]),
@@ -158,7 +155,6 @@ const clientLaunchHarness = (input: {
             : Option.none(),
         ),
     }),
-    Layer.mock(PeerForwarding.PeerForwarding)({}),
     Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: "/projects" }),
     DocumentText.layer.pipe(Layer.provideMerge(NodeServices.layer)),
   ).pipe(
@@ -187,18 +183,16 @@ it.effect(
           readonly runtimeMode?: RuntimeMode;
           readonly targeted?: false;
           readonly overrideModel?: ModelSelection;
-          readonly hostedAppUrl?: string;
           readonly refusedByCeiling?: true;
         },
       ) {
-        const { targeted, overrideModel, hostedAppUrl, refusedByCeiling, ...input } = params;
+        const { targeted, overrideModel, refusedByCeiling, ...input } = params;
         const launched: Array<ThreadLaunch.ThreadLaunchInput> = [];
         const { projectId, modelSelection, dependencies } = clientLaunchHarness({
           runtimeModeCeiling,
           defaultRuntimeMode,
           launched,
           ...(overrideModel === undefined ? {} : { overrideModel }),
-          ...(hostedAppUrl === undefined ? {} : { hostedAppUrl }),
           ...(refusedByCeiling === undefined ? {} : { refusedByCeiling }),
         });
         const toolkit = yield* ProjectToolkit.pipe(
@@ -228,11 +222,10 @@ it.effect(
 
       const aboveCeiling = yield* launchWith("auto-accept-edits", "full-access", {
         title: "Fix",
-        hostedAppUrl: "https://t3.example.com",
       });
       expect(aboveCeiling.launched[0]?.runtimeMode).toBe("auto-accept-edits");
       expect(aboveCeiling.result).toMatchObject({
-        link: `https://t3.example.com/threads/environment/${encodeURIComponent(aboveCeiling.launched[0]?.threadId ?? "")}`,
+        link: `<t3-thread://v2/environment/${aboveCeiling.launched[0]?.threadId}>`,
       });
 
       const requested = yield* launchWith("full-access", "approval-required", {
