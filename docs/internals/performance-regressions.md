@@ -37,8 +37,7 @@ The v2 checks pin these invariants:
   preserve status and grouped action counts without shipping those bodies. Reasoning text,
   command lines, and search results ship when their work group loads. Subagent prompts and results
   and checkpoint control records still accompany the initial window.
-  Persisted events remain complete; the existing diff endpoints still provide file content when
-  requested.
+  Persisted events remain complete.
   Explicit cross-environment transcript exports preserve full tool bodies so the destination
   agent can read the context. The export rejects timeline JSON above the file attachment limit
   before sending it; the client still applies its attachment limit to the complete file.
@@ -105,12 +104,8 @@ queries use a covering thread/run index for item counts and a partial index for 
 background items, including idle items. Latest user-message reads use an index ordered by update
 time.
 
-Command palette results keep live VCS queries leased to the visible
-viewport, including a small overscan region. Cached badges remain available while leases are
-released. Local Git status reads skip divergence calculations; callers that need ahead/behind
-counts keep the full status path. Cached fetch failures share the existing backoff and log only
-the actual failed attempt. Unchanged desktop environment bootstrap reads retain their array
-identity so polling does not invalidate subscribers.
+Unchanged desktop environment bootstrap reads retain their array identity so polling does not
+invalidate subscribers.
 
 Local trace records and provider event logs use asynchronous, serialized file writes and rotation.
 Batching synchronous appends still stalls the server event loop on slow storage, especially on
@@ -128,8 +123,7 @@ After the budget is exhausted, publication waits for another relevant event inst
 continuous traffic during an outage.
 
 Focused coverage: `ProjectionSettlement.test.ts`, `ThreadSettlementService.test.ts`,
-`runtimeLayer.test.ts`, `AgentAwarenessRelay.test.ts`, `GitVcsDriverCore.test.ts`, and
-`desktopLocal.test.ts`.
+`runtimeLayer.test.ts`, `AgentAwarenessRelay.test.ts`, and `desktopLocal.test.ts`.
 
 ## Mobile looping animations
 

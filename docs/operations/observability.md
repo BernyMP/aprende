@@ -342,21 +342,6 @@ jq -c 'select(.attributes["orchestration_v2.command_type"] != null) | {
 }' "$TRACE_FILE"
 ```
 
-Filter git activity:
-
-```bash
-jq -c 'select(.attributes["git.operation"] != null) | {
-  name,
-  durationMs,
-  operation: .attributes["git.operation"],
-  cwd: .attributes["git.cwd"],
-  hookEvents: [
-    .events[]
-    | select(.name == "git.hook.started" or .name == "git.hook.finished")
-  ]
-}' "$TRACE_FILE"
-```
-
 ### Use Tempo When You Need A Real Trace Viewer
 
 Tempo is better than raw NDJSON when you want to:
@@ -379,12 +364,11 @@ Good first searches:
 
 - service name `aprende-server` or `aprende-desktop`, plus a resource attribute such as
   `deployment.environment.name`
-- span names like `sendTurn` or a Git operation such as `GitVcsDriver.statusDetails.status`
-- Git spans whose `git.operation` attribute identifies the operation
+- span names like `sendTurn`
 - orchestration spans with attributes like `orchestration_v2.command_type`
 
-Once you know traces are arriving, narrower TraceQL queries for names such as `sendTurn` or Git
-operation names become useful.
+Once you know traces are arriving, narrower TraceQL queries for names such as `sendTurn` become
+useful.
 
 ### Use Metrics To See Systemic Problems
 
@@ -395,14 +379,12 @@ Good metric families to watch:
 - `t3_rpc_request_duration`
 - `t3_orchestration_command_duration`
 - `t3_provider_turn_duration` (how long the provider adapter takes to start a turn, not the turn's run time)
-- `t3_git_command_duration`
 
 Counters tell you volume and failure rate:
 
 - `t3_rpc_requests_total`
 - `t3_orchestration_commands_total`
 - `t3_provider_turns_total`
-- `t3_git_commands_total`
 
 Secrets have their own families:
 
@@ -435,14 +417,8 @@ Use traces when the question is:
 ### "Why is the UI feeling slow?"
 
 1. Search for slow top-level spans in the trace file or Tempo.
-2. Check child spans for sqlite, git, provider, or terminal work.
+2. Check child spans for sqlite, provider, or terminal work.
 3. Look at the matching duration metrics to see whether the slowness is systemic.
-
-### "Are git hooks causing latency?"
-
-1. Filter `git.operation` spans.
-2. Inspect `git.hook.started` and `git.hook.finished` events.
-3. Compare hook timing to the enclosing git span duration.
 
 ### "Why do I have spans locally but nothing in Grafana?"
 
@@ -499,7 +475,7 @@ yield *
   Effect.annotateCurrentSpan({
     "provider.thread_id": input.threadId,
     "provider.request_id": input.requestId,
-    "git.cwd": input.cwd,
+    "workspace.cwd": input.cwd,
   });
 ```
 
@@ -668,7 +644,6 @@ Current high-value span and metric boundaries include:
 - startup phases
 - orchestration command processing
 - provider session and turn operations
-- git command execution and git hook events
 - terminal session lifecycle
 - sqlite query execution, except the statements inside `orchestrationV2.EventSink.write`, which
   its `sql.transaction` span times as one

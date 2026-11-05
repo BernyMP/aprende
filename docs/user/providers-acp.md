@@ -2,8 +2,7 @@
 
 aprende can run installed ACP commands or coding agents from the official
 [ACP Registry](https://agentclientprotocol.com/get-started/registry). Registry agents bring their
-own models, tools, and sign-in, while aprende provides projects, threads, checkpoints, and task
-delegation.
+own models, tools, and sign-in, while aprende provides projects, threads, and task delegation.
 
 Agents that aprende supports as their own providers, such as Codex and Claude, don't appear in the
 Registry list. Enable them in
@@ -125,12 +124,6 @@ reports but does not run or stop their terminals.
 Registry agents can use aprende's MCP tools. Child-task presentation depends on what
 the agent exposes: ACP has no portable native subagent-lineage contract, so richer delegation views
 remain agent-specific.
-
-## Checkpoints
-
-Checkpoint rollback restores your files as usual. ACP agents cannot rewind their own conversation,
-so the next turn after a rollback starts a fresh agent session that no longer remembers the
-conversation from before the checkpoint.
 
 Registry instances are not used for aprende's thread titles. Configure a text-generation-capable
 provider for them.

@@ -88,8 +88,7 @@ the family a thread view or a queued message mounts holds every active thread
 sharing the thread's root, so it also brings back an old settled thread opened by
 link; the Settled shelf reads pages below the cut; searches return the rows of
 older matches. A missing shell row therefore does not prove a thread is gone:
-code that deletes data or a worktree on absence must check the family or the
-server first.
+code that deletes data on absence must check the family or the server first.
 
 The Settled count is local Settled rows, minus local rows below the cut, plus the
 server's counts

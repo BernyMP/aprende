@@ -70,14 +70,12 @@ what the newest client sends.
 A provider turn ending and its follow-up work settling are separate milestones. Orchestration
 records provider turn and run state independently from
 [run finalization](../../apps/server/src/orchestration-v2/RunFinalizationService.ts). A late
-checkpoint or diff must not extend the recorded provider duration or keep the client showing
-provider work as active. PR discovery after completion also checks that the checkout still matches
-the thread's non-default branch and that a newer run is not active.
+checkpoint or workspace refresh must not extend the recorded provider duration or keep the client
+showing provider work as active.
 
-[Checkpoints](../../apps/server/src/checkpointing/CheckpointStore.ts) use hidden Git refs to
-capture workspace state without adding commits to the user's branch. A revert must coordinate
-workspace state with the provider conversation. A provider that cannot roll back its conversation
-must reject that operation before changing the filesystem.
+[Checkpoints](../../apps/server/src/orchestration-v2/CheckpointService.ts) are turn markers that
+rewind and fork target. They record no files, so a rewind never touches the learner's folder. The
+provider conversation rolls back first; the thread's own history changes only after that succeeds.
 
 Thread settlement is server-owned. The
 [settlement service](../../apps/server/src/orchestration-v2/ThreadSettlementService.ts) evaluates the
