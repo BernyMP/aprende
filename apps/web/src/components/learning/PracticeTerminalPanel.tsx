@@ -87,11 +87,10 @@ export default function PracticeTerminalPanel(props: {
 
   // The surface captures its callbacks once at creation.
   const onData = useStableCallback((data: string) => {
-    // Input typed while the shell starts waits for it.
-    if (input.type(data)) {
-      if (shell.status === "running") void input.flush();
-    } else
+    if (!input.type(data))
       setInputError("That is more input than the terminal can take at once. Paste less at a time.");
+    // Input typed while the shell starts waits for it. A full queue still retries what it holds.
+    if (shell.status === "running") void input.flush();
   });
   const onResize = useStableCallback((cols: number, rows: number) => {
     const first = size.current === null;

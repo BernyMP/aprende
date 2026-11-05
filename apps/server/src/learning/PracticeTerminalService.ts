@@ -322,6 +322,8 @@ const make = Effect.gen(function* () {
   yield* Effect.addFinalizer(() =>
     Effect.gen(function* () {
       for (const pending of pendingOpens) pending.cancelled = true;
+      // An open still starting finishes and closes its shell before the reapers are awaited.
+      yield* Semaphore.withPermit(opening, Effect.void);
       for (const terminal of terminals.values()) yield* closeTerminal(terminal);
       yield* Fiber.awaitAll([...running].flatMap((terminal) => terminal.reaper ?? []));
     }),

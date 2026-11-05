@@ -298,6 +298,35 @@ it.effect("kills a shell whose open was still starting when its problem or threa
   }),
 );
 
+it.effect("shuts down only after a shell whose open was still starting is killed", () =>
+  Effect.gen(function* () {
+    const started = yield* Deferred.make<void>();
+    const release = yield* Deferred.make<void>();
+    const { spawned, layer } = yield* makeHarness({
+      folderLookup: { started, release },
+      trapsHangup: true,
+    });
+    const scope = yield* Scope.make();
+    const services = yield* Layer.buildWithScope(layer, scope);
+    const opening = yield* PracticeTerminalService.PracticeTerminalService.pipe(
+      Effect.flatMap((terminals) => terminals.open({ ...target("prob-a"), ...size })),
+      Effect.provide(services),
+      Effect.forkChild,
+    );
+    yield* Deferred.await(started);
+    const shutdown = yield* Scope.close(scope, Exit.void).pipe(
+      Effect.map(() => [...(spawned[0]?.signals ?? [])]),
+      Effect.forkChild({ startImmediately: true }),
+    );
+    yield* Deferred.succeed(release, undefined);
+    assert.isTrue(Exit.isFailure(yield* Fiber.await(opening)));
+    yield* Deferred.await(spawned[0]!.killed);
+    yield* TestClock.adjust(PracticeTerminalService.CLOSE_GRACE);
+    // Shutdown waited for the late shell's SIGKILL instead of leaving its reaper running.
+    assert.deepEqual(yield* Fiber.join(shutdown), ["SIGHUP", "SIGKILL"]);
+  }),
+);
+
 it.effect("keeps a closed shell that ignores SIGHUP counted until SIGKILL ends it", () =>
   Effect.gen(function* () {
     const { spawned, layer } = yield* makeHarness({ trapsHangup: true });
