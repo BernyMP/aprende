@@ -9,7 +9,7 @@ The one exception is automation webhooks: the relay forwards
 senders get a stable URL. `endpointKey` is the 16-hex hash suffix of the
 managed tunnel's name, not the environment id. It keeps bodies and tokens out
 of its traces and leaves token and signature verification to the environment
-([forwarder](../../infra/relay/src/hooks/HookForwarder.ts)).
+(forwarder).
 
 By default the forwarder stores nothing. An environment can opt in to having
 the relay hold requests while it is offline
@@ -31,7 +31,7 @@ never checks the token;
 delivery goes through the same environment route.
 Every forward carries `x-t3-relay-delivery-id`, so a request that reached the
 environment before a timeout and is delivered again later runs once
-([inbox object](../../infra/relay/src/hooks/HookInboxObject.ts)).
+(inbox object).
 
 A Durable Object, not Postgres or Queues, because held requests are write-once,
 read-once bodies of up to 1 MiB that need per-link order, caps, and retry
@@ -58,7 +58,7 @@ verifies those bindings before returning a credential. This prevents a different
 process behind the tunnel from impersonating the linked environment. The checks
 meet in the
 [environment link service](../../apps/server/src/cloud/CloudLink.ts) and
-[relay connector](../../infra/relay/src/environments/EnvironmentConnector.ts).
+relay connector.
 
 The relay holds the signing authority for mint requests. DPoP protects an honest
 exchange from credential reuse; it does not make a compromised relay signing
@@ -96,7 +96,7 @@ resources. A delayed cleanup must not delete a tunnel reused by a concurrent
 restart or relink. Unlink commits authorization revocation before external
 teardown, because a database failure must leave the active link usable. Failed
 teardown retains enough state to retry. See the
-[managed endpoint lifecycle](../../infra/relay/src/environments/ManagedEndpointProvider.ts).
+managed endpoint lifecycle.
 
 ## Idle tunnels are reclaimed and recovered
 
@@ -119,7 +119,7 @@ Clear those by hand. Each sweep is bounded: at most ten list requests, 100 delet
 two-minute deadline, and an early stop on a Cloudflare rate limit. Each sweep
 starts one budget further along the candidate list, so a block of deletes that
 keep failing cannot starve the tunnels listed after them. See the
-[reaper](../../infra/relay/src/environments/ManagedEndpointReaper.ts).
+reaper.
 
 A host registers recovery at startup by sending its tunnel ID and loopback
 origin with a short-lived signature from the environment key. Registration
@@ -152,7 +152,7 @@ An environment that already holds a counted slot restarts without asking, so a
 downgrade or a T3 Chat outage only blocks new environments. A manual override
 row replaces the default for new environments, and a T3 Chat plan does not
 raise it
-([limits](../../infra/relay/src/environments/ManagedTunnelLimits.ts)).
+(limits).
 
 ## The relay client follows the server's pin
 

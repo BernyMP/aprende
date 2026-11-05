@@ -1,7 +1,7 @@
 # T3 Connect setup
 
 Deployment and client configuration for T3 Connect. The [architecture note](../internals/t3-connect.md)
-explains the trust boundaries; the [relay README](../../infra/relay/README.md#deployment) owns relay
+explains the trust boundaries; the relay README owns relay
 provisioning instructions.
 
 ## Public application configuration
