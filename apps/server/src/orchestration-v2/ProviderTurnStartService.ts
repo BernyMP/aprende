@@ -18,6 +18,7 @@ import {
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
@@ -48,6 +49,8 @@ import {
 } from "@aprende/provider-core/server/failure";
 import * as RunExecutionService from "./RunExecutionService.ts";
 import * as RuntimePolicy from "./RuntimePolicy.ts";
+import * as ThreadManagementService from "./ThreadManagementService.ts";
+import { forgetRemovedThreadWorktree } from "../workspace/threadWorktree.ts";
 import {
   isRestartNoteContinuation,
   pendingRestartCancelledBackgroundWork,
@@ -108,6 +111,8 @@ export const layer: Layer.Layer<
   | ProviderSessionManager.ProviderSessionManagerV2
   | RunExecutionService.RunExecutionServiceV2
   | RuntimePolicy.RuntimePolicyV2
+  | ThreadManagementService.ThreadManagementService
+  | FileSystem.FileSystem
 > = Layer.effect(
   ProviderTurnStartServiceV2,
   Effect.gen(function* () {
@@ -119,6 +124,8 @@ export const layer: Layer.Layer<
     const providerSessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
     const runExecution = yield* RunExecutionService.RunExecutionServiceV2;
     const runtimePolicy = yield* RuntimePolicy.RuntimePolicyV2;
+    const threads = yield* ThreadManagementService.ThreadManagementService;
+    const fileSystem = yield* FileSystem.FileSystem;
 
     // Build draining callbacks outside startup scope so they cannot retain full thread history.
     const makeRunControls = (input: {
@@ -542,15 +549,23 @@ export const layer: Layer.Layer<
       });
       const { isCurrentAttemptInStatus } = runControls;
 
+      const thread = {
+        ...projection.thread,
+        worktreePath: yield* forgetRemovedThreadWorktree(
+          fileSystem,
+          threads.dispatch,
+          projection.thread,
+        ),
+      };
       // A side chat shares its parent's worktree; the turn that gets its context asks before acting.
       const resolvedPolicy = yield* runtimePolicy
         .resolve({
           thread:
-            projection.thread.lineage.sideChat === true &&
+            thread.lineage.sideChat === true &&
             (sideChatHandoff !== undefined ||
               !projection.runs.some((previous) => previous.ordinal < run.ordinal))
-              ? { ...projection.thread, runtimeMode: "approval-required" }
-              : projection.thread,
+              ? { ...thread, runtimeMode: "approval-required" }
+              : thread,
           modelSelection: run.modelSelection,
         })
         .pipe(Effect.result);

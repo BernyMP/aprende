@@ -55,7 +55,7 @@ import { ServerConfig } from "../config.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as ProjectService from "../project/ProjectService.ts";
-import { existingThreadWorktree } from "../workspace/threadWorktree.ts";
+import { forgetRemovedThreadWorktree } from "../workspace/threadWorktree.ts";
 import {
   answerProblem,
   conclusionProblem,
@@ -746,7 +746,10 @@ export const layer = Layer.effect(
         .getThreadShell(threadId)
         .pipe(Effect.mapError(dbError("Could not find the session.")));
       if (shell === null) return yield* fail("Could not find the session.");
-      const worktree = yield* existingThreadWorktree(fileSystem, shell.worktreePath);
+      const worktree = yield* forgetRemovedThreadWorktree(fileSystem, threads.dispatch, {
+        id: threadId,
+        worktreePath: shell.worktreePath,
+      });
       if (worktree !== null) return worktree;
       const project = yield* projects
         .getById(shell.projectId)

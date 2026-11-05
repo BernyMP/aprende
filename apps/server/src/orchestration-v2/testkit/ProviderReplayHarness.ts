@@ -388,24 +388,6 @@ export function layerWithRegistry<Error>(
       ),
     ),
   );
-  const layerProviderTurnStartServiceProvided = ProviderTurnStartService.layer.pipe(
-    Layer.provide(
-      Layer.mergeAll(
-        layerContextHandoffServiceProvided,
-        layerEventSinkProvided,
-        IdAllocator.layer,
-        layerStores,
-        layerProviderSessionManagerProvided,
-        Layer.mock(ProviderAuthService.ProviderAuthService)({
-          tryHandlePromptCommand: () => Effect.succeed(false),
-        }),
-        layerRunExecutionServiceProvided,
-        layerRuntime,
-        layerServerConfig,
-        layerServerSettings,
-      ),
-    ),
-  );
   const layerProviderTurnControlServiceProvided = ProviderTurnControlService.layer.pipe(
     Layer.provide(Layer.merge(layerStores, layerProviderSessionManagerProvided)),
   );
@@ -490,6 +472,25 @@ export function layerWithRegistry<Error>(
           ),
         )
       : Layer.empty;
+  const layerProviderTurnStartServiceProvided = ProviderTurnStartService.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        layerContextHandoffServiceProvided,
+        layerEventSinkProvided,
+        IdAllocator.layer,
+        layerStores,
+        layerProviderSessionManagerProvided,
+        Layer.mock(ProviderAuthService.ProviderAuthService)({
+          tryHandlePromptCommand: () => Effect.succeed(false),
+        }),
+        layerRunExecutionServiceProvided,
+        layerRuntime,
+        layerServerConfig,
+        layerServerSettings,
+        layerThreadManagementProvided,
+      ),
+    ),
+  );
   const layerEffectExecutorProvided = EffectWorker.layerExecutor.pipe(
     Layer.provide(
       Layer.mergeAll(

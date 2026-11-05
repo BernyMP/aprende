@@ -48,7 +48,6 @@ import {
   latestProviderTurnForAttempt,
   parseGoalCommand,
   orchestrationV2RunWorkStartedAt,
-  orchestrationV2WorktreePending,
   ProviderInstanceId,
   ProviderInteractionMode,
   isRuntimeModeAbove,
@@ -728,20 +727,6 @@ function delegatedTaskTerminalStatus(
     case "waiting":
       return null;
   }
-}
-
-/** Failed worktree setup keeps the queue held so queued messages cannot start in the project checkout. */
-function worktreeSetupPending(
-  projection: Pick<OrchestrationV2ThreadProjection, "thread" | "runs">,
-): boolean {
-  return (
-    projection.thread.worktreePath === null &&
-    projection.runs.some(
-      (run) =>
-        (run.status === "failed" || run.status === "interrupted") &&
-        run.workspacePreparation?.type === "worktree",
-    )
-  );
 }
 
 function nextQueuedRun(
@@ -1573,7 +1558,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       threadId: ThreadId,
       options?: {
         readonly failedRunId?: RunId;
-        readonly endedRunId?: RunId;
         readonly queuedRunId?: RunId;
       },
     ) {
@@ -1613,16 +1597,11 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       if (isRuntimeModeAbove(projection.thread.runtimeMode, runtimeModeCeiling?.maxRuntimeMode)) {
         return;
       }
-      // Failed worktree creation would run queued work in the project checkout; wait for the user.
       const failedRun = latestExecutedRun(projection.runs);
       const failureClass =
         failedRun?.id === options?.failedRunId
           ? latestRootProviderFailure(failedRun, projection.turnItems)?.class
           : undefined;
-      const worktreeMissing =
-        failedRun?.id === options?.endedRunId &&
-        failedRun?.workspacePreparation?.type === "worktree" &&
-        projection.thread.worktreePath === null;
       const settings = yield* serverSettings.getSettings.pipe(Effect.orDie);
       const projectOverride =
         settings.projectSettingsOverrides[projection.thread.projectId]?.providerInstances?.[
@@ -1639,7 +1618,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           ? !projectOverride
           : machineInstance !== undefined && !resolveProviderInstanceEnabled(machineInstance);
       if (
-        worktreeMissing ||
         instanceDisabledForProject ||
         (failureClass !== undefined &&
           failureClass !== "validation_error" &&
@@ -2377,8 +2355,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     // bookkeeping update to an older run, overtaken by a failure or Stop, does not.
     if (
       latestExecutedRun(projection.runs)?.id !== completedRunId ||
-      projection.turnItems.length > 0 ||
-      worktreeSetupPending(projection)
+      projection.turnItems.length > 0
     )
       return;
     const { messages } = projection;
@@ -3112,15 +3089,20 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       }
     }
 
+    // Forgetting a removed worktree keeps live sessions: each turn passes its own cwd, and a
+    // detach would land after the turn whose start issued the clear opened its session.
+    const movesToWorktree =
+      command.type === "thread.metadata.update" &&
+      command.worktreePath !== undefined &&
+      command.worktreePath !== null &&
+      command.worktreePath !== thread.worktreePath;
     const needsProviderState =
       command.type === "thread.runtime-mode.set" ||
       command.type === "thread.model-selection.set" ||
       command.type === "provider.switch" ||
       command.type === "thread.archive" ||
       command.type === "thread.settle" ||
-      (command.type === "thread.metadata.update" &&
-        command.worktreePath !== undefined &&
-        command.worktreePath !== thread.worktreePath);
+      movesToWorktree;
     const providerContext = needsProviderState
       ? yield* projectionStore
           .getThreadProviderContext(
@@ -3625,9 +3607,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     const detachSessionIds = new Set(
       command.type === "thread.archive" || command.type === "thread.settle"
         ? (providerContext?.providerSessions ?? []).map((session) => session.id)
-        : command.type === "thread.metadata.update" &&
-            command.worktreePath !== undefined &&
-            command.worktreePath !== thread.worktreePath
+        : movesToWorktree
           ? (providerContext?.providerSessions ?? []).map((session) => session.id)
           : command.type === "thread.runtime-mode.set"
             ? (providerContext?.providerSessions ?? [])
@@ -3893,17 +3873,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         commandId: command.commandId,
         commandType: command.type,
         cause: `Thread ${command.sourceThreadId} was deleted.`,
-      });
-    }
-    // The fork would copy no worktree path and run in the project checkout.
-    if (
-      command.sideChat === true &&
-      orchestrationV2WorktreePending(sourceProjection.thread.worktreePath, sourceProjection.runs)
-    ) {
-      return yield* new OrchestratorDispatchError({
-        commandId: command.commandId,
-        commandType: command.type,
-        cause: `Thread ${command.sourceThreadId} has no worktree yet. Start the side chat once its worktree is set up.`,
       });
     }
     if ((yield* findThread(command.targetThreadId)) !== null) {
@@ -5360,34 +5329,20 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       (candidate) => candidate.id === projection.thread.activeProviderThreadId,
     );
     const activeRun = projection.runs.find(isActiveRun);
-    // A message queued during worktree setup can arrive after that setup failed
-    // without a worktree. It waits, held, like the messages queued before the
-    // failure, instead of starting in the project checkout.
-    const latestRun = latestExecutedRun(projection.runs);
-    const worktreeMissingRun =
-      activeRun === undefined &&
-      dispatchMode.type === "queue_after_active" &&
-      (latestRun?.status === "failed" || latestRun?.status === "interrupted") &&
-      latestRun.workspacePreparation?.type === "worktree" &&
-      projection.thread.worktreePath === null
-        ? latestRun
-        : undefined;
-    const queueBehindRun = activeRun ?? worktreeMissingRun;
     const pendingMergeBackTransfers = pendingMergeBackTransfersForThread(projection);
     const startsOrQueuesRun =
       dispatchMode.type === "defer_start" ||
       dispatchMode.type === "start_immediately" ||
       dispatchMode.type === "queue_after_active";
-    const shouldQueue = queueBehindRun !== undefined && startsOrQueuesRun;
+    const shouldQueue = activeRun !== undefined && startsOrQueuesRun;
     // Client messages resume held queues; server continuations and scheduled tasks do not.
     // Provider failure or usage limits re-hold the queue.
-    const worktreeSetupUnresolved = worktreeSetupPending(projection);
     const sentByUserFromClient =
       command.createdBy === "user" &&
       (command.creationSource === "web" || command.creationSource === "mobile") &&
       command.scheduledTaskId === undefined;
     const heldRunsToRelease =
-      sentByUserFromClient && startsOrQueuesRun && !worktreeSetupUnresolved
+      sentByUserFromClient && startsOrQueuesRun
         ? projection.runs.filter((run) => run.status === "queued" && run.queueHeld === true)
         : [];
     const releasedAt = yield* DateTime.now;
@@ -5414,14 +5369,12 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       }
       const queueProviderThread =
         activeProviderThread ??
-        projection.providerThreads.find(
-          (candidate) => candidate.id === queueBehindRun.providerThreadId,
-        );
+        projection.providerThreads.find((candidate) => candidate.id === activeRun.providerThreadId);
       if (queueProviderThread === undefined) {
         return yield* new OrchestratorDispatchError({
           commandId: command.commandId,
           commandType: command.type,
-          cause: `Active run ${queueBehindRun.id} has no provider thread for queued dispatch.`,
+          cause: `Active run ${activeRun.id} has no provider thread for queued dispatch.`,
         });
       }
       const now = yield* DateTime.now;
@@ -5475,7 +5428,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       const attemptId = idAllocator.derive.runAttempt({ runId, attemptOrdinal: 1 });
       const rootNodeId = idAllocator.derive.rootNode({ runId });
       const checkpointScope =
-        queueBehindRun.status === "preparing" || worktreeMissingRun !== undefined
+        activeRun.status === "preparing"
           ? null
           : yield* runtimePolicy.resolve({ thread: projection.thread, modelSelection }).pipe(
               Effect.flatMap((resolvedRuntimePolicy) =>
@@ -5507,7 +5460,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       // Buffered wakes need a T3 run for output the CLI already started producing.
       // Stop still holds wakes that arrive before the active run settles.
       const wakeSkipsHold =
-        !worktreeSetupUnresolved &&
         activeRun !== undefined &&
         queueIsHeld &&
         command.createdBy === "agent" &&
@@ -5524,8 +5476,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         rootNodeId,
         activeAttemptId: attemptId,
         status: "queued",
-        ...(worktreeMissingRun !== undefined ||
-        (heldRunsToRelease.length === 0 && queueIsHeld && !wakeSkipsHold)
+        ...(heldRunsToRelease.length === 0 && queueIsHeld && !wakeSkipsHold
           ? { queueHeld: true }
           : {}),
         queuePosition:
@@ -13175,10 +13126,10 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
               : Effect.void
             ).pipe(
               Effect.andThen(
-                startNextQueuedRun(threadId, {
-                  endedRunId: run.id,
-                  ...(run.status === "failed" ? { failedRunId: run.id } : {}),
-                }),
+                startNextQueuedRun(
+                  threadId,
+                  run.status === "failed" ? { failedRunId: run.id } : undefined,
+                ),
               ),
             ),
           )

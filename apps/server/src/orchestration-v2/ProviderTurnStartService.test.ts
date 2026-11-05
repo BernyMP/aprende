@@ -1,4 +1,5 @@
 import { expect, vi } from "vite-plus/test";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import { it as effectIt } from "@effect/vitest";
 import {
   CheckpointScopeId,
@@ -16,6 +17,7 @@ import {
   RunId,
   ThreadId,
   ProjectId,
+  type OrchestrationV2ServerCommand,
   type OrchestrationV2ThreadProjection,
   OrchestrationV2DomainEvent,
 } from "@aprende/contracts";
@@ -24,6 +26,7 @@ import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -40,6 +43,7 @@ import * as ProviderSessionManager from "./ProviderSessionManager.ts";
 import * as ProviderTurnStart from "./ProviderTurnStartService.ts";
 import * as RunExecutionService from "./RunExecutionService.ts";
 import * as RuntimePolicy from "./RuntimePolicy.ts";
+import * as ThreadManagementService from "./ThreadManagementService.ts";
 
 const isDomainEvent = Schema.is(OrchestrationV2DomainEvent);
 
@@ -666,6 +670,7 @@ function makeLocalCommandHarness(input: {
         runtimeMode: thread.runtimeMode,
       } as never),
   );
+  const dispatched: Array<OrchestrationV2ServerCommand> = [];
   const getThreadRecords = vi.fn<ProjectionStore.ProjectionStoreV2Shape["getThreadRecords"]>((id) =>
     Effect.succeed(id === parentThreadId ? parentRecords : projection),
   );
@@ -748,10 +753,19 @@ function makeLocalCommandHarness(input: {
         Layer.mock(RuntimePolicy.RuntimePolicyV2)({
           resolve: resolveRuntimePolicy,
         }),
+        Layer.mock(ThreadManagementService.ThreadManagementService)({
+          dispatch: (command) =>
+            Effect.sync(() => {
+              dispatched.push(command);
+              return {} as never;
+            }),
+        }),
+        NodeServices.layer,
       ),
     ),
   );
   return {
+    dispatched,
     getThreadRecords,
     getTurnStartContext,
     setProjection: (next: OrchestrationV2ThreadProjection) => {
@@ -1045,6 +1059,36 @@ effectIt.effect("starts another provider in the same checkout while a turn is pe
     yield* Deferred.succeed(releaseTurn, undefined);
     yield* Fiber.join(pending);
   }),
+);
+
+effectIt.effect("forgets a removed worktree before resolving the turn's workspace", () =>
+  Effect.gen(function* () {
+    const worktree = yield* (yield* FileSystem.FileSystem).makeTempDirectoryScoped();
+    const removed = `${worktree}/removed`;
+    for (const [worktreePath, kept] of [
+      [worktree, worktree],
+      [removed, null],
+    ] as const) {
+      const harness = makeLocalCommandHarness({
+        text: "Continue",
+        worktreePath,
+        failReadsAfterRunning: true,
+      });
+      yield* harness.start;
+      expect(harness.resolveRuntimePolicy.mock.calls[0]?.[0].thread.worktreePath).toBe(kept);
+      expect(harness.dispatched).toEqual(
+        kept === null
+          ? [
+              expect.objectContaining({
+                type: "thread.metadata.update",
+                worktreePath: null,
+                expectedWorktreePath: removed,
+              }),
+            ]
+          : [],
+      );
+    }
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
 effectIt.effect("terminalizes a starting run when its provider session cannot open", () =>

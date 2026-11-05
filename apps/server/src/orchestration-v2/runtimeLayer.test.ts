@@ -816,6 +816,66 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
     }).pipe(Effect.provide(Layer.fresh(layerTest))),
   );
 
+  it.effect("forgets a removed worktree without detaching the thread's provider session", () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const eventSink = yield* EventSink.EventSinkV2;
+      const threadId = ThreadId.make("runtime-forget-removed-worktree");
+      const removed = `${process.cwd()}/removed-worktree`;
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("runtime-forget-removed-worktree-create"),
+        threadId,
+        projectId: ProjectId.make("runtime-forget-removed-worktree-project"),
+        title: "Removed worktree",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: removed,
+      });
+      const now = yield* DateTime.now;
+      yield* eventSink.write({
+        commandId: CommandId.make("runtime-forget-removed-worktree-session"),
+        events: [
+          {
+            id: EventId.make("runtime-forget-removed-worktree-session-event"),
+            type: "provider-session.attached",
+            threadId,
+            occurredAt: now,
+            payload: {
+              id: ProviderSessionId.make("runtime-forget-removed-worktree-session"),
+              driver,
+              providerInstanceId: modelSelection.instanceId,
+              status: "ready",
+              cwd: process.cwd(),
+              model: modelSelection.model,
+              capabilities: CodexProviderCapabilitiesV2,
+              createdAt: now,
+              updatedAt: now,
+              lastError: null,
+            },
+          },
+        ],
+      });
+      // A turn may be opening this session in the project root while the clear commits.
+      const cleared = yield* orchestrator.dispatch({
+        type: "thread.metadata.update",
+        commandId: CommandId.make("runtime-forget-removed-worktree-clear"),
+        threadId,
+        worktreePath: null,
+        expectedWorktreePath: removed,
+      });
+      assert.deepEqual(
+        cleared.storedEvents.map((stored) => stored.event.type),
+        ["thread.metadata-updated"],
+      );
+      assert.isNull((yield* orchestrator.getThreadProjection(threadId)).thread.worktreePath);
+    }),
+  );
+
   it.effect("resolves delivery intent against the active run and starts after it completes", () =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
@@ -3634,46 +3694,6 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
       yield* end("probe", "completed");
       assert.equal(yield* Queue.take(startedRunIds), (yield* runFor("after-stop")).id);
       yield* releasedAfter("after-stop", "probe");
-    }),
-  );
-
-  it.effect("keeps held agent messages while the thread's worktree setup is unresolved", () =>
-    Effect.gen(function* () {
-      const orchestrator = yield* Orchestrator.OrchestratorV2;
-      const eventSink = yield* EventSink.EventSinkV2;
-      const dispatcherId = ThreadId.make("runtime-layer-held-queue-worktree");
-      const dispatcher = yield* queueTestThread(dispatcherId);
-      const witness = yield* queueTestThread(ThreadId.make("runtime-layer-held-queue-witness"));
-      yield* dispatcher.send("setup", "agent", true);
-      yield* dispatcher.send("issue", "agent", false);
-      yield* dispatcher.end("setup", "failed", "", {
-        workspacePreparation: { type: "worktree", baseRef: "main" },
-      });
-      yield* dispatcher.awaitHeld("issue");
-      assert.isTrue((yield* dispatcher.runFor("issue")).queueHeld);
-      yield* dispatcher.send("tick", "agent", true);
-      assert.equal((yield* dispatcher.runFor("tick")).status, "starting");
-      yield* witness.send("active", "agent", true);
-      yield* witness.send("queued", "agent", false);
-      // The failed setup never produced the thread's worktree.
-      const { thread } = yield* orchestrator.getThreadProjection(dispatcherId);
-      yield* eventSink.write({
-        events: [
-          {
-            id: EventId.make(`${dispatcherId}:worktree-missing`),
-            type: "thread.metadata-updated",
-            threadId: dispatcherId,
-            occurredAt: yield* DateTime.now,
-            payload: { ...thread, worktreePath: null },
-          },
-        ],
-      });
-      yield* dispatcher.end("tick", "completed");
-      // One listener handles every thread's completions in order, so the witness starting
-      // means the tick's completion was handled too.
-      yield* witness.end("active", "completed");
-      assert.equal(yield* Queue.take(witness.startedRunIds), (yield* witness.runFor("queued")).id);
-      assert.isTrue((yield* dispatcher.runFor("issue")).queueHeld);
     }),
   );
 

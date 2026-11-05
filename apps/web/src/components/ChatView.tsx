@@ -48,7 +48,6 @@ import {
   type AssistantCitation,
   type ChatFileAttachment,
   isProviderNativeSubagentThread,
-  orchestrationV2WorktreePending,
   type EnvironmentId,
   type MessageId,
   type ModelSelection,
@@ -2198,13 +2197,7 @@ export default function ChatView(props: ChatViewProps) {
             ? "Update this environment's aprende server to use side chats."
             : sideChatsOffered && !isServerThread
               ? "Side chats start after the first message."
-              : sideChat.available &&
-                  orchestrationV2WorktreePending(
-                    activeThread?.worktreePath ?? null,
-                    serverProjection?.runs ?? [],
-                  )
-                ? "Available once the thread's worktree is set up."
-                : null;
+              : null;
   const openSideChatStable = useStableCallback(() => void sideChat.open());
   const sendSideChatStable = useStableCallback((prompt: string) => sideChat.open(prompt));
   const { onConfirmRevertStable, onForkFromRunStable, onRevertTimelineTurnStable } =
