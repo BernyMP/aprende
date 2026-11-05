@@ -44,7 +44,6 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
       expect(identity?.canonicalKey).toBe("github.com/bernymp/aprende");
       expect(normalizeResolvedPath(resolvedIdentityRoot)).toBe(normalizeResolvedPath(resolvedCwd));
       expect(identity?.displayName).toBe("BernyMP/aprende");
-      expect(identity?.provider).toBe("github");
       expect(identity?.owner).toBe("BernyMP");
       expect(identity?.name).toBe("aprende");
       expect(yield* resolver.resolve(path.join(cwd, ".git"))).toBeNull();
@@ -65,7 +64,6 @@ it.layer(NodeServices.layer)("RepositoryIdentityResolverLive", (it) => {
       const identity = yield* resolver.resolve(cwd);
 
       expect(identity?.canonicalKey).toBe("github.com/bernymp/aprende");
-      expect(identity?.provider).toBe("github");
       expect(identity?.displayName).toBe("BernyMP/aprende");
     }).pipe(Effect.provide(RepositoryIdentityResolver.layer)),
   );

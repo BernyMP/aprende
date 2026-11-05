@@ -78,13 +78,6 @@ resolve in one order: a project override, then the environment setting, then `t3
 built-in default. Leave a setting on **Inherit** to let the next tier decide.
 Browser access changes apply when an agent session next starts.
 
-New worktrees initialize git submodules recursively. If that step is slow because the repository
-declares many nested submodules, set **Submodules** in **Settings → Worktrees** under Advanced (with the project
-selected to override it there) to **Top level only** to stop at the ones the repository declares
-itself, or **Skip** to leave them for a setup script. It resolves in the same order as the
-workspace default: a `"worktreeSubmodules"` value in the `t3.json` of the branch being checked out
-applies when the project and environment are both on **Inherit**.
-
 ## Storage cleanup
 
 Open **Settings → Worktrees → Cleanup** to enable automatic cleanup on one machine or all connected

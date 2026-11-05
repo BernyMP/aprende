@@ -54,7 +54,7 @@ vi.mock("../state/environments", async (original) => ({
         connection: { phase: "connected" },
         entry: { target: { _tag: "PrimaryConnectionTarget" } },
         serverConfig: {
-          environment: { platform: { os: "linux" }, capabilities: { projectCloneTracking: true } },
+          environment: { platform: { os: "linux" }, capabilities: {} },
           settings: { addProjectBaseDirectory: "/workspace/" },
         },
       },
@@ -100,21 +100,16 @@ vi.mock("./settings/useAvailableSettingsSearchItems", () => ({
 }));
 
 // The real palette and Base UI input must agree that confirming composition is typing.
-describe.each(["repository", "folder", "destination"] as const)("add-project %s", (step) => {
+describe("add-project folder", () => {
   it.each([
     { isComposing: true, keyCode: 13 },
     { isComposing: false, keyCode: 229 },
   ])("keeps Enter in the input during composition: %j", async (composition) => {
     await using _screen = await render(<CommandPalette>{null}</CommandPalette>);
     await act(() => openCommandPalette({ open: "add-project" }));
-    await page.getByText(step === "folder" ? "Local folder" : "Git URL", { exact: true }).click();
+    await page.getByText("Local folder", { exact: true }).click();
     const input = () => page.getByRole("combobox");
-    if (step === "destination") {
-      await input().fill("https://example.com/team/project.git");
-      await userEvent.keyboard("{Enter}");
-    }
-    const value = step === "repository" ? "https://example.com/team/計画.git" : "/workspace/計画";
-    await input().fill(value);
+    await input().fill("/workspace/計画");
     const event = new KeyboardEvent("keydown", {
       key: "Enter",
       bubbles: true,
@@ -123,13 +118,8 @@ describe.each(["repository", "folder", "destination"] as const)("add-project %s"
     });
     await act(() => input().element().dispatchEvent(event));
     expect(event.defaultPrevented).toBe(false);
-    await expect.element(input()).toHaveValue(value);
-    if (step === "repository") {
-      await userEvent.keyboard("{Enter}");
-      await expect.element(input()).toHaveValue("/workspace/計画");
-    } else {
-      await userEvent.keyboard("{Enter}");
-      await expect.element(page.getByRole("combobox")).not.toBeInTheDocument();
-    }
+    await expect.element(input()).toHaveValue("/workspace/計画");
+    await userEvent.keyboard("{Enter}");
+    await expect.element(page.getByRole("combobox")).not.toBeInTheDocument();
   });
 });
