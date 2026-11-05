@@ -836,14 +836,6 @@ it.effect.each(["stable", "upstream/release"])(
           (yield* command(worktreePath, ["rev-parse", "HEAD"])).stdout.trim(),
           remoteHead,
         );
-        const preview = yield* git.getReviewDiffPreview({ cwd: worktreePath });
-        const comparisonBase = preview.sources.find(
-          (source) => source.kind === "branch-range",
-        )!.baseRef;
-        assert.equal(
-          (yield* command(worktreePath, ["rev-parse", `${comparisonBase}^{commit}`])).stdout.trim(),
-          remoteHead,
-        );
       }).pipe(Effect.provide(harness.layer));
     }).pipe(
       Effect.provide(

@@ -1426,8 +1426,10 @@ const revokePairedClientsThePolicyDisallows = Effect.fn(
 ) {
   const remoteAllowed = ManagedLimits.allowsRemoteClients(policy);
   const disallowed = new Set<string>();
-  if (!remoteAllowed) disallowed.add(LINK_PAIRED_SUBJECTS.link);
-  if (!ManagedLimits.allowsConnect(policy)) disallowed.add(LINK_PAIRED_SUBJECTS.connect);
+  if (!remoteAllowed) {
+    disallowed.add(LINK_PAIRED_SUBJECTS.link);
+    disallowed.add(LINK_PAIRED_SUBJECTS.connect);
+  }
   if (disallowed.size === 0) return;
   const sessions = (yield* stores.sessions.listActive()).filter(
     (session) =>

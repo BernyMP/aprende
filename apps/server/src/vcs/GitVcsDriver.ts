@@ -22,12 +22,6 @@ import {
   type VcsCreateRefResult,
   type VcsCreateWorktreeInput,
   type VcsCreateWorktreeResult,
-  type ReviewBranchCommitsInput,
-  type ReviewBranchCommitsResult,
-  type ReviewDiffPreviewInput,
-  type ReviewDiffPreviewResult,
-  type ReviewDiffFileContentsInput,
-  type ReviewDiffFileContentsResult,
   type VcsInitInput,
   type VcsListRefsInput,
   type VcsListRefsResult,
@@ -347,15 +341,6 @@ export class GitVcsDriver extends Context.Service<
       cwd: string,
       baseRef: string,
     ) => Effect.Effect<GitRangeContext, GitCommandError>;
-    readonly getReviewBranchCommits: (
-      input: ReviewBranchCommitsInput,
-    ) => Effect.Effect<ReviewBranchCommitsResult, GitCommandError>;
-    readonly getReviewDiffPreview: (
-      input: ReviewDiffPreviewInput,
-    ) => Effect.Effect<ReviewDiffPreviewResult, GitCommandError>;
-    readonly getReviewDiffFileContents: (
-      input: ReviewDiffFileContentsInput,
-    ) => Effect.Effect<ReviewDiffFileContentsResult, GitCommandError>;
     readonly readConfigValue: (
       cwd: string,
       key: string,
