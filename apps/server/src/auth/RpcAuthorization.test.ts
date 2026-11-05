@@ -11,6 +11,7 @@ import {
   ThreadId,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
+  AuthTerminalOperateScope,
   WS_METHODS,
   WsRpcGroup,
 } from "@aprende/contracts";
@@ -35,6 +36,18 @@ describe("RPC authorization scopes", () => {
       WS_METHODS.learningRunCheck,
     ]) {
       expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
+    }
+  });
+
+  it("keeps practice terminals, which are interactive shells, behind terminal operate scope", () => {
+    for (const method of [
+      WS_METHODS.learningTerminalOpen,
+      WS_METHODS.learningTerminalWrite,
+      WS_METHODS.learningTerminalResize,
+      WS_METHODS.learningTerminalClose,
+      WS_METHODS.learningTerminalSubscribe,
+    ]) {
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthTerminalOperateScope);
     }
   });
 

@@ -227,6 +227,11 @@ import {
   LearningRevealHintInput,
   LearningRunCheckInput,
   LearningCheckRun,
+  LearningTerminalEvent,
+  LearningTerminalOpenInput,
+  LearningTerminalResizeInput,
+  LearningTerminalTarget,
+  LearningTerminalWriteInput,
   LearningSetTutorPromptInput,
   LearningSubmitSolutionInput,
   LearningSubscribeThreadInput,
@@ -332,6 +337,11 @@ export const WS_METHODS = {
   learningRevealHint: "learning.revealHint",
   learningSubmitSolution: "learning.submitSolution",
   learningRunCheck: "learning.runCheck",
+  learningTerminalOpen: "learning.terminal.open",
+  learningTerminalWrite: "learning.terminal.write",
+  learningTerminalResize: "learning.terminal.resize",
+  learningTerminalClose: "learning.terminal.close",
+  learningTerminalSubscribe: "learning.terminal.subscribe",
   learningGetTutorPrompt: "learning.getTutorPrompt",
   learningSetTutorPrompt: "learning.setTutorPrompt",
   learningGetKnowledge: "learning.getKnowledge",
@@ -1074,6 +1084,33 @@ const WsLearningRunCheckRpc = Rpc.make(WS_METHODS.learningRunCheck, {
   error: LearningRpcError,
 });
 
+const WsLearningTerminalOpenRpc = Rpc.make(WS_METHODS.learningTerminalOpen, {
+  payload: LearningTerminalOpenInput,
+  error: LearningRpcError,
+});
+
+const WsLearningTerminalWriteRpc = Rpc.make(WS_METHODS.learningTerminalWrite, {
+  payload: LearningTerminalWriteInput,
+  error: LearningRpcError,
+});
+
+const WsLearningTerminalResizeRpc = Rpc.make(WS_METHODS.learningTerminalResize, {
+  payload: LearningTerminalResizeInput,
+  error: LearningRpcError,
+});
+
+const WsLearningTerminalCloseRpc = Rpc.make(WS_METHODS.learningTerminalClose, {
+  payload: LearningTerminalTarget,
+  error: LearningRpcError,
+});
+
+const WsLearningTerminalSubscribeRpc = Rpc.make(WS_METHODS.learningTerminalSubscribe, {
+  payload: LearningTerminalTarget,
+  success: LearningTerminalEvent,
+  error: LearningRpcError,
+  stream: true,
+});
+
 const WsLearningGetTutorPromptRpc = Rpc.make(WS_METHODS.learningGetTutorPrompt, {
   payload: Schema.Struct({}),
   success: LearningTutorPrompt,
@@ -1171,6 +1208,11 @@ export const WsRpcGroup = RpcGroup.make(
   WsLearningRevealHintRpc,
   WsLearningSubmitSolutionRpc,
   WsLearningRunCheckRpc,
+  WsLearningTerminalOpenRpc,
+  WsLearningTerminalWriteRpc,
+  WsLearningTerminalResizeRpc,
+  WsLearningTerminalCloseRpc,
+  WsLearningTerminalSubscribeRpc,
   WsLearningGetTutorPromptRpc,
   WsLearningSetTutorPromptRpc,
   WsLearningGetKnowledgeRpc,

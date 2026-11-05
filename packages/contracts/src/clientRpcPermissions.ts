@@ -3,6 +3,7 @@ import {
   AuthOrchestrationReadScope,
   AuthSettingsWriteScope,
   AuthSourceControlWriteScope,
+  AuthTerminalOperateScope,
   type AuthEnvironmentScope,
 } from "./auth.ts";
 import { ORCHESTRATION_V2_WS_METHODS } from "./orchestrationV2.ts";
@@ -26,6 +27,11 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.learningSubmitSolution]: AuthOrchestrationOperateScope,
   // Runs the tutor's check command on the learner's machine, like their own terminal.
   [WS_METHODS.learningRunCheck]: AuthOrchestrationOperateScope,
+  // A practice terminal is an interactive shell in the problem's folder.
+  [WS_METHODS.learningTerminalOpen]: AuthTerminalOperateScope,
+  [WS_METHODS.learningTerminalWrite]: AuthTerminalOperateScope,
+  [WS_METHODS.learningTerminalResize]: AuthTerminalOperateScope,
+  [WS_METHODS.learningTerminalClose]: AuthTerminalOperateScope,
   [WS_METHODS.learningSetTutorPrompt]: AuthSettingsWriteScope,
   [ORCHESTRATION_V2_WS_METHODS.stopWorkflow]: AuthOrchestrationOperateScope,
   // Force stop kills agent processes, as Stop on a terminal does.
