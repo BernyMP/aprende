@@ -106,64 +106,11 @@ on that machine. Existing threads stay where they started. If resource checks ar
 unavailable or all eligible machines are full, choose a machine manually to continue.
 Mobile keeps its manual environment selection.
 
-### Hosted web app
-
-[app.aprende.invalid](https://app.aprende.invalid) needs an HTTPS endpoint. It connects directly
-to your server; a hosted pairing link does not make an unreachable backend
-reachable or convert HTTP to HTTPS.
-
-For a plain HTTP LAN endpoint, use the direct pairing URL in a browser that can
-open it, or pair from the desktop app. On mobile, an IP address entered without a
-scheme uses HTTP, so include `https://` when your server uses HTTPS.
-
 ## Connect an outside agent
 
 Claude Code, Codex, ChatGPT and other agents aprende did not start can drive
 threads on an environment through its MCP server. See
 [outside agents](./outside-agents.md) for setup.
-
-## Link another environment
-
-Link two machines, such as your laptop and a VPS, and agents on one can work on
-the other: launch, message, wait on and stop its threads, answer their
-questions, and manage its queues, projects and scheduled tasks.
-
-Linked environments is a beta. Turn it on for both machines in **Settings →
-Labs**; on mobile, **Settings → Labs** lists each connected machine. While it is
-off on either machine, agents start nothing over a link between them. A task
-already running on the other machine still finishes, and if that machine has it
-off, its result arrives once it is back on.
-
-On the machine you will work from, open **Settings → Environments → Linked environments**,
-choose **Link**, and pick the other machine or enter its address. The list
-holds the machines this app knows and those on your T3 Connect account. If this
-app is connected to that machine with a session that manages access there, it
-makes the pairing code itself; otherwise paste one from that machine's
-**Settings → Sharing & access**. From a terminal, use
-`aprende environment link <address> --pairing-code <code> --access <mode>`.
-
-You can also ask an agent to link a machine by name, such as "delegate this to
-my vps". It shows a card in the thread where you pick the machine the same way
-and the access, then approve.
-
-- The access you pick is the most agents from this machine may do there. An
-  agent also never gets more there than its own mode here.
-- Threads a link starts are marked **From** and this machine's name there.
-- A full-access link works there like that machine's own agents. Below full
-  access, the link's agents can change only threads it started, not that
-  machine's own threads, projects or settings, and they skip its project setup
-  scripts.
-- The link shows up in that machine's **Settings → Sharing & access** like any
-  outside agent. Revoke it there to end it. **Forget** on this machine only
-  removes it here.
-- Links last 30 days. Link again with a new pairing code to renew one.
-
-An agent can also hand a task to a linked machine with `delegate_task`: it runs
-there as an ordinary thread, in the project with the same repository (or the
-one `target.projectId` names), and this thread wakes with its result when it
-ends, as for any delegated task. It keeps following the task across restarts.
-If the other machine revokes the link, or the link is removed here, the task
-fails with that reason.
 
 ## Manage or revoke access
 
@@ -174,7 +121,7 @@ management is available through `aprende auth --help`.
 
 When the app connects to more than one environment, choose one at the top of the
 page. A desktop app with **Local environment** off can manage a background
-service on the same machine this way, including its T3 Connect link.
+service on the same machine this way.
 
 A session with an open connection stays listed after its access credential
 expires.
@@ -182,16 +129,15 @@ expires.
 To choose a token's permissions, pass `--scope` once for each scope you want:
 
 ```sh
-npx aprende pair --scope orchestration:read --scope relay:read
+npx aprende pair --scope orchestration:read --scope filesystem:read
 ```
 
 The selected scopes replace the default permissions. The same option works with
 `npx aprende auth pairing create` and `npx aprende auth session issue`; each command's
 `--help` lists the available scopes. Without `--scope`, pairing tokens and issued
-bearer sessions get every permission, including managing access and T3 Connect.
-A terminal or a full-access agent on the host can reach those as well, so a
-client that should not manage access also needs to go without `terminal:operate`
-and `orchestration:operate`.
+bearer sessions get every permission, including managing access. A full-access
+agent on the host can reach that as well, so a client that should not manage
+access also needs to go without `orchestration:operate`.
 
 To change an existing client's permissions, create a fresh pairing link with the
 scopes it needs. In a browser opened directly on the environment, open that link
@@ -210,8 +156,8 @@ worktrees. It does not restrict what a task does. Starting a task in a new
 worktree still creates that branch and worktree with `orchestration:operate`,
 and the agent it runs can use Git however the environment allows.
 
-Settings changes, provider management, environment maintenance, access
-management, and T3 Connect management can each be granted separately. New
+Settings changes, provider management, environment maintenance and access
+management can each be granted separately. New
 pairings without `--scope` include all of them. Existing clients keep the
 permissions they paired with and can stay connected after an update, but newly
 separated features may require pairing again with the permissions they need.
@@ -222,42 +168,8 @@ link to change a client's permissions.
 local changes. Add `filesystem:write` to allow editing files or saving plans to
 the workspace. These scopes control direct file access from the client.
 
-To remove an environment from T3 Connect, open your account menu's **T3 Connect**
-page, or **Settings → T3 Connect** on mobile, and choose **Deregister**. This
-revokes its cloud access and frees its host space even when the environment is
-offline or has been wiped. When T3 Connect rejects a host's link, the host
-shows that it was removed from T3 Connect. To link it again, turn on
-**T3 Connect** in **Settings → Sharing & access** on a desktop host, or run
-`aprende connect link` on a command-line host and then restart aprende there. A
-command-line host that released its tunnel when it last stopped may link itself
-again on its next start; run `aprende connect unlink` on that host to keep it off.
-Removing an environment from a device's connection settings only forgets it on
-that device and doesn't change your T3 Connect account. A device keeps a saved
-environment after it's deregistered until you remove it from that device.
-
-When idle tunnel cleanup is enabled, T3 Connect removes a linked environment's
-tunnel after it stays offline for several minutes. The environment stays linked
-and keeps the same address. When the host starts again or wakes, T3 Connect
-creates a replacement tunnel on its own. You do not need to pair again. Cleanup
-usually runs five to ten minutes after the tunnel goes down.
-
-T3 Connect also removes the tunnel of an environment running an older version of
-aprende once it has been offline for seven days. That environment shows a message
-asking you to update. Start aprende on that computer and update it to the latest
-version; it reconnects at the same address without pairing again.
-
-On a command-line host, `aprende connect unlink` disables exposure while retaining
-your login; `aprende connect logout` also clears that login. Background-service
-[removal](./background-service.md#manage-the-service) is separate.
-
 Treat pairing URLs and authorization codes as passwords. Do not include them in
 screenshots, logs, or bug reports.
-
-## T3 Connect troubleshooting
-
-When a T3 Connect connection fails, see
-[T3 Connect troubleshooting](./t3-connect-troubleshooting.md). It explains each
-error, where the problem is, and how to fix it.
 
 ## Using the Desktop App as a Remote Only
 
