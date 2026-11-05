@@ -976,31 +976,11 @@ describe("planComposerTurn", () => {
   const base = {
     messageText: "hello",
     sendQueuesBehindSetup: false,
-    isServerThread: false,
-    activeMessageCount: 0,
-    sendEnvMode: "worktree" as const,
-    worktreePath: null,
-    activeThreadBranch: "main",
     resumeCompactionTokens: null,
     keepFullHistory: false,
     phase: "ready" as const,
     dispatchMode: "auto" as const,
   };
-
-  it("prepares a worktree from the selected branch on a new thread", () => {
-    expect(planComposerTurn(base)).toMatchObject({
-      missingWorktreeBaseBranch: false,
-      baseBranchForWorktree: "main",
-      shouldQueueBehindActiveRun: false,
-    });
-  });
-
-  it("refuses a new worktree without a base branch", () => {
-    expect(planComposerTurn({ ...base, activeThreadBranch: null })).toMatchObject({
-      missingWorktreeBaseBranch: true,
-      baseBranchForWorktree: null,
-    });
-  });
 
   it("queues behind a compaction of a stale session, except for /compact itself", () => {
     const stale = { ...base, resumeCompactionTokens: 120_000 };
@@ -1021,18 +1001,12 @@ describe("planComposerTurn", () => {
   });
 
   it("queues behind a running turn only when asked to", () => {
-    const running = {
-      ...base,
-      isServerThread: true,
-      activeMessageCount: 3,
-      phase: "running" as const,
-    };
+    const running = { ...base, phase: "running" as const };
     expect(planComposerTurn({ ...running, dispatchMode: "queue" }).shouldQueueBehindActiveRun).toBe(
       true,
     );
     expect(planComposerTurn({ ...running, dispatchMode: "steer" })).toMatchObject({
       shouldQueueBehindActiveRun: false,
-      baseBranchForWorktree: null,
     });
   });
 });
