@@ -379,7 +379,7 @@ import {
   LearningAnswerInput,
   LearningAnswerResult,
   LearningError,
-  LearningKnowledge,
+  LearningKnowledgeView,
   LearningProblemResult,
   LearningRevealHintInput,
   LearningSetTutorPromptInput,
@@ -1957,7 +1957,7 @@ const WsLearningSetTutorPromptRpc = Rpc.make(WS_METHODS.learningSetTutorPrompt, 
 
 const WsLearningGetKnowledgeRpc = Rpc.make(WS_METHODS.learningGetKnowledge, {
   payload: Schema.Struct({}),
-  success: LearningKnowledge,
+  success: LearningKnowledgeView,
   error: LearningRpcError,
 });
 

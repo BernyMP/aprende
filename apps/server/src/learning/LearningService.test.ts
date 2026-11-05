@@ -11,6 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
+import * as SqlClient from "effect/sql/SqlClient";
 
 import { ServerConfig } from "../config.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
@@ -352,7 +353,35 @@ it.effect("links propositions across sessions instead of duplicating them", () =
         .pipe(Effect.exit);
       assert.isTrue(Exit.isFailure(unknown));
 
+      const sql = yield* SqlClient.SqlClient;
+      for (const [id, deletedAt] of [
+        [threadId, null],
+        [otherThreadId, "2026-01-02T00:00:00.000Z"],
+      ] as const) {
+        yield* sql`INSERT INTO orchestration_v2_projection_threads ${sql.insert({
+          thread_id: id,
+          project_id: "project-learning",
+          title: "Dependency maps",
+          default_provider: "claude",
+          runtime_mode: "auto",
+          interaction_mode: "default",
+          created_at: "2026-01-01T00:00:00.000Z",
+          updated_at: "2026-01-01T00:00:00.000Z",
+          deleted_at: deletedAt,
+          payload_json: "{}",
+        })}`;
+      }
+
       const knowledge = yield* learning.getKnowledge();
+      // Deleted sessions drop out, so the client never links to a thread that is gone.
+      assert.deepEqual(knowledge.sessions, [
+        {
+          threadId,
+          projectId: ProjectId.make("project-learning"),
+          title: "Dependency maps",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ]);
       assert.equal(knowledge.propositions.length, 2);
       assert.sameMembers(
         [...knowledge.propositions.find((entry) => entry.id === edgeId)!.sourceThreadIds],

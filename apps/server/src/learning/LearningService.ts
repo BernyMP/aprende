@@ -12,6 +12,7 @@ import {
   type LearningAnswerResult,
   type LearningChain,
   type LearningKnowledge,
+  type LearningKnowledgeView,
   type LearningMissType,
   type LearningProblemOutcome,
   type LearningProblemResult,
@@ -26,6 +27,7 @@ import {
   type LearningSubmitSolutionInput,
   type LearningThreadState,
   type LearningTutorPrompt,
+  type ProjectId,
   type ThreadId,
 } from "@aprende/contracts";
 import * as Context from "effect/Context";
@@ -142,7 +144,7 @@ export class LearningService extends Context.Service<
     readonly setTutorPrompt: (
       input: LearningSetTutorPromptInput,
     ) => Effect.Effect<LearningTutorPrompt, LearningError>;
-    readonly getKnowledge: () => Effect.Effect<LearningKnowledge, LearningError>;
+    readonly getKnowledge: () => Effect.Effect<LearningKnowledgeView, LearningError>;
   }
 >()("aprende/learning/LearningService") {}
 
@@ -185,6 +187,13 @@ interface PropositionRow {
   readonly statement: string;
   readonly created_at: string;
   readonly source_thread_ids: string | null;
+}
+
+interface SessionRow {
+  readonly thread_id: string;
+  readonly project_id: string;
+  readonly title: string;
+  readonly created_at: string;
 }
 
 interface ChainRow {
@@ -847,7 +856,23 @@ export const layer = Layer.effect(
       function* () {
         const propositions = yield* listPropositions({ words: [], limit: Number.MAX_SAFE_INTEGER });
         const chains = yield* chainsAmong(null);
-        return { propositions, chains };
+        const sessions = yield* sql<SessionRow>`
+          SELECT thread_id, project_id, title, created_at FROM orchestration_v2_projection_threads
+          WHERE deleted_at IS NULL AND thread_id IN (
+            SELECT thread_id FROM learning_proposition_sources
+            UNION SELECT thread_id FROM learning_chains
+          )
+        `;
+        return {
+          propositions,
+          chains,
+          sessions: sessions.map((row) => ({
+            threadId: row.thread_id as ThreadId,
+            projectId: row.project_id as ProjectId,
+            title: row.title,
+            createdAt: row.created_at,
+          })),
+        };
       },
       Effect.mapError(dbError("Could not read the knowledge graph.")),
     );

@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-import { IsoDateTime, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
+import { IsoDateTime, ProjectId, ThreadId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 
 export const LEARNING_MAX_OPTIONS = 6;
 
@@ -271,6 +271,21 @@ export const LearningKnowledge = Schema.Struct({
   chains: Schema.Array(LearningChain),
 });
 export type LearningKnowledge = typeof LearningKnowledge.Type;
+
+/** A session that taught part of the graph, so clients can name and group it without loading it. */
+export const LearningKnowledgeSession = Schema.Struct({
+  threadId: ThreadId,
+  projectId: ProjectId,
+  title: Schema.String,
+  createdAt: IsoDateTime,
+});
+export type LearningKnowledgeSession = typeof LearningKnowledgeSession.Type;
+
+export const LearningKnowledgeView = Schema.Struct({
+  ...LearningKnowledge.fields,
+  sessions: Schema.Array(LearningKnowledgeSession),
+});
+export type LearningKnowledgeView = typeof LearningKnowledgeView.Type;
 
 const ANSWER_MESSAGE_PATTERN = /^\[Answer to question ([A-Za-z0-9-]+)\]/;
 const SOLUTION_MESSAGE_PATTERN = /^\[Work on problem ([A-Za-z0-9-]+)\]/;
