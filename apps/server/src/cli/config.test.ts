@@ -64,8 +64,6 @@ const makeDesktopBootstrap = (
   t3Home: "/tmp/t3-bootstrap-home",
   host: "127.0.0.1",
   desktopBootstrapToken: "desktop-bootstrap-token",
-  tailscaleServeEnabled: false,
-  tailscaleServePort: 443,
   ...overrides,
 });
 
@@ -310,8 +308,6 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
       const fd = yield* openBootstrapFd(
         makeDesktopBootstrap({
           noBrowser: true,
-          tailscaleServeEnabled: false,
-          tailscaleServePort: 443,
         }),
       );
       const derivedPaths = yield* deriveExplicitServerPaths(
@@ -387,8 +383,6 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
           t3Home: "/tmp/t3-bootstrap-home",
           noBrowser: false,
           desktopBootstrapToken: "desktop-token",
-          tailscaleServeEnabled: false,
-          tailscaleServePort: 443,
         }),
       );
       const derivedPaths = yield* deriveExplicitServerPaths(

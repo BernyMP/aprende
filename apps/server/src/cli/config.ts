@@ -406,7 +406,6 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     resolveOptionPrecedence(
       normalizedFlags.tailscaleServeEnabled,
       Option.fromUndefinedOr(env.tailscaleServeEnabled),
-      Option.fromUndefinedOr(bootstrap?.tailscaleServeEnabled),
     ),
     () => false,
   );
@@ -414,7 +413,6 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     resolveOptionPrecedence(
       normalizedFlags.tailscaleServePort,
       Option.fromUndefinedOr(env.tailscaleServePort),
-      Option.fromUndefinedOr(bootstrap?.tailscaleServePort),
     ),
     () => 443,
   );
