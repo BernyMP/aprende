@@ -8,7 +8,7 @@ import { DEFAULT_KEYBINDINGS } from "@aprende/shared/keybindings";
 import * as Schema from "effect/Schema";
 import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { writeLocalStorageValue } from "../../hooks/useLocalStorage";
-import { commandLabel } from "./KeybindingsSettings.logic";
+import { commandLabel, isRetiredKeybindingCommand } from "./KeybindingsSettings.logic";
 import type { ResolvedSettingsScope } from "./settingsScope";
 
 export type SettingsPath =
@@ -119,21 +119,23 @@ export function keybindingSearchAnchorId<Command extends KeybindingCommand>(comm
   return `keybinding-${command}` as const;
 }
 
-const KEYBINDING_SEARCH_ITEMS = STATIC_KEYBINDING_COMMANDS.toSorted((left, right) =>
-  commandLabel(left).localeCompare(commandLabel(right)),
-).map((command) => {
-  const defaultKeys = DEFAULT_KEYBINDINGS.filter((binding) => binding.command === command).map(
-    (binding) => binding.key,
-  );
-  return {
-    id: keybindingSearchAnchorId(command),
-    title: commandLabel(command),
-    to: "/settings/keybindings" as const,
-    searchTerms: [command, ...defaultKeys],
-    secondary: true,
-    ...(defaultKeys.length === 0 ? { targetId: "keybindings" } : {}),
-  };
-});
+const KEYBINDING_SEARCH_ITEMS = STATIC_KEYBINDING_COMMANDS.filter(
+  (command) => !isRetiredKeybindingCommand(command),
+)
+  .toSorted((left, right) => commandLabel(left).localeCompare(commandLabel(right)))
+  .map((command) => {
+    const defaultKeys = DEFAULT_KEYBINDINGS.filter((binding) => binding.command === command).map(
+      (binding) => binding.key,
+    );
+    return {
+      id: keybindingSearchAnchorId(command),
+      title: commandLabel(command),
+      to: "/settings/keybindings" as const,
+      searchTerms: [command, ...defaultKeys],
+      secondary: true,
+      ...(defaultKeys.length === 0 ? { targetId: "keybindings" } : {}),
+    };
+  });
 
 export const SETTINGS_SEARCH_ITEMS = [
   {

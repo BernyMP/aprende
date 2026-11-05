@@ -15,8 +15,6 @@ import {
   effectiveShortcutsForCommand,
   formatShortcutLabel,
   isRichTextBoldShortcut,
-  isTerminalNewShortcut,
-  isTerminalSplitShortcut,
   resolveChatShortcutCommand,
   resolveShortcutCommand,
   shouldShowThreadJumpHintsForModifiers,
@@ -281,22 +279,22 @@ describe("split/new/close terminal shortcuts", () => {
       { shortcut: modShortcut("j"), command: "terminal.toggle" },
     ]);
     assert.isTrue(
-      isTerminalSplitShortcut(event({ key: "\\", ctrlKey: true }), keybindings, {
+      resolveShortcutCommand(event({ key: "\\", ctrlKey: true }), keybindings, {
         platform: "Win32",
         context: { terminalOpen: true, terminalFocus: false },
-      }),
+      }) === "terminal.split",
     );
     assert.isFalse(
-      isTerminalSplitShortcut(event({ key: "\\", ctrlKey: true }), keybindings, {
+      resolveShortcutCommand(event({ key: "\\", ctrlKey: true }), keybindings, {
         platform: "Win32",
         context: { terminalOpen: false, terminalFocus: false },
-      }),
+      }) === "terminal.split",
     );
     assert.isTrue(
-      isTerminalNewShortcut(event({ key: "n", ctrlKey: true, shiftKey: true }), keybindings, {
+      resolveShortcutCommand(event({ key: "n", ctrlKey: true, shiftKey: true }), keybindings, {
         platform: "Win32",
         context: { terminalOpen: true, terminalFocus: false },
-      }),
+      }) === "terminal.new",
     );
   });
 });
@@ -473,10 +471,10 @@ describe("cross-command precedence", () => {
     ]);
 
     assert.isTrue(
-      isTerminalNewShortcut(event({ key: "n", metaKey: true }), keybindings, {
+      resolveShortcutCommand(event({ key: "n", metaKey: true }), keybindings, {
         platform: "MacIntel",
         context: { terminalFocus: true },
-      }),
+      }) === "terminal.new",
     );
     assert.strictEqual(
       resolveShortcutCommand(event({ key: "n", metaKey: true }), keybindings, {
@@ -486,10 +484,10 @@ describe("cross-command precedence", () => {
       "terminal.new",
     );
     assert.isFalse(
-      isTerminalNewShortcut(event({ key: "n", metaKey: true }), keybindings, {
+      resolveShortcutCommand(event({ key: "n", metaKey: true }), keybindings, {
         platform: "MacIntel",
         context: { terminalFocus: false },
-      }),
+      }) === "terminal.new",
     );
     assert.strictEqual(
       resolveShortcutCommand(event({ key: "n", metaKey: true }), keybindings, {
@@ -511,10 +509,10 @@ describe("cross-command precedence", () => {
     ]);
 
     assert.isFalse(
-      isTerminalNewShortcut(event({ key: "n", ctrlKey: true }), keybindings, {
+      resolveShortcutCommand(event({ key: "n", ctrlKey: true }), keybindings, {
         platform: "Linux",
         context: { terminalFocus: true },
-      }),
+      }) === "terminal.new",
     );
     assert.strictEqual(
       resolveShortcutCommand(event({ key: "n", ctrlKey: true }), keybindings, {

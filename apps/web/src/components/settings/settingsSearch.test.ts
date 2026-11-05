@@ -147,6 +147,9 @@ describe("searchSettings", () => {
       id: "keybinding-thread.copyReference",
       to: "/settings/keybindings",
     });
+    expect(searchSettings("diff.toggle").map((item) => item.id)).not.toContain(
+      "keybinding-diff.toggle",
+    );
   });
 
   it("sends commands without a default binding to the section", () => {
