@@ -1,7 +1,5 @@
 import type { ResolvedKeybindingsConfig, ScopedThreadRef, ThreadId } from "@aprende/contracts";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@aprende/shared/keybindings";
-import * as Cause from "effect/Cause";
-import { AsyncResult } from "effect/reactivity";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { act, render } from "../../test/render";
@@ -11,15 +9,9 @@ const state = vi.hoisted(() => ({
   params: {} as Record<string, string>,
   workspaceAvailable: true,
   navigate: vi.fn(),
-  openPreview: vi.fn(),
-  setShortcuts: vi.fn(async () => undefined),
   toast: vi.fn(),
 }));
 
-vi.mock(import("./preview/openPreviewSession"), async (original) => ({
-  ...(await original()),
-  openPreviewSession: state.openPreview,
-}));
 vi.mock(import("@effect/atom-react"), async (original) => ({
   ...(await original()),
   useAtomValue: (() => state.keybindings) as never,
@@ -29,17 +21,6 @@ vi.mock(import("@tanstack/react-router"), async (original) => ({
   useNavigate: (() => state.navigate) as never,
   useParams: (() => state.params) as never,
 }));
-vi.mock(import("../state/use-atom-command"), async (original) => ({
-  ...(await original()),
-  useAtomCommand: ((command: unknown) => command) as never,
-}));
-vi.mock(import("../state/preview"), async (original) => {
-  const actual = await original();
-  return {
-    ...actual,
-    previewEnvironment: { ...actual.previewEnvironment, open: state.openPreview as never },
-  };
-});
 vi.mock(import("../connection/catalog"), async (original) => {
   const actual = await original();
   const { Atom } = await import("effect/reactivity");
@@ -79,14 +60,6 @@ import { selectThreadRightPanelState, useRightPanelStore } from "../rightPanelSt
 import { ReopenClosedViewShortcut } from "./ReopenClosedViewShortcut";
 
 const ref = { environmentId: "remote", threadId: "thread-1" } as ScopedThreadRef;
-const snapshot = {
-  threadId: ref.threadId,
-  tabId: "closed-tab",
-  navStatus: { _tag: "Success", url: "https://example.com", title: "Example" },
-  canGoBack: false,
-  canGoForward: false,
-  updatedAt: "2026-09-22T12:00:00.000Z",
-} as const;
 let menuAction: ((action: string) => void) | undefined;
 
 function setup() {
@@ -97,7 +70,6 @@ function setup() {
     workspaceAvailable: true,
   });
   state.navigate.mockResolvedValue(undefined);
-  state.openPreview.mockReset();
   useClosedViewStore.setState({ entries: [] });
   useRightPanelStore.setState({ byThreadKey: {}, userActionRevisionByThreadKey: {} });
 }
@@ -106,7 +78,6 @@ async function renderShortcut() {
   await using stack = new AsyncDisposableStack();
   stack.use(vi.spyOn(navigator, "platform", "get").mockReturnValue("Linux x86_64"));
   window.desktopBridge = {
-    preview: { setForwardedShortcuts: state.setShortcuts },
     onMenuAction: (listener: (action: string) => void) => {
       menuAction = listener;
       return () => {
@@ -143,65 +114,33 @@ function press(target: Element = document.body) {
 }
 
 describe("root reopen shortcut", () => {
-  it("serializes deliberate presses while a browser restore waits for RPC", async () => {
-    setup();
-    useClosedViewStore
-      .getState()
-      .remember({ kind: "panel-tab", threadRef: ref, surface: { kind: "files", id: "files" } });
-    useClosedViewStore.getState().remember({ kind: "browser", threadRef: ref, snapshot });
-    let finish!: (value: ReturnType<typeof AsyncResult.success>) => void;
-    state.openPreview.mockReturnValue(
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-    );
-    await using _view = await renderShortcut();
-    await act(() => {
-      press();
-      press();
-    });
-    expect(state.openPreview).toHaveBeenCalledTimes(1);
-    expect(state.navigate).not.toHaveBeenCalled();
-    await act(() => {
-      finish(AsyncResult.success({ tabId: "new-tab" }));
-    });
-    expect(state.navigate).toHaveBeenCalledTimes(2);
-    expect(useClosedViewStore.getState().entries).toEqual([]);
-  });
-
-  it("does not create a second browser when navigation fails after restoring it", async () => {
+  it("reopens the newest closed tab, then the one before it", async () => {
     setup();
     const store = useClosedViewStore.getState();
-    const older = store.remember({
+    store.remember({ kind: "panel-tab", threadRef: ref, surface: { kind: "files", id: "files" } });
+    store.remember({
       kind: "panel-tab",
       threadRef: ref,
       surface: { kind: "side-chat", id: "side-chat:side", threadId: "side" as ThreadId },
     });
-    store.remember({ kind: "browser", threadRef: ref, snapshot });
-    state.openPreview.mockResolvedValue(AsyncResult.success({ tabId: "new-tab" }));
-    state.navigate.mockRejectedValueOnce(new Error("navigation failed"));
     await using _view = await renderShortcut();
     await act(() => {
       press();
     });
     expect(
       selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, ref).activeSurfaceId,
-    ).toBe("browser:new-tab");
-    expect(state.toast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Could not reopen view" }),
-    );
-    expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([older]);
+    ).toBe("side-chat:side");
     await act(() => {
       menuAction?.("view.reopenClosed");
     });
-    expect(state.openPreview).toHaveBeenCalledOnce();
     expect(
       selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, ref).activeSurfaceId,
-    ).toBe("side-chat:side");
+    ).toBe("files");
+    expect(state.navigate).toHaveBeenCalledTimes(2);
     expect(useClosedViewStore.getState().entries).toEqual([]);
   });
 
-  it.each(["files", "file", "browser"] as const)(
+  it.each(["files", "file"] as const)(
     "keeps a failed %s restore retryable without blocking older history",
     async (kind) => {
       setup();
@@ -211,26 +150,21 @@ describe("root reopen shortcut", () => {
         threadRef: ref,
         surface: { kind: "side-chat", id: "side-chat:side", threadId: "side" as ThreadId },
       });
-      const failed = store.remember(
-        kind === "browser"
-          ? { kind: "browser", threadRef: ref, snapshot }
-          : {
-              kind: "panel-tab",
-              threadRef: ref,
-              surface:
-                kind === "files"
-                  ? { kind: "files", id: "files" }
-                  : {
-                      kind: "file",
-                      id: "file:src/app.ts",
-                      relativePath: "src/app.ts",
-                      revealLine: null,
-                      revealRequestId: 0,
-                    },
-            },
-      );
+      const failed = store.remember({
+        kind: "panel-tab",
+        threadRef: ref,
+        surface:
+          kind === "files"
+            ? { kind: "files", id: "files" }
+            : {
+                kind: "file",
+                id: "file:src/app.ts",
+                relativePath: "src/app.ts",
+                revealLine: null,
+                revealRequestId: 0,
+              },
+      });
       state.workspaceAvailable = false;
-      state.openPreview.mockResolvedValue(AsyncResult.failure(Cause.fail(new Error("offline"))));
       await using _view = await renderShortcut();
       await act(() => {
         press();
@@ -248,23 +182,13 @@ describe("root reopen shortcut", () => {
       ).toBe("side-chat:side");
       expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([failed]);
       state.workspaceAvailable = true;
-      state.openPreview.mockResolvedValue(AsyncResult.success({ ...snapshot, tabId: "new-tab" }));
       await act(() => {
         press();
       });
       expect(
         selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, ref).activeSurfaceId,
-      ).toBe(
-        kind === "browser" ? "browser:new-tab" : kind === "file" ? "file:src/app.ts" : "files",
-      );
+      ).toBe(kind === "file" ? "file:src/app.ts" : "files");
       expect(useClosedViewStore.getState().entries).toEqual([]);
     },
   );
-  it("forwards address-bar focus from a focused desktop page", async () => {
-    setup();
-    await using _shortcut = await renderShortcut();
-    expect(state.setShortcuts).toHaveBeenLastCalledWith(
-      expect.arrayContaining([expect.objectContaining({ command: "preview.focusUrl" })]),
-    );
-  });
 });

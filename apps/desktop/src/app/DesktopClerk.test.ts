@@ -60,7 +60,6 @@ const layerDesktopClerk = (
   }),
   shell: ElectronShell.ElectronShell["Service"] = {
     openExternal: () => Effect.succeed(true),
-    openSystemSettings: () => Effect.succeed(false),
     copyText: () => Effect.void,
   },
   listeners = new Map<string, (...args: unknown[]) => void>(),
@@ -387,7 +386,6 @@ it.effect.each(["startup", "open-url", "early-second-instance"] as const)(
             delivered.resolve(response.headers.get("location")!);
             return true;
           }),
-        openSystemSettings: () => Effect.succeed(false),
         copyText: () => Effect.void,
       });
       const listeners = new Map<string, (...args: unknown[]) => void>();

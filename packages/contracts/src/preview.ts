@@ -15,8 +15,8 @@ const Title = Schema.String.check(Schema.isMaxLength(512));
 export const PreviewTabId = TrimmedNonEmptyString.check(Schema.isMaxLength(128));
 export type PreviewTabId = typeof PreviewTabId.Type;
 
-export const PREVIEW_VIEWPORT_MIN_DIMENSION = 240;
-export const PREVIEW_VIEWPORT_MAX_DIMENSION = 3840;
+const PREVIEW_VIEWPORT_MIN_DIMENSION = 240;
+const PREVIEW_VIEWPORT_MAX_DIMENSION = 3840;
 export const PREVIEW_VIEWPORT_MAX_AREA = 3840 * 2160;
 
 const PreviewViewportDimension = Schema.Int.check(
@@ -101,7 +101,7 @@ export const FILL_PREVIEW_VIEWPORT = {
 } as const satisfies PreviewViewportSetting;
 
 /** Shared steps keep settings aligned with desktop Chromium zoom controls. */
-export const PREVIEW_ZOOM_LEVELS = [
+const PREVIEW_ZOOM_LEVELS = [
   0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0, 5.0,
 ] as const;
 
@@ -212,7 +212,7 @@ export const PreviewCloseInput = Schema.Struct({
 });
 export type PreviewCloseInput = typeof PreviewCloseInput.Type;
 
-export const BROWSER_RECORDING_FRAME_RATES = [30, 60] as const;
+const BROWSER_RECORDING_FRAME_RATES = [30, 60] as const;
 export const BrowserRecordingFrameRate = Schema.Literals(BROWSER_RECORDING_FRAME_RATES);
 export type BrowserRecordingFrameRate = typeof BrowserRecordingFrameRate.Type;
 export const DEFAULT_BROWSER_RECORDING_FRAME_RATE: BrowserRecordingFrameRate = 30;

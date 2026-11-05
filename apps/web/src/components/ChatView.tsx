@@ -51,7 +51,6 @@ import * as Schema from "effect/Schema";
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
-  AuthPreviewOperateScope,
   type AssistantCitation,
   type ChatFileAttachment,
   isProviderNativeSubagentThread,
@@ -59,7 +58,6 @@ import {
   type EnvironmentId,
   type MessageId,
   type ModelSelection,
-  type PreviewAnnotationPayload,
   ProviderInstanceId,
   type ServerProvider,
   type ScopedThreadRef,
@@ -102,7 +100,7 @@ import {
   scopeThreadRef,
 } from "@aprende/client-runtime/environment";
 import { formatModelSlugName, resolveSelectableModel } from "@aprende/shared/model";
-import { projectScriptCwd, resolveProjectScripts } from "@aprende/shared/projectScripts";
+import { projectScriptCwd } from "@aprende/shared/projectScripts";
 import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import { resolveThreadReferenceCopyTarget } from "@aprende/client-runtime/thread-reference";
 import { useAtomValue } from "@effect/atom-react";
@@ -146,31 +144,16 @@ import { FileMetadataThreadProvider } from "../hooks/FileMetadataThreadProvider"
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../rightPanelLayout";
 import { PopoverCreateHandle } from "./ui/popover";
 import {
-  selectActiveRightPanel,
   selectActiveRightPanelSurface,
   selectThreadPanelOpen,
   selectThreadRightPanelState,
   useRightPanelStore,
 } from "../rightPanelStore";
-import { isPreviewSupportedInRuntime, useThreadPreviewState } from "../previewStateStore";
-import { previewRuntimeTabId } from "../browser/previewRuntimeTabId";
-import {
-  ThreadPreviewMiniPlayer,
-  useThreadPreviewCanvasSource,
-} from "./preview/ThreadPreviewMiniPlayer";
 import { createChatCanvasStore, resolveChatCanvasModel } from "./chat/canvasStore";
-import { usePreviewSession } from "./preview/usePreviewSession";
-import { getConfiguredPreviewUrls } from "./preview/previewEmptyStateLogic";
 
-import {
-  previewMiniPlayerSourceKey,
-  selectThreadPreviewMiniPlayer,
-  usePreviewMiniPlayerStore,
-} from "../previewMiniPlayerStore";
 import { threadPullRequestPanelTarget } from "./pullRequest/pullRequestDetail.logic";
 import { LinkPullRequestDialogHost } from "./pullRequest/LinkPullRequestDialog";
 import { GuestPendingMessages } from "./chat/GuestShareControls";
-import { useDeviceState } from "~/state/device";
 import { BranchToolbar, type BranchToolbarHandle } from "./BranchToolbar";
 import { ComposerContextPermissions } from "./ComposerContextPermissions";
 import { makeWorkspaceFileDropHandlers } from "./chat/workspaceFileDrop";
@@ -197,7 +180,6 @@ import { useNowMinute } from "../hooks/useNowMinute";
 import { usePanelAnimationSettings, usePanelPresence } from "../panelAnimations";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
-import { isPreviewFocused } from "../lib/previewFocus";
 import {
   deriveLogicalProjectKeyFromSettings,
   selectProjectGroupingSettings,
@@ -231,7 +213,6 @@ import {
 } from "../state/environments";
 import {
   resolveThreadDetailRef,
-  useEnvironmentSupportsServerBrowser,
   useProject,
   useQuietThreadProjection,
   useThreadUpdatedAt,
@@ -248,7 +229,6 @@ import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
 import { ExpandedImageDialogHost, openExpandedImagePreview } from "./chat/ExpandedImageDialog";
 import {
   BranchRestoreConfirmHost,
-  DeviceSetupDialogHost,
   openBranchRestoreConfirm,
   PullRequestThreadDialogHost,
   RevertConfirmHost,
@@ -314,7 +294,6 @@ import {
   deriveCommittedServerUserMessageIds,
   dismissBranchMismatchForSession,
   shouldShowPlanFollowUpPrompt,
-  shouldRenderPreviewMiniPlayer,
   deriveLockedProvider,
   resolveFileAttachmentUrl,
   resolveComposerInteractionMode,
@@ -920,10 +899,6 @@ export default function ChatView(props: ChatViewProps) {
     : 0;
   const activeThreadRef = useActiveThreadRef(activeThread);
   const activeThreadKey = activeThreadRef ? scopedThreadKey(activeThreadRef) : null;
-  const activeEnvironmentServerBrowser = useEnvironmentSupportsServerBrowser(
-    activeThreadRef?.environmentId ?? null,
-  );
-  const browserAvailable = isPreviewSupportedInRuntime() || activeEnvironmentServerBrowser;
   const activeThreadShell = serverThread;
   const timelineThreadError =
     serverRuntime?.status === "failed" &&
@@ -959,9 +934,6 @@ export default function ChatView(props: ChatViewProps) {
   if (anchorRunSettled) {
     setTimelineAnchor({ threadKey: activeThreadKey, messageId: null });
   }
-  const activeRightPanelKind = useRightPanelStore((state) =>
-    selectActiveRightPanel(state.byThreadKey, activeThreadRef),
-  );
   const rightPanelState = useRightPanelStore((state) =>
     selectThreadRightPanelState(state.byThreadKey, activeThreadRef),
   );
@@ -969,15 +941,6 @@ export default function ChatView(props: ChatViewProps) {
   const activeRightPanelSurface = useRightPanelStore((state) =>
     selectActiveRightPanelSurface(state.byThreadKey, activeThreadRef),
   );
-  const activePreviewState = useThreadPreviewState(activeThreadRef);
-  const activePreviewServerEpoch = activePreviewState.serverEpoch;
-  const resolvePreviewRuntimeTabId = activeThreadRef
-    ? (tabId: string) => previewRuntimeTabId(activeThreadRef, activePreviewServerEpoch, tabId)
-    : undefined;
-  const activePreviewMiniPlayer = usePreviewMiniPlayerStore((state) =>
-    selectThreadPreviewMiniPlayer(state.byThreadKey, activeThreadRef),
-  );
-  const previewPanelOpen = activeRightPanelKind === "preview" && browserAvailable;
   const rightPanelOpen = rightPanelState.isOpen;
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings();
@@ -998,10 +961,6 @@ export default function ChatView(props: ChatViewProps) {
   const rightPanelControlsAtRoot = rightPanelPresent && !shouldUsePlanSidebarSheet;
   const renderedRightPanelSurface = rightPanelPresence.value?.activeSurface ?? null;
   const renderedRightPanelSurfaces = rightPanelPresence.value?.surfaces ?? [];
-  const previewMiniPlayerVisible = shouldRenderPreviewMiniPlayer(
-    activePreviewMiniPlayer?.source ?? null,
-    renderedRightPanelSurface,
-  );
   const canMaximizeRightPanel = rightPanelOpen;
   // An embedded side chat has no panel; a stale maximized flag would hide its own column.
   const rightPanelMaximized =
@@ -1023,7 +982,6 @@ export default function ChatView(props: ChatViewProps) {
     activeProject?.id ?? null,
     activeProject ?? undefined,
   );
-  const activeProjectScripts = activeProject ? resolveProjectScripts(settings, activeProject) : [];
   const { projectCloneBannerItem, projectCloneSendBlockReason } =
     useProjectCloneBanner(activeProjectRef);
   const activeProjectDefaultModelSelection =
@@ -1075,7 +1033,6 @@ export default function ChatView(props: ChatViewProps) {
     });
   };
   const handleFilePendingChangeStable = useStableCallback(handleFilePendingChange);
-  const configuredPreviewUrls = getConfiguredPreviewUrls(activeProjectScripts);
 
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- drops file surfaces from the right panel store once bootstrap shows the thread has no workspace
   useEffect(() => {
@@ -1766,18 +1723,6 @@ export default function ChatView(props: ChatViewProps) {
   const sendAppMessageStable = useStableCallback(sendAppMessage);
   const queuedRunsControlRef = useRef<QueuedRunsControlHandle>(null);
 
-  const canOperatePreview = useEnvironmentScope(
-    activeThreadRef?.environmentId ?? null,
-    AuthPreviewOperateScope,
-  );
-  const shownPreviewMiniPlayer =
-    activeThreadRef &&
-    activePreviewMiniPlayer &&
-    previewMiniPlayerVisible &&
-    (activePreviewMiniPlayer.source.kind === "device" || canOperatePreview)
-      ? activePreviewMiniPlayer
-      : null;
-  const canvasPreview = useThreadPreviewCanvasSource(activeThreadRef, shownPreviewMiniPlayer);
   const threadPanelInlineOpen = useRightPanelStore((state) =>
     selectThreadPanelOpen(state.threadPanelVisibilityByThreadKey, activeThreadRef, "inline"),
   );
@@ -1790,7 +1735,6 @@ export default function ChatView(props: ChatViewProps) {
         measurements: state.measurements,
         detailsCardMeasurement: state.detailsCardMeasurement,
         threadRef: activeThreadRef,
-        preview: canvasPreview,
         detailsCardInlineOpen: threadPanelInlineOpen,
       }).detailsCardMode,
   );
@@ -1808,9 +1752,6 @@ export default function ChatView(props: ChatViewProps) {
   const visiblePullRequestCount = visiblePullRequests.length;
   const pullRequestsSurfaceAvailable =
     isServerThread && supportsThreadPullRequests && visiblePullRequestCount > 0;
-  const { state: deviceState, loaded: deviceStateLoaded } = useDeviceState(
-    activeThreadRef?.environmentId ?? null,
-  );
   // The thread's own change request, placed against the project it belongs to. Without a
   // project there is nothing to resolve it against, so the caller falls back to the browser.
   const activeProjectRepository = sourceControlClients.repositorySelector(
@@ -2151,14 +2092,11 @@ export default function ChatView(props: ChatViewProps) {
     : null;
   const {
     activateRightPanelSurfaceStable,
-    addDeviceSurfaceStable,
     addFilesSurfaceStable,
     addPullRequestSurfaceStable,
     addPullRequestsSurfaceStable,
-    closePreviewPanelStable,
+    closeRightPanelStable,
     copyRightPanelFilePathStable,
-    createBrowserSurface,
-    createBrowserSurfaceStable,
     moveRightPanelSurfaceStable,
     openFileSurfaceStable,
     toggleRightPanelMaximizedStable,
@@ -2169,15 +2107,8 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadRef,
     activeProject,
     activeRightPanelSurface,
-    activePreviewState,
-    deviceState,
-    deviceStateLoaded,
     pullRequestPanelTarget,
     threadPanelPresentation,
-    embedded,
-    browserAvailable,
-    canOperatePreview,
-    previewPanelOpen,
     rightPanelOpen,
     canMaximizeRightPanel,
     rightPanelMaximized,
@@ -2439,8 +2370,6 @@ export default function ChatView(props: ChatViewProps) {
   })() as ComposerBannerStackItem[];
 
   const getShortcutContext = (eventTarget: EventTarget | null = document.activeElement) => ({
-    previewFocus: isPreviewFocused(),
-    previewOpen: previewPanelOpen,
     editableFocus: isEditableFocused(eventTarget),
     modelPickerOpen: composerRef.current?.isModelPickerOpen() ?? false,
     composerFocus:
@@ -2738,13 +2667,6 @@ export default function ChatView(props: ChatViewProps) {
   };
   const onWorktreeSetupWorkLocallyStable = useStableCallback(onWorktreeSetupWorkLocally);
   const onComposerSendStable = useStableCallback(onSend);
-  const sendPreviewAnnotation = (
-    annotation: PreviewAnnotationPayload,
-    image: ComposerImageAttachment | null,
-  ) => {
-    void onSend(undefined, "auto", "foreground", { annotation, image });
-  };
-  const sendPreviewAnnotationStable = useStableCallback(sendPreviewAnnotation);
   const onComposerResumeStable = useStableCallback(onResume);
   const onComposerCompactContextStable = useStableCallback(onCompactContext);
   // Read from the projection the footer renders, so the scroll below sees the new message.
@@ -2955,10 +2877,8 @@ export default function ChatView(props: ChatViewProps) {
       visible={rightPanelOpen}
       composerDraftTarget={composerDraftTarget}
       keybindings={keybindings}
-      configuredPreviewUrls={configuredPreviewUrls}
       workspaceMutationId={workspaceMutationId}
       getShortcutContext={getShortcutContextStable}
-      onSendAnnotation={sendPreviewAnnotationStable}
       onCloseSurface={closeRightPanelSurface}
       pullRequest={{
         capabilityKnown: pullRequestsCapabilityKnown,
@@ -3023,13 +2943,6 @@ export default function ChatView(props: ChatViewProps) {
       ref={setWorkspaceLayoutElement}
       className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
     >
-      {embedded ? null : (
-        <DeviceSetupDialogHost
-          threadKey={activeThreadKey}
-          threadRef={activeThreadRef}
-          state={deviceState}
-        />
-      )}
       {rightPanelControlsAtRoot && !embedded ? panelLayoutControls : null}
       <div
         className={cn(
@@ -3094,9 +3007,7 @@ export default function ChatView(props: ChatViewProps) {
             }}
             store={chatCanvasStore}
             threadRef={activeThreadRef}
-            preview={canvasPreview}
             detailsCardTopInset={isThreadFindActive ? THREAD_FIND_BAR_RESERVED_HEIGHT : 0}
-            composerOverlayElement={isDraftHeroState ? null : composerOverlayElement}
             data-chat-workspace-drop-target="true"
             onDragEnter={workspaceFileDropHandlers.onDragEnter}
             onDragOver={workspaceFileDropHandlers.onDragOver}
@@ -3542,17 +3453,6 @@ export default function ChatView(props: ChatViewProps) {
               </div>
             </div>
 
-            {canOperatePreview && activeThreadRef && activeEnvironmentServerBrowser && !embedded ? (
-              <PreviewSessionSync threadRef={activeThreadRef} />
-            ) : null}
-            {activeThreadRef && shownPreviewMiniPlayer && !embedded ? (
-              <ThreadPreviewMiniPlayer
-                key={`${activeThreadKey}:${previewMiniPlayerSourceKey(shownPreviewMiniPlayer.source)}`}
-                threadRef={activeThreadRef}
-                miniPlayer={shownPreviewMiniPlayer}
-              />
-            ) : null}
-
             {embedded ? null : (
               <>
                 <BranchRestoreConfirmHost
@@ -3640,7 +3540,7 @@ export default function ChatView(props: ChatViewProps) {
           workspaceLayoutElement={workspaceLayoutElement}
           widthStorageKey={`aprende:preview-panel-width:${activeThreadKey}`}
           sheetAnimationDurationMs={panelAnimationsActive ? panelAnimationDurationMs : 0}
-          onCloseSheet={closePreviewPanelStable}
+          onCloseSheet={closeRightPanelStable}
           open={rightPanelOpen}
           keybindings={keybindings}
           getShortcutContext={getShortcutContextStable}
@@ -3660,32 +3560,20 @@ export default function ChatView(props: ChatViewProps) {
           environmentId={activeThreadRef.environmentId}
           activeSurfaceId={renderedRightPanelSurface?.id ?? null}
           pendingSurfaceIds={pendingFileSurfaceIds}
-          previewSessions={activePreviewState.sessions}
-          desktopByTabId={activePreviewState.desktopByTabId}
-          previewRuntimeTabId={resolvePreviewRuntimeTabId}
           onActivate={activateRightPanelSurfaceStable}
           onCloseSurface={closeRightPanelSurfaceStable}
-          onRenameDevice={(surfaceId, title) => {
-            if (activeThreadRef)
-              useRightPanelStore.getState().renameDevice(activeThreadRef, surfaceId, title);
-          }}
           onCloseOtherSurfaces={closeOtherRightPanelSurfacesStable}
           onCloseSurfacesToRight={closeRightPanelSurfacesToRightStable}
           onCloseAllSurfaces={closeAllRightPanelSurfacesStable}
           onMoveSurface={moveRightPanelSurfaceStable}
           onCopyFilePath={copyRightPanelFilePathStable}
-          onAddBrowser={() => createBrowserSurface()}
-          onAddBrowserInProfile={createBrowserSurfaceStable}
           onAddFiles={addFilesSurfaceStable}
           onAddPullRequest={addPullRequestSurfaceStable}
           onAddPullRequests={addPullRequestsSurfaceStable}
-          onAddDevice={addDeviceSurfaceStable}
           onAddSideChat={sideChatsOffered ? openSideChatStable : undefined}
-          browserAvailable={canOperatePreview && browserAvailable}
           filesAvailable={activeProject !== null}
           pullRequestAvailable={pullRequestSurfaceAvailable}
           pullRequestsAvailable={pullRequestsSurfaceAvailable}
-          deviceAvailable={activeThreadRef !== null}
           sideChatAvailable={sideChat.available}
           sideChatDisabledReason={sideChatDisabledReason}
         >
@@ -3708,9 +3596,4 @@ export default function ChatView(props: ChatViewProps) {
       {content}
     </FileMetadataThreadProvider>
   );
-}
-
-function PreviewSessionSync(props: { readonly threadRef: ScopedThreadRef }) {
-  usePreviewSession(props.threadRef);
-  return null;
 }

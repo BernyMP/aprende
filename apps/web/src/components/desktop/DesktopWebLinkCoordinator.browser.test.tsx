@@ -67,18 +67,7 @@ vi.mock(import("../../state/entities"), async (original) => ({
     ref.threadId === "thread" ? ({ projectId: "effect", worktreePath: null } as never) : null,
   readProject: () => state.projects[0] ?? null,
 }));
-vi.mock(import("../../hooks/useScratchProject"), async (original) => ({
-  ...(await original()),
-  useScratchProject: (() => ({
-    scratchEnvironmentId: () => "local",
-    openScratchProject: state.openScratchProject,
-  })) as never,
-}));
-
-vi.mock("../../state/use-atom-query-runner", () => ({
-  useAtomQueryRunner: () => state.preview,
-}));
-vi.mock("../../browser/useOpenLink", () => ({ useOpenLink: () => state.openLink }));
+vi.mock("../../lib/openExternalLink", () => ({ openExternalLink: state.openLink }));
 vi.mock(import("../../confirmDialog"), async (original) => ({
   ...(await original()),
   requestConfirmDialog: state.confirm,
@@ -216,17 +205,14 @@ it("opens a PR commit the workspace lacks in the thread's PR panel", async () =>
   expect(state.openLink).not.toHaveBeenCalled();
 });
 
-it("opens a plain commit the workspace lacks like any other delivered link", async () => {
+it("hands a plain commit the workspace lacks to the system browser", async () => {
   setup();
   state.routeParams = { environmentId: "local", threadId: "thread" };
   state.projects = [project];
-  state.preview.mockResolvedValueOnce(AsyncResult.success({ sources: [] }));
   appAtomRegistry.set(discoverySettled, true);
   const plainCommitUrl = `https://github.com/Effect-TS/effect/commit/${sha}`;
   await using _coordinator = await mount(plainCommitUrl);
-  await vi.waitFor(() => expect(state.openScratchProject).toHaveBeenCalledOnce());
-  // Handing it to the OS browser would loop when aprende is the default browser.
-  expect(state.openLink).not.toHaveBeenCalled();
+  await vi.waitFor(() => expect(state.openLink).toHaveBeenCalledExactlyOnceWith(plainCommitUrl));
   expect(useRightPanelStore.getState().byThreadKey).toEqual({});
 });
 

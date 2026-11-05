@@ -37,7 +37,6 @@ export function ThreadDetailsCard({
 }) {
   const detailsArea = workspaceAreaProps("details", 3, "Thread details");
   const canvas = useChatCanvas();
-  const preferredPlacement = canvas?.preferredDetailsCard ?? null;
   const placement = canvas?.detailsCardPlacement ?? null;
   const mode = placement ? "inline" : "popover";
   const topInset = canvas?.detailsCardTopInset ?? 0;
@@ -47,7 +46,7 @@ export function ThreadDetailsCard({
   const popoverOpen = useRightPanelStore((state) =>
     selectThreadPanelOpen(state.threadPanelVisibilityByThreadKey, threadRef, "popover"),
   );
-  const measurementKey = `${threadRef.environmentId}:${threadRef.threadId}:${preferredPlacement?.width ?? "popup"}:${contentKey}`;
+  const measurementKey = `${threadRef.environmentId}:${threadRef.threadId}:${placement?.width ?? "popup"}:${contentKey}`;
   const [measurements, setMeasurements] = useState({
     key: measurementKey,
     heights: { full: 0, compact: 0 },
@@ -57,10 +56,9 @@ export function ThreadDetailsCard({
   const height = placement?.height ?? Math.max(0, (canvas?.container.height ?? 0) - 52);
   const density = resolveThreadDetailsCardDensity(height, contentHeights);
   const measureDetailsCard = canvas?.measureDetailsCard;
-  const cardWidth = preferredPlacement?.width;
-  // The mode derives from canvas measurements, the preview frame and the
-  // inline flag, which live in three stores, so no single write site sees the
-  // card leave popover mode. A flag left set would reopen the popover unasked
+  const cardWidth = placement?.width;
+  // The mode derives from canvas measurements and the inline flag, which live
+  // in two stores, so no single write site sees the card leave popover mode. A flag left set would reopen the popover unasked
   // when the card returns to popover mode.
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- closes the popover flag in the right panel store when the derived mode turns inline
   useLayoutEffect(() => {

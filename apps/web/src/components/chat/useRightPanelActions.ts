@@ -1,15 +1,8 @@
 import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
-import type { ThreadPreviewState } from "../../previewStateStore";
 import { formatFilePathForClipboard } from "@aprende/client-runtime/media-actions";
 import { resolvePathLinkTarget } from "@aprende/shared/fileLinks";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import { type ScopedThreadRef } from "@aprende/contracts";
-import { scopedThreadKey } from "@aprende/client-runtime/environment";
-import { useEffect } from "react";
-import {
-  isAtomCommandInterrupted,
-  squashAtomCommandFailure,
-} from "@aprende/client-runtime/state/runtime";
 import { type ThreadPanelPresentation } from "../../rightPanelLayout";
 import {
   selectThreadPanelOpen,
@@ -17,33 +10,15 @@ import {
   useRightPanelStore,
 } from "../../rightPanelStore";
 import { requestWorkspaceContentFocus, requestWorkspaceFocus } from "../../lib/workspaceFocus";
-import { setActivePreviewTab } from "../../previewStateStore";
-import { BrowserSettingsReadError } from "../../browser/openFileInPreview";
-import { addBrowserSurface } from "../preview/addBrowserSurface";
-import { subscribePreviewAction } from "../preview/previewActionBus";
-import { floatDeviceSurface } from "../preview/agentOpenedPreviews";
-import { browserMiniPlayerSource, usePreviewMiniPlayerStore } from "../../previewMiniPlayerStore";
 import type { threadPullRequestPanelTarget } from "../pullRequest/pullRequestDetail.logic";
-import type { useDeviceState } from "../../state/device";
 import { stackedThreadToast, toastManager } from "../ui/toast";
-import { openDeviceSetupDialog } from "./ChatOverlayHosts";
-import { previewEnvironment } from "../../state/preview";
-import { useAtomCommand } from "../../state/use-atom-command";
 import type { ChatShortcutCommands } from "./useChatShortcuts";
 interface RightPanelActionsInput {
   readonly activeThreadRef: ScopedThreadRef | null;
   readonly activeProject: EnvironmentProject | null;
   readonly activeRightPanelSurface: RightPanelSurface | null;
-  readonly activePreviewState: ThreadPreviewState;
-  readonly deviceState: ReturnType<typeof useDeviceState>["state"];
-  readonly deviceStateLoaded: boolean;
   readonly pullRequestPanelTarget: ReturnType<typeof threadPullRequestPanelTarget> | null;
   readonly threadPanelPresentation: ThreadPanelPresentation;
-  /** A side chat pane; the main view already answers preview bus actions. */
-  readonly embedded: boolean;
-  readonly browserAvailable: boolean;
-  readonly canOperatePreview: boolean;
-  readonly previewPanelOpen: boolean;
   readonly rightPanelOpen: boolean;
   readonly canMaximizeRightPanel: boolean;
   readonly rightPanelMaximized: boolean;
@@ -55,8 +30,8 @@ interface RightPanelActionsInput {
 }
 
 /**
- * Opening, closing, and arranging the right panel's surfaces: browser, files, pull
- * requests, and device tabs.
+ * Opening, closing, and arranging the right panel's surfaces: files, pull requests, and
+ * side chats.
  */
 export function useRightPanelActions(input: RightPanelActionsInput) {
   const {
@@ -64,15 +39,8 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     activeThreadRef,
     activeProject,
     activeRightPanelSurface,
-    activePreviewState,
-    deviceState,
-    deviceStateLoaded,
     pullRequestPanelTarget,
     threadPanelPresentation,
-    embedded,
-    browserAvailable,
-    canOperatePreview,
-    previewPanelOpen,
     rightPanelOpen,
     canMaximizeRightPanel,
     rightPanelMaximized,
@@ -82,28 +50,6 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     activeProjectCwd,
   } = input;
 
-  const openPreview = useAtomCommand(previewEnvironment.open, { reportFailure: false });
-  const createBrowserSurface = (profileId?: string) => {
-    if (!activeThreadRef || !canOperatePreview) return;
-    void addBrowserSurface({
-      threadRef: activeThreadRef,
-      openPreview,
-      ...(profileId === undefined ? {} : { profileId }),
-    }).then((result) => {
-      if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
-      const error = squashAtomCommandFailure(result);
-      if (error instanceof BrowserSettingsReadError) {
-        toastManager.add(
-          stackedThreadToast({
-            type: "error",
-            title: "Unable to open browser",
-            description: error.message,
-          }),
-        );
-      }
-    });
-  };
-  const createBrowserSurfaceStable = useStableCallback(createBrowserSurface);
   const addFilesSurface = () => {
     if (!activeThreadRef || !activeProject) return;
     useRightPanelStore.getState().open(activeThreadRef, "files");
@@ -114,65 +60,26 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     useRightPanelStore.getState().open(activeThreadRef, "pull-requests");
   };
   const addPullRequestsSurfaceStable = useStableCallback(addPullRequestsSurface);
-  const addDeviceSurface = () => {
-    if (!activeThreadRef) return;
-    if (!deviceState.onboardingCompleted || deviceState.hostStatus === "disabled") {
-      openDeviceSetupDialog(scopedThreadKey(activeThreadRef));
-      return;
-    }
-    useRightPanelStore.getState().open(activeThreadRef, "device");
-  };
-  const addDeviceSurfaceStable = useStableCallback(addDeviceSurface);
   const openFileSurface = (relativePath: string) => {
     if (!activeThreadRef || !activeProject) return;
     useRightPanelStore.getState().openFile(activeThreadRef, relativePath);
   };
   const openFileSurfaceStable = useStableCallback(openFileSurface);
-  const closePreviewPanel = () => {
-    if (activeThreadRef) {
-      if (activeRightPanelSurface?.kind === "preview" && activeRightPanelSurface.resourceId) {
-        usePreviewMiniPlayerStore
-          .getState()
-          .open(activeThreadRef, browserMiniPlayerSource(activeRightPanelSurface.resourceId));
-      } else if (activeRightPanelSurface?.kind === "device" && activeRightPanelSurface.target) {
-        floatDeviceSurface(
-          activeThreadRef,
-          { kind: "device", ...activeRightPanelSurface.target },
-          deviceStateLoaded ? deviceState : null,
-        );
-      }
-      useRightPanelStore.getState().setMaximized(activeThreadRef, false);
-      useRightPanelStore.getState().close(activeThreadRef);
-    }
+  const closeRightPanel = () => {
+    if (!activeThreadRef) return;
+    useRightPanelStore.getState().setMaximized(activeThreadRef, false);
+    useRightPanelStore.getState().close(activeThreadRef);
   };
-  const closePreviewPanelStable = useStableCallback(closePreviewPanel);
-  const togglePreviewPanel = () => {
-    if (!activeThreadRef || !browserAvailable) return;
-    if (previewPanelOpen) {
-      closePreviewPanel();
-      return;
-    }
-    if (!canOperatePreview) return;
-    const activeTabId = activePreviewState.activeTabId;
-    if (activeTabId) {
-      useRightPanelStore.getState().openBrowser(activeThreadRef, activeTabId);
-    } else {
-      createBrowserSurface();
-    }
-  };
-  const togglePreviewPanelStable = useStableCallback(togglePreviewPanel);
+  const closeRightPanelStable = useStableCallback(closeRightPanel);
   const activateRightPanelSurface = (surface: RightPanelSurface) => {
     if (!activeThreadRef) return;
     useRightPanelStore.getState().activateSurface(activeThreadRef, surface.id);
-    if (surface.kind === "preview" && surface.resourceId) {
-      setActivePreviewTab(activeThreadRef, surface.resourceId);
-    }
   };
   const activateRightPanelSurfaceStable = useStableCallback(activateRightPanelSurface);
   const toggleRightPanel = () => {
     if (!activeThreadRef) return;
     if (rightPanelOpen) {
-      closePreviewPanel();
+      closeRightPanel();
       return;
     }
     useRightPanelStore.getState().toggleVisibility(activeThreadRef);
@@ -247,17 +154,6 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     useRightPanelStore.getState().openPullRequest(activeThreadRef, pullRequestPanelTarget);
   };
   const addPullRequestSurfaceStable = useStableCallback(addPullRequestSurface);
-  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- subscribes to the preview action bus to toggle the preview panel
-  useEffect(
-    () =>
-      embedded
-        ? undefined
-        : subscribePreviewAction((action) => {
-            if (action === "toggle-panel") togglePreviewPanelStable();
-          }),
-    [embedded, togglePreviewPanelStable],
-  );
-
   const shortcuts = {
     "rightPanel.toggle": () => toggleRightPanel(),
     "rightPanel.toggleMaximized": ({ event }) => {
@@ -273,14 +169,11 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
   return {
     shortcuts,
     activateRightPanelSurfaceStable,
-    addDeviceSurfaceStable,
     addFilesSurfaceStable,
     addPullRequestSurfaceStable,
     addPullRequestsSurfaceStable,
-    closePreviewPanelStable,
+    closeRightPanelStable,
     copyRightPanelFilePathStable,
-    createBrowserSurface,
-    createBrowserSurfaceStable,
     moveRightPanelSurfaceStable,
     openFileSurfaceStable,
     toggleRightPanelMaximizedStable,

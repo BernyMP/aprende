@@ -1,7 +1,6 @@
 import type {
   EditorId,
   EnvironmentId,
-  PreviewAnnotationPayload,
   ProjectId,
   ResolvedKeybindingsConfig,
   ScopedThreadRef,
@@ -11,7 +10,7 @@ import type {
 import { scopedThreadKey } from "@aprende/client-runtime/environment";
 import { lazy, Suspense } from "react";
 import SideChatPane from "./SideChatPane";
-import type { ComposerImageAttachment, DraftId } from "../../composerDraftStore";
+import type { DraftId } from "../../composerDraftStore";
 import type { ShortcutMatchContext } from "../../keybindings";
 import { type RightPanelSurface, useRightPanelStore } from "../../rightPanelStore";
 import { pullRequestPanelContext } from "../pullRequest/pullRequestDetail.logic";
@@ -20,12 +19,6 @@ import { PullRequestDetailGhost } from "../pullRequest/PullRequestGhosts";
 import { PullRequestsUnavailableState } from "../pullRequest/PullRequestsUnavailableState";
 import { ThreadPullRequestsPanel } from "../pullRequest/ThreadPullRequestsPanel";
 
-const PreviewPanel = lazy(() =>
-  import("../preview/PreviewPanel").then((module) => ({ default: module.PreviewPanel })),
-);
-const DevicePanel = lazy(() =>
-  import("../device/DevicePanel").then((module) => ({ default: module.DevicePanel })),
-);
 const FilePreviewPanel = lazy(() => import("../files/FilePreviewPanel"));
 
 interface RightPanelPullRequestProps {
@@ -55,13 +48,8 @@ export function RightPanelSurfaceContent(props: {
   readonly visible: boolean;
   readonly composerDraftTarget: ScopedThreadRef | DraftId;
   readonly keybindings: ResolvedKeybindingsConfig;
-  readonly configuredPreviewUrls: ReadonlyArray<string>;
   readonly workspaceMutationId: string | null;
   readonly getShortcutContext: () => ShortcutMatchContext;
-  readonly onSendAnnotation: (
-    annotation: PreviewAnnotationPayload,
-    image: ComposerImageAttachment | null,
-  ) => void;
   readonly onCloseSurface: (surface: RightPanelSurface) => void;
   readonly pullRequest: RightPanelPullRequestProps;
   readonly files: RightPanelFileProps;
@@ -69,19 +57,6 @@ export function RightPanelSurfaceContent(props: {
   const { surface, threadRef, visible, onCloseSurface } = props;
   if (surface === null) return null;
   switch (surface.kind) {
-    case "preview":
-      return (
-        <Suspense fallback={null}>
-          <PreviewPanel
-            mode="embedded"
-            threadRef={threadRef}
-            tabId={surface.resourceId}
-            configuredUrls={props.configuredPreviewUrls}
-            visible={visible}
-            onSendAnnotation={props.onSendAnnotation}
-          />
-        </Suspense>
-      );
     case "pull-request": {
       const pullRequest = props.pullRequest;
       if (!pullRequest.capabilityKnown) return <PullRequestDetailGhost />;
@@ -143,22 +118,6 @@ export function RightPanelSurfaceContent(props: {
           threadId={surface.threadId}
           onClose={() => onCloseSurface(surface)}
         />
-      );
-    case "device":
-      return (
-        <Suspense fallback={null}>
-          <DevicePanel
-            mode="embedded"
-            threadRef={threadRef}
-            key={surface.id}
-            surface={surface}
-            visible={visible}
-            onDismissSetup={() => {
-              props.onCloseSurface(surface);
-              useRightPanelStore.getState().show(threadRef);
-            }}
-          />
-        </Suspense>
       );
     case "files":
     case "file": {

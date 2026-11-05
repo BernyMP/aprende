@@ -2,7 +2,7 @@ import type { ScopedThreadRef } from "@aprende/contracts";
 import { createStore } from "zustand";
 import type { ThreadPanelPresentation } from "../../rightPanelLayout";
 import type { DetailsCardMeasurement } from "./ChatCanvasContext";
-import { resolveChatCanvasLayout, type ChatCanvasPreview } from "./chatCanvasLayout";
+import { resolveChatCanvasLayout } from "./chatCanvasLayout";
 import { resolveThreadDetailsCardLayout } from "./threadDetailsCardLayout";
 
 interface CanvasEdges {
@@ -17,7 +17,6 @@ export interface ChatCanvasMeasurements {
   readonly padding: number;
   readonly maxChatWidth: number;
   readonly minChatWidth: number;
-  readonly composerHeight: number;
   readonly timelineGutter: number;
   /** The find bar's box in canvas coordinates while it is shown. */
   readonly findBar: CanvasEdges | null;
@@ -36,7 +35,6 @@ const INITIAL_MEASUREMENTS: ChatCanvasMeasurements = {
   padding: 48,
   maxChatWidth: 768,
   minChatWidth: 640,
-  composerHeight: 0,
   timelineGutter: 0,
   findBar: null,
 };
@@ -51,7 +49,6 @@ const sameMeasurements = (a: ChatCanvasMeasurements, b: ChatCanvasMeasurements) 
   a.padding === b.padding &&
   a.maxChatWidth === b.maxChatWidth &&
   a.minChatWidth === b.minChatWidth &&
-  a.composerHeight === b.composerHeight &&
   a.timelineGutter === b.timelineGutter &&
   sameEdges(a.findBar, b.findBar);
 
@@ -83,26 +80,21 @@ export function resolveChatCanvasModel({
   measurements,
   detailsCardMeasurement,
   threadRef,
-  preview,
   detailsCardInlineOpen,
 }: {
   measurements: ChatCanvasMeasurements;
   detailsCardMeasurement: DetailsCardMeasurement | null;
   /** The thread whose details card sits on the canvas; other threads' measurements are stale. */
   threadRef: ScopedThreadRef | null;
-  preview: ChatCanvasPreview | null;
   detailsCardInlineOpen: boolean;
 }) {
   const container = { width: measurements.width, height: measurements.height };
   const { findBar } = measurements;
   const detailsCardTopInset = findBar?.bottom ?? 0;
   const lane = { padding: measurements.padding, minChatWidth: measurements.minChatWidth };
-  // The preview avoids where an open inline card would sit, whether or not a
-  // preview overlap has pushed the card itself into popover mode.
-  const preferredDetailsCard = resolveThreadDetailsCardLayout({
+  const detailsCardPlacement = resolveThreadDetailsCardLayout({
     container,
     lane,
-    frame: null,
     topInset: detailsCardTopInset,
   });
   // The canvas outlives thread switches, so a measurement only counts for the
@@ -116,33 +108,22 @@ export function resolveChatCanvasModel({
       : null;
   const detailsCard =
     detailsCardInlineOpen &&
-    preferredDetailsCard &&
-    detailsCardMeasured?.width === preferredDetailsCard.width &&
+    detailsCardPlacement &&
+    detailsCardMeasured?.width === detailsCardPlacement.width &&
     detailsCardMeasured.fullContentHeight > 0
       ? {
-          left: preferredDetailsCard.x,
-          right: preferredDetailsCard.x + preferredDetailsCard.width,
+          left: detailsCardPlacement.x,
+          right: detailsCardPlacement.x + detailsCardPlacement.width,
           bottom:
-            preferredDetailsCard.y +
-            Math.min(detailsCardMeasured.fullContentHeight, preferredDetailsCard.height),
+            detailsCardPlacement.y +
+            Math.min(detailsCardMeasured.fullContentHeight, detailsCardPlacement.height),
         }
       : null;
   const layout = resolveChatCanvasLayout({
     container,
-    preview,
     padding: measurements.padding,
     maxChatWidth: measurements.maxChatWidth,
-    minChatWidth: measurements.minChatWidth,
-    composerHeight: measurements.composerHeight,
     detailsCard,
-    findBar,
-  });
-  const detailsCardPlacement = resolveThreadDetailsCardLayout({
-    container,
-    lane,
-    frame: layout.frame,
-    overlapsDetailsCard: layout.overlapsDetailsCard,
-    topInset: detailsCardTopInset,
   });
   const detailsCardMode: ThreadPanelPresentation = detailsCardPlacement ? "inline" : "popover";
   return {
@@ -150,7 +131,6 @@ export function resolveChatCanvasModel({
     lane,
     layout,
     detailsCardTopInset,
-    preferredDetailsCard,
     detailsCardPlacement,
     detailsCardMode,
   };

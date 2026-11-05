@@ -30,8 +30,6 @@ export interface ShortcutEventLike extends SharedShortcutEventLike {
 }
 
 export interface ShortcutMatchContext {
-  previewFocus: boolean;
-  previewOpen: boolean;
   isWeb: boolean;
   isDesktop: boolean;
   editableFocus?: boolean;
@@ -57,8 +55,6 @@ function resolvePlatform(options: ShortcutMatchOptions | undefined): string {
 
 function resolveContext(options: ShortcutMatchOptions | undefined): ShortcutMatchContext {
   return {
-    previewFocus: false,
-    previewOpen: false,
     isWeb: !isElectron,
     isDesktop: isElectron,
     editableFocus: false,

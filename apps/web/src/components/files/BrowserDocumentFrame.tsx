@@ -35,7 +35,7 @@ import { isElectron } from "~/env";
 import { FileSurfaceLoading } from "./fileSurfaceChrome";
 import type { PdfViewState } from "./PdfViewer";
 
-import { useOpenLink } from "~/browser/useOpenLink";
+import { openExternalLink } from "~/lib/openExternalLink";
 import { ExpandedImageDialog } from "~/components/chat/ExpandedImageDialog";
 import type { ExpandedImagePreview } from "~/components/chat/ExpandedImagePreview";
 import { useHtmlRenderTheme } from "~/hooks/useHtmlRenderTheme";
@@ -246,7 +246,6 @@ export function HtmlRenderDocument(props: {
     },
   );
   const openChangeRequestLink = useOpenChangeRequestLink(props.threadRef);
-  const openLink = useOpenLink(props.threadRef);
   const open = useEffectEvent((url: string, modifiers: { metaKey: boolean; ctrlKey: boolean }) => {
     if (modifiers.metaKey || modifiers.ctrlKey) {
       void readLocalApi()
@@ -265,7 +264,7 @@ export function HtmlRenderDocument(props: {
     ) {
       return;
     }
-    void openLink(url, { event: modifiers }).catch((cause: unknown) => console.error(cause));
+    void openExternalLink(url).catch((cause: unknown) => console.error(cause));
   });
   const { onFullscreenChange } = props;
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- reports fullscreen to the parent while the image viewer is open, and clears it on unmount

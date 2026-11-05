@@ -1,9 +1,8 @@
-import { scopeProjectRef, scopeThreadRef } from "@aprende/client-runtime/environment";
+import { scopeProjectRef } from "@aprende/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@aprende/client-runtime/state/runtime";
-import type { EnvironmentId, ScopedThreadRef } from "@aprende/contracts";
 import { sourceControlClients } from "@aprende/client-runtime/source-control-clients";
 import { promptLinkAppPath } from "@aprende/shared/promptLinks";
 import { readPairingAppLink, resolveRemotePairingTarget } from "@aprende/shared/remote";
@@ -13,26 +12,18 @@ import { AtomRegistry } from "effect/reactivity";
 import * as Stream from "effect/Stream";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { openFileInPreview, openUrlInPreview } from "../../browser/openFileInPreview";
-import { isPreviewAvailableFor } from "../../browser/previewRuntime";
 import { requestConfirmDialog } from "../../confirmDialog";
+import { openExternalLink } from "../../lib/openExternalLink";
 import { connectPairing } from "../../connection/onboarding";
 import { isLocalEnvironmentDisabled } from "../../localEnvironment";
-import { useComposerDraftStore } from "../../composerDraftStore";
-import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
-import { useScratchProject } from "../../hooks/useScratchProject";
 import { useClientSettings } from "../../hooks/useSettings";
 import { useOpenChangeRequestLink } from "../../lib/openPullRequestLink";
-import { selectActiveRightPanelSurface, useRightPanelStore } from "../../rightPanelStore";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { resolveThreadRouteTarget } from "../../threadRoutes";
-import { assetEnvironment } from "../../state/assets";
 import { readProject, readThreadShell } from "../../state/entities";
-import { useEnvironmentHttpBaseUrl, usePrimaryEnvironment } from "../../state/environments";
-import { previewEnvironment } from "../../state/preview";
+import { usePrimaryEnvironment } from "../../state/environments";
 import { allReachableShellsLiveAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { useAtomQueryRunner } from "../../state/use-atom-query-runner";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 
 /** A link handed over by the OS is a plain click: nothing about it asks for the browser. */
@@ -53,45 +44,12 @@ const projectsSettled = (): Promise<void> =>
     ),
   );
 
-/**
- * HTML files are served by this machine's environment, so only its threads can
- * take them.
- */
-function threadShowingBrowser(
-  routeParams: Record<string, string | undefined>,
-  fileEnvironmentId: EnvironmentId | null,
-): ScopedThreadRef | null {
-  const target = resolveThreadRouteTarget(routeParams);
-  if (target === null) return null;
-  let threadRef = target.kind === "server" ? target.threadRef : null;
-  if (target.kind === "draft") {
-    const session = useComposerDraftStore.getState().getDraftSession(target.draftId);
-    if (!session || session.promotedTo) return null;
-    threadRef = scopeThreadRef(session.environmentId, session.threadId);
-  }
-  if (threadRef === null || !isPreviewAvailableFor(threadRef.environmentId)) return null;
-  if (fileEnvironmentId !== null && threadRef.environmentId !== fileEnvironmentId) return null;
-  const surface = selectActiveRightPanelSurface(
-    useRightPanelStore.getState().byThreadKey,
-    threadRef,
-  );
-  return surface?.kind === "preview" ? threadRef : null;
-}
-
 export function DesktopWebLinkCoordinator() {
   const router = useRouter();
   const primaryEnvironment = usePrimaryEnvironment();
   const openPullRequestsInApp = useClientSettings((settings) => settings.pullRequestLinksOpenInApp);
   const openChangeRequest = useOpenChangeRequestLink();
-  const { scratchEnvironmentId, openScratchProject } = useScratchProject();
-  const openThread = useNewThreadHandler();
-  const openPreview = useAtomCommand(previewEnvironment.open, { reportFailure: false });
-  const createAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
-    reportFailure: false,
-    refresh: true,
-  });
   const connectPairingEnvironment = useAtomCommand(connectPairing, { reportFailure: false });
-  const httpBaseUrl = useEnvironmentHttpBaseUrl(primaryEnvironment?.environmentId ?? null);
   const queueRef = useRef(Promise.resolve());
   const pairedUrlsRef = useRef(new Set<string>());
   const webLinks = window.desktopBridge?.webLinks;
@@ -146,59 +104,9 @@ export function DesktopWebLinkCoordinator() {
     });
   };
 
-  const startThread = async (url: string): Promise<ScopedThreadRef | null> => {
-    const environmentId = scratchEnvironmentId(primaryEnvironment?.environmentId ?? null);
-    if (environmentId === null) {
-      reportFailure(url);
-      return null;
-    }
-    const project = await openScratchProject(environmentId, "Could not open the link");
-    if (!project) return null;
-    const opened = await openThread(scopeProjectRef(project.environmentId, project.id));
-    if (!opened) {
-      reportFailure(url);
-      return null;
-    }
-    const threadRef = scopeThreadRef(project.environmentId, opened.threadId);
-    useRightPanelStore.getState().requestMaximize(threadRef);
-    return threadRef;
+  const openInBrowser = async (url: string) => {
+    await openExternalLink(url).catch(() => reportFailure(url));
   };
-
-  const openInBrowser = useEffectEvent(async (url: string) => {
-    const routeParams = router.state.matches.at(-1)?.params ?? {};
-    const isFile = url.startsWith("file:");
-    // Only this machine's environment serves files, so fail before starting a thread.
-    if (isFile && httpBaseUrl === null) {
-      reportFailure(url);
-      return;
-    }
-    const threadRef =
-      threadShowingBrowser(
-        routeParams,
-        isFile ? (primaryEnvironment?.environmentId ?? null) : null,
-      ) ?? (await startThread(url));
-    if (threadRef === null) return;
-    const result = isFile
-      ? httpBaseUrl === null
-        ? null
-        : await openFileInPreview({
-            threadRef,
-            filePath: decodeURIComponent(new URL(url).pathname),
-            workspaceRoot: undefined,
-            httpBaseUrl,
-            createAssetUrl,
-            openPreview,
-          })
-      : await openUrlInPreview({ threadRef, url, openPreview });
-    if (result === null) {
-      reportFailure(url);
-      return;
-    }
-    if (result._tag === "Failure") {
-      const error = squashAtomCommandFailure(result);
-      reportFailure(url, error instanceof Error ? error.message : url);
-    }
-  });
 
   const openLink = useEffectEvent(async (url: string) => {
     const pairingUrl = readPairingAppLink(url);

@@ -1,10 +1,5 @@
 import { scopeThreadRef } from "@aprende/client-runtime/environment";
-import {
-  type EnvironmentId,
-  INCOGNITO_BROWSER_PROFILE_ID,
-  type PreviewSessionSnapshot,
-  ThreadId,
-} from "@aprende/contracts";
+import { type EnvironmentId, ThreadId } from "@aprende/contracts";
 import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { type ClosedViewEntry, useClosedViewStore } from "./closedViewStore";
@@ -18,24 +13,13 @@ beforeEach(() => {
   useClosedViewStore.setState({ entries: [] });
 });
 
-const snapshot: PreviewSessionSnapshot = {
-  threadId: refA.threadId,
-  tabId: "private-tab",
-  profileId: INCOGNITO_BROWSER_PROFILE_ID,
-  navStatus: { _tag: "Success", url: "https://private.example", title: "Private page" },
-  canGoBack: false,
-  canGoForward: false,
-  updatedAt: "2026-10-06T17:00:00.000Z",
-};
-
 describe("closedViewStore", () => {
   it.each([
-    { id: "bad", kind: "browser", threadRef: refA, snapshot: {} },
     {
       id: "bad",
       kind: "browser",
       threadRef: refA,
-      snapshot: { ...snapshot, profileId: "default", navStatus: null },
+      snapshot: { tabId: "tab", navStatus: { _tag: "Idle" } },
     },
     { id: "bad", kind: "panel-tab", surface: { kind: "files", id: "files" } },
     { id: "bad", kind: "panel-tab", threadRef: refA },
@@ -43,11 +27,12 @@ describe("closedViewStore", () => {
     { id: "bad", kind: "panel-tab", threadRef: refA, surface: {} },
     { id: "bad", kind: "panel-tab", threadRef: refA, surface: { kind: "diff", id: "diff" } },
     { id: "bad", kind: "panel-tab", threadRef: refA, surface: { kind: "file", id: "file:x" } },
+    { id: "bad", kind: "panel-tab", threadRef: refA, surface: { kind: "device", id: "device" } },
     {
       id: "bad",
       kind: "panel-tab",
       threadRef: refA,
-      surface: { kind: "device", id: "device:x", target: {} },
+      surface: { kind: "preview", id: "browser:new", resourceId: null },
     },
     {
       id: "bad",
@@ -74,23 +59,7 @@ describe("closedViewStore", () => {
     expect(() => useClosedViewStore.getState().remember(files(refB))).not.toThrow();
   });
 
-  it("keeps private tabs available in memory without saving their metadata", async () => {
-    const store = useClosedViewStore.getState();
-    const publicId = store.remember(files(refA));
-    const privateId = store.remember({ kind: "browser", threadRef: refA, snapshot });
-    expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([
-      privateId,
-      publicId,
-    ]);
-    const { storage, name } = useClosedViewStore.persist.getOptions();
-    const saved = JSON.stringify(await storage!.getItem(name!));
-    expect(saved).not.toContain("private.example");
-    expect(saved).not.toContain("Private page");
-    await useClosedViewStore.persist.rehydrate();
-    expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([publicId]);
-  });
-
-  it("removes private metadata and malformed entries from history saved by earlier versions", async () => {
+  it("removes malformed entries from history saved by earlier versions", async () => {
     const store = useClosedViewStore.getState();
     const sideChatId = store.remember({
       kind: "panel-tab",
@@ -98,17 +67,6 @@ describe("closedViewStore", () => {
       surface: { id: "side-chat:side", kind: "side-chat", threadId: ThreadId.make("side") },
     });
     const publicId = store.remember(files(refA));
-    const browserId = store.remember({
-      kind: "browser",
-      threadRef: refA,
-      snapshot: {
-        ...snapshot,
-        tabId: "public-tab",
-        profileId: "default",
-        navStatus: { _tag: "Success", url: "https://public.example", title: "Public page" },
-      },
-    });
-    store.remember({ kind: "browser", threadRef: refA, snapshot });
     const { storage, name } = useClosedViewStore.persist.getOptions();
     await storage!.setItem(name!, {
       state: {
@@ -125,12 +83,8 @@ describe("closedViewStore", () => {
     await useClosedViewStore.persist.rehydrate();
     expect(useClosedViewStore.persist.hasHydrated()).toBe(true);
     expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([
-      browserId,
       publicId,
       sideChatId,
     ]);
-    const saved = JSON.stringify(await storage!.getItem(name!));
-    expect(saved).not.toContain("private.example");
-    expect(saved).not.toContain("Private page");
   });
 });

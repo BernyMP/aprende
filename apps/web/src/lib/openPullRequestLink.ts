@@ -8,7 +8,7 @@ import {
   resolvePullRequestPreviewTarget,
 } from "@aprende/client-runtime/change-request-links";
 
-import { useOpenLink } from "../browser/useOpenLink";
+import { openExternalLink } from "./openExternalLink";
 import { useClientSettings } from "../hooks/useSettings";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
 import { useRightPanelStore } from "../rightPanelStore";
@@ -119,7 +119,6 @@ export function useOpenChangeRequestLink(
 
 export function useOpenPrLink(threadRef?: ScopedThreadRef) {
   const openChangeRequest = useOpenChangeRequestLink(threadRef);
-  const openLink = useOpenLink(threadRef);
   return (event: MouseEvent<HTMLElement>, prUrl: string, targetThreadRef?: ScopedThreadRef) => {
     if (event.button > 1) return false;
     event.stopPropagation();
@@ -132,7 +131,7 @@ export function useOpenPrLink(threadRef?: ScopedThreadRef) {
     event.preventDefault();
     if (!openInBrowser && openChangeRequest(event, prUrl, targetThreadRef)) return true;
 
-    void openLink(prUrl, { event, threadRef: targetThreadRef }).catch((error: unknown) => {
+    void openExternalLink(prUrl).catch((error: unknown) => {
       console.error(error);
       toastManager.add(
         stackedThreadToast({

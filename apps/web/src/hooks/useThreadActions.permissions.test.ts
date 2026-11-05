@@ -11,7 +11,6 @@ import { AsyncResult } from "effect/reactivity";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { scopedThreadKey } from "@aprende/client-runtime/environment";
-import { browserMiniPlayerSource, usePreviewMiniPlayerStore } from "../previewMiniPlayerStore";
 import { useRightPanelStore } from "../rightPanelStore";
 
 function deferred<T>() {
@@ -163,18 +162,16 @@ import { useThreadActions } from "./useThreadActions";
 
 function seedThreadPanelState(ref: ScopedThreadRef) {
   useRightPanelStore.getState().show(ref);
-  usePreviewMiniPlayerStore.getState().open(ref, browserMiniPlayerSource("tab"));
 }
 
 function threadPanelStatePresence(ref: ScopedThreadRef) {
   const key = scopedThreadKey(ref);
   return {
     rightPanel: key in useRightPanelStore.getState().byThreadKey,
-    miniPlayer: key in usePreviewMiniPlayerStore.getState().byThreadKey,
   };
 }
-const panelStateKept = { rightPanel: true, miniPlayer: true };
-const panelStateCleared = { rightPanel: false, miniPlayer: false };
+const panelStateKept = { rightPanel: true };
+const panelStateCleared = { rightPanel: false };
 
 const primary = EnvironmentId.make("primary");
 const secondary = EnvironmentId.make("secondary");
@@ -240,7 +237,6 @@ beforeEach(() => {
   state.afterRequest = undefined;
   state.sessionLookupFails = false;
   useRightPanelStore.setState(useRightPanelStore.getInitialState(), true);
-  usePreviewMiniPlayerStore.setState(usePreviewMiniPlayerStore.getInitialState(), true);
 });
 
 describe("thread action permissions", () => {

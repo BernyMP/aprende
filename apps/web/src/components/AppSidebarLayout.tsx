@@ -24,9 +24,7 @@ import {
   shortcutLabelForCommand,
 } from "../keybindings";
 import { isEditableFocused } from "../lib/editableFocus";
-import { isPreviewFocused } from "../lib/previewFocus";
 import { isModelPickerOpen } from "../modelPickerVisibility";
-import { selectActiveRightPanel, useRightPanelStore } from "../rightPanelStore";
 import { cn, isMacPlatform } from "../lib/utils";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { useEnvironmentIdentificationMode } from "../hooks/useSettings";
@@ -61,7 +59,6 @@ import {
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { registerCommands, registerMenuAction } from "../shortcuts/dispatcher";
-import { resolveThreadRouteRef } from "../threadRoutes";
 
 const MACOS_TRAFFIC_LIGHTS_LEFT_INSET = "var(--desktop-window-controls-inset, 90px)";
 
@@ -131,16 +128,6 @@ function isKeybindingCaptureTarget(event: KeyboardEvent) {
   return event.target instanceof HTMLElement && event.target.closest("[data-keybinding-capture]");
 }
 
-function readRoutePanelsOpen(router: AnyRouter) {
-  const routeThreadRef = resolveThreadRouteRef(router.state.matches.at(-1)?.params ?? {});
-  if (!routeThreadRef) return { previewOpen: false };
-  return {
-    previewOpen:
-      selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, routeThreadRef) ===
-      "preview",
-  };
-}
-
 export function registerNavigationHistoryCommands(router: AnyRouter): () => void {
   return registerCommands(
     {
@@ -157,16 +144,13 @@ export function registerNavigationHistoryCommands(router: AnyRouter): () => void
     },
     {
       when: (event) => !isKeybindingCaptureTarget(event),
-      context: () => ({
-        ...readRoutePanelsOpen(router),
-        usagePageOpen: readUsagePageOpen(router),
-      }),
+      context: () => ({ usagePageOpen: readUsagePageOpen(router) }),
     },
   );
 }
 
-// Capture phase, so F6 also leaves widgets that swallow keys, such as the terminal.
-function registerWorkspaceFocusCommands(router: AnyRouter): () => void {
+// Capture phase, so F6 also leaves widgets that swallow keys.
+function registerWorkspaceFocusCommands(): () => void {
   const move = (direction: 1 | -1) => (event: KeyboardEvent) => {
     if (event.isComposing) return false;
     // Inside a dialog the move is refused, but the key is still consumed.
@@ -180,12 +164,8 @@ function registerWorkspaceFocusCommands(router: AnyRouter): () => void {
       {
         capture: true,
         when: (event) => !isKeybindingCaptureTarget(event),
-        context: () => readRoutePanelsOpen(router),
       },
     ),
-    // A focused desktop browser forwards the keys; its renderer focus is stale.
-    registerMenuAction("workspace.focusNext", () => moveWorkspaceFocus(1, "panel")),
-    registerMenuAction("workspace.focusPrevious", () => moveWorkspaceFocus(-1, "panel")),
   ];
   return () => {
     for (const dispose of disposers) dispose();
@@ -249,8 +229,6 @@ function registerThreadUndoCommands(
           appAtomRegistry.get(primaryServerKeybindingsAtom),
           {
             context: {
-              previewFocus: isPreviewFocused(),
-              ...readRoutePanelsOpen(router),
               // A collapsed sidebar hides the notice, so text fields keep their own undo.
               editableFocus:
                 isEditableFocused(event.target) &&
@@ -293,7 +271,7 @@ function registerAppShellCommands(router: AnyRouter, shellElement: Element): () 
   const disposers = [
     registerThreadUndoCommands(router, readSidebarVisible),
     registerNavigationHistoryCommands(router),
-    registerWorkspaceFocusCommands(router),
+    registerWorkspaceFocusCommands(),
     registerPullRequestsEscapeCommand(router),
     registerMenuAction("open-settings", () => {
       if (!/^\/settings(\/|$)/.test(router.state.location.pathname))

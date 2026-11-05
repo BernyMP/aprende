@@ -26,8 +26,6 @@ export type SettingsPath =
   | "/settings/snap-shot"
   | "/settings/providers"
   | "/settings/threads"
-  | "/settings/browser"
-  | "/settings/devices"
   | "/settings/scheduled-tasks"
   | "/settings/source-control"
   | "/settings/worktrees"
@@ -94,8 +92,6 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
   "/settings/threads": "Threads",
-  "/settings/browser": "Browser",
-  "/settings/devices": "Devices",
   "/settings/scheduled-tasks": "Scheduled tasks",
   "/settings/source-control": "Source control",
   "/settings/worktrees": "Worktrees",
@@ -466,13 +462,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["beta link another machine vps peer agents work there delegate"],
   },
   {
-    id: "simlock-hosts",
-    title: "Simlock device hosts (alpha)",
-    to: "/settings/labs",
-    scope: "environment",
-    searchTerms: ["beta alpha simlock callstack simulator emulator ios android pool lease gateway"],
-  },
-  {
     id: "auto-settle-inactive-threads",
     title: "Auto-settle inactive threads",
     to: "/settings/threads",
@@ -795,107 +784,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     providerSettingsOnly: true,
   },
   {
-    id: "agent-browser-access",
-    title: "Agent browser access",
-    to: "/settings/browser",
-    scope: "project-defaults",
-    searchTerms: ["allow disable enable open drive preview tools sessions project override"],
-  },
-  {
-    id: "device-sources",
-    title: "Device sources",
-    to: "/settings/devices",
-    searchTerms: [
-      "device hosts ssh remote mac mini identity key connection eas expo cloud simlock pool gateway local simulators",
-    ],
-  },
-  {
-    id: "agent-device-access",
-    title: "Agents can use devices",
-    to: "/settings/devices",
-    targetId: "devices",
-    searchTerms: ["allow simulator emulator ios android drive tools sessions"],
-  },
-  {
-    id: "device-hub",
-    title: "Use devices",
-    to: "/settings/devices",
-    targetId: "devices",
-    searchTerms: ["device hub simulator emulator ios android install start version"],
-  },
-  {
-    id: "device-platform-support",
-    title: "Local simulators",
-    to: "/settings/devices",
-    targetId: "device-sources",
-    searchTerms: ["simulator support xcode android studio sdk avd runtime"],
-  },
-  {
-    id: "browser-profiles",
-    title: "Browser profiles",
-    to: "/settings/browser",
-    targetId: "browser",
-  },
-  {
-    id: "browser-default-profile",
-    title: "Default browser profile",
-    to: "/settings/browser",
-    targetId: "browser-profiles",
-  },
-  {
-    id: "browser-default-viewport",
-    title: "Default browser viewport",
-    to: "/settings/browser",
-    searchTerms: ["preview size width height device desktop mobile rotate"],
-  },
-  {
-    id: "browser-default-zoom",
-    title: "Default browser zoom",
-    to: "/settings/browser",
-    searchTerms: ["preview page scale tabs percent"],
-  },
-  {
-    id: "browser-default-appearance",
-    title: "Default browser appearance",
-    to: "/settings/browser",
-    searchTerms: ["preview color scheme light dark system os"],
-  },
-  {
-    id: "browser-recording-frame-rate",
-    title: "Browser recording frame rate",
-    to: "/settings/browser",
-  },
-  {
-    id: "browser-recording-key-presses",
-    title: "Show key presses in recordings",
-    to: "/settings/browser",
-    searchTerms: ["browser preview keyboard shortcuts keystrokes overlay capture"],
-  },
-  {
-    id: "browser-recording-mouse-presses",
-    title: "Show mouse presses in recordings",
-    to: "/settings/browser",
-    searchTerms: ["browser preview clicks buttons drag overlay capture"],
-  },
-  {
-    id: "browser-link-target",
-    title: "Open links in",
-    to: "/settings/browser",
-    searchTerms: ["links default browser in-app browser external open"],
-  },
-  {
-    id: "browser-search-engine",
-    title: "Search engine",
-    to: "/settings/browser",
-    searchTerms: ["address bar duckduckgo google bing brave kagi ecosia custom url"],
-  },
-  {
-    id: "browser-auto-show-floating-preview",
-    title: "Auto-show floating preview",
-    to: "/settings/browser",
-    searchTerms: ["agent opens browser device simulator pop into view hide"],
-  },
-  {
     id: "automatic-pull",
     title: "Automatically pull",
     to: "/settings/source-control",
@@ -1147,8 +1035,6 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/keybindings": null,
   "/settings/providers": null,
   "/settings/threads": null,
-  "/settings/browser": null,
-  "/settings/devices": null,
   "/settings/source-control": "environment-defaults",
   "/settings/worktrees": "project-defaults",
   "/settings/connections": "connections",
@@ -1162,7 +1048,6 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
 };
 
 const RENAMED_SETTINGS_PATHS: Readonly<Record<string, SettingsPath>> = {
-  "/settings/integrations": "/settings/browser",
   "/settings/storage": "/settings/maintenance",
   "/settings/beta": "/settings/labs",
 };

@@ -285,16 +285,12 @@ export const DefaultThemePreference = Schema.String.check(Schema.isMaxLength(64)
 // Excluded from RPC patches so t3 theme set can validate syntax and resolvability.
 export type DefaultThemePreference = typeof DefaultThemePreference.Type;
 
-export const DEFAULT_BROWSER_VIEWPORT: PreviewViewportSetting = FILL_PREVIEW_VIEWPORT;
-export const DEFAULT_BROWSER_AUTO_SHOW_FLOATING_PREVIEW = true;
-export {
-  BROWSER_RECORDING_FRAME_RATES,
-  BrowserRecordingFrameRate,
-  DEFAULT_BROWSER_RECORDING_FRAME_RATE,
-} from "./preview.ts";
+const DEFAULT_BROWSER_VIEWPORT: PreviewViewportSetting = FILL_PREVIEW_VIEWPORT;
+const DEFAULT_BROWSER_AUTO_SHOW_FLOATING_PREVIEW = true;
+export { BrowserRecordingFrameRate, DEFAULT_BROWSER_RECORDING_FRAME_RATE } from "./preview.ts";
 export const BrowserLinkTarget = Schema.Literals(["system", "app"]);
 export type BrowserLinkTarget = typeof BrowserLinkTarget.Type;
-export const DEFAULT_BROWSER_LINK_TARGET: BrowserLinkTarget = "system";
+const DEFAULT_BROWSER_LINK_TARGET: BrowserLinkTarget = "system";
 /**
  * What the address bar searches with when the input is not an address.
  * "custom" uses `browserCustomSearchUrl`, a template with `%s` for the query.
@@ -309,8 +305,8 @@ export const BrowserSearchEngine = Schema.Literals([
   "custom",
 ]);
 export type BrowserSearchEngine = typeof BrowserSearchEngine.Type;
-export const DEFAULT_BROWSER_SEARCH_ENGINE: BrowserSearchEngine = "duckduckgo";
-export const BROWSER_CUSTOM_SEARCH_URL_MAX_LENGTH = 2048;
+const DEFAULT_BROWSER_SEARCH_ENGINE: BrowserSearchEngine = "duckduckgo";
+const BROWSER_CUSTOM_SEARCH_URL_MAX_LENGTH = 2048;
 export const BrowserCustomSearchUrl = Schema.String.check(
   Schema.isMaxLength(BROWSER_CUSTOM_SEARCH_URL_MAX_LENGTH),
 );

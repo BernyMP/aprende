@@ -1,55 +1,27 @@
-import {
-  AuthOrchestrationOperateScope,
-  AuthPreviewOperateScope,
-  type ScopedThreadRef,
-} from "@aprende/contracts";
+import { AuthOrchestrationOperateScope, type ScopedThreadRef } from "@aprende/contracts";
 import { scopeThreadRef } from "@aprende/client-runtime/environment";
-import { agentControlledBrowserCloseConfirmation } from "../components/ChatView.logic";
-import { closePreviewSession } from "../components/preview/closePreviewSession";
-import { readLocalApi } from "../localApi";
-import { setActivePreviewTab, useThreadPreviewState } from "../previewStateStore";
 import {
-  selectActiveRightPanelSurface,
   selectThreadRightPanelState,
   useRightPanelStore,
   type RightPanelSurface,
 } from "../rightPanelStore";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { readThreadShell } from "../state/entities";
-import { previewEnvironment } from "../state/preview";
-import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
+import { readEnvironmentScope } from "../state/session";
 import { environmentShell } from "../state/shell";
 import { threadEnvironment } from "../state/threads";
 import { useAtomCommand } from "../state/use-atom-command";
 import { useStableCallback } from "./useStableCallback";
 
-/**
- * Closing releases preview sessions and deletes a side chat that never ran.
- * Agent-driven browsers require confirmation.
- */
+/** Closing deletes a side chat that never ran. */
 export function useRightPanelSurfaceClose(input: { readonly threadRef: ScopedThreadRef | null }) {
   const { threadRef } = input;
-  const closePreview = useAtomCommand(previewEnvironment.close, "preview close");
   const deleteThread = useAtomCommand(threadEnvironment.delete, "side chat delete");
-  const canOperatePreview = useEnvironmentScope(
-    threadRef?.environmentId ?? null,
-    AuthPreviewOperateScope,
-  );
-  const previewState = useThreadPreviewState(threadRef);
   const surfaces = useRightPanelStore(
     (state) => selectThreadRightPanelState(state.byThreadKey, threadRef).surfaces,
   );
 
   const releaseSurfaceResources = (ref: ScopedThreadRef, surface: RightPanelSurface) => {
-    // Without preview access, server state remains until an authorized close or restart.
-    if (canOperatePreview && surface.kind === "preview" && surface.resourceId) {
-      void closePreviewSession({
-        closePreview,
-        snapshot: previewState.sessions[surface.resourceId] ?? null,
-        tabId: surface.resourceId,
-        threadRef: ref,
-      });
-    }
     if (
       surface.kind === "side-chat" &&
       readEnvironmentScope(ref.environmentId, AuthOrchestrationOperateScope) &&
@@ -66,26 +38,8 @@ export function useRightPanelSurfaceClose(input: { readonly threadRef: ScopedThr
       });
     }
   };
-  const closeAfterAgentBrowserConfirmation = (
-    toClose: readonly RightPanelSurface[],
-    closeSurfaces: () => void,
-  ) => {
-    const message = agentControlledBrowserCloseConfirmation(toClose, previewState.desktopByTabId);
-    if (!message) {
-      closeSurfaces();
-      return;
-    }
-    const localApi = readLocalApi();
-    if (!localApi) return;
-    void localApi.dialogs.confirm(message, { variant: "destructive" }).then(
-      (confirmed) => {
-        if (confirmed) closeSurfaces();
-      },
-      () => undefined,
-    );
-  };
   // The active surface closes last so the panel does not flash through it.
-  const finishClose = (toClose: readonly RightPanelSurface[]) => {
+  const closeSurfaces = (toClose: readonly RightPanelSurface[]) => {
     if (!threadRef) return;
     const store = useRightPanelStore.getState();
     const activeId = selectThreadRightPanelState(store.byThreadKey, threadRef).activeSurfaceId;
@@ -93,32 +47,12 @@ export function useRightPanelSurfaceClose(input: { readonly threadRef: ScopedThr
       (left, right) => Number(left.id === activeId) - Number(right.id === activeId),
     );
     for (const surface of ordered) {
-      // Releasing a browser drops its session, which prunes the tab automatically; close it
-      // first so the close stays a user action that hides the panel after the last tab.
       store.closeSurface(threadRef, surface.id);
       releaseSurfaceResources(threadRef, surface);
     }
-    const nextActiveSurface = selectActiveRightPanelSurface(
-      useRightPanelStore.getState().byThreadKey,
-      threadRef,
-    );
-    if (nextActiveSurface?.kind === "preview" && nextActiveSurface.resourceId) {
-      setActivePreviewTab(threadRef, nextActiveSurface.resourceId);
-    }
-  };
-  const closeSurfaces = (toClose: readonly RightPanelSurface[]) => {
-    if (!threadRef) return;
-    closeAfterAgentBrowserConfirmation(toClose, () => finishClose(toClose));
   };
 
-  const closeSurface = useStableCallback((surface: RightPanelSurface) => {
-    if (!threadRef) return;
-    if (surface.kind === "preview") {
-      closeSurfaces([surface]);
-      return;
-    }
-    finishClose([surface]);
-  });
+  const closeSurface = useStableCallback((surface: RightPanelSurface) => closeSurfaces([surface]));
   const closeOtherSurfaces = useStableCallback((surface: RightPanelSurface) =>
     closeSurfaces(surfaces.filter((entry) => entry.id !== surface.id)),
   );

@@ -20,20 +20,17 @@ export default defineConfig({
   run: {
     tasks: {
       build: {
-        command:
-          "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && vp pack",
+        command: "vp pack",
         dependsOn: ["aprende#build"],
         cache: false,
       },
       dev: {
-        command:
-          "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && cross-env APRENDE_DESKTOP_DEV=1 vp pack --watch",
+        command: "cross-env APRENDE_DESKTOP_DEV=1 vp pack --watch",
         dependsOn: ["aprende#build"],
         cache: false,
       },
       "dev:bundle": {
-        command:
-          "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && vp pack --watch",
+        command: "vp pack --watch",
         cache: false,
       },
       "dev:electron": {
@@ -111,25 +108,6 @@ export default defineConfig({
         // Sandboxed preloads cannot resolve imports inside ASAR; bundle Clerk's bridge.
         alwaysBundle: (id) => id === "@clerk/electron" || id.startsWith("@clerk/electron/"),
       },
-    },
-    {
-      format: "cjs",
-      outDir: "dist-electron",
-      dts: false,
-      sourcemap: true,
-      outExtensions: () => ({ js: ".cjs" }),
-      entry: ["src/preview-pick-preload.ts"],
-      deps: {
-        alwaysBundle: (id) => id === "react-grab" || id.startsWith("react-grab/"),
-      },
-    },
-    {
-      format: "cjs",
-      outDir: "dist-electron",
-      dts: false,
-      sourcemap: true,
-      outExtensions: () => ({ js: ".cjs" }),
-      entry: ["src/preview-pip-preload.ts"],
     },
     {
       // Sandboxed preloads must be self-contained, without shared runtime chunks.

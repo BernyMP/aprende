@@ -114,8 +114,6 @@ import { getSourceControlPresentationForKind } from "~/sourceControlPresentation
 
 function getShortcutContext() {
   return {
-    previewFocus: false,
-    previewOpen: false,
     modelPickerOpen: false,
     isWeb: !isElectron,
     isDesktop: isElectron,
@@ -132,8 +130,6 @@ const MAX_PAGE_SIZE = 500;
 const EMPTY_VIEWERS: PullRequestListResult["viewers"] = {};
 const EMPTY_PARTITIONS: PullRequestPartitionsSnapshot = { authored: [], reviewing: [] };
 const NO_LIST_TARGETS: ReadonlyArray<EnvironmentQueryTarget<PullRequestListInput>> = [];
-const EMPTY_PREVIEW_SESSIONS = {};
-const EMPTY_PREVIEW_DESKTOP_STATE = {};
 const EMPTY_PENDING_SURFACES = new Set<string>();
 export function PullRequestsPage() {
   const search = useSearch({ from: "/_chat/pull-requests" });
@@ -1458,8 +1454,6 @@ export function PullRequestsPage() {
             environmentId={panelEnvironmentId}
             activeSurfaceId={renderedPullRequestSurface.id}
             pendingSurfaceIds={EMPTY_PENDING_SURFACES}
-            previewSessions={EMPTY_PREVIEW_SESSIONS}
-            desktopByTabId={EMPTY_PREVIEW_DESKTOP_STATE}
             onActivate={(surface) => {
               if (surface.kind === "pull-request") activateSurface(surface);
             }}
@@ -1478,17 +1472,12 @@ export function PullRequestsPage() {
                 useRightPanelStore.getState().moveSurface(rightPanelRef, surfaceId, toIndex);
             }}
             onCopyFilePath={() => undefined}
-            onAddBrowser={() => undefined}
-            onAddBrowserInProfile={() => undefined}
             onAddFiles={() => undefined}
             onAddPullRequest={() => undefined}
             onAddPullRequests={() => undefined}
-            onAddDevice={() => undefined}
-            browserAvailable={false}
             filesAvailable={false}
             pullRequestAvailable={false}
             pullRequestsAvailable={false}
-            deviceAvailable={false}
             pullRequestStatusSeeds={listedPullRequestTabStatuses}
           >
             <PullRequestDetailPanel

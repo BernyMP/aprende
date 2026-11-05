@@ -34,8 +34,8 @@ function createSettingsRouter(initialEntry = "/settings/general") {
   });
   const general = createRoute({ getParentRoute: () => settings, path: "general" });
   const projects = createRoute({ getParentRoute: () => settings, path: "projects" });
-  const integrations = createRoute({ getParentRoute: () => settings, path: "integrations" });
-  const sourceControl = createRoute({ getParentRoute: () => settings, path: "source-control" });
+  const appearance = createRoute({ getParentRoute: () => settings, path: "appearance" });
+  const threads = createRoute({ getParentRoute: () => settings, path: "threads" });
   const providers = createRoute({
     getParentRoute: () => settings,
     path: "providers",
@@ -66,14 +66,7 @@ function createSettingsRouter(initialEntry = "/settings/general") {
   });
   return createRouter({
     routeTree: root.addChildren([
-      settings.addChildren([
-        general,
-        projects,
-        integrations,
-        sourceControl,
-        providers,
-        scheduledTasks,
-      ]),
+      settings.addChildren([general, projects, appearance, threads, providers, scheduledTasks]),
       legacyProject,
     ]),
     history: createMemoryHistory({ initialEntries: [initialEntry] }),
@@ -96,12 +89,12 @@ describe("settings scope navigation", () => {
   it("preserves the checkout through category and settings-search navigation", async () => {
     const router = createSettingsRouter();
     await router.navigate({ to: "/settings/general", search: checkoutSearch, hash: "new-threads" });
-    await router.navigate({ to: "/settings/integrations", hash: "", replace: true });
+    await router.navigate({ to: "/settings/appearance", hash: "", replace: true });
     expect(router.state.location.search).toEqual(checkoutSearch);
     expect(router.state.location.hash).toBe("");
-    await router.navigate({ to: "/settings/source-control", hash: "source-control-writing-style" });
+    await router.navigate({ to: "/settings/threads", hash: "thread-title-instructions" });
     expect(router.state.location.search).toEqual(checkoutSearch);
-    expect(router.state.location.hash).toBe("source-control-writing-style");
+    expect(router.state.location.hash).toBe("thread-title-instructions");
     await router.navigate({ to: "/settings/projects", hash: "project-defaults" });
     expect(router.state.location.search).toEqual(checkoutSearch);
   });
@@ -209,7 +202,7 @@ describe("settings scope navigation", () => {
     const reloaded = createSettingsRouter(checkoutHref);
     await reloaded.load();
     expect(reloaded.state.location.search).toEqual(checkoutSearch);
-    await reloaded.navigate({ to: "/settings/integrations", hash: "agent-browser-access" });
+    await reloaded.navigate({ to: "/settings/appearance", hash: "chat-width" });
     expect(reloaded.state.location.search).toEqual(checkoutSearch);
   });
 
