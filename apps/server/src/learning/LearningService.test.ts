@@ -556,6 +556,10 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
       assert.equal(capped.output.length, 64 * 1024);
       const [command] = yield* Ref.get(spawned);
       assert.equal(command!.options.cwd, path.join(root, folder));
+      assert.equal(
+        yield* learning.practiceFolder({ threadId, problemId }),
+        path.join(root, folder),
+      );
       assert.include(command!.args.join(" "), "python3 -m unittest");
 
       yield* Ref.set(hang, true);
@@ -584,6 +588,10 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
       assert.isNull(gone.exitCode);
       assert.include(gone.output, "is gone");
       assert.equal((yield* Ref.get(spawned)).length, 3);
+      assert.include(
+        (yield* Effect.flip(learning.practiceFolder({ threadId, problemId }))).message,
+        "is gone",
+      );
 
       yield* learning.poseProblem(threadId, problemDraft);
       const plain = (yield* learning.getThreadState(threadId)).problems[1]!;
@@ -591,6 +599,10 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
         Exit.isFailure(
           yield* learning.runCheck({ threadId, problemId: plain.id }).pipe(Effect.exit),
         ),
+      );
+      assert.equal(
+        (yield* Effect.flip(learning.practiceFolder({ threadId, problemId: plain.id }))).message,
+        "This problem has no practice folder.",
       );
     }).pipe(Effect.provide(makeLayer(sent, { root, spawn })));
   }).pipe(Effect.provide(NodeServices.layer)),

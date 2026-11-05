@@ -102,6 +102,7 @@ import * as ThreadMessageIntake from "./orchestration-v2/ThreadMessageIntake.ts"
 import * as DocumentText from "./provider/DocumentText.ts";
 import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as Learning from "./learning/LearningService.ts";
+import * as PracticeTerminals from "./learning/PracticeTerminalService.ts";
 import * as SecretRequests from "./secrets/SecretRequests.ts";
 import {
   bufferShellLiveStream,
@@ -1249,6 +1250,7 @@ export const layerWsRpc = (
       const commandOutputHub = yield* CommandOutputHub.CommandOutputHub;
       const providerSessionManager = yield* ProviderSessionManager.ProviderSessionManagerV2;
       const learning = yield* Learning.LearningService;
+      const practiceTerminals = yield* PracticeTerminals.PracticeTerminalService;
       const secretRequests = yield* SecretRequests.SecretRequests;
 
       const random = yield* SecureRandom.SecureRandom;
@@ -2060,6 +2062,11 @@ export const layerWsRpc = (
         [WS_METHODS.learningRevealHint]: (input) => learning.revealHint(input),
         [WS_METHODS.learningSubmitSolution]: (input) => learning.submitSolution(input),
         [WS_METHODS.learningRunCheck]: (input) => learning.runCheck(input),
+        [WS_METHODS.learningTerminalOpen]: (input) => practiceTerminals.open(input),
+        [WS_METHODS.learningTerminalWrite]: (input) => practiceTerminals.write(input),
+        [WS_METHODS.learningTerminalResize]: (input) => practiceTerminals.resize(input),
+        [WS_METHODS.learningTerminalClose]: (input) => practiceTerminals.close(input),
+        [WS_METHODS.learningTerminalSubscribe]: (input) => practiceTerminals.subscribe(input),
         [WS_METHODS.learningGetTutorPrompt]: () => learning.getTutorPrompt(),
         [WS_METHODS.learningSetTutorPrompt]: (input) => learning.setTutorPrompt(input),
         [WS_METHODS.learningGetKnowledge]: () => learning.getKnowledge(),

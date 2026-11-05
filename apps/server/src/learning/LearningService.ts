@@ -156,6 +156,8 @@ export class LearningService extends Context.Service<
     readonly runCheck: (
       input: LearningRunCheckInput,
     ) => Effect.Effect<LearningCheckRun, LearningError>;
+    /** The absolute path of a problem's practice folder; fails when it has none or it is gone. */
+    readonly practiceFolder: (input: LearningRunCheckInput) => Effect.Effect<string, LearningError>;
     readonly getTutorPrompt: () => Effect.Effect<LearningTutorPrompt, LearningError>;
     readonly setTutorPrompt: (
       input: LearningSetTutorPromptInput,
@@ -793,6 +795,16 @@ export const layer = Layer.effect(
       return lock;
     };
 
+    const existingWorkspaceFolder = Effect.fn("LearningService.existingWorkspaceFolder")(function* (
+      threadId: ThreadId,
+      workspace: LearningProblemWorkspace,
+    ) {
+      const absolute = path.join(yield* sessionRoot(threadId), ...workspace.folder.split("/"));
+      return (yield* fileSystem.exists(absolute).pipe(Effect.orElseSucceed(() => false)))
+        ? absolute
+        : null;
+    });
+
     const runWorkspaceCheck = Effect.fn("LearningService.runWorkspaceCheck")(function* (
       threadId: ThreadId,
       problemId: string,
@@ -809,15 +821,14 @@ export const layer = Layer.effect(
         threadId: ThreadId,
         workspace: LearningProblemWorkspace & { readonly checkCommand: string },
       ) {
-        const cwd = path.join(yield* sessionRoot(threadId), ...workspace.folder.split("/"));
         const failed = (output: string): LearningCheckRun => ({
           exitCode: null,
           output,
           truncated: false,
           timedOut: false,
         });
-        if (!(yield* fileSystem.exists(cwd).pipe(Effect.orElseSucceed(() => false))))
-          return failed(`The practice folder ${workspace.folder} is gone.`);
+        const cwd = yield* existingWorkspaceFolder(threadId, workspace);
+        if (cwd === null) return failed(`The practice folder ${workspace.folder} is gone.`);
         const output = cappedOutput(LEARNING_CHECK_MAX_OUTPUT_BYTES);
         const result = yield* processRunner
           .run({
@@ -1004,6 +1015,16 @@ export const layer = Layer.effect(
       },
     );
 
+    const practiceFolder: LearningService["Service"]["practiceFolder"] = Effect.fn(
+      "LearningService.practiceFolder",
+    )(function* (input) {
+      const { workspace } = storedProblem(yield* readProblem(input.threadId, input.problemId));
+      if (workspace === null) return yield* fail("This problem has no practice folder.");
+      const folder = yield* existingWorkspaceFolder(input.threadId, workspace);
+      if (folder === null) return yield* fail(`The practice folder ${workspace.folder} is gone.`);
+      return folder;
+    });
+
     const concludeProblem: LearningService["Service"]["concludeProblem"] = Effect.fn(
       "LearningService.concludeProblem",
     )(function* (threadId, input) {
@@ -1086,6 +1107,7 @@ export const layer = Layer.effect(
       revealHint,
       submitSolution,
       runCheck,
+      practiceFolder,
       getTutorPrompt,
       setTutorPrompt,
       getKnowledge,

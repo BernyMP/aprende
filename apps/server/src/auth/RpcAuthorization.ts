@@ -17,6 +17,7 @@ import {
   AuthDiagnosticsReadScope,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
+  AuthTerminalOperateScope,
   ORCHESTRATION_V2_WS_METHODS,
   type AuthEnvironmentScope,
   EnvironmentAuthorizationError,
@@ -103,6 +104,8 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.serverSignalProcess]: AuthEnvironmentMaintainScope,
   [WS_METHODS.serverReportClientActivity]: AuthOrchestrationReadScope,
   [WS_METHODS.learningSubscribeThread]: AuthOrchestrationReadScope,
+  // Its output is a shell session, so watching it takes what typing into it does.
+  [WS_METHODS.learningTerminalSubscribe]: AuthTerminalOperateScope,
   [WS_METHODS.learningGetTutorPrompt]: AuthOrchestrationReadScope,
   [WS_METHODS.learningGetKnowledge]: AuthOrchestrationReadScope,
   [WS_METHODS.secretsAnswerRequest]: AuthOrchestrationOperateScope,

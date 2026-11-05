@@ -86,6 +86,11 @@ const RPC_AGGREGATES = {
   [WS_METHODS.learningRevealHint]: "learning",
   [WS_METHODS.learningSubmitSolution]: "learning",
   [WS_METHODS.learningRunCheck]: "learning",
+  [WS_METHODS.learningTerminalOpen]: "learning",
+  [WS_METHODS.learningTerminalWrite]: "learning",
+  [WS_METHODS.learningTerminalResize]: "learning",
+  [WS_METHODS.learningTerminalClose]: "learning",
+  [WS_METHODS.learningTerminalSubscribe]: "learning",
   [WS_METHODS.learningGetTutorPrompt]: "learning",
   [WS_METHODS.learningSetTutorPrompt]: "learning",
   [WS_METHODS.learningGetKnowledge]: "learning",
@@ -138,6 +143,8 @@ const RPC_METHODS_WITH_TRACING_DISABLED: ReadonlySet<string> = new Set([
   WS_METHODS.serverGetProcessDiagnostics,
   WS_METHODS.serverGetProcessResourceHistory,
   WS_METHODS.serverSignalProcess,
+  // One call per keystroke would flood traces.
+  WS_METHODS.learningTerminalWrite,
 ]);
 
 /** Add after RpcScopeAuthorization to wrap authorization and record rejected calls. */

@@ -46,6 +46,12 @@ describe("closedViewStore", () => {
       threadRef: refA,
       surface: { kind: "side-chat", id: "side-chat:x" },
     },
+    {
+      id: "bad",
+      kind: "panel-tab",
+      threadRef: refA,
+      surface: { kind: "practice-terminal", id: "practice-terminal:p", threadId: "t", folder: "f" },
+    },
   ])("discards incomplete saved views %j while retaining valid history", async (entry) => {
     const id = useClosedViewStore.getState().remember(files(refA));
     const { storage, name } = useClosedViewStore.persist.getOptions();
@@ -66,6 +72,17 @@ describe("closedViewStore", () => {
       threadRef: refA,
       surface: { id: "side-chat:side", kind: "side-chat", threadId: ThreadId.make("side") },
     });
+    const terminalId = store.remember({
+      kind: "panel-tab",
+      threadRef: refA,
+      surface: {
+        id: "practice-terminal:prob-1",
+        kind: "practice-terminal",
+        threadId: ThreadId.make("a"),
+        problemId: "prob-1",
+        folder: "practice/two-sum-prob-1",
+      },
+    });
     const publicId = store.remember(files(refA));
     const { storage, name } = useClosedViewStore.persist.getOptions();
     await storage!.setItem(name!, {
@@ -84,6 +101,7 @@ describe("closedViewStore", () => {
     expect(useClosedViewStore.persist.hasHydrated()).toBe(true);
     expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([
       publicId,
+      terminalId,
       sideChatId,
     ]);
   });

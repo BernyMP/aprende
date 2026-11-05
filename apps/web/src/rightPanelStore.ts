@@ -8,7 +8,7 @@ import { resolveStorage } from "./lib/storage";
 import type { ThreadPanelPresentation } from "./rightPanelLayout";
 import type { ChatFileAttachment } from "./types";
 
-const RIGHT_PANEL_KINDS = ["files", "file", "side-chat"] as const;
+const RIGHT_PANEL_KINDS = ["files", "file", "side-chat", "practice-terminal"] as const;
 export type RightPanelKind = (typeof RIGHT_PANEL_KINDS)[number];
 
 export type RightPanelSurface =
@@ -28,7 +28,20 @@ export type RightPanelSurface =
       /** Deepest workspace path retained for navigating back down after moving up. */
       folderTrail?: string;
     }
-  | { id: `side-chat:${string}`; kind: "side-chat"; threadId: ThreadId };
+  | { id: `side-chat:${string}`; kind: "side-chat"; threadId: ThreadId }
+  | {
+      id: `practice-terminal:${string}`;
+      kind: "practice-terminal";
+      /** The problem's thread, which can differ from the panel's when a side chat hosts it. */
+      threadId: ThreadId;
+      problemId: string;
+      folder: string;
+    };
+
+export type PracticeTerminalSurface = Extract<RightPanelSurface, { kind: "practice-terminal" }>;
+
+/** Panels opened by kind alone; the rest need a target. */
+type SingletonPanelKind = Exclude<RightPanelKind, "file" | "side-chat" | "practice-terminal">;
 
 const RIGHT_PANEL_STORAGE_KEY = "aprende:right-panel-state:v2";
 const RIGHT_PANEL_STORAGE_VERSION = 15;
@@ -58,8 +71,12 @@ interface RightPanelStoreState {
   userActionRevisionByThreadKey: Record<string, number>;
   /** Bumped by each user close; closed tabs are remembered for reopening. */
   closeRevisionByThreadKey: Record<string, number>;
-  open: (ref: ScopedThreadRef, kind: Exclude<RightPanelKind, "file" | "side-chat">) => void;
+  open: (ref: ScopedThreadRef, kind: SingletonPanelKind) => void;
   openSideChat: (ref: ScopedThreadRef, threadId: ThreadId) => void;
+  openPracticeTerminal: (
+    ref: ScopedThreadRef,
+    terminal: Omit<PracticeTerminalSurface, "id" | "kind">,
+  ) => void;
   openFile: (ref: ScopedThreadRef, relativePath: string, line?: number) => void;
   /** Moves in place; "" opens the root explorer. folderTrail keeps the return path; keepSource opens beside the source. */
   navigateFolder: (
@@ -83,7 +100,7 @@ interface RightPanelStoreState {
   close: (ref: ScopedThreadRef) => void;
   setMaximized: (ref: ScopedThreadRef, maximized: boolean) => void;
   toggleVisibility: (ref: ScopedThreadRef) => void;
-  toggle: (ref: ScopedThreadRef, kind: Exclude<RightPanelKind, "file" | "side-chat">) => void;
+  toggle: (ref: ScopedThreadRef, kind: SingletonPanelKind) => void;
   setThreadPanelOpen: (
     ref: ScopedThreadRef,
     presentation: ThreadPanelPresentation,
@@ -104,9 +121,7 @@ const DEFAULT_THREAD_PANEL_VISIBILITY: ThreadPanelVisibility = {
   popoverOpen: false,
 };
 
-const singletonSurface = (
-  kind: Exclude<RightPanelKind, "file" | "side-chat">,
-): RightPanelSurface => {
+const singletonSurface = (kind: SingletonPanelKind): RightPanelSurface => {
   switch (kind) {
     case "files":
       return { id: "files", kind };
@@ -408,6 +423,16 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
         set((state) =>
           userAction(state, scopedThreadKey(ref), (current) =>
             upsertSurface(current, { id: `side-chat:${threadId}`, kind: "side-chat", threadId }),
+          ),
+        ),
+      openPracticeTerminal: (ref, terminal) =>
+        set((state) =>
+          userAction(state, scopedThreadKey(ref), (current) =>
+            upsertSurface(current, {
+              id: `practice-terminal:${terminal.problemId}`,
+              kind: "practice-terminal",
+              ...terminal,
+            }),
           ),
         ),
       openFile: (ref, requestedPath, line) =>

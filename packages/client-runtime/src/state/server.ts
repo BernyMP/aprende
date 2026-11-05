@@ -60,6 +60,8 @@ import {
   withoutEnvironmentThemes,
 } from "./serverConfigProjection.ts";
 
+import { applyPracticeTerminalEvent, EMPTY_PRACTICE_TERMINAL } from "./practiceTerminal.ts";
+
 export type { ServerConfigProjection } from "./serverConfigProjection.ts";
 
 export type ServerUpdateStage = "downloading" | "installing" | "resuming";
@@ -1550,6 +1552,39 @@ export function createServerEnvironmentAtoms<R, E>(
     runLearningCheck: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:learning:run-check",
       tag: WS_METHODS.learningRunCheck,
+    }),
+    openPracticeTerminal: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:terminal-open",
+      tag: WS_METHODS.learningTerminalOpen,
+    }),
+    writePracticeTerminal: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:terminal-write",
+      tag: WS_METHODS.learningTerminalWrite,
+    }),
+    resizePracticeTerminal: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:terminal-resize",
+      tag: WS_METHODS.learningTerminalResize,
+      concurrency: {
+        mode: "latest",
+        key: ({ environmentId, input }) =>
+          JSON.stringify([environmentId, input.threadId, input.problemId]),
+      },
+    }),
+    closePracticeTerminal: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:terminal-close",
+      tag: WS_METHODS.learningTerminalClose,
+    }),
+    // Mounted only while a terminal is on screen; reattaching replays the server's scrollback.
+    practiceTerminalOutput: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+      label: "environment-data:learning:terminal-output",
+      tag: WS_METHODS.learningTerminalSubscribe,
+      idleTtlMs: 0,
+      // `scan` emits its seed first; skipping it keeps the terminal "loading" until the snapshot.
+      transform: (events) =>
+        events.pipe(
+          Stream.scan(() => EMPTY_PRACTICE_TERMINAL, applyPracticeTerminalEvent),
+          Stream.filter((view) => view !== EMPTY_PRACTICE_TERMINAL),
+        ),
     }),
     setTutorPrompt: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:learning:set-tutor-prompt",

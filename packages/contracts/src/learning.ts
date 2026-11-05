@@ -290,6 +290,47 @@ export type LearningProblemResult = typeof LearningProblemResult.Type;
 export const LearningRunCheckInput = LearningRevealHintInput;
 export type LearningRunCheckInput = typeof LearningRunCheckInput.Type;
 
+/** Caps on practice terminals: how many run at once, and how much output reopening replays. */
+export const LEARNING_MAX_PRACTICE_TERMINALS = 4;
+export const LEARNING_TERMINAL_SCROLLBACK_CHARS = 256 * 1024;
+/** The most input one terminal write carries; clients split longer input. */
+export const LEARNING_TERMINAL_WRITE_MAX_CHARS = 64 * 1024;
+
+const TerminalSize = {
+  cols: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
+  rows: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
+};
+
+/** A problem's practice terminal, one per problem. */
+export const LearningTerminalTarget = LearningRevealHintInput;
+export type LearningTerminalTarget = typeof LearningTerminalTarget.Type;
+
+export const LearningTerminalOpenInput = Schema.Struct({
+  ...LearningTerminalTarget.fields,
+  ...TerminalSize,
+});
+export type LearningTerminalOpenInput = typeof LearningTerminalOpenInput.Type;
+
+export const LearningTerminalResizeInput = LearningTerminalOpenInput;
+export type LearningTerminalResizeInput = typeof LearningTerminalResizeInput.Type;
+
+export const LearningTerminalWriteInput = Schema.Struct({
+  ...LearningTerminalTarget.fields,
+  data: Schema.String.check(Schema.isMaxLength(LEARNING_TERMINAL_WRITE_MAX_CHARS)),
+});
+export type LearningTerminalWriteInput = typeof LearningTerminalWriteInput.Type;
+
+/**
+ * A practice terminal's output. `snapshot` comes first and replaces what the client shows;
+ * `ended` comes last, with the shell's exit code, or null when it was closed or never open.
+ */
+export const LearningTerminalEvent = Schema.Union([
+  Schema.Struct({ type: Schema.Literal("snapshot"), data: Schema.String }),
+  Schema.Struct({ type: Schema.Literal("output"), data: Schema.String }),
+  Schema.Struct({ type: Schema.Literal("ended"), exitCode: Schema.NullOr(Schema.Int) }),
+]);
+export type LearningTerminalEvent = typeof LearningTerminalEvent.Type;
+
 export const LearningTutorPrompt = Schema.Struct({
   prompt: Schema.String,
   defaultPrompt: Schema.String,

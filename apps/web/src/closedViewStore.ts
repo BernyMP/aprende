@@ -48,6 +48,13 @@ const isClosedViewEntry = (entry: unknown): entry is ClosedViewEntry => {
       );
     case "side-chat":
       return typeof surface.threadId === "string" && surface.id === `side-chat:${surface.threadId}`;
+    case "practice-terminal":
+      return (
+        typeof surface.threadId === "string" &&
+        typeof surface.folder === "string" &&
+        typeof surface.problemId === "string" &&
+        surface.id === `practice-terminal:${surface.problemId}`
+      );
     default:
       return false;
   }
