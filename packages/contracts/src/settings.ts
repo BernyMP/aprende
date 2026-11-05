@@ -18,8 +18,6 @@ import {
   TrimmedString,
 } from "./baseSchemas.ts";
 import { UsageModelFilter } from "./usage.ts";
-import { SecretProviderId, SecretProviderSlug } from "./secretReference.ts";
-import { SettingsSecretValue } from "./settingsSecretValue.ts";
 import { EnvironmentMachineKind } from "./environment.ts";
 import { KeybindingShortcut } from "./keybindings.ts";
 import {
@@ -473,8 +471,6 @@ declare module "effect/Schema" {
     interface Annotations {
       /** Store this credential separately and expose only whether it is configured to clients. */
       readonly settingsSecret?: boolean | undefined;
-      /** Set by `SettingsSecretValue`: the credential may name a secret provider reference. */
-      readonly settingsSecretReference?: boolean | undefined;
       readonly providerSettingsForm?: ProviderSettingsFormAnnotation | undefined;
       readonly providerSettingsFormSchema?: ProviderSettingsFormSchemaAnnotation | undefined;
     }
@@ -658,26 +654,6 @@ export const ClaudeSettings = makeProviderSettingsSchema(
   },
 );
 export type ClaudeSettings = typeof ClaudeSettings.Type;
-
-export const SecretProviderKind = SecretProviderSlug.pipe(Schema.brand("SecretProviderKind"));
-export type SecretProviderKind = typeof SecretProviderKind.Type;
-
-export const SecretProviderLabel = TrimmedNonEmptyString.check(Schema.isMaxLength(64));
-
-/** Kinds decode their own config; unknown-kind envelopes round-trip verbatim across versions. */
-export const SecretProviderConfig = Schema.Struct({
-  kind: SecretProviderKind,
-  label: TrimmedNonEmptyString,
-  config: Schema.optionalKey(Schema.Unknown),
-});
-export type SecretProviderConfig = typeof SecretProviderConfig.Type;
-
-// Limits that may change later are enforced on writes only, never on the stored envelope. The
-// server also checks the kind and its config against the secret providers it has loaded.
-const SecretProviderConfigWrite = Schema.Struct({
-  ...SecretProviderConfig.fields,
-  label: SecretProviderLabel,
-});
 
 export const ObservabilitySettings = Schema.Struct({
   otlpTracesUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
@@ -942,9 +918,6 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
   observability: ObservabilitySettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
-  secretProviders: Schema.Record(SecretProviderId, SecretProviderConfig).pipe(
-    Schema.withDecodingDefault(Effect.succeed({})),
-  ),
 
   usagePriceOverrides: Schema.Record(TrimmedNonEmptyString, UsageModelPriceOverride).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
@@ -1064,7 +1037,6 @@ export const ServerSettingsOperation = Schema.Literals([
   "remove-secret",
   "remove-stale-secret",
   "write-secret",
-  "write-secret-provider",
   "write-file",
   "prepare-directory",
   "write-managed-setting",
@@ -1202,9 +1174,6 @@ export const ServerSettingsPatch = Schema.Struct({
   ),
   // Replace whole maps to avoid half-merged driver configs.
   providerInstances: Schema.optionalKey(Schema.Record(ProviderInstanceId, ProviderInstanceConfig)),
-  secretProviders: Schema.optionalKey(
-    Schema.Record(SecretProviderId, Schema.NullOr(SecretProviderConfigWrite)),
-  ),
 
   usagePriceOverrides: Schema.optionalKey(
     Schema.Record(TrimmedNonEmptyString, Schema.NullOr(UsageModelPriceOverride)),
@@ -1223,7 +1192,7 @@ export function requiredScopesForServerSettingsPatch(
   let changesSettings = false;
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    if (key === "providers" || key === "providerInstances" || key === "secretProviders") {
+    if (key === "providers" || key === "providerInstances") {
       changesProviders = true;
     } else {
       changesSettings = true;

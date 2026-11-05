@@ -53,6 +53,7 @@ const RETIRED_KEYS: ReadonlySet<string> = new Set([
   "reviewGuideInstructions",
   "reviewGuideModelSelection",
   "reviewGuidesEnabled",
+  "secretProviders",
   "sidebarAutoSettleKeepPullRequests",
   "sidebarAutoSettleOnMerge",
   "simlockDeviceHosts",

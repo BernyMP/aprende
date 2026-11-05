@@ -188,7 +188,6 @@ import {
   LearningThreadState,
   LearningTutorPrompt,
 } from "./learning.ts";
-import { SecretRequestAnswerInput, SecretRequestError } from "./secretRequest.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
 
 export const WS_METHODS = {
@@ -275,8 +274,6 @@ export const WS_METHODS = {
   learningSetTutorPrompt: "learning.setTutorPrompt",
   learningGetKnowledge: "learning.getKnowledge",
 
-  secretsAnswerRequest: "secrets.answerRequest",
-
   subscribeServerConfig: "subscribeServerConfig",
   subscribeServerLifecycle: "subscribeServerLifecycle",
   subscribeAuthAccess: "subscribeAuthAccess",
@@ -314,8 +311,6 @@ export const WsServerRefreshProvidersRpc = Rpc.make(WS_METHODS.serverRefreshProv
     fresh: Schema.optional(Schema.Boolean),
     /** Bypass model caches; explicit rediscovery may open sessions, background refreshes must not. */
     refreshModels: Schema.optional(Schema.Boolean),
-    /** Read secret references again; unlocking a vault can prompt on the host, so only explicit user refreshes ask. */
-    reloadSecrets: Schema.optional(Schema.Boolean),
     /**
      * Reply without snapshots, or with only the requested instance's cwd snapshot. Snapshots then
      * reach the client only through these replies, so another client's scan shows on its next
@@ -912,11 +907,6 @@ const WsLearningGetKnowledgeRpc = Rpc.make(WS_METHODS.learningGetKnowledge, {
   error: LearningRpcError,
 });
 
-const WsSecretsAnswerRequestRpc = Rpc.make(WS_METHODS.secretsAnswerRequest, {
-  payload: SecretRequestAnswerInput,
-  error: Schema.Union([SecretRequestError, EnvironmentAuthorizationError]),
-});
-
 const WsSubscribeAuthAccessRpc = Rpc.make(WS_METHODS.subscribeAuthAccess, {
   payload: Schema.Struct({}),
   success: AuthAccessStreamEvent,
@@ -988,7 +978,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsLearningGetTutorPromptRpc,
   WsLearningSetTutorPromptRpc,
   WsLearningGetKnowledgeRpc,
-  WsSecretsAnswerRequestRpc,
   WsServerReportClientActivityRpc,
   WsProjectsListEntriesRpc,
   WsProjectsListIgnoredFilesRpc,

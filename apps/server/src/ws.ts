@@ -27,8 +27,6 @@ import {
   OrchestrationV2SearchThreadError,
   ORCHESTRATION_V2_WS_METHODS,
   ORCHESTRATION_PROTOCOL_QUERY_PARAM,
-  CLIENT_CAPABILITIES_QUERY_PARAM,
-  SETTINGS_SECRET_REFERENCES_CAPABILITY,
   ORCHESTRATION_PROTOCOL_VERSION,
   OrchestrationV2DispatchCommandError,
   OrchestrationV2GetShellSnapshotError,
@@ -86,7 +84,6 @@ import * as ThreadMessageIntake from "./orchestration-v2/ThreadMessageIntake.ts"
 import * as DocumentText from "./provider/DocumentText.ts";
 import * as Learning from "./learning/LearningService.ts";
 import * as PracticeTerminals from "./learning/PracticeTerminalService.ts";
-import * as SecretRequests from "./secrets/SecretRequests.ts";
 import {
   bufferShellLiveStream,
   coalesceShellApplicationEvents,
@@ -610,11 +607,6 @@ function hasCompatibleOrchestrationProtocol(url: URL): boolean {
     url.searchParams.get(ORCHESTRATION_PROTOCOL_QUERY_PARAM) ===
     String(ORCHESTRATION_PROTOCOL_VERSION)
   );
-}
-
-function readSettingsClient(url: URL) {
-  const capabilities = url.searchParams.get(CLIENT_CAPABILITIES_QUERY_PARAM)?.split(",") ?? [];
-  return { secretReferences: capabilities.includes(SETTINGS_SECRET_REFERENCES_CAPABILITY) };
 }
 
 function shouldUseBoundedThreadSnapshot(input: {
@@ -1191,10 +1183,7 @@ export const subscribeOrchestrationV2Shell = Effect.fn("ws.orchestrationV2.subsc
   },
 );
 
-export const layerWsRpc = (
-  currentSession: EnvironmentAuth.AuthenticatedSession,
-  settingsClient: { readonly secretReferences: boolean },
-) =>
+export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession) =>
   Layer.effectContext(
     Effect.gen(function* () {
       const currentSessionId = currentSession.sessionId;
@@ -1222,7 +1211,6 @@ export const layerWsRpc = (
       const commandOutputHub = yield* CommandOutputHub.CommandOutputHub;
       const learning = yield* Learning.LearningService;
       const practiceTerminals = yield* PracticeTerminals.PracticeTerminalService;
-      const secretRequests = yield* SecretRequests.SecretRequests;
 
       const usage = yield* UsageService.UsageService;
 
@@ -1301,7 +1289,6 @@ export const layerWsRpc = (
           : commandProviders;
         const settings = ServerSettings.redactServerSettingsForClient(
           yield* serverSettings.getSettings,
-          settingsClient,
         );
         const environment = yield* serverEnvironment.getDescriptor;
         const auth = yield* serverAuth.getDescriptor();
@@ -1366,8 +1353,6 @@ export const layerWsRpc = (
           threadSnapshotPagination: true,
           threadFind: true,
           threadFindProgressive: true,
-          secretProviderSettings: true,
-          secretReferences: true,
           ...Option.match(scratchWorkspaceRoot, {
             onNone: () => ({}),
             onSome: (root) => ({ scratchWorkspaceRoot: root }),
@@ -1686,10 +1671,6 @@ export const layerWsRpc = (
         [WS_METHODS.learningGetTutorPrompt]: () => learning.getTutorPrompt(),
         [WS_METHODS.learningSetTutorPrompt]: (input) => learning.setTutorPrompt(input),
         [WS_METHODS.learningGetKnowledge]: () => learning.getKnowledge(),
-        [WS_METHODS.secretsAnswerRequest]: (input) =>
-          Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
-            Effect.andThen(secretRequests.answer(input)),
-          ),
         [WS_METHODS.serverProbe]: (_input) => Effect.succeed({}),
         [WS_METHODS.serverGetConfig]: (_input) =>
           loadServerConfig({
@@ -1713,11 +1694,9 @@ export const layerWsRpc = (
                   cwd: input.cwd,
                   fresh: input.fresh === true,
                 })
-              : input.reloadSecrets === true
-                ? providerRegistry.reloadSecretsAndRefresh(input.instanceId)
-                : input.instanceId !== undefined
-                  ? providerRegistry.refreshInstance(input.instanceId)
-                  : providerRegistry.refresh();
+              : input.instanceId !== undefined
+                ? providerRegistry.refreshInstance(input.instanceId)
+                : providerRegistry.refresh();
             if (input.refreshModels) {
               const instances = yield* providerInstances.listInstances;
               for (const instance of instances) {
@@ -1896,7 +1875,7 @@ export const layerWsRpc = (
             const settings = yield* providerInstanceMutation === undefined
               ? serverSettings.updateSettings(patch)
               : serverSettings.updateProviderInstance(providerInstanceMutation, patch);
-            return ServerSettings.redactServerSettingsForClient(settings, settingsClient);
+            return ServerSettings.redactServerSettingsForClient(settings);
           }),
         [WS_METHODS.serverGetTraceDiagnostics]: (_input) =>
           TraceDiagnostics.readTraceDiagnostics({
@@ -2203,9 +2182,7 @@ export const layerWsRpc = (
                     )
                   : Stream.empty;
               const settingsUpdates = settingsChanges.pipe(
-                Stream.map((settings) =>
-                  ServerSettings.redactServerSettingsForClient(settings, settingsClient),
-                ),
+                Stream.map((settings) => ServerSettings.redactServerSettingsForClient(settings)),
                 Stream.map((settings) => ({
                   version: 1 as const,
                   type: "settingsUpdated" as const,
@@ -2363,7 +2340,7 @@ export const layer = Layer.unwrap(
           return httpEffect;
         }).pipe(
           Effect.provide(
-            layerWsRpc(session, readSettingsClient(url.value)).pipe(
+            layerWsRpc(session).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               // Handler-context reporters see only request defects, not server-wide defects.
               Layer.provide(DefectReporter.layer),

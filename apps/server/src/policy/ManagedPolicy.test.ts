@@ -49,6 +49,8 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
             worktreeCleanup: { value: { mode: "off" }, locked: true },
             "storageCleanup.worktreeAfterDays": { value: 7, locked: true },
             defaultAutoPull: { value: true, locked: false },
+            usageLimitSources: { value: {}, locked: true },
+            secretProviders: { value: {}, locked: true },
           },
         }),
       );

@@ -43,8 +43,6 @@ import {
 } from "@aprende/provider-testing/replayTranscript";
 import * as ProviderRegistryMock from "../provider/testUtils/providerRegistryMock.ts";
 import * as ProjectService from "../project/ProjectService.ts";
-import * as SecretRequests from "../secrets/SecretRequests.ts";
-import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as McpHttpServer from "./McpHttpServer.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
 
@@ -150,24 +148,6 @@ const client = McpSchema.McpServerClient.of({
   getClient: Effect.die("unused"),
 });
 
-const layerMemorySecretStore = Layer.sync(ServerSecretStore.ServerSecretStore, () => {
-  const stored = new Map<string, Uint8Array>();
-  return ServerSecretStore.ServerSecretStore.of({
-    get: (name) => Effect.succeed(Option.fromNullishOr(stored.get(name))),
-    set: (name, value) => Effect.sync(() => void stored.set(name, value)),
-    create: (name, value) => Effect.sync(() => void stored.set(name, value)),
-    getOrCreateRandom: (name, bytes) =>
-      Effect.sync(() => {
-        const existing = stored.get(name);
-        if (existing) return existing;
-        const value = new Uint8Array(bytes).fill(7);
-        stored.set(name, value);
-        return value;
-      }),
-    remove: (name) => Effect.sync(() => void stored.delete(name)),
-  });
-});
-
 describe("orchestrator MCP toolkit", () => {
   it.live.each([
     { label: "distinct", result: queuedFollowupResult, latestSummary: queuedFollowupResult },
@@ -218,12 +198,6 @@ describe("orchestrator MCP toolkit", () => {
           Layer.provide(layerProviderRegistry),
           Layer.provide(ServerSettings.layerTest()),
           Layer.provide(Layer.mock(ProjectService.ProjectService)({})),
-          Layer.provideMerge(
-            SecretRequests.layer.pipe(
-              Layer.provide(layerMemorySecretStore),
-              Layer.provide(layerOrchestration),
-            ),
-          ),
           Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
         );
 

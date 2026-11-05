@@ -83,14 +83,6 @@ export const runQueueWait = Metric.timer("t3_run_queue_wait", {
   description: "Time a run waited between being requested and starting.",
 });
 
-export const secretRequestsTotal = Metric.counter("t3_secret_requests_total", {
-  description: "Secrets agents asked users for, by how each request ended.",
-});
-
-export const secretRefsConsumedTotal = Metric.counter("t3_secret_refs_consumed_total", {
-  description: "Secret refs tools tried to use, by result.",
-});
-
 export const metricAttributes = (
   attributes: Readonly<Record<string, unknown>>,
 ): ReadonlyArray<[string, string]> => Object.entries(compactMetricAttributes(attributes));

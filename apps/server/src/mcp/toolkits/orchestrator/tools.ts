@@ -7,8 +7,6 @@ import {
   OrchestratorMcpDelegateTaskInput,
   OrchestratorMcpDelegateTaskResult,
   OrchestratorMcpEnvironmentTarget,
-  OrchestratorMcpRequestSecretInput,
-  OrchestratorMcpRequestSecretResult,
   OrchestratorMcpFailure,
   OrchestratorMcpTaskCancelInput,
   OrchestratorMcpTaskCancelResult,
@@ -134,20 +132,6 @@ const BackgroundWaitTool = Tool.make("t3_background_wait", {
   dependencies,
 }).annotate(Tool.Title, "Wait on background work");
 
-const RequestSecretTool = Tool.make("request_secret", {
-  description:
-    'Ask for a secret in a private card and wait; open it, don\'t offer it. Returns a one-use `secretRef`, or with `delivery: "file"` a file to read only in its command, e.g. `adb pair <ip:port> "$(cat <file>)"`. Asked how to give one: call now. Pasted secret for child or script: `value`. Not one from an old thread.',
-  parameters: OrchestratorMcpRequestSecretInput,
-  success: OrchestratorMcpRequestSecretResult,
-  failure: OrchestratorMcpFailure,
-  failureMode: "return",
-  dependencies,
-})
-  .annotate(Tool.Title, "Request a secret from the user")
-  .annotate(Tool.Destructive, false)
-  // Claude Code defers MCP tools behind ToolSearch; agents that never load this one ask in chat.
-  .annotate(Tool.Meta, { "anthropic/alwaysLoad": true });
-
 const CreateThreadsTool = Tool.make("create_threads", {
   description:
     "Create new top-level threads in this checkout. Not delegation. One thread or its own worktree: `t3_thread_launch`. Project, branch, and worktree inherit.",
@@ -253,7 +237,6 @@ export const OrchestratorToolkit = Toolkit.make(
   TaskCancelTool,
   WorkflowStopTool,
   BackgroundWaitTool,
-  RequestSecretTool,
   CreateThreadsTool,
   ThreadListTool,
   ThreadReadTool,

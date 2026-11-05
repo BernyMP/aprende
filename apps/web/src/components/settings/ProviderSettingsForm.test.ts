@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import {
-  makeProviderSettingsSchema,
-  ProviderDriverKind,
-  SettingsSecretValue,
-  TrimmedString,
-} from "@aprende/contracts";
+import { makeProviderSettingsSchema, ProviderDriverKind, TrimmedString } from "@aprende/contracts";
 import * as Schema from "effect/Schema";
 
 import { providerClients } from "./providerDriverMeta";
@@ -16,21 +11,19 @@ import {
 } from "./ProviderSettingsForm";
 
 describe("ProviderSettingsForm helpers", () => {
-  it("keeps every masked field as a stored secret and offers a reference only where typed so", () => {
+  it("keeps every masked field as a stored secret", () => {
     const settingsSchema = makeProviderSettingsSchema({
       token: TrimmedString.pipe(
         Schema.annotateKey({ providerSettingsForm: { control: "password" } }),
       ),
-      apiKey: SettingsSecretValue,
+      label: TrimmedString,
     });
 
     expect(
-      deriveProviderSettingsFields({ settingsSchema }).map(
-        ({ key, secret, acceptsSecretReference }) => ({ key, secret, acceptsSecretReference }),
-      ),
+      deriveProviderSettingsFields({ settingsSchema }).map(({ key, secret }) => ({ key, secret })),
     ).toEqual([
-      { key: "token", secret: true, acceptsSecretReference: undefined },
-      { key: "apiKey", secret: true, acceptsSecretReference: true },
+      { key: "token", secret: true },
+      { key: "label", secret: undefined },
     ]);
   });
 

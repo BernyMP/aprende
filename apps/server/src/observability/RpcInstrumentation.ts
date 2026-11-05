@@ -81,7 +81,6 @@ const RPC_AGGREGATES = {
   [WS_METHODS.learningGetTutorPrompt]: "learning",
   [WS_METHODS.learningSetTutorPrompt]: "learning",
   [WS_METHODS.learningGetKnowledge]: "learning",
-  [WS_METHODS.secretsAnswerRequest]: "secrets",
   [WS_METHODS.projectsListEntries]: "workspace",
   [WS_METHODS.projectsListIgnoredFiles]: "workspace",
   [WS_METHODS.projectsReadFile]: "workspace",

@@ -396,7 +396,6 @@ export function AddProviderInstanceDialog({
                   managed={
                     driverLocks && { keys: driverLocks.configKeys, reason: driverLocks.reason }
                   }
-                  environmentId={environmentId}
                 />
               </SettingsGroup>
             ) : wizardStep === 2 ? (

@@ -1,4 +1,3 @@
-import * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
@@ -66,7 +65,6 @@ import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolve
 import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
 import * as Learning from "./learning/LearningService.ts";
 import * as PracticeTerminals from "./learning/PracticeTerminalService.ts";
-import * as SecretRequests from "./secrets/SecretRequests.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
@@ -658,8 +656,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(ResourceTelemetry.ResourceTelemetry)({}),
   Layer.mock(Learning.LearningService)({}),
   Layer.mock(PracticeTerminals.PracticeTerminalService)({}),
-  Layer.mock(SecretRequests.SecretRequests)({}),
-  Layer.mock(SecretResolver.SecretResolver)({}),
   Layer.mock(ServerLifecycleEvents.ServerLifecycleEvents)({}),
   Layer.mock(ServerRuntimeStartup.ServerRuntimeStartup)({}),
   Layer.mock(ServerSelfUpdate.ServerSelfUpdate)({}),
@@ -819,15 +815,12 @@ it.effect.each([
         },
       ).pipe(
         Effect.provide(
-          layerWsRpc(
-            {
-              sessionId: AuthSessionId.make("config-test"),
-              subject: "config-test",
-              method: "browser-session-cookie",
-              scopes: [],
-            },
-            { secretReferences: true },
-          ).pipe(Layer.provide(configRpcServices)),
+          layerWsRpc({
+            sessionId: AuthSessionId.make("config-test"),
+            subject: "config-test",
+            method: "browser-session-cookie",
+            scopes: [],
+          }).pipe(Layer.provide(configRpcServices)),
         ),
       );
       const requestId = RpcMessage.RequestId("config");
@@ -872,7 +865,7 @@ it.effect.each([
         command: "terminal.split",
       });
       const expectedSettings = [duringDiscovery, latestSettings].map((value) =>
-        ServerSettings.redactServerSettingsForClient(value, { secretReferences: true }),
+        ServerSettings.redactServerSettingsForClient(value),
       );
       const expectedKeybindings = [duringAck.keybindings, latestKeybindings.keybindings];
       // The two sources can interleave, but each must retain its own publication order.
@@ -900,7 +893,7 @@ it.effect.each([
         assert.deepEqual(resolved.config.remoteOpenTargets, targets);
         assert.deepEqual(
           resolved.config.settings,
-          ServerSettings.redactServerSettingsForClient(latestSettings, { secretReferences: true }),
+          ServerSettings.redactServerSettingsForClient(latestSettings),
         );
         assert.deepEqual(resolved.config.keybindings, latestKeybindings.keybindings);
         yield* acknowledge;
@@ -915,9 +908,7 @@ it.effect.each([
           assert.deepEqual(resolved.config.directEndpoints, endpoints);
           assert.deepEqual(
             resolved.config.settings,
-            ServerSettings.redactServerSettingsForClient(latestSettings, {
-              secretReferences: true,
-            }),
+            ServerSettings.redactServerSettingsForClient(latestSettings),
           );
           assert.deepEqual(resolved.config.keybindings, latestKeybindings.keybindings);
           yield* acknowledge;
@@ -1023,15 +1014,12 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
       },
     ).pipe(
       Effect.provide(
-        layerWsRpc(
-          {
-            sessionId: AuthSessionId.make("config-test"),
-            subject: "config-test",
-            method: "browser-session-cookie",
-            scopes: [],
-          },
-          { secretReferences: true },
-        ).pipe(Layer.provide(configRpcServices)),
+        layerWsRpc({
+          sessionId: AuthSessionId.make("config-test"),
+          subject: "config-test",
+          method: "browser-session-cookie",
+          scopes: [],
+        }).pipe(Layer.provide(configRpcServices)),
       ),
     );
     const configRequest = RpcMessage.RequestId("config");

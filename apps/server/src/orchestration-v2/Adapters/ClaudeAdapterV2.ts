@@ -1964,7 +1964,6 @@ export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__create_threads",
   "mcp__aprende__delegate_task",
   "mcp__aprende__orchestrator_capabilities",
-  "mcp__aprende__request_secret",
   "mcp__aprende__t3_attachment_discard",
   "mcp__aprende__t3_attachment_prepare_upload",
   "mcp__aprende__t3_background_wait",

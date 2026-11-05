@@ -290,7 +290,6 @@ export function applyServerSettingsPatch(
     backgroundActivityProfile,
     backgroundActivity,
     // Merged per entry below; its `null` removals must not reach deepMerge.
-    secretProviders: secretProvidersPatch,
     usagePriceOverrides: usagePriceOverridesPatch,
     usageModelAliases: usageModelAliasesPatch,
     // Entry replacement: deepMerge would keep keys the client meant to clear.
@@ -421,9 +420,6 @@ export function applyServerSettingsPatch(
       : {}),
     ...(patch.defaultProjectScripts !== undefined
       ? { defaultProjectScripts: patch.defaultProjectScripts }
-      : {}),
-    ...(secretProvidersPatch !== undefined
-      ? { secretProviders: mergeSettingsEntries(current.secretProviders, secretProvidersPatch) }
       : {}),
     ...(usagePriceOverridesPatch !== undefined
       ? {

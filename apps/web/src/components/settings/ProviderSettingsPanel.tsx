@@ -93,7 +93,6 @@ import { useManagedPolicy } from "~/state/managedPolicy";
 import { ExpandableText } from "./ExpandableText";
 import { IntervalSecondsField } from "./IntervalSecondsField";
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
-import { useSecretSources } from "./SecretSourceInput";
 import { ProviderAuthenticationSection } from "./ProviderAuthenticationSection";
 import { CodexSetupSection, CodexManagedRuntimeFields } from "./CodexSetupSection";
 import { readCodexSetupMode } from "./CodexSetupSection.logic";
@@ -578,7 +577,7 @@ export function EnvironmentProviderSettings({
     void (async () => {
       const result = await refreshServerProviders({
         environmentId,
-        input: { refreshModels: true, reloadSecrets: true },
+        input: { refreshModels: true },
       });
       refreshingRef.current = false;
       setIsRefreshingProviders(false);
@@ -1146,7 +1145,6 @@ function ProviderInstanceRow({
   readonly favorites: UnifiedSettings["favorites"];
   readonly actions: ProviderInstanceRowActions;
 }) {
-  const secretSources = useSecretSources(environmentId);
   const instance = explicitInstance ?? { driver };
   const driverOption = providerClients.get(driver);
   const updateCandidate =
@@ -1181,7 +1179,6 @@ function ProviderInstanceRow({
   return (
     <ProviderInstanceCard
       environmentId={environmentId}
-      secretSources={secretSources}
       projectOverride={projectOverride}
       instanceId={instanceId}
       instance={instance}

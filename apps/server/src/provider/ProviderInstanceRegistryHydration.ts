@@ -9,7 +9,6 @@ import {
 } from "@aprende/contracts";
 import { LOCAL_ACP_DRIVER } from "@aprende/provider-acp/server/localAgent";
 import * as HostProcess from "@aprende/shared/HostProcess";
-import type * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -18,7 +17,6 @@ import * as Stream from "effect/Stream";
 
 import * as ManagedProviders from "../policy/managedProviders.ts";
 import * as Settings from "../serverSettings.ts";
-import * as SecretResolver from "../secrets/SecretResolver.ts";
 import { BUILT_IN_DRIVERS, type BuiltInDriversEnv } from "./builtInDrivers.ts";
 import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
 import * as ProviderInstanceRegistryMutator from "./ProviderInstanceRegistryMutator.ts";
@@ -38,9 +36,7 @@ type ProviderInstanceRegistryHydrationEnv =
   | BackgroundPolicy.BackgroundPolicy
   | ServerConfig.ServerConfig
   | Path.Path
-  | FileSystem.FileSystem
-  // Secret provider reads.
-  | SecureRandom.SecureRandom;
+  | FileSystem.FileSystem;
 
 export const deriveProviderInstanceConfigMap = (
   settings: ServerSettings,
@@ -177,7 +173,6 @@ export const layer: Layer.Layer<
       Layer.provide(ProviderOrchestrationAdapterInfrastructure.layer),
       Layer.provide(ProviderHostLive.layer),
       Layer.provide(Layer.succeed(HostProcess.Environment, hostEnvironment)),
-      Layer.provide(SecretResolver.layer),
     );
 
     return layerSettingsWatcher(settingsChanges).pipe(Layer.provideMerge(layerMutable));

@@ -43,7 +43,6 @@ import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderS
 import * as ProviderHostLive from "./provider/ProviderHostLive.ts";
 import * as DocumentText from "./provider/DocumentText.ts";
 import * as TextGeneration from "./textGeneration/TextGeneration.ts";
-import * as SecretResolver from "./secrets/SecretResolver.ts";
 import * as ProviderInstanceRegistryHydration from "./provider/ProviderInstanceRegistryHydration.ts";
 import * as ProjectSettingsOverrideSweep from "./provider/ProjectSettingsOverrideSweep.ts";
 import * as McpHttpServer from "./mcp/McpHttpServer.ts";
@@ -345,7 +344,6 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   Layer.provideMerge(layerOrchestrationV2Runtime),
   Layer.provideMerge(RuntimeLayer.layerEventInfrastructure),
   Layer.provideMerge(Layer.merge(ProjectStore.layer, ThreadSearch.layer)),
-  Layer.provideMerge(SecretResolver.layer),
   Layer.provideMerge(layerServerSettings),
   Layer.provideMerge(TextGeneration.layer),
   Layer.provideMerge(layerKnownWorkspaces),
