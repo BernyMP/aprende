@@ -26,7 +26,8 @@ import { isExplicitRelativePath, isWindowsAbsolutePath } from "@aprende/shared/p
 import { normalizeSearchQuery } from "@aprende/shared/searchRanking";
 
 import { expandHomePath } from "@aprende/provider-core/server/pathExpansion";
-import * as VcsProcess from "../vcs/VcsProcess.ts";
+import * as ProcessRunner from "../processRunner.ts";
+import { runGitQuery } from "./gitQuery.ts";
 import * as WorkspacePaths from "./WorkspacePaths.ts";
 import * as WorkspaceSearchIndex from "./WorkspaceSearchIndex.ts";
 
@@ -157,7 +158,9 @@ export const make = Effect.gen(function* () {
   const path = yield* Path.Path;
   const workspacePaths = yield* WorkspacePaths.WorkspacePaths;
   const workspaceSearchIndexes = yield* WorkspaceSearchIndex.WorkspaceSearchIndexMap;
-  const vcsProcess = yield* VcsProcess.VcsProcess;
+  const processRunner = yield* ProcessRunner.ProcessRunner;
+  const gitQuery = (input: Parameters<typeof runGitQuery>[0]) =>
+    runGitQuery(input).pipe(Effect.provideService(ProcessRunner.ProcessRunner, processRunner));
 
   const normalizeWorkspaceRoot = Effect.fn("WorkspaceEntries.normalizeWorkspaceRoot")(function* (
     cwd: string,
@@ -413,18 +416,13 @@ export const make = Effect.gen(function* () {
         let gitPrefix = "";
         // stdin avoids argument limits; ignore classification is optional without git/repositories.
         const checkIgnore = (paths: ReadonlyArray<string>) =>
-          vcsProcess
-            .run({
-              operation: "WorkspaceEntries.list",
-              command: "git",
-              args: ["-c", "core.fsmonitor=false", "check-ignore", "-z", "--stdin"],
-              cwd: path.join(normalizedCwd, gitRoot),
-              stdin: `${paths.map((entryPath) => entryPath.slice(gitPrefix.length)).join("\0")}\0`,
-              allowNonZeroExit: true,
-              timeoutMs: 10_000,
-              maxOutputBytes: 16 * 1024 * 1024,
-            })
-            .pipe(Effect.orElseSucceed(() => undefined));
+          gitQuery({
+            args: ["-c", "core.fsmonitor=false", "check-ignore", "-z", "--stdin"],
+            cwd: path.join(normalizedCwd, gitRoot),
+            stdin: `${paths.map((entryPath) => entryPath.slice(gitPrefix.length)).join("\0")}\0`,
+            timeoutMs: 10_000,
+            maxOutputBytes: 16 * 1024 * 1024,
+          });
         // Git refuses paths inside a submodule (128) but still answers for nested clones.
         for (const nestedGitRoot of nestedGitRoots) {
           if ((yield* checkIgnore([`${nestedGitRoot}/.git`]))?.exitCode !== 128) continue;
@@ -480,27 +478,22 @@ export const make = Effect.gen(function* () {
     const normalizedCwd = yield* normalizeWorkspaceRoot(input.cwd);
     // `--directory` reports a folder holding nothing but ignored files as one
     // `name/` entry, which is how `node_modules` and build output drop out.
-    const result = yield* vcsProcess
-      .run({
-        operation: "WorkspaceEntries.listIgnoredFiles",
-        command: "git",
-        args: [
-          "-c",
-          "core.fsmonitor=false",
-          "ls-files",
-          "--others",
-          "--ignored",
-          "--exclude-standard",
-          "--directory",
-          "--no-empty-directory",
-          "-z",
-        ],
-        cwd: normalizedCwd,
-        allowNonZeroExit: true,
-        timeoutMs: 10_000,
-        maxOutputBytes: 4 * 1024 * 1024,
-      })
-      .pipe(Effect.orElseSucceed(() => undefined));
+    const result = yield* gitQuery({
+      args: [
+        "-c",
+        "core.fsmonitor=false",
+        "ls-files",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "--directory",
+        "--no-empty-directory",
+        "-z",
+      ],
+      cwd: normalizedCwd,
+      timeoutMs: 10_000,
+      maxOutputBytes: 4 * 1024 * 1024,
+    });
     if (!result || result.exitCode !== 0) return { files: [], truncated: false };
     const paths = result.stdout
       .split("\0")
@@ -528,5 +521,5 @@ export const make = Effect.gen(function* () {
 
 export const layer = Layer.effect(WorkspaceEntries, make).pipe(
   Layer.provide(WorkspaceSearchIndex.WorkspaceSearchIndexMap.layer),
-  Layer.provide(VcsProcess.layer),
+  Layer.provide(ProcessRunner.layer),
 );

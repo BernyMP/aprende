@@ -4,7 +4,6 @@ import {
   type OrchestrationV2ThreadDetailSnapshot,
   type ServerConfig,
   type ThreadId,
-  type VcsListRefsResult,
 } from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -31,10 +30,6 @@ export class ConnectionPersistenceError extends Schema.TaggedError<ConnectionPer
       "remove-thread",
       "load-server-config",
       "save-server-config",
-      "load-vcs-refs",
-      "save-vcs-refs",
-      "remove-vcs-refs",
-      "clear-vcs-refs",
       "clear-environment",
     ]),
     message: Schema.String,
@@ -107,30 +102,6 @@ export class EnvironmentCacheStore extends Context.Service<
     readonly saveServerConfig: (
       environmentId: EnvironmentId,
       config: ServerConfig,
-    ) => Effect.Effect<void, ConnectionPersistenceError>;
-    /**
-     * Query-specific lists are not cached because they are incomplete and unsafe
-     * to present as a full picker.
-     */
-    readonly loadVcsRefs: (
-      environmentId: EnvironmentId,
-      cwd: string,
-    ) => Effect.Effect<Option.Option<VcsListRefsResult>, ConnectionPersistenceError>;
-    readonly saveVcsRefs: (
-      environmentId: EnvironmentId,
-      cwd: string,
-      refs: VcsListRefsResult,
-    ) => Effect.Effect<void, ConnectionPersistenceError>;
-    readonly removeVcsRefs: (
-      environmentId: EnvironmentId,
-      cwd: string,
-    ) => Effect.Effect<void, ConnectionPersistenceError>;
-    /**
-     * Git ref mutations are repository-wide, and linked worktrees may have
-     * cached the same refs under different working-directory keys.
-     */
-    readonly clearVcsRefs: (
-      environmentId: EnvironmentId,
     ) => Effect.Effect<void, ConnectionPersistenceError>;
     readonly clear: (
       environmentId: EnvironmentId,

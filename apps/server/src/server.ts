@@ -43,8 +43,6 @@ import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderS
 import * as ProviderHostLive from "./provider/ProviderHostLive.ts";
 import * as DocumentText from "./provider/DocumentText.ts";
 import * as AcpRegistrySupport from "@aprende/provider-acp-registry/server/AcpRegistrySupport";
-import * as CheckpointDiffQuery from "./checkpointing/CheckpointDiffQuery.ts";
-import * as CheckpointStore from "./checkpointing/CheckpointStore.ts";
 import * as TextGeneration from "./textGeneration/TextGeneration.ts";
 import * as SecretResolver from "./secrets/SecretResolver.ts";
 import * as ProviderInstanceRegistryHydration from "./provider/ProviderInstanceRegistryHydration.ts";
@@ -75,13 +73,6 @@ import * as WorkspaceEntries from "./workspace/WorkspaceEntries.ts";
 import * as KnownWorkspaces from "./workspace/KnownWorkspaces.ts";
 import * as WorkspaceFileSystem from "./workspace/WorkspaceFileSystem.ts";
 import * as WorkspacePaths from "./workspace/WorkspacePaths.ts";
-import * as GitVcsDriver from "./vcs/GitVcsDriver.ts";
-import * as VcsDriverRegistry from "./vcs/VcsDriverRegistry.ts";
-import * as VcsProjectConfig from "./vcs/VcsProjectConfig.ts";
-import * as VcsProcess from "./vcs/VcsProcess.ts";
-import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
-import * as VcsStatusBroadcaster from "./vcs/VcsStatusBroadcaster.ts";
-import * as GitWorkflowService from "./git/GitWorkflowService.ts";
 import * as Observability from "./observability/Observability.ts";
 import * as HeapSnapshot from "./observability/HeapSnapshot.ts";
 import * as EventLoopMonitor from "./observability/EventLoopMonitor.ts";
@@ -264,47 +255,9 @@ const layerPlatformServices = DocumentText.layer.pipe(
 
 const layerPersistence = Layer.empty.pipe(Layer.provideMerge(SqlitePersistence.layerConfig));
 
-const layerVcsDriverRegistry = VcsDriverRegistry.layer.pipe(Layer.provide(VcsProjectConfig.layer));
-
 const layerRepositoryIdentityResolver = RepositoryIdentityResolver.layer;
 
-const layerGit = Layer.empty.pipe(
-  Layer.provideMerge(TextGeneration.layer),
-  Layer.provideMerge(GitVcsDriver.layer),
-);
-
-const layerGitWorkflow = GitWorkflowService.layer.pipe(
-  Layer.provideMerge(layerVcsDriverRegistry),
-  Layer.provideMerge(layerGit),
-);
-
-const layerKnownWorkspaces = KnownWorkspaces.layer.pipe(
-  Layer.provide(ProjectStore.layer),
-  Layer.provide(GitVcsDriver.layer),
-);
-
-const layerVcs = Layer.empty.pipe(
-  Layer.provideMerge(VcsProjectConfig.layer),
-  Layer.provideMerge(layerVcsDriverRegistry),
-  Layer.provideMerge(VcsProvisioningService.layer.pipe(Layer.provide(layerVcsDriverRegistry))),
-  Layer.provideMerge(layerGitWorkflow),
-  Layer.provideMerge(layerKnownWorkspaces),
-  Layer.provideMerge(GitVcsDriver.layer),
-  Layer.provideMerge(
-    VcsStatusBroadcaster.layer.pipe(
-      Layer.provide(layerGitWorkflow),
-      Layer.provide(VcsStatusBroadcaster.layerAutomaticFetchInterval),
-      // The orchestration runtime also consumes the broadcaster (run
-      // finalization), so the policy cannot read the store from the runtime's
-      // output.
-      Layer.provide(
-        VcsStatusBroadcaster.layerAutoPullPolicy.pipe(Layer.provide(ProjectStore.layer)),
-      ),
-    ),
-  ),
-);
-
-const layerCheckpointStore = CheckpointStore.layer.pipe(Layer.provide(layerVcsDriverRegistry));
+const layerKnownWorkspaces = KnownWorkspaces.layer.pipe(Layer.provide(ProjectStore.layer));
 
 const layerWorkspaceEntries = WorkspaceEntries.layer.pipe(Layer.provide(WorkspacePaths.layer));
 
@@ -334,19 +287,12 @@ const layerAuth = EnvironmentAuth.layer.pipe(
 );
 
 const layerOrchestrationV2Runtime = RuntimeLayer.layerProduction.pipe(
-  Layer.provide(layerCheckpointStore),
-  Layer.provide(layerGitWorkflow),
   Layer.provide(
     RunFinalizationService.layerObserver.pipe(
       Layer.provide(ProjectionStoreV2.layer),
       Layer.provide(RuntimeLayer.layerProjectService),
     ),
   ),
-);
-
-const layerOrchestrationApplication = CheckpointDiffQuery.layer.pipe(
-  Layer.provideMerge(layerCheckpointStore),
-  Layer.provideMerge(layerOrchestrationV2Runtime),
 );
 
 const layerThreadSettlementWorker = Layer.effectDiscard(
@@ -384,7 +330,7 @@ const layerProviderInstallationRefresh = Layer.effectDiscard(
 const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   layerThreadSettlementWorker,
   layerIdleCompactionWorker,
-  StorageCleanup.layer.pipe(Layer.provide(ProjectionStoreV2.layer)),
+  StorageCleanup.layer,
   DatabaseStorage.layer.pipe(Layer.provide(ProjectionMaintenance.layer)),
   Layer.effectDiscard(
     Effect.gen(function* () {
@@ -398,13 +344,13 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   Layer.effectDiscard(ProjectSettingsOverrideSweep.sweep),
   PracticeTerminals.layer,
 ).pipe(
-  Layer.provideMerge(layerOrchestrationApplication),
+  Layer.provideMerge(layerOrchestrationV2Runtime),
   Layer.provideMerge(RuntimeLayer.layerEventInfrastructure),
   Layer.provideMerge(Layer.merge(ProjectStore.layer, ThreadSearch.layer)),
   Layer.provideMerge(SecretResolver.layer),
   Layer.provideMerge(layerServerSettings),
-  Layer.provideMerge(layerGit),
-  Layer.provideMerge(layerVcs),
+  Layer.provideMerge(TextGeneration.layer),
+  Layer.provideMerge(layerKnownWorkspaces),
   Layer.provideMerge(layerPersistence),
   Layer.provideMerge(
     Layer.mergeAll(Keybindings.layer, EnvironmentTheme.layer, UsageLimitSources.layer),
@@ -663,7 +609,6 @@ const layerMakeServer = Layer.unwrap(
       Layer.provideMerge(layerHttpServer),
       Layer.provide(layerApplicationObservability),
       Layer.provideMerge(FetchHttpClient.layer),
-      Layer.provide(VcsProcess.layer),
       Layer.provideMerge(AgentScopeLive.layer),
       Layer.provideMerge(layerPlatformServices),
     );

@@ -41,14 +41,12 @@ import * as AcpRegistrySupport from "@aprende/provider-acp-registry/server/AcpRe
 import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
 import * as AgentSessionScanner from "./project/AgentSessionScanner.ts";
 import * as BackgroundPolicy from "./background/BackgroundPolicy.ts";
-import * as CheckpointDiffQuery from "./checkpointing/CheckpointDiffQuery.ts";
 import * as CommandOutputHub from "./orchestration-v2/CommandOutputHub.ts";
 import * as CodexInstallation from "./provider/CodexInstallation.ts";
 import * as DocumentText from "./provider/DocumentText.ts";
 import * as DirectEndpoints from "./environment/DirectEndpoints.ts";
 import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
 import * as EnvironmentTheme from "./environmentTheme.ts";
-import * as GitWorkflowService from "./git/GitWorkflowService.ts";
 import * as HostResources from "./resourceTelemetry/HostResources.ts";
 import * as ManagedProjectFolders from "./project/ManagedProjectFolders.ts";
 import * as ScratchThreadPromotion from "./project/ScratchThreadPromotion.ts";
@@ -83,8 +81,6 @@ import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts"
 import * as ThreadSearch from "./orchestration-v2/ThreadSearch.ts";
 import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as UsageService from "./usage/UsageService.ts";
-import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
-import * as VcsStatusBroadcaster from "./vcs/VcsStatusBroadcaster.ts";
 import * as WorkspaceEntries from "./workspace/WorkspaceEntries.ts";
 import * as WorkspaceFileSystem from "./workspace/WorkspaceFileSystem.ts";
 import * as ProjectFaviconResolver from "./project/ProjectFaviconResolver.ts";
@@ -644,11 +640,9 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(AgentSessionImporter.AgentSessionImporter)({}),
   Layer.mock(AgentSessionScanner.AgentSessionScanner)({}),
   Layer.mock(BackgroundPolicy.BackgroundPolicy)({}),
-  Layer.mock(CheckpointDiffQuery.CheckpointDiffQuery)({}),
   Layer.mock(CommandOutputHub.CommandOutputHub)({}),
   Layer.mock(CodexInstallation.CodexInstallation)({ managedDirectory: "/unused" }),
   Layer.mock(EnvironmentTheme.EnvironmentThemeService)({}),
-  Layer.mock(GitWorkflowService.GitWorkflowService)({}),
   Layer.mock(HostResources.HostResources)({}),
   Layer.mock(McpAppRequests.McpAppRequests)({}),
   Layer.mock(ModelManifest.ModelManifest)({}),
@@ -682,8 +676,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(ThreadManagement.ThreadManagementService)({}),
   Layer.mock(ThreadSearch.ThreadSearch)({}),
   Layer.mock(UsageService.UsageService)({}),
-  Layer.mock(VcsProvisioningService.VcsProvisioningService)({}),
-  Layer.mock(VcsStatusBroadcaster.VcsStatusBroadcaster)({}),
   Layer.mock(WorkspaceEntries.WorkspaceEntries)({}),
   Layer.mock(WorkspaceFileSystem.WorkspaceFileSystem)({}),
 );
@@ -856,7 +848,7 @@ it.effect.each([
       yield* Deferred.await(discoveryStarted);
       assert.isTrue(yield* Deferred.isDone(remoteDiscoveryStarted));
 
-      const duringDiscovery = yield* settings.updateSettings({ defaultAutoPull: true });
+      const duringDiscovery = yield* settings.updateSettings({ hideTaggedThreads: true });
       yield* Deferred.succeed(finishDiscovery, undefined);
       const snapshot = yield* Queue.take(responses);
       assert.equal(snapshot.type, "snapshot");
@@ -869,7 +861,7 @@ it.effect.each([
         snapshot.config.directEndpoints,
         discovery === "direct-cached" ? endpoints : bound,
       );
-      assert.isFalse(snapshot.config.settings.defaultAutoPull);
+      assert.isFalse(snapshot.config.settings.hideTaggedThreads);
       assert.deepEqual(snapshot.config.keybindings, initialKeybindings);
       const duringAck = yield* keybindings.upsertKeybindingRule({
         key: "mod+alt+y",
@@ -938,7 +930,7 @@ it.effect.each([
         } else if (discovery === "direct-failed") {
           yield* Deferred.succeed(finishDirect, undefined);
           yield* Deferred.await(directStopped);
-          yield* settings.updateSettings({ defaultAutoPull: false });
+          yield* settings.updateSettings({ hideTaggedThreads: false });
           const event = yield* Queue.take(responses);
           assert.equal(event.type, "settingsUpdated");
           yield* acknowledge;

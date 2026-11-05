@@ -36,13 +36,6 @@ export interface ChatThreadActionContext {
   readonly handleNewThread: NewThreadHandler;
 }
 
-export function resolveNewDraftStartFromOrigin(input: {
-  envMode: DraftThreadEnvMode;
-  newWorktreesStartFromOrigin: boolean;
-}): boolean {
-  return input.envMode === "worktree" && input.newWorktreesStartFromOrigin;
-}
-
 export function resolveNewThreadModelSelectionOverride(input: {
   readonly projectDefaultSelection: ModelSelection | null;
   readonly carrySelection: ModelSelection | null;

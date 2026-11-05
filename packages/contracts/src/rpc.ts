@@ -102,30 +102,6 @@ import {
   PersistChatAttachmentsInput,
   PersistChatAttachmentsResult,
 } from "./chatAttachment.ts";
-import {
-  OrchestrationGetFullThreadDiffError,
-  OrchestrationGetTurnDiffError,
-} from "./checkpointDiff.ts";
-import {
-  VcsSwitchRefInput,
-  VcsSwitchRefResult,
-  GitCommandError,
-  GitManagerServiceError,
-  VcsCreateRefInput,
-  VcsCreateRefResult,
-  VcsCreateWorktreeInput,
-  VcsCreateWorktreeResult,
-  VcsInitInput,
-  VcsListRefsInput,
-  VcsListRefsResult,
-  VcsPullInput,
-  VcsPullResult,
-  VcsRemoveWorktreeInput,
-  VcsStatusInput,
-  VcsStatusSubscriptionInput,
-  VcsStatusResult,
-  VcsStatusStreamEvent,
-} from "./git.ts";
 import { KeybindingsConfigError } from "./keybindings.ts";
 import { OrchestrationSearchThreadsError } from "./threadSearch.ts";
 import {
@@ -239,7 +215,6 @@ import {
   LearningTutorPrompt,
 } from "./learning.ts";
 import { SecretRequestAnswerInput, SecretRequestError } from "./secretRequest.ts";
-import { VcsError } from "./vcs.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
 
 export const WS_METHODS = {
@@ -285,15 +260,6 @@ export const WS_METHODS = {
   providerInstallCancel: "provider.install.cancel",
   providerInstallSubscribe: "provider.install.subscribe",
   providerInstallRemove: "provider.install.remove",
-
-  vcsPull: "vcs.pull",
-  vcsRefreshStatus: "vcs.refreshStatus",
-  vcsListRefs: "vcs.listRefs",
-  vcsCreateWorktree: "vcs.createWorktree",
-  vcsRemoveWorktree: "vcs.removeWorktree",
-  vcsCreateRef: "vcs.createRef",
-  vcsSwitchRef: "vcs.switchRef",
-  vcsInit: "vcs.init",
 
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
@@ -348,7 +314,6 @@ export const WS_METHODS = {
 
   secretsAnswerRequest: "secrets.answerRequest",
 
-  subscribeVcsStatus: "subscribeVcsStatus",
   subscribeServerConfig: "subscribeServerConfig",
   subscribeServerLifecycle: "subscribeServerLifecycle",
   subscribeAuthAccess: "subscribeAuthAccess",
@@ -833,83 +798,11 @@ const WsProviderUploadFeedbackRpc = Rpc.make(WS_METHODS.providerUploadFeedback, 
   error: Schema.Union([ProviderUploadFeedbackError, EnvironmentAuthorizationError]),
 });
 
-const WsSubscribeVcsStatusRpc = Rpc.make(WS_METHODS.subscribeVcsStatus, {
-  payload: VcsStatusSubscriptionInput,
-  success: VcsStatusStreamEvent,
-  error: Schema.Union([GitManagerServiceError, EnvironmentAuthorizationError]),
-  stream: true,
-});
-
-const WsVcsPullRpc = Rpc.make(WS_METHODS.vcsPull, {
-  payload: VcsPullInput,
-  success: VcsPullResult,
-  error: Schema.Union([GitCommandError, EnvironmentAuthorizationError]),
-});
-
-const WsVcsRefreshStatusRpc = Rpc.make(WS_METHODS.vcsRefreshStatus, {
-  payload: Schema.Struct({
-    ...VcsStatusInput.fields,
-    localOnly: Schema.optional(Schema.Boolean),
-  }),
-  success: VcsStatusResult,
-  error: Schema.Union([GitManagerServiceError, EnvironmentAuthorizationError]),
-});
-
-const WsVcsListRefsRpc = Rpc.make(WS_METHODS.vcsListRefs, {
-  payload: VcsListRefsInput,
-  success: VcsListRefsResult,
-  error: Schema.Union([GitCommandError, EnvironmentAuthorizationError]),
-});
-
-const WsVcsCreateWorktreeRpc = Rpc.make(WS_METHODS.vcsCreateWorktree, {
-  // Worktrees use the managed folder; required null path preserves compatibility with older servers.
-  payload: Schema.Struct({ ...VcsCreateWorktreeInput.fields, path: Schema.Null }),
-  success: VcsCreateWorktreeResult,
-  error: Schema.Union([GitCommandError, EnvironmentAuthorizationError]),
-});
-
-const WsVcsRemoveWorktreeRpc = Rpc.make(WS_METHODS.vcsRemoveWorktree, {
-  payload: VcsRemoveWorktreeInput,
-  error: Schema.Union([GitCommandError, EnvironmentAuthorizationError]),
-});
-
-const WsVcsCreateRefRpc = Rpc.make(WS_METHODS.vcsCreateRef, {
-  payload: VcsCreateRefInput,
-  success: VcsCreateRefResult,
-  error: Schema.Union([GitCommandError, EnvironmentAuthorizationError]),
-});
-
-const WsVcsSwitchRefRpc = Rpc.make(WS_METHODS.vcsSwitchRef, {
-  payload: VcsSwitchRefInput,
-  success: VcsSwitchRefResult,
-  error: Schema.Union([GitCommandError, EnvironmentAuthorizationError]),
-});
-
-const WsVcsInitRpc = Rpc.make(WS_METHODS.vcsInit, {
-  payload: VcsInitInput,
-  error: Schema.Union([VcsError, EnvironmentAuthorizationError]),
-});
-
 const WsOrchestrationV2DispatchCommandRpc = Rpc.make(ORCHESTRATION_V2_WS_METHODS.dispatchCommand, {
   payload: OrchestrationV2RpcSchemas.dispatchCommand.input,
   success: OrchestrationV2RpcSchemas.dispatchCommand.output,
   error: Schema.Union([OrchestrationV2DispatchCommandError, EnvironmentAuthorizationError]),
 });
-
-const WsOrchestrationV2GetTurnDiffRpc = Rpc.make(ORCHESTRATION_V2_WS_METHODS.getTurnDiff, {
-  payload: OrchestrationV2RpcSchemas.getTurnDiff.input,
-  success: OrchestrationV2RpcSchemas.getTurnDiff.output,
-  error: Schema.Union([OrchestrationGetTurnDiffError, EnvironmentAuthorizationError]),
-});
-
-const WsOrchestrationV2GetFullThreadDiffRpc = Rpc.make(
-  ORCHESTRATION_V2_WS_METHODS.getFullThreadDiff,
-  {
-    payload: OrchestrationV2RpcSchemas.getFullThreadDiff.input,
-    success: OrchestrationV2RpcSchemas.getFullThreadDiff.output,
-    error: Schema.Union([OrchestrationGetFullThreadDiffError, EnvironmentAuthorizationError]),
-  },
-);
 
 const WsOrchestrationV2SearchThreadRpc = Rpc.make(ORCHESTRATION_V2_WS_METHODS.searchThread, {
   payload: OrchestrationV2SearchThreadInput,
@@ -1242,15 +1135,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsMcpAppsReadResourceRpc,
   WsMcpAppsUpdateModelContextRpc,
   WsProviderUploadFeedbackRpc,
-  WsSubscribeVcsStatusRpc,
-  WsVcsPullRpc,
-  WsVcsRefreshStatusRpc,
-  WsVcsListRefsRpc,
-  WsVcsCreateWorktreeRpc,
-  WsVcsRemoveWorktreeRpc,
-  WsVcsCreateRefRpc,
-  WsVcsSwitchRefRpc,
-  WsVcsInitRpc,
   WsSubscribeServerConfigRpc,
   WsSubscribeServerLifecycleRpc,
   WsSubscribeAuthAccessRpc,
@@ -1260,8 +1144,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsOrchestrationV2StopWorkflowRpc,
   WsOrchestrationV2ForceStopThreadRpc,
   WsOrchestrationV2GetTurnItemRpc,
-  WsOrchestrationV2GetTurnDiffRpc,
-  WsOrchestrationV2GetFullThreadDiffRpc,
   WsOrchestrationV2SearchThreadsRpc,
   WsOrchestrationV2SearchThreadRpc,
   WsOrchestrationV2SearchThreadStreamRpc,

@@ -12,7 +12,7 @@ import { vi } from "vite-plus/test";
 
 import * as ServerConfig from "../config.ts";
 import * as HostProcess from "@aprende/shared/HostProcess";
-import * as VcsProcess from "../vcs/VcsProcess.ts";
+import * as ProcessRunner from "../processRunner.ts";
 import * as WorkspaceEntries from "./WorkspaceEntries.ts";
 import * as WorkspacePaths from "./WorkspacePaths.ts";
 
@@ -24,7 +24,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 const layerTest = Layer.empty.pipe(
   Layer.provideMerge(WorkspaceEntries.layer.pipe(Layer.provide(WorkspacePaths.layer))),
   Layer.provideMerge(WorkspacePaths.layer),
-  Layer.provideMerge(VcsProcess.layer),
+  Layer.provideMerge(ProcessRunner.layer),
   Layer.provide(
     ServerConfig.ServerConfig.layerTest(process.cwd(), {
       prefix: "t3-workspace-entries-test-",
@@ -60,14 +60,13 @@ function writeTextFile(
 
 const git = (cwd: string, args: ReadonlyArray<string>, env?: NodeJS.ProcessEnv) =>
   Effect.gen(function* () {
-    const process = yield* VcsProcess.VcsProcess;
-    const result = yield* process.run({
-      operation: "WorkspaceEntries.test.git",
+    const runner = yield* ProcessRunner.ProcessRunner;
+    const result = yield* runner.run({
       command: "git",
       cwd,
       args,
       ...(env ? { env } : {}),
-      timeoutMs: 10_000,
+      timeout: 10_000,
     });
     return result.stdout.trim();
   });

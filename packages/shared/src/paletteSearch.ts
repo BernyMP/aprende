@@ -2,8 +2,6 @@
 
 import type { OrchestrationV2ThreadOpens } from "@aprende/contracts";
 
-import { WORKTREE_BRANCH_PREFIX } from "./git.ts";
-
 const ALPHANUMERIC = /[\p{L}\p{N}]/u;
 const LOWERCASE = /\p{Ll}/u;
 const UPPERCASE = /\p{Lu}/u;
@@ -905,7 +903,7 @@ export interface SearchMatchHint {
 // Most threads' branches start with the app's own worktree prefix ("aprende/"), so
 // "aprende connect" would match nearly every thread.
 // Only before more text, so typing "aprende/" does not empty the list for a keystroke.
-const WORKTREE_BRANCH_PREFIX_PATTERN = new RegExp(`^${WORKTREE_BRANCH_PREFIX}/(?=\\S)`);
+const WORKTREE_BRANCH_PREFIX_PATTERN = /^aprende\/(?=\S)/;
 
 function searchableBranch(branch: string | null | undefined): string | null {
   return branch ? branch.replace(WORKTREE_BRANCH_PREFIX_PATTERN, "") : null;

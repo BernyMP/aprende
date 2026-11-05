@@ -44,7 +44,7 @@ function latestMillis(values: ReadonlyArray<number | null>): number | null {
 }
 
 /** Absolute age bounds clock skew in both directions and expires stale pre-adoption data. */
-export function threadHasQueuedTurnStart(
+function threadHasQueuedTurnStart(
   thread: Pick<
     OrchestrationV2ThreadShell,
     | "latestUserMessageAt"

@@ -9,7 +9,6 @@ import {
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthSettingsWriteScope,
-  AuthSourceControlWriteScope,
   EnvironmentId,
   ORCHESTRATION_V2_WS_METHODS,
   ProjectId,
@@ -237,18 +236,18 @@ it.effect("honors exact empty permissions and preserves legacy parent grants", (
   Effect.scoped(
     Effect.gen(function* () {
       const registry = yield* setup;
-      const git = createCommandPermissions(runtime, WS_METHODS.vcsInit);
+      const cleanup = createCommandPermissions(runtime, WS_METHODS.serverRunStorageCleanup);
       registry.set(sessions(env), AsyncResult.success({ ...grant(true), permissions: [] }));
-      expect(registry.get(git.permissionAtom(env))).toBe(false);
-      const denied = yield* git.authorize(registry, env).pipe(Effect.flip);
+      expect(registry.get(cleanup.permissionAtom(env))).toBe(false);
+      const denied = yield* cleanup.authorize(registry, env).pipe(Effect.flip);
       expect(denied).toMatchObject({
-        requiredPermission: AuthSourceControlWriteScope,
+        requiredPermission: AuthSettingsWriteScope,
         requiredScope: AuthOrchestrationOperateScope,
       });
       const { permissions: _exact, ...legacy } = grant(true);
       registry.set(sessions(env), AsyncResult.success(legacy));
-      expect(registry.get(git.permissionAtom(env))).toBe(true);
-      yield* git.authorize(registry, env);
+      expect(registry.get(cleanup.permissionAtom(env))).toBe(true);
+      yield* cleanup.authorize(registry, env);
     }),
   ),
 );

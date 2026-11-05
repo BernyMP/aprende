@@ -29,8 +29,7 @@ import * as ServerConfig from "../../../config.ts";
 import * as ServerSettings from "../../../serverSettings.ts";
 import * as Project from "../../../project/ProjectService.ts";
 import * as ManagedProjectFolders from "../../../project/ManagedProjectFolders.ts";
-import * as GitVcsDriver from "../../../vcs/GitVcsDriver.ts";
-import * as VcsProcess from "../../../vcs/VcsProcess.ts";
+import * as ProcessRunner from "../../../processRunner.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import * as ProjectHandlers from "./handlers.ts";
@@ -153,8 +152,7 @@ const clientLaunchHarness = (input: {
     Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({ namedProjectsRoot: "/projects" }),
     DocumentText.layer.pipe(Layer.provideMerge(NodeServices.layer)),
   ).pipe(
-    Layer.provideMerge(GitVcsDriver.layer),
-    Layer.provideMerge(VcsProcess.layer),
+    Layer.provideMerge(ProcessRunner.layer),
     Layer.provideMerge(
       ServerConfig.layerTest(process.cwd(), { prefix: "t3-client-launch-" }).pipe(
         Layer.provide(NodeServices.layer),
