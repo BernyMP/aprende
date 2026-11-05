@@ -15,18 +15,10 @@ import type { Caller } from "./threadAccess.ts";
  * still run as this environment's user, so a full-access link is not fenced at all.
  */
 
-/** The link a caller acts for: its own session, or the link that started its thread. */
+/** The link that started the caller's thread. Linked environments are gone; older work keeps it. */
 export const callerLinkOrigin = (
-  caller: Pick<Caller, "scope" | "caller">,
-): OrchestrationV2LinkOrigin | undefined =>
-  caller.caller?.linkOrigin ??
-  (caller.scope.client?.linked === true
-    ? {
-        sessionId: caller.scope.client.sessionId,
-        label: caller.scope.client.label,
-        access: caller.scope.client.access,
-      }
-    : undefined);
+  caller: Pick<Caller, "caller">,
+): OrchestrationV2LinkOrigin | undefined => caller.caller?.linkOrigin;
 
 /** The link that fences a caller, if any: one paired below full access. */
 const fencingLinkOrigin = (caller: Pick<Caller, "scope" | "caller">) => {

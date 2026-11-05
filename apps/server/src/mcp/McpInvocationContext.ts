@@ -10,7 +10,6 @@ import {
 } from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
-import * as Fiber from "effect/Fiber";
 import { formatThreadLink } from "@aprende/shared/threadLinks";
 
 const ALL_MCP_CAPABILITIES = ["orchestration", "worktree"] as const;
@@ -28,11 +27,6 @@ export interface McpClientCaller {
   readonly sessionId: string;
   readonly label: string;
   readonly access: AuthMcpClientAccess;
-  /**
-   * Another aprende environment's peer link. What it starts here carries its
-   * session as `linkOrigin`, and it changes only that work (`linkOrigin.ts`).
-   */
-  readonly linked?: boolean | undefined;
   /**
    * Narrower modes the client asked for on this request (`T3-Mode-Limit`):
    * another environment passing on the limits of the agent it calls for.
@@ -120,8 +114,6 @@ export interface McpInvocationScope {
   readonly requestNamespace: string;
   readonly thread: McpThreadCaller | undefined;
   readonly client: McpClientCaller | undefined;
-  /** False while the Linked environments beta is off here; `/mcp` reads it per request. */
-  readonly linkedEnvironments?: boolean;
 }
 
 export const threadLinkFor = (
@@ -133,13 +125,6 @@ export class McpInvocationContext extends Context.Service<
   McpInvocationContext,
   McpInvocationScope
 >()("aprende/mcp/McpInvocationContext") {}
-
-/** `McpSchema.EnabledWhen` for tools that only serve links, hidden while the beta is off. */
-export const hiddenWhileLinksOff = (): boolean => {
-  const fiber = Fiber.getCurrent();
-  const scope = fiber && Context.getOrUndefined(fiber.context, McpInvocationContext);
-  return scope?.linkedEnvironments !== false;
-};
 
 export const requireMcpCapability = (
   capability: McpCapability,

@@ -148,7 +148,6 @@ export interface McpOAuthClient {
   readonly clientId: string;
   readonly name: string;
   readonly redirectUris: ReadonlyArray<string>;
-  readonly peerLink: boolean;
 }
 
 export class McpOAuthPageError extends Schema.TaggedError<McpOAuthPageError>()(
@@ -182,7 +181,6 @@ export interface AuthorizationRequest {
 interface PendingCode {
   readonly clientId: string;
   readonly clientName: string;
-  readonly peerLink: boolean;
   readonly redirectUri: string;
   readonly codeChallenge: string;
   readonly resource: string;
@@ -255,10 +253,6 @@ const make = Effect.gen(function* () {
   const random = yield* SecureRandom.SecureRandom;
   const digester = yield* Digest.Digest;
   const serverSettings = yield* ServerSettings.ServerSettingsService;
-  const linksEnabled = serverSettings.getSettings.pipe(
-    Effect.map((settings) => settings.linkedEnvironmentsEnabled),
-    Effect.orElseSucceed(() => false),
-  );
   const signer = yield* PayloadSigner.fromSecret(
     yield* secretStore.getOrCreateRandom(SIGNING_SECRET_NAME, 32).pipe(Effect.orDie),
   );
@@ -266,10 +260,8 @@ const make = Effect.gen(function* () {
 
   const sign = (domain: string, payload: string) => signer.sign(`${domain}.${payload}`);
 
-  const signClientId = (name: string, redirectUris: ReadonlyArray<string>, peerLink: boolean) => {
-    const body = base64UrlEncode(
-      JSON.stringify({ v: 1, n: name, r: redirectUris, ...(peerLink ? { p: 1 } : {}) }),
-    );
+  const signClientId = (name: string, redirectUris: ReadonlyArray<string>) => {
+    const body = base64UrlEncode(JSON.stringify({ v: 1, n: name, r: redirectUris }));
     return sign("mcp-client-id", body).pipe(Effect.map((signature) => `${body}.${signature}`));
   };
 
@@ -285,11 +277,12 @@ const make = Effect.gen(function* () {
     if (Option.isNone(json)) return undefined;
     return Option.getOrUndefined(
       decodeClientIdPayload(json.value).pipe(
+        // Linked environments are gone, so a peer link's old client id no longer signs in.
+        Option.filter((payload) => payload.p !== 1),
         Option.map((payload) => ({
           clientId,
           name: payload.n,
           redirectUris: payload.r,
-          peerLink: payload.p === 1,
         })),
       ),
     );
@@ -336,19 +329,16 @@ const make = Effect.gen(function* () {
         });
       }
       // RFC 7591 allows ignoring unsupported registration options; all clients use public PKCE.
-      const peerLink = metadata.software_id === MCP_PEER_LINK_SOFTWARE_ID;
-      if (peerLink && !(yield* linksEnabled)) {
+      if (metadata.software_id === MCP_PEER_LINK_SOFTWARE_ID) {
         return yield* new AuthMcpRegistrationError({
           error: "invalid_client_metadata",
-          error_description:
-            "Linked environments is off on that machine. Turn it on in its Settings → Labs.",
+          error_description: "aprende does not support linked environments.",
         });
       }
       return {
-        clientId: yield* signClientId(name, redirectUris, peerLink),
+        clientId: yield* signClientId(name, redirectUris),
         name,
         redirectUris,
-        peerLink,
       };
     },
   );
@@ -431,7 +421,6 @@ const make = Effect.gen(function* () {
       next.set(code, {
         clientId: authorization.client.clientId,
         clientName: authorization.client.name,
-        peerLink: authorization.client.peerLink,
         redirectUri: authorization.redirectUri,
         codeChallenge: authorization.codeChallenge,
         resource: authorization.resource,
@@ -534,7 +523,6 @@ const make = Effect.gen(function* () {
         .issueMcpClientSession({
           label: pending.clientName,
           access: pending.access,
-          peerLink: pending.peerLink,
           client: deriveAuthClientMetadata({ request }),
         })
         .pipe(
@@ -593,7 +581,6 @@ export const layerMcpClientAuthenticator = Layer.effect(
                     sessionId: client.sessionId,
                     label: client.label,
                     access: client.access,
-                    linked: client.peerLink,
                   },
                   capabilities: new Set<McpInvocationContext.McpCapability>([
                     "orchestration",

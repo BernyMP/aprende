@@ -4,8 +4,6 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { FetchHttpClient } from "effect/http";
 import { assert, expect, it } from "@effect/vitest";
-import { ComposerContextId, EnvironmentId, ThreadId } from "@aprende/contracts";
-import { projectComposerContextForProvider } from "@aprende/shared/composerContextReferences";
 
 import {
   answerToolCall,
@@ -330,39 +328,6 @@ it("rebuilds the template from this checkout and sends a child T3's task prompt"
   const prompt = buildMessages(makeSample(childCase, base)).at(-1)?.content.at(-1);
   assert.equal(prompt?.text, taskPrompt({ task: childCase.prompt, role: "implementation" }));
   assert.notEqual(prompt?.text, childCase.prompt);
-});
-
-it("sends chips as T3 projects them", () => {
-  const on = buildBase(template, {
-    model: "claude-sonnet-5-5",
-    keepUserInstructions: false,
-    links: true,
-  });
-
-  const testCase: McpToolUseCase = {
-    ...childCase,
-    setup: { role: "top", linkedEnvironments: true },
-    prompt: "Continue [Deploy](t3-context://v1/thread/thread_deploy)",
-    promptContext: {
-      records: [
-        {
-          version: 1,
-          kind: "thread",
-          contextId: ComposerContextId.make("thread_deploy"),
-          label: "Deploy",
-          environmentId: EnvironmentId.make("environment-vps"),
-          threadId: ThreadId.make("thread-deploy"),
-          title: "Deploy",
-        },
-      ],
-    },
-  };
-  const prompt = buildMessages(makeSample(testCase, on)).at(-1)?.content.at(-1);
-  assert.equal(
-    prompt?.text,
-    projectComposerContextForProvider({ text: testCase.prompt, ...testCase.promptContext! }),
-  );
-  assert.include(prompt?.text, "environmentId: environment-vps");
 });
 
 it("replays earlier capability results with the model under test as the caller", () => {

@@ -30,11 +30,9 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import { Tool } from "effect/ai";
-import * as McpSchema from "effect/ai/McpSchema";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { taskPrompt } from "../../apps/server/src/mcp/delegatedTaskModes.ts";
-import * as McpInvocationContext from "../../apps/server/src/mcp/McpInvocationContext.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
 import * as Contracts from "@aprende/contracts";
 import { EnvironmentId, ORCHESTRATOR_MCP_RUNNING_TASK_NEXT, ThreadId } from "@aprende/contracts";
@@ -219,8 +217,6 @@ export const McpToolUseCase = Schema.Struct({
     role: Schema.Literals(["top", "delegated-child", "native-subagent"]),
     /** Runs only on this harness, for cases whose right answer depends on it. */
     harness: Schema.optional(Schema.Literals(["claude", "codex"])),
-    /** The Linked environments beta is on, so T3 lists its link tools. */
-    linkedEnvironments: Schema.optional(Schema.Boolean),
     /** delegate_task `role` for a delegated child. T3 builds the child's first message from it. */
     delegateRole: Schema.optional(OrchestratorMcpTaskRole),
     context: Schema.optional(Schema.String),
@@ -378,14 +374,6 @@ const appTools: ReadonlyArray<ApiTool> = t3SourceTools.map((tool) => ({
   description: Tool.getDescription(tool) ?? "",
   input_schema: advertisedJsonSchema(tool),
 }));
-const enabledWhen = (predicate: () => boolean) =>
-  new Set(
-    t3SourceTools
-      .filter(
-        (tool) => Context.getOrUndefined(tool.annotations, McpSchema.EnabledWhen) === predicate,
-      )
-      .map((tool) => `${T3_PREFIX}${tool.name}`),
-  );
 // Claude Code loads a tool whose `_meta` sets anthropic/alwaysLoad up front instead of deferring it.
 const alwaysLoaded = new Set(
   t3SourceTools
@@ -406,10 +394,6 @@ export const savesPastedSecrets = appTools.some(
 /** A request_secret call that hands T3 a pasted secret, on a ref that takes one. */
 const pastedSecret = (name: string, input: Readonly<Record<string, unknown>>) =>
   savesPastedSecrets && name === "request_secret" && typeof input.value === "string";
-// The Linked environments beta starts off, and T3 lists its tools only while it is on.
-const hiddenWhileLinksOff = enabledWhen(McpInvocationContext.hiddenWhileLinksOff);
-const visibleAppTools = (options: { readonly links?: boolean }) =>
-  appTools.filter((tool) => options.links === true || !hiddenWhileLinksOff.has(tool.name));
 
 /** T3's Claude Code options for an eval thread: its system prompt append and its hooks. */
 const claudeQueryOptions = (model: Model) => {
@@ -505,12 +489,11 @@ export const buildBase = (
   options: {
     readonly model: Model;
     readonly keepUserInstructions: boolean;
-    readonly links?: boolean;
     /** A native subagent starts from its task: T3 appends nothing to its system prompt. */
     readonly nativeSubagent?: boolean;
   },
 ) => {
-  const t3 = visibleAppTools(options);
+  const t3 = appTools;
   const firstAssistant = template.messages.findIndex((message) => message.role === "assistant");
   const head = template.messages.slice(0, firstAssistant === -1 ? undefined : firstAssistant);
   const systemTexts = [
@@ -594,10 +577,9 @@ const buildCodexBase = (
     readonly model: Model;
     readonly keepUserInstructions: boolean;
     readonly effort?: string | undefined;
-    readonly links?: boolean;
   },
 ): Base => {
-  const t3 = visibleAppTools(options);
+  const t3 = appTools;
   const contentText = (item: Block) =>
     Array.isArray(item.content)
       ? item.content.map((block: Block) => valueText(block.text)).join("\n")
@@ -2070,7 +2052,6 @@ const main = Effect.gen(function* () {
   const keepUserInstructions = flags["user-instructions"] === "keep";
   const buildFor = (
     role: McpToolUseCase["setup"]["role"],
-    links: boolean,
   ): Effect.Effect<Base, Schema.SchemaError> =>
     codex
       ? decodeCodexCapture(template).pipe(
@@ -2079,7 +2060,6 @@ const main = Effect.gen(function* () {
               model: flags.model,
               keepUserInstructions,
               effort: flags.effort,
-              links,
             }),
           ),
         )
@@ -2089,7 +2069,6 @@ const main = Effect.gen(function* () {
               model: flags.model,
               keepUserInstructions,
               nativeSubagent: role === "native-subagent",
-              links,
             });
             return role === "native-subagent"
               ? Effect.promise(() => t3SubagentContext(flags.model)).pipe(
@@ -2100,14 +2079,13 @@ const main = Effect.gen(function* () {
         );
   // Codex has no native subagents; its cases with that role run as top-level threads.
   const baseKey = ({ setup }: McpToolUseCase) =>
-    `${codex && setup.role === "native-subagent" ? "top" : setup.role}:${setup.linkedEnvironments === true}`;
-  const base = yield* buildFor("top", false);
-  const bases = new Map<string, Base>([["top:false", base]]);
+    codex && setup.role === "native-subagent" ? "top" : setup.role;
+  const base = yield* buildFor("top");
+  const bases = new Map<string, Base>([["top", base]]);
   for (const testCase of selected) {
     const key = baseKey(testCase);
     if (bases.has(key)) continue;
-    const [role = "top", links] = key.split(":") as [McpToolUseCase["setup"]["role"], string];
-    bases.set(key, yield* buildFor(role, links === "true"));
+    bases.set(key, yield* buildFor(key));
   }
   const baseFor = (testCase: McpToolUseCase) => bases.get(baseKey(testCase)) ?? base;
   const effort = flags.effort ?? base.codex?.reasoning.effort ?? "high";
