@@ -70,13 +70,31 @@ describe("file save sessions", () => {
     h.sessions.acquire(other, h.onPendingChange);
     h.sessions.change(inFolder, "print(1)");
     h.sessions.change(other, "elsewhere");
-    expect(await h.sessions.flushFolder({ ...target, folder: "practice" })).toBe(true);
+    const folder = { ...target, folder: "practice", files: ["main.py"] };
+    expect(await h.sessions.flushFolder(folder)).toBe(true);
     expect(h.writes()).toEqual([[inFolder, "print(1)"]]);
 
     // A failed write reports the folder unsaved, so nothing runs against stale files.
     h.persist.mockResolvedValueOnce(AsyncResult.failure(Cause.fail("disk full")));
     h.sessions.change(inFolder, "print(2)");
-    expect(await h.sessions.flushFolder({ ...target, folder: "practice" })).toBe(false);
+    expect(await h.sessions.flushFolder(folder)).toBe(false);
+  });
+
+  it("saves the draft of a closed editor whose last write failed before reporting the folder", async () => {
+    using h = setup();
+    const inFolder = { ...target, relativePath: "practice/main.py" };
+    const folder = { ...target, folder: "practice", files: ["main.py"] };
+    const release = h.sessions.acquire(inFolder, h.onPendingChange);
+    h.sessions.change(inFolder, "print(3)");
+    h.persist.mockResolvedValueOnce(AsyncResult.failure(Cause.fail("disk full")));
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    h.state.unsaved = "print(3)";
+
+    h.persist.mockResolvedValueOnce(AsyncResult.failure(Cause.fail("disk full")));
+    expect(await h.sessions.flushFolder(folder)).toBe(false);
+    expect(await h.sessions.flushFolder(folder)).toBe(true);
+    expect(h.writes().at(-1)).toEqual([inFolder, "print(3)"]);
   });
 
   it("flushes on the last release and drops edits from retired editors", async () => {

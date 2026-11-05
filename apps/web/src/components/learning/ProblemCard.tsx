@@ -146,6 +146,7 @@ const saveWorkspace = async (
     environmentId: threadRef.environmentId,
     cwd,
     folder: workspace.folder,
+    files: workspace.files,
   });
   if (!saved)
     toastManager.add({
