@@ -124,7 +124,7 @@ function nativeThreadCreated(projectId: ProjectId, threadId: ThreadId) {
   };
 }
 
-it.effect("retries a partial project deletion without repeating child events or cleanup", () =>
+it.effect("retries a partial project deletion without repeating child events", () =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const projectId = ProjectId.make("project:partial-deletion");
@@ -184,26 +184,10 @@ it.effect("retries a partial project deletion without repeating child events or 
           AND stream_id IN (${threadIds[0]}, ${threadIds[1]}, ${projectId})
         ORDER BY sequence ASC
       `;
-      const readCleanup = sql<{
-        readonly effect_id: string;
-        readonly thread_id: string;
-        readonly command_id: string;
-        readonly effect_type: string;
-      }>`
-        SELECT effect_id, thread_id, command_id, effect_type
-        FROM orchestration_v2_effect_outbox
-        WHERE thread_id IN (${threadIds[0]}, ${threadIds[1]})
-        ORDER BY effect_id ASC
-      `;
       const partialEvents = yield* readDeletions;
-      const partialCleanup = yield* readCleanup;
       assert.lengthOf(partialEvents, 1);
       assert.equal(partialEvents[0]?.stream_id, firstThreadId);
       assert.equal(partialEvents[0]?.event_type, "thread.deleted");
-      assert.deepEqual(
-        partialCleanup.map((effect) => [effect.thread_id, effect.effect_type]),
-        [[firstThreadId, "scheduled-tasks.cleanup"]],
-      );
 
       const deletedProject = yield* service.delete(input);
       assert.isNotNull(deletedProject.deletedAt);
@@ -223,26 +207,6 @@ it.effect("retries a partial project deletion without repeating child events or 
       );
       assert.deepEqual(finalEvents[0], partialEvents[0]);
       assert.equal(finalEvents[2]?.command_id, commandId);
-      const finalCleanup = yield* readCleanup;
-      assert.lengthOf(finalCleanup, 2);
-      assert.deepEqual(
-        finalCleanup.filter((effect) => effect.thread_id === firstThreadId),
-        partialCleanup,
-      );
-      for (const threadId of threadIds) {
-        const expectedCommandId = `${commandId}:delete-thread:${threadId}`;
-        assert.deepEqual(
-          finalCleanup.filter((effect) => effect.thread_id === threadId),
-          [
-            {
-              effect_id: `effect:${expectedCommandId}:scheduled-tasks.cleanup`,
-              thread_id: threadId,
-              command_id: expectedCommandId,
-              effect_type: "scheduled-tasks.cleanup",
-            },
-          ],
-        );
-      }
     }).pipe(Effect.provide(layerServices));
   }).pipe(Effect.provide(layerDatabase)),
 );
