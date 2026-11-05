@@ -12,6 +12,7 @@ import {
 import * as HostProcess from "@aprende/shared/HostProcess";
 import * as PtyAdapter from "@aprende/shared/PtyAdapter";
 import * as Context from "effect/Context";
+import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -105,6 +106,7 @@ const make = Effect.gen(function* () {
   const pendingOpens = new Set<PendingOpen>();
   // Opening checks the cap and spawns as one step, so two opens cannot both take the last slot.
   const opening = Semaphore.makeUnsafe(1);
+  const shuttingDown = Deferred.makeUnsafe<void>();
 
   const env: NodeJS.ProcessEnv = {
     ...Object.fromEntries(Object.entries(hostEnv).filter(([key]) => !isServerVariable(key))),
@@ -224,7 +226,13 @@ const make = Effect.gen(function* () {
             return yield* fail(
               `You have ${LEARNING_MAX_PRACTICE_TERMINALS} practice terminals open, the most at once. Close one to open another.`,
             );
-          const cwd = yield* restore(learning.practiceFolder(input));
+          // Shutdown must not wait on a folder lookup that never returns.
+          const cwd = yield* restore(
+            Effect.raceFirst(
+              learning.practiceFolder(input),
+              Deferred.await(shuttingDown).pipe(Effect.andThen(fail(CLOSED))),
+            ),
+          );
           const shell = yield* restore(spawnShell(cwd, input));
           const terminal = register(key, input.threadId, shell);
           if (pending.cancelled) {
@@ -322,9 +330,10 @@ const make = Effect.gen(function* () {
   yield* Effect.addFinalizer(() =>
     Effect.gen(function* () {
       for (const pending of pendingOpens) pending.cancelled = true;
+      yield* Deferred.succeed(shuttingDown, undefined);
+      for (const terminal of terminals.values()) yield* closeTerminal(terminal);
       // An open still starting finishes and closes its shell before the reapers are awaited.
       yield* Semaphore.withPermit(opening, Effect.void);
-      for (const terminal of terminals.values()) yield* closeTerminal(terminal);
       yield* Fiber.awaitAll([...running].flatMap((terminal) => terminal.reaper ?? []));
     }),
   );

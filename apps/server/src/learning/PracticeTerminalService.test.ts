@@ -327,6 +327,27 @@ it.effect("shuts down only after a shell whose open was still starting is killed
   }),
 );
 
+it.effect("shuts down without waiting for a folder lookup that never returns", () =>
+  Effect.gen(function* () {
+    const started = yield* Deferred.make<void>();
+    const { spawned, layer } = yield* makeHarness({
+      folderLookup: { started, release: yield* Deferred.make<void>() },
+    });
+    const scope = yield* Scope.make();
+    const services = yield* Layer.buildWithScope(layer, scope);
+    const opening = yield* PracticeTerminalService.PracticeTerminalService.pipe(
+      Effect.flatMap((terminals) => terminals.open({ ...target("prob-a"), ...size })),
+      Effect.provide(services),
+      Effect.forkChild,
+    );
+    yield* Deferred.await(started);
+    yield* Scope.close(scope, Exit.void);
+    const opened = yield* Fiber.await(opening);
+    assert.isTrue(Exit.isFailure(opened));
+    assert.lengthOf(spawned, 0);
+  }),
+);
+
 it.effect("keeps a closed shell that ignores SIGHUP counted until SIGKILL ends it", () =>
   Effect.gen(function* () {
     const { spawned, layer } = yield* makeHarness({ trapsHangup: true });
