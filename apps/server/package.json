@@ -61,7 +61,6 @@
     "@aprende/provider-testing": "workspace:*",
     "@aprende/secret-provider-core": "workspace:*",
     "@aprende/secret-provider-definitions": "workspace:*",
-    "@aprende/secret-provider-onepassword": "workspace:*",
     "@aprende/shared": "workspace:*",
     "@aprende/source-control-testing": "workspace:*",
     "@aprende/tailscale": "workspace:*",

@@ -16,7 +16,6 @@
     "@aprende/contracts": "workspace:*",
     "@aprende/provider-core": "workspace:*",
     "@aprende/secret-provider-definitions": "workspace:*",
-    "@aprende/secret-provider-onepassword": "workspace:*",
     "@aprende/shared": "workspace:*",
     "@base-ui/react": "^1.9.0",
     "@betteroffice/docx": "0.4.3",
