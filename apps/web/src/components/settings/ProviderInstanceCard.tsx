@@ -690,7 +690,6 @@ interface ProviderInstanceCardProps {
 
 const EMPTY_ACP_PROJECTS: NonNullable<ProviderInstanceCardProps["acpProjects"]> = [];
 const NO_SECRET_SOURCES: ReadonlyArray<SecretSource> = [];
-const NO_CUSTOM_MODELS: ReadonlyArray<CustomModelDefinition> = [];
 
 /** Unknown drivers stay read-only to preserve fork config. projectOverride switches affect only the
  * project, not instance.enabled. */
@@ -804,10 +803,7 @@ export function ProviderInstanceCard({
     instance.config !== null && typeof instance.config === "object"
       ? (instance.config as Record<string, unknown>).customModels
       : undefined;
-  const customModels =
-    instance.driver === "antigravity"
-      ? NO_CUSTOM_MODELS
-      : readCustomModelEntries(storedCustomModels);
+  const customModels = readCustomModelEntries(storedCustomModels);
   const modelsForDisplay = deriveProviderModelsForDisplay({
     liveModels: liveProvider?.models,
     customModels,

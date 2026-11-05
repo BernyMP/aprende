@@ -1760,7 +1760,6 @@ function ImportCandidateRow({
 const IMPORT_SOURCE_NAMES: Record<AgentSessionSource, string> = {
   claudeAgent: "Claude Code",
   codex: "Codex",
-  pi: "Pi",
 };
 
 function ImportRowMeta({

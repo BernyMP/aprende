@@ -40,10 +40,8 @@ import { createModelSelection } from "@t3tools/shared/model";
 const CODEX_INSTANCE = ProviderInstanceId.make("codex");
 const CODEX_SECONDARY_INSTANCE = ProviderInstanceId.make("codex_secondary");
 const CLAUDE_AGENT_INSTANCE = ProviderInstanceId.make("claudeAgent");
-const CURSOR_INSTANCE = ProviderInstanceId.make("cursor");
 const CODEX_DRIVER = ProviderDriverKind.make("codex");
 const CLAUDE_AGENT_DRIVER = ProviderDriverKind.make("claudeAgent");
-const CURSOR_DRIVER = ProviderDriverKind.make("cursor");
 
 type ProviderOptionSelectionBag = ReadonlyArray<ProviderOptionSelection>;
 type ProviderOptionSelectionsByProvider = Partial<Record<string, ProviderOptionSelectionBag>>;
@@ -1859,16 +1857,16 @@ describe("composerDraftStore sticky composer settings", () => {
     const store = useComposerDraftStore.getState();
 
     store.setStickyModelSelection(
-      modelSelection(CURSOR_DRIVER, "composer-2", {
+      modelSelection(CLAUDE_AGENT_DRIVER, "claude-sonnet-4-6", {
         fastMode: false,
       }),
     );
-    store.setStickyModelSelection(modelSelection(CURSOR_DRIVER, "composer-2.5"));
+    store.setStickyModelSelection(modelSelection(CLAUDE_AGENT_DRIVER, "claude-opus-4-6"));
 
     expect(
-      useComposerDraftStore.getState().stickyModelSelectionByProvider[CURSOR_INSTANCE],
+      useComposerDraftStore.getState().stickyModelSelectionByProvider[CLAUDE_AGENT_INSTANCE],
     ).toEqual(
-      modelSelection(CURSOR_DRIVER, "composer-2.5", {
+      modelSelection(CLAUDE_AGENT_DRIVER, "claude-opus-4-6", {
         fastMode: false,
       }),
     );

@@ -131,12 +131,6 @@ overrides:
   "@tailwindcss/vite": "catalog:"
   "@types/node": "catalog:"
   effect: "catalog:"
-  # OpenCode 2's protocol and schema packages hard-pin an exact Effect version as a
-  # dependency, and their schemas fail to decode under a second Effect copy.
-  # The `effect` override above already collapses them; these name the edge so it
-  # stays pinned on its own.
-  "@opencode/protocol>effect": "catalog:"
-  "@opencode/schema>effect": "catalog:"
   node-abi: 4.33.0
   # The desktop app installs these without a lockfile when it packages them, so
   # pin the native passkey code that runs in its main process.
@@ -174,8 +168,6 @@ patchedDependencies:
   "@pierre/diffs@1.6.1": patches/@pierre%2Fdiffs@1.6.1.patch
   dbus-next@0.10.2: patches/dbus-next@0.10.2.patch
   node-pty@1.2.0-beta.15: patches/node-pty@1.2.0-beta.15.patch
-  # Observe the owned host exit independently of descendants retaining its stdio.
-  "@muse-code/sdk@1.4.6": patches/@muse-code__sdk@1.4.6.patch
   app-builder-lib@26.16.1: patches/app-builder-lib@26.16.1.patch
 
 # Unmet peers fail resolution, so a pin outside a dependency's peer range is
@@ -196,12 +188,6 @@ permissions:
     skills: false
   drizzle-kit:
     skills: false
-
-# @cursor/sdk finds its platform package (sandbox helper, rg, tree-sitter) by
-# walking up from the entry script for node_modules/@cursor/sdk-<platform>-<arch>.
-# pnpm keeps optional deps inside the virtual store, so hoist it to the root.
-publicHoistPattern:
-  - "@cursor/sdk-*"
 
 minimumReleaseAgeExclude:
   - "@effect/tsgo-darwin-arm64@0.67.1"

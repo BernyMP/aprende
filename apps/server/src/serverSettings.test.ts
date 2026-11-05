@@ -9,7 +9,6 @@ import {
   ProjectScript,
   ProviderDriverKind,
   ProviderInstanceId,
-  resolveProviderInstanceEnabled,
   SecretProviderId,
   ServerSettings,
   ServerSettingsPatch,
@@ -915,9 +914,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           providers: {
             codex: { binaryPath: "/opt/guard/bin/codex" },
             claudeAgent: { enabled: false },
-            cursor: { enabled: false },
-            grok: { enabled: false },
-            opencode: { enabled: false },
           },
         }),
       );
@@ -971,43 +967,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
     }).pipe(Effect.provide(layerServerSettings())),
   );
 
-  it.effect("enables previously used optional providers while migrating legacy settings", () =>
-    Effect.gen(function* () {
-      const serverConfig = yield* ServerConfig.ServerConfig;
-      const fileSystem = yield* FileSystem.FileSystem;
-      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-      yield* fileSystem.writeFileString(
-        serverConfig.settingsPath,
-        JSON.stringify({
-          providers: { opencode: { serverUrl: "http://127.0.0.1:4096" }, cursor: {} },
-          providerInstances: {
-            cursor_work: { driver: "cursor", config: {} },
-            opencode_unused: { driver: "opencode", config: {} },
-          },
-        }),
-      );
-      yield* recordProviderUsage("opencode");
-      yield* recordProviderUsage("grok", null);
-      yield* recordProviderUsage("cursor", "cursor_work");
-
-      const settings = yield* serverSettings.getSettings;
-
-      assert.deepEqual(settings.providerInstances[ProviderInstanceId.make("opencode")], {
-        driver: ProviderDriverKind.make("opencode"),
-        enabled: true,
-        config: { serverUrl: "http://127.0.0.1:4096" },
-      });
-
-      assert.isTrue(settings.providerInstances[ProviderInstanceId.make("grok")]?.enabled);
-      assert.isTrue(settings.providerInstances[ProviderInstanceId.make("cursor_work")]?.enabled);
-
-      assert.isTrue(settings.providerInstances[ProviderInstanceId.make("cursor")]?.enabled);
-      const unused = settings.providerInstances[ProviderInstanceId.make("opencode_unused")];
-      assert.isDefined(unused);
-      assert.isFalse(resolveProviderInstanceEnabled(unused));
-    }).pipe(Effect.provide(layerServerSettings())),
-  );
-
   it.effect("keeps explicit legacy disables even when provider history shows use", () =>
     Effect.gen(function* () {
       const serverConfig = yield* ServerConfig.ServerConfig;
@@ -1047,30 +1006,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
 
       assert.isFalse(settings.continueThreadsAfterServerUpdate);
       assert.equal(yield* fileSystem.readFileString(serverConfig.settingsPath), raw);
-    }).pipe(Effect.provide(layerServerSettings())),
-  );
-
-  it.effect("keeps a default-off provider's new instance disabled and sparse on disk", () =>
-    Effect.gen(function* () {
-      const serverConfig = yield* ServerConfig.ServerConfig;
-      const fileSystem = yield* FileSystem.FileSystem;
-      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-
-      const next = yield* serverSettings.updateSettings({
-        providerInstances: {
-          [ProviderInstanceId.make("grok")]: {
-            driver: ProviderDriverKind.make("grok"),
-            config: {},
-          },
-        },
-      });
-
-      const grok = next.providerInstances[ProviderInstanceId.make("grok")];
-      assert.isDefined(grok);
-      assert.isFalse(resolveProviderInstanceEnabled(grok));
-      const persisted = JSON.parse(yield* fileSystem.readFileString(serverConfig.settingsPath));
-      assert.isUndefined(persisted.providers);
-      assert.isUndefined(persisted.providerInstances.grok.enabled);
     }).pipe(Effect.provide(layerServerSettings())),
   );
 
@@ -1311,19 +1246,18 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
   );
 
   it.effect(
-    "uses the same secret lifecycle for provider config, environment, host tokens, and quota keys",
+    "uses the same secret lifecycle for provider environment, host tokens, and quota keys",
     () =>
       Effect.gen(function* () {
         const service = yield* ServerSettingsModule.ServerSettingsService;
         const config = yield* ServerConfig.ServerConfig;
         const fs = yield* FileSystem.FileSystem;
         const store = yield* ServerSecretStore.ServerSecretStore;
-        const instanceId = ProviderInstanceId.make("antigravity_secrets");
+        const instanceId = ProviderInstanceId.make("codex_secrets");
         const saved = yield* service.updateSettings({
           providerInstances: {
             [instanceId]: {
-              driver: ProviderDriverKind.make("antigravity"),
-              config: { apiKey: "config-secret" },
+              driver: ProviderDriverKind.make("codex"),
               environment: [
                 { name: "API_TOKEN", value: "env-secret", sensitive: true },
                 { name: "BASE_URL", value: "https://example.test", sensitive: false },
@@ -1356,7 +1290,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           ],
         });
         const values = [
-          "config-secret",
           "env-secret",
           "github-secret",
           "bitbucket-secret",
@@ -1382,43 +1315,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           easDeviceHosts: client.easDeviceHosts,
         });
         for (const value of values) assert.include(JSON.stringify(echoed), value);
-        const renamed = yield* service.updateProviderInstance({
-          operation: "upsert",
-          instanceId,
-          instance: { ...client.providerInstances[instanceId]!, displayName: "Renamed" },
-        });
-        assert.propertyVal(
-          renamed.providerInstances[instanceId]?.config,
-          "apiKey",
-          "config-secret",
-        );
-
-        for (const apiKey of ["replacement-secret", ""]) {
-          const changed = yield* service.updateProviderInstance({
-            operation: "upsert",
-            instanceId,
-            instance: { ...client.providerInstances[instanceId]!, config: { apiKey } },
-          });
-          assert.propertyVal(changed.providerInstances[instanceId]?.config, "apiKey", apiKey);
-          const redacted = ServerSettingsModule.redactServerSettingsForClient(changed, {
-            secretReferences: true,
-          });
-          assert.propertyVal(
-            redacted.providerInstances[instanceId]?.config,
-            "apiKey",
-            apiKey ? "••••••" : "",
-          );
-        }
-
-        yield* service.updateProviderInstance({
-          operation: "upsert",
-          instanceId,
-          instance: saved.providerInstances[instanceId]!,
-        });
-
         const secretNames = [
-          "provider-config-YW50aWdyYXZpdHlfc2VjcmV0cw-YW50aWdyYXZpdHk-YXBpS2V5",
-          "provider-env-YW50aWdyYXZpdHlfc2VjcmV0cw-QVBJX1RPS0VO",
+          "provider-env-Y29kZXhfc2VjcmV0cw-QVBJX1RPS0VO",
           sourceControlHostSecretName({
             kind: "github",
             field: "tokens",
@@ -1437,7 +1335,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         }
         const secret = {
           provider: SecretProviderId.make("personal"),
-          reference: "op://Private/Antigravity/token",
+          reference: "op://Private/Codex/token",
         };
         const referenced = yield* service.updateProviderInstance({
           operation: "upsert",
@@ -1449,7 +1347,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
             ],
           },
         });
-        assert.isTrue(Option.isNone(yield* store.get(secretNames[1]!)));
+        assert.isTrue(Option.isNone(yield* store.get(secretNames[0]!)));
         assert.deepEqual(
           ServerSettingsModule.redactServerSettingsForClient(referenced, { secretReferences: true })
             .providerInstances[instanceId]?.environment,
@@ -1468,58 +1366,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           assert.isTrue(Option.isNone(yield* store.get(name)));
         }
       }).pipe(Effect.provide(layerServerSettingsWithSecrets())),
-  );
-
-  it.effect("moves saved provider credentials to the secret store when settings load", () =>
-    Effect.gen(function* () {
-      const service = yield* ServerSettingsModule.ServerSettingsService;
-      const config = yield* ServerConfig.ServerConfig;
-      const fs = yield* FileSystem.FileSystem;
-      yield* fs.writeFileString(
-        config.settingsPath,
-        JSON.stringify({
-          providerInstances: {
-            antigravity: { driver: "antigravity", config: { apiKey: "legacy-api-key" } },
-            opencode: {
-              driver: "opencode",
-              config: { serverUrl: "http://127.0.0.1:4096", serverPassword: "legacy-password" },
-            },
-          },
-        }),
-      );
-      const saved = yield* service.getSettings;
-      const opencode = ProviderInstanceId.make("opencode");
-      assert.propertyVal(
-        saved.providerInstances[ProviderInstanceId.make("antigravity")]?.config,
-        "apiKey",
-        "legacy-api-key",
-      );
-      assert.propertyVal(
-        saved.providerInstances[opencode]?.config,
-        "serverPassword",
-        "legacy-password",
-      );
-      const client = ServerSettingsModule.redactServerSettingsForClient(saved, {
-        secretReferences: true,
-      });
-      for (const value of ["legacy-api-key", "legacy-password"]) {
-        assert.notInclude(yield* fs.readFileString(config.settingsPath), value);
-        assert.notInclude(JSON.stringify(client), value);
-      }
-      const clientConfig = client.providerInstances[opencode]?.config as Record<string, unknown>;
-      const edited = yield* service.updateProviderInstance({
-        operation: "upsert",
-        instanceId: opencode,
-        instance: {
-          ...client.providerInstances[opencode]!,
-          config: { ...clientConfig, serverUrl: "http://127.0.0.1:4097" },
-        },
-      });
-      assert.deepInclude(edited.providerInstances[opencode]?.config, {
-        serverUrl: "http://127.0.0.1:4097",
-        serverPassword: "legacy-password",
-      });
-    }).pipe(Effect.provide(layerServerSettings())),
   );
 
   it.effect(
@@ -2400,7 +2246,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
   (it) => {
     const claude = ProviderDriverKind.make("claudeAgent");
     const codex = ProviderDriverKind.make("codex");
-    const cursor = ProviderDriverKind.make("cursor");
+    const cursor = ProviderDriverKind.make("acpRegistry");
     const bedrock = { name: "CLAUDE_CODE_USE_BEDROCK", value: "1", sensitive: false };
     const policy: ManagedPolicyDocument = {
       schemaVersion: 1,
@@ -2452,7 +2298,10 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           })
           .pipe(Effect.flip);
         assert.equal(rejected.operation, "use-disallowed-provider");
-        assert.equal(rejected.message, "Example Corp's policy does not allow the Cursor provider.");
+        assert.equal(
+          rejected.message,
+          "Example Corp's policy does not allow the ACP Registry provider.",
+        );
         // Switching it on for one project is enabling it too.
         const perProject = yield* service
           .updateSettings({
@@ -2468,7 +2317,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         // The client echoes a default instance that was running before it was configured.
         yield* service.updateProviderInstance({
           operation: "upsert",
-          instanceId: ProviderInstanceId.make("cursor"),
+          instanceId: ProviderInstanceId.make("acpRegistry"),
           instance: { driver: cursor, enabled: true },
         });
 

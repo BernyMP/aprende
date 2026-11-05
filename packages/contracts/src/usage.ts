@@ -7,16 +7,7 @@ export const USAGE_CONTRACT_VERSION = 6 as const;
 
 export const USAGE_MERGE_COMPATIBLE_SINCE = 4 as const;
 
-export const UsageProviderKind = Schema.Literals([
-  "claude",
-  "codex",
-  "grok",
-  "cursor",
-  "opencode",
-  "antigravity",
-  "pi",
-  "muse",
-]);
+export const UsageProviderKind = Schema.Literals(["claude", "codex"]);
 export type UsageProviderKind = typeof UsageProviderKind.Type;
 
 const USAGE_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -91,7 +82,6 @@ export const UsageSource = Schema.Struct({
   /** Total this count; bucket counts double-count sessions spanning days or models. */
   distinctSessions: NonNegativeInt,
   message: Schema.NullOr(TrimmedNonEmptyString),
-  action: Schema.optionalKey(Schema.Literal("enableCursorKeychain")),
   /** Cached response during refresh; repeat with awaitRefresh for fresh data. */
   refreshing: Schema.optionalKey(Schema.Literal(true)),
 });

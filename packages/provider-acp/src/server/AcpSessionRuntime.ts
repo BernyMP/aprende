@@ -229,7 +229,7 @@ export function parseUnifiedCgroupPath(contents: string): string | undefined {
   return matches.length === 1 ? matches[0]![1] : undefined;
 }
 
-export function isSafeCgroupPath(value: string): boolean {
+function isSafeCgroupPath(value: string): boolean {
   return (
     value.startsWith("/") &&
     !value.includes("(deleted)") &&
@@ -237,7 +237,7 @@ export function isSafeCgroupPath(value: string): boolean {
   );
 }
 
-export function parseCgroup2Mounts(
+function parseCgroup2Mounts(
   contents: string,
 ): ReadonlyArray<{ readonly mountPoint: string; readonly root: string }> {
   const mounts: Array<{ readonly mountPoint: string; readonly root: string }> = [];
@@ -254,7 +254,7 @@ export function parseCgroup2Mounts(
   return mounts;
 }
 
-export function wrapCommandForLinuxCgroup(
+function wrapCommandForLinuxCgroup(
   lease: AcpLinuxCgroupLease,
   command: string,
   args: ReadonlyArray<string>,
@@ -287,7 +287,7 @@ export function wrapCommandForLinuxCgroup(
   };
 }
 
-export function resolveLinuxCgroupTargetCommand(
+function resolveLinuxCgroupTargetCommand(
   command: string,
   cwd: string,
   environment: NodeJS.ProcessEnv,
@@ -343,7 +343,7 @@ function defaultReadCgroupPopulated(siblingPath: string): "0" | "1" | undefined 
   return state === "0" || state === "1" ? state : undefined;
 }
 
-export function sweepStaleLinuxCgroupSiblings(
+function sweepStaleLinuxCgroupSiblings(
   parentPath: string,
   options: SweepStaleLinuxCgroupSiblingsOptions = {},
 ): void {
@@ -438,7 +438,7 @@ function tryCreateLinuxCgroupLease(
   };
 }
 
-export function makeLinuxCgroupController(): AcpLinuxCgroupController {
+function makeLinuxCgroupController(): AcpLinuxCgroupController {
   return {
     create: () => {
       let currentRelative: string | undefined;
@@ -472,7 +472,7 @@ const wallClock = Clock.Clock.defaultValue();
 const withWallClock = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
   Effect.provideService(effect, Clock.Clock, wallClock);
 
-export function terminateLinuxCgroupLease(
+function terminateLinuxCgroupLease(
   lease: AcpLinuxCgroupLease,
 ): Effect.Effect<void, AcpProcessGroupTerminationError> {
   const failure = (name: string, cause: unknown) =>
@@ -533,7 +533,7 @@ export function terminateLinuxCgroupLease(
   }).pipe(withWallClock);
 }
 
-export function signalLinuxCgroupRootTerm(input: {
+function signalLinuxCgroupRootTerm(input: {
   readonly controller: AcpPosixProcessTreeController;
   readonly lease: AcpLinuxCgroupLease;
   readonly root: AcpPosixOwnershipRoot;
@@ -631,7 +631,7 @@ function makeLinuxProcessTreeController(): AcpPosixProcessTreeController {
   };
 }
 
-export function observePosixOwnershipLedger(input: {
+function observePosixOwnershipLedger(input: {
   readonly childQueues: Map<number, Array<number>>;
   readonly controller: AcpPosixProcessTreeController;
   readonly frontier: Map<number, AcpOwnedPosixProcess>;
@@ -789,7 +789,7 @@ function processDepth(
   return depth;
 }
 
-export function capturePosixOwnershipLedger(input: {
+function capturePosixOwnershipLedger(input: {
   readonly controller: AcpPosixProcessTreeController;
   readonly ledger: Map<string, AcpOwnedPosixProcess>;
   readonly root?: AcpPosixOwnershipRoot;
@@ -878,7 +878,7 @@ export function capturePosixOwnershipLedger(input: {
   return table;
 }
 
-export function terminatePosixOwnedProcessTree(input: {
+function terminatePosixOwnedProcessTree(input: {
   readonly controller: AcpPosixProcessTreeController;
   readonly discoveryPasses?: number;
   readonly grace?: Duration.Input;
@@ -1062,7 +1062,7 @@ const terminateWindowsProcessTreeWithTaskkill = (
     ),
   );
 
-export function selectAcpAgentAuthMethod(
+function selectAcpAgentAuthMethod(
   authMethods: ReadonlyArray<EffectAcpSchema.AuthMethod> | undefined,
   preferredMethodId?: string,
 ): EffectAcpSchema.AuthMethod | undefined {
@@ -1235,7 +1235,7 @@ interface AcpActivePrompt {
   readonly completed: Deferred.Deferred<void>;
 }
 
-export const make = Effect.fn("AcpSessionRuntime.make")(function* (
+const make = Effect.fn("AcpSessionRuntime.make")(function* (
   options: AcpSessionRuntimeOptions,
 ): Effect.fn.Return<
   AcpSessionRuntime["Service"],

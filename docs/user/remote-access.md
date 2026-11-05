@@ -233,9 +233,6 @@ Sharing & access** on the host, or on a headless host with `t3 auth session list
 `t3 auth session revoke <id>`. A desktop that can still sign in over SSH pairs
 again on its next connect.
 
-For Antigravity's Google callback on a remote host, see
-[remote sign-in](./providers-antigravity.md#sign-in-from-a-remote-device).
-
 ## Browser on a remote environment
 
 Browser tabs belong to the environment, so you and your agents see the same
