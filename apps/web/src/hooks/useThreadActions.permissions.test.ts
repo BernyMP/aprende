@@ -80,9 +80,6 @@ vi.mock("../state/threads", () => ({
     ].map((action) => [action, action]),
   ),
 }));
-vi.mock("../state/vcs", () => ({
-  vcsEnvironment: { removeWorktree: "removeWorktree", refreshStatus: "refreshStatus" },
-}));
 vi.mock("../state/entities", () => ({
   readEnvironmentServerConfigLoaded: () => true,
   readThreadShell: (ref: ScopedThreadRef) =>

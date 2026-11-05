@@ -3452,7 +3452,6 @@ export const ORCHESTRATION_V2_WS_METHODS = {
   getArchivedShellSnapshot: "orchestration.getArchivedShellSnapshot",
   getThreadFamily: "orchestration.getThreadFamily",
   getThreadTitles: "orchestration.getThreadTitles",
-  getWorktreeThreadIds: "orchestration.getWorktreeThreadIds",
   getOlderSettledThreads: "orchestration.getOlderSettledThreads",
   getThreadProjection: "orchestration.getThreadProjection",
   getWorkflowScript: "orchestration.getWorkflowScript",
@@ -3582,12 +3581,6 @@ export const OrchestrationV2GetThreadTitlesInput = Schema.Struct({
 /** Titles of the requested threads that exist, archived ones included. Deleted and unknown ids are absent. */
 export const OrchestrationV2ThreadTitles = Schema.Record(ThreadId, Schema.String);
 
-export const OrchestrationV2GetWorktreeThreadIdsInput = Schema.Struct({
-  worktreePath: TrimmedNonEmptyString,
-});
-export type OrchestrationV2GetWorktreeThreadIdsInput =
-  typeof OrchestrationV2GetWorktreeThreadIdsInput.Type;
-
 /**
  * The client's thread search. With `olderSettledBefore`, the result also carries the rows of the
  * best matching threads settled before it, which shells that omit older settled threads leave out:
@@ -3641,12 +3634,6 @@ export const OrchestrationV2OlderSettledThreadsPage = Schema.Struct({
 });
 export type OrchestrationV2OlderSettledThreadsPage =
   typeof OrchestrationV2OlderSettledThreadsPage.Type;
-
-/** Active threads on a worktree path, including subagent children a shell may leave out. */
-export const OrchestrationV2WorktreeThreadIds = Schema.Struct({
-  threadIds: Schema.Array(ThreadId),
-});
-export type OrchestrationV2WorktreeThreadIds = typeof OrchestrationV2WorktreeThreadIds.Type;
 
 export const OrchestrationV2SubscribeThreadInput = Schema.Struct({
   threadId: ThreadId,
@@ -4060,10 +4047,6 @@ export const OrchestrationV2RpcSchemas = {
   getThreadTitles: {
     input: OrchestrationV2GetThreadTitlesInput,
     output: OrchestrationV2ThreadTitles,
-  },
-  getWorktreeThreadIds: {
-    input: OrchestrationV2GetWorktreeThreadIdsInput,
-    output: OrchestrationV2WorktreeThreadIds,
   },
   getOlderSettledThreads: {
     input: OrchestrationV2GetOlderSettledThreadsInput,

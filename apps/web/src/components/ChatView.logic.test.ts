@@ -26,7 +26,6 @@ import {
   RunId,
   TurnItemId,
   type OrchestrationV2ProjectedTurnItem,
-  type WorktreeSetupSnapshot,
 } from "@aprende/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
@@ -39,7 +38,6 @@ import type { Thread } from "../types";
 import { makeThreadFixture, makeThreadProjectionFixture } from "../test-fixtures";
 import {
   resolveComposerProviderSelection,
-  resolveWorktreeSetupProgress,
   peekRememberedThreadTimeline,
   rememberReadyThreadTimeline,
   resetHeldThreadTimeline,
@@ -634,56 +632,6 @@ describe("checkout Git memory", () => {
   it("does not confuse an environment id containing the separator with a path", () => {
     rememberCheckoutIsRepo(EnvironmentId.make("env"), "a:b", false);
     expect(recallCheckoutIsRepo(EnvironmentId.make("env:a"), "b")).toBeUndefined();
-  });
-});
-
-describe("worktree setup visibility", () => {
-  const stage = (
-    id: "fetch" | "checkout" | "submodules" | "setup-script" | "agent",
-    status: "done" | "running" | "failed" | "pending",
-  ) => ({
-    id,
-    status,
-    startedAt: now,
-    endedAt: status === "running" || status === "pending" ? null : now,
-    percent: null,
-    detail: null,
-    tail: [],
-  });
-  const base = {
-    threadId,
-    phase: "running" as const,
-    startedAt: now,
-    endedAt: null,
-    branch: "feature",
-    baseRef: "main",
-    worktreePath: null,
-    setupScript: null,
-    stages: [stage("checkout", "running"), stage("agent", "pending")],
-    error: null,
-    sequence: 1,
-  };
-  const settledDone = {
-    ...base,
-    phase: "done" as const,
-    endedAt: now,
-    stages: [stage("checkout", "done"), stage("setup-script", "done"), stage("agent", "done")],
-  };
-
-  it("uses streamed setup progress immediately without reverting to an older held snapshot", () => {
-    const newest = { ...settledDone, sequence: 9 };
-    const resolve = (latest: WorktreeSetupSnapshot | null, held: WorktreeSetupSnapshot | null) =>
-      resolveWorktreeSetupProgress({
-        threadId,
-        localPreparing: false,
-        runStatus: "running",
-        latest,
-        held,
-      });
-    expect(resolve(newest, base)).toEqual({ snapshot: newest, isPreparingWorktree: false });
-    expect(resolve(base, newest)).toEqual({ snapshot: newest, isPreparingWorktree: false });
-    const other = { ...base, threadId: ThreadId.make("another-thread") };
-    expect(resolve(other, other)).toEqual({ snapshot: null, isPreparingWorktree: false });
   });
 });
 

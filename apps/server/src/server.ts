@@ -81,7 +81,6 @@ import * as VcsProcess from "./vcs/VcsProcess.ts";
 import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
 import * as VcsStatusBroadcaster from "./vcs/VcsStatusBroadcaster.ts";
 import * as GitWorkflowService from "./git/GitWorkflowService.ts";
-import * as WorktreeSetupTracker from "./project/WorktreeSetupTracker.ts";
 import * as Observability from "./observability/Observability.ts";
 import * as HeapSnapshot from "./observability/HeapSnapshot.ts";
 import * as EventLoopMonitor from "./observability/EventLoopMonitor.ts";
@@ -269,8 +268,6 @@ const layerVcsDriverRegistry = VcsDriverRegistry.layer.pipe(Layer.provide(VcsPro
 const layerRepositoryIdentityResolver = RepositoryIdentityResolver.layer;
 
 const layerGit = Layer.empty.pipe(
-  Layer.provideMerge(RuntimeLayer.layerProjectSetupScriptRunner),
-  Layer.provideMerge(WorktreeSetupTracker.layer),
   Layer.provideMerge(TextGeneration.layer),
   Layer.provideMerge(GitVcsDriver.layer),
 );

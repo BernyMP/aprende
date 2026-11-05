@@ -7,7 +7,6 @@ import {
   RunId,
   OrchestrationV2DelegatedFrom,
   OrchestrationV2RunStatus,
-  OrchestrationV2ThreadLaunchWorkspaceStrategy,
   RuntimeMode,
   ProviderInteractionMode,
   Project,
@@ -109,20 +108,13 @@ const ThreadLaunchTool = Tool.make("t3_thread_launch", {
     projectId: Schema.optional(ProjectId),
     scratch: Schema.optional(
       Schema.Boolean.annotate({
-        description:
-          "No project: a new Scratch folder. Not with `projectId` or `workspaceStrategy`.",
+        description: "No project: a new Scratch folder. Not with `projectId`.",
       }),
     ),
     title: TrimmedNonEmptyString,
     modelSelection: Schema.optional(ModelSelection),
     runtimeMode: Schema.optional(RuntimeMode),
     interactionMode: Schema.optional(ProviderInteractionMode),
-    workspaceStrategy: Schema.optional(
-      OrchestrationV2ThreadLaunchWorkspaceStrategy.annotate({
-        description:
-          "'worktree': new checkout from `baseRef`. 'existing_worktree': bind `worktreePath`, a project worktree. 'root': project checkout, the default, not your worktree. Stack: parent branch as `baseRef`, `startFromOrigin: false`. Uncommitted edits are not copied.",
-      }),
-    ),
     message: Schema.optional(
       Schema.String.check(Schema.isMaxLength(120000)).annotate({
         description: "First prompt. Omit it and `attachments` for idle.",

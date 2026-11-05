@@ -17,13 +17,11 @@ import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FiberSet from "effect/FiberSet";
-import * as FileSystem from "effect/FileSystem";
 import * as Schedule from "effect/Schedule";
 import * as Semaphore from "effect/Semaphore";
 import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
-import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as Orchestrator from "./Orchestrator.ts";
@@ -165,10 +163,6 @@ export const make = Effect.gen(function* () {
 
   const settingsService = yield* ServerSettings.ServerSettingsService;
   const random = yield* SecureRandom.SecureRandom;
-  const fileSystem = yield* FileSystem.FileSystem;
-  const projectScripts = yield* ProjectSetupScriptRunner.ProjectSetupScriptRunner;
-  // Repeated thread.settled retains settledAt; run the action only once per settlement.
-  const settleActionRunAt = new Map<ThreadId, number>();
 
   const sweep = Effect.fn("ThreadSettlementServiceV2.sweep")(function* (threadId?: ThreadId) {
     const settings = yield* settingsService.getSettings;
@@ -268,47 +262,8 @@ export const make = Effect.gen(function* () {
       return sweepThread(threadId).pipe(FiberSet.run(threadSweeps), Effect.asVoid);
     });
 
-  // Skip settle scripts in shared checkouts where other threads may still work.
-  const cleanUpSettledThread = Effect.fn("ThreadSettlementServiceV2.cleanUpSettledThread")(
-    function* (threadId: ThreadId) {
-      const settled = yield* projections.getThread(threadId);
-      if (settled.settledOverride !== "settled") return;
-      const worktreePath = settled.worktreePath;
-      if (worktreePath === null || !(yield* fileSystem.exists(worktreePath))) return;
-      // Recheck after worktree I/O; re-engaged threads must not be cleaned up.
-      const thread = yield* projections.getThread(threadId);
-      if (thread.settledOverride !== "settled") return;
-      const settledAtMs = toMillis(thread.settledAt);
-      if (settledAtMs === null || settleActionRunAt.get(threadId) === settledAtMs) return;
-      const run = yield* projectScripts.runForThread({
-        threadId,
-        projectId: thread.projectId,
-        worktreePath,
-        trigger: "settle",
-        observeCompletion: {},
-      });
-      settleActionRunAt.set(threadId, settledAtMs);
-      if (run.status === "started" && run.completion) {
-        yield* run.completion.pipe(Effect.forkDetach);
-      }
-    },
-    (effect, threadId) =>
-      effect.pipe(
-        Effect.catchCauseIf(
-          (cause) => !Cause.hasInterruptsOnly(cause),
-          (cause) =>
-            Effect.logWarning("cleaning up a settled thread failed", {
-              threadId,
-              cause: Cause.pretty(cause),
-            }),
-        ),
-      ),
-  );
-
   const processEvent = (event: OrchestrationV2DomainEvent) => {
     switch (event.type) {
-      case "thread.settled":
-        return cleanUpSettledThread(event.threadId);
       case "provider-session.detached":
       case "run.background-work-cancelled":
         return enqueueThread(event.threadId);

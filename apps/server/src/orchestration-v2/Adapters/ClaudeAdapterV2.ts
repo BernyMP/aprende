@@ -1990,9 +1990,6 @@ export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__t3_thread_update",
   "mcp__aprende__t3_thread_wait",
   "mcp__aprende__t3_workflow_stop",
-  "mcp__aprende__t3_worktree_handoff",
-  "mcp__aprende__t3_worktree_list",
-  "mcp__aprende__t3_worktree_status",
   "mcp__aprende__task_cancel",
   "mcp__aprende__task_status",
 ];
