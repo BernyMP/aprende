@@ -1,9 +1,8 @@
-import type { EnvironmentId, MessageId, ThreadId } from "@aprende/contracts";
+import type { MessageId } from "@aprende/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { Atom } from "effect/reactivity";
 
 import { appAtomRegistry } from "~/rpc/atomRegistry";
-import { PullRequestThreadDialog } from "../PullRequestThreadDialog";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -43,94 +42,6 @@ function closeThreadOverlay<T>(atom: ThreadOverlayAtom<T>): void {
 function useThreadOverlay<T>(atom: ThreadOverlayAtom<T>, threadKey: string | null): T | null {
   const entry = useAtomValue(atom);
   return threadKey !== null && entry?.threadKey === threadKey ? entry.value : null;
-}
-
-const pullRequestThreadDialogAtom = makeThreadOverlayAtom<{
-  readonly initialReference: string | null;
-  readonly key: number;
-}>("pull-request-thread-dialog");
-
-export function openPullRequestThreadDialog(threadKey: string, reference?: string): void {
-  appAtomRegistry.set(pullRequestThreadDialogAtom, {
-    threadKey,
-    value: { initialReference: reference ?? null, key: Date.now() },
-  });
-}
-
-export function PullRequestThreadDialogHost(props: {
-  readonly threadKey: string | null;
-  readonly environmentId: EnvironmentId;
-  readonly threadId: ThreadId;
-  readonly cwd: string | null;
-  readonly onPrepared: (input: {
-    branch: string;
-    worktreePath: string | null;
-  }) => Promise<void> | void;
-}) {
-  const state = useThreadOverlay(pullRequestThreadDialogAtom, props.threadKey);
-  if (state === null) return null;
-  return (
-    <PullRequestThreadDialog
-      key={state.key}
-      open
-      environmentId={props.environmentId}
-      threadId={props.threadId}
-      cwd={props.cwd}
-      initialReference={state.initialReference}
-      onOpenChange={(open) => {
-        if (!open) closeThreadOverlay(pullRequestThreadDialogAtom);
-      }}
-      onPrepared={props.onPrepared}
-    />
-  );
-}
-
-const branchRestoreConfirmAtom = makeThreadOverlayAtom<true>("branch-restore-confirm");
-
-export function openBranchRestoreConfirm(threadKey: string): void {
-  appAtomRegistry.set(branchRestoreConfirmAtom, { threadKey, value: true });
-}
-
-export function BranchRestoreConfirmHost(props: {
-  readonly threadKey: string | null;
-  readonly threadBranch: string;
-  readonly canWriteSourceControl: boolean;
-  readonly onConfirm: () => void;
-}) {
-  const open = useThreadOverlay(branchRestoreConfirmAtom, props.threadKey) !== null;
-  return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen) closeThreadOverlay(branchRestoreConfirmAtom);
-      }}
-    >
-      <AlertDialogPopup>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            Switch to <code className="font-medium">{props.threadBranch}</code>?
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            You have uncommitted changes. They'll carry over to the other branch, or block the
-            switch if they conflict.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogClose render={<Button variant="outline" />}>Cancel</AlertDialogClose>
-          <Button
-            variant="default"
-            disabled={!props.canWriteSourceControl}
-            onClick={() => {
-              closeThreadOverlay(branchRestoreConfirmAtom);
-              props.onConfirm();
-            }}
-          >
-            Switch branch
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogPopup>
-    </AlertDialog>
-  );
 }
 
 interface PendingRevert {

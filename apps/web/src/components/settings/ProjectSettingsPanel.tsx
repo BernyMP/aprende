@@ -137,7 +137,7 @@ function CheckoutGroupingSelect({ member }: { member: SidebarProjectGroupMember 
   );
 }
 
-export type ProjectSettingsCategory = "general" | "source-control" | "project";
+export type ProjectSettingsCategory = "general" | "project";
 
 interface ProjectSelection {
   readonly key: string;

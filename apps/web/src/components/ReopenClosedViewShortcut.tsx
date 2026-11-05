@@ -1,10 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import {
-  scopeProjectRef,
-  scopedThreadKey,
-  scopeThreadRef,
-} from "@aprende/client-runtime/environment";
-import type { ScopedThreadRef } from "@aprende/contracts";
+import { scopeProjectRef, scopeThreadRef } from "@aprende/client-runtime/environment";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef } from "react";
 
@@ -15,26 +10,14 @@ import { environmentCatalog } from "../connection/catalog";
 import { resolveShortcutCommand } from "../keybindings";
 import { isEditableFocused } from "../lib/editableFocus";
 import { isModelPickerOpen } from "../modelPickerVisibility";
-import {
-  planNextReopen,
-  pullRequestsSearchForRestore,
-  reopenClosedView,
-} from "../reopenClosedView";
-import {
-  PULL_REQUESTS_PANEL_REF,
-  selectSelectedRightPanelSurface,
-  selectThreadRightPanelState,
-  useRightPanelStore,
-} from "../rightPanelStore";
+import { planNextReopen, reopenClosedView } from "../reopenClosedView";
+import { selectThreadRightPanelState, useRightPanelStore } from "../rightPanelStore";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { readProject, readThreadShell } from "../state/entities";
 import { primaryServerKeybindingsAtom } from "../state/server";
 import { environmentShell } from "../state/shell";
 import { buildDraftThreadRouteParams, buildThreadRouteParams } from "../threadRoutes";
 import { toastManager } from "./ui/toast";
-
-const isGlobalPullRequests = (ref: ScopedThreadRef) =>
-  scopedThreadKey(ref) === scopedThreadKey(PULL_REQUESTS_PANEL_REF);
 
 export function ReopenClosedViewShortcut() {
   const navigate = useNavigate();
@@ -48,16 +31,6 @@ export function ReopenClosedViewShortcut() {
     const { drop, restore } = planNextReopen(useClosedViewStore.getState().entries, (entry) => {
       const ref = entry.threadRef;
       const panel = selectThreadRightPanelState(panelsByThread, ref);
-      if (isGlobalPullRequests(ref)) {
-        return {
-          environmentKnown: true,
-          catalogReady: true,
-          ownerExists: true,
-          sideChatExists: true,
-          shellLive: true,
-          panel,
-        };
-      }
       return {
         environmentKnown: catalog.entries.has(ref.environmentId),
         catalogReady: catalog.isReady,
@@ -75,8 +48,7 @@ export function ReopenClosedViewShortcut() {
     if (!restore) return;
 
     const ref = restore.threadRef;
-    const globalPullRequests = isGlobalPullRequests(ref);
-    const thread = globalPullRequests ? null : readThreadShell(ref);
+    const thread = readThreadShell(ref);
     const owner = thread ?? drafts.getDraftThreadByRef(ref);
     const project = owner ? readProject(scopeProjectRef(ref.environmentId, owner.projectId)) : null;
     if (!reopenClosedView(restore, { workspaceAvailable: project !== null })) {
@@ -84,21 +56,10 @@ export function ReopenClosedViewShortcut() {
       return;
     }
     useClosedViewStore.getState().remove(restore.id);
-    if (globalPullRequests) {
-      const selected = selectSelectedRightPanelSurface(
-        useRightPanelStore.getState().byThreadKey,
-        ref,
-      );
-      await navigate({
-        to: "/pull-requests",
-        search: (previous) => pullRequestsSearchForRestore(previous, selected),
-      });
-    } else {
-      const draftId = thread === null ? drafts.getDraftIdByRef(ref) : null;
-      if (draftId !== null)
-        await navigate({ to: "/draft/$draftId", params: buildDraftThreadRouteParams(draftId) });
-      else await navigate({ to: "/$environmentId/$threadId", params: buildThreadRouteParams(ref) });
-    }
+    const draftId = thread === null ? drafts.getDraftIdByRef(ref) : null;
+    if (draftId !== null)
+      await navigate({ to: "/draft/$draftId", params: buildDraftThreadRouteParams(draftId) });
+    else await navigate({ to: "/$environmentId/$threadId", params: buildThreadRouteParams(ref) });
   });
 
   const enqueueReopen = useEffectEvent(() => {

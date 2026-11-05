@@ -14,7 +14,6 @@ import {
   AuthSourceControlWriteScope,
   EnvironmentAuthorizationError,
   type EnvironmentId,
-  type GitResolvePullRequestResult,
   type SourceControlCloneProtocol,
   type SourceControlProviderKind,
   type SourceControlRepositoryVisibility,
@@ -143,18 +142,6 @@ function resolveScope(scope: SourceControlActionScope) {
     environmentId: scope.environmentId,
     cwd: scope.cwd,
   };
-}
-
-export function useSourceControlActionRunning(
-  scope: SourceControlActionScope,
-  kinds: ReadonlyArray<SourceControlActionKind>,
-): boolean {
-  const state = useAtomValue(vcsActionManager.stateAtom(scope));
-  return (
-    state.isRunning &&
-    state.operation !== null &&
-    kinds.some((kind) => ACTION_OPERATION[kind] === state.operation)
-  );
 }
 
 export function useVcsInitAction(scope: SourceControlActionScope) {
@@ -364,44 +351,4 @@ export interface PullRequestResolutionTarget {
   readonly environmentId: EnvironmentId | null;
   readonly cwd: string | null;
   readonly reference: string | null;
-}
-
-export function readCachedPullRequestResolution(
-  target: PullRequestResolutionTarget,
-): GitResolvePullRequestResult | null {
-  if (target.environmentId === null || target.cwd === null || target.reference === null) {
-    return null;
-  }
-  return AsyncResult.getOrElse(
-    appAtomRegistry.get(
-      gitEnvironment.pullRequestResolution({
-        environmentId: target.environmentId,
-        input: { cwd: target.cwd, reference: target.reference },
-      }),
-    ),
-    () => null,
-  );
-}
-
-export function usePullRequestResolutionState(target: PullRequestResolutionTarget) {
-  const query = useEnvironmentQuery(
-    target.environmentId !== null && target.cwd !== null && target.reference !== null
-      ? gitEnvironment.pullRequestResolution({
-          environmentId: target.environmentId,
-          input: {
-            cwd: target.cwd,
-            reference: target.reference,
-          },
-        })
-      : null,
-  );
-  const cached = readCachedPullRequestResolution(target);
-
-  return {
-    data: query.data ?? cached,
-    error: query.error,
-    isPending: query.isPending && cached === null,
-    isFetching: query.isPending,
-    refresh: query.refresh,
-  };
 }

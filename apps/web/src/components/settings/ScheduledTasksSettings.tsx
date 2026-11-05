@@ -66,7 +66,6 @@ import { formatEnvironmentQueryError, useEnvironmentQuery } from "../../state/qu
 import { EMPTY_SERVER_PROVIDERS, serverEnvironment } from "../../state/server";
 import { threadFamilies } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { WorktreeBaseBranchPicker } from "../WorktreeBaseBranchPicker";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { ConnectionStatusDot, connectionPhaseDotClassName } from "../ConnectionStatusDot";
 import {
@@ -1529,23 +1528,6 @@ function ScheduledTaskEditorForm({
             </Field>
           </div>
 
-          {draft.workspaceMode === "worktree" ? (
-            <Field label="Base branch" htmlFor="scheduled-task-base-ref">
-              <WorktreeBaseBranchPicker
-                key={`${environmentId}:${selectedProjectId}`}
-                id="scheduled-task-base-ref"
-                environmentId={environmentId}
-                cwd={selectedProject?.workspaceRoot ?? null}
-                value={draft.baseRef}
-                onValueChange={(baseRef) => setDraft((current) => ({ ...current, baseRef }))}
-                startFromOrigin={draft.startFromOrigin}
-                onStartFromOriginChange={(startFromOrigin) =>
-                  setDraft((current) => ({ ...current, startFromOrigin }))
-                }
-                disabled={saving || !connected}
-              />
-            </Field>
-          ) : null}
           {draft.workspaceMode === "existing_worktree" ? (
             <Field label="Checkout path" htmlFor="scheduled-task-checkout">
               <Input

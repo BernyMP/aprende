@@ -1,7 +1,7 @@
 import { documentChipKindForFileName } from "~/pierre-icons";
 import { isSvgAttachment } from "@aprende/shared/image";
 import { useRenderedAppearance } from "../../hooks/useTheme";
-import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
+import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { ReadOnlySourcePreview } from "../files/AttachmentFilePreview";
 import { useRightPanelStore } from "~/rightPanelStore";
 import { COMPOSER_CONTEXT_KINDS } from "@aprende/contracts";

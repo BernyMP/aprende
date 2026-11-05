@@ -43,9 +43,7 @@ export type GitActionRequestInput = Pick<
   "action" | "commitMessage" | "featureBranch" | "filePaths"
 >;
 
-export function changeRequestTerminologyFor(
-  gitStatus: VcsStatusResult | null,
-): ChangeRequestTerminology {
+function changeRequestTerminologyFor(gitStatus: VcsStatusResult | null): ChangeRequestTerminology {
   return sourceControlClients.get(gitStatus?.sourceControlProvider?.kind).changeRequest;
 }
 
@@ -311,19 +309,6 @@ export function getGitActionDisabledReason(input: {
     return `Branch is behind upstream. Pull/rebase before creating ${terminology.shortLabelWithArticle}.`;
   }
   return `Create ${terminology.shortLabel} is currently unavailable.`;
-}
-
-export function requiresDefaultBranchConfirmation(
-  action: GitStackedAction,
-  isDefaultBranch: boolean,
-): boolean {
-  if (!isDefaultBranch) return false;
-  return (
-    action === "push" ||
-    action === "create_pr" ||
-    action === "commit_push" ||
-    action === "commit_push_pr"
-  );
 }
 
 export function resolveDefaultBranchActionDialogCopy(input: {

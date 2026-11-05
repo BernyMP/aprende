@@ -4,7 +4,6 @@ import { isCommandPaletteOpen } from "../../commandPaletteBus";
 import { resolveShortcutCommand, type ShortcutMatchContext } from "../../keybindings";
 import { isInSideChatPane } from "../../lib/sideChatPane";
 import type { ComposerHandleRef } from "../../composerHandleContext";
-import type { BranchToolbarHandle } from "../BranchToolbar";
 import { shouldTypeToFocusComposer } from "./composerFocusRedirect";
 import { composerShortcutCommands } from "./composerShortcuts";
 
@@ -26,9 +25,8 @@ interface ChatShortcutsInput {
     readonly modelPickerOpen: boolean;
   };
   readonly threadFindActive: boolean;
-  /** Takes type-to-focus keys and the composer and branch toolbar chords. */
+  /** Takes type-to-focus keys and the composer chords. */
   readonly composerRef: ComposerHandleRef;
-  readonly branchToolbarRef: { readonly current: BranchToolbarHandle | null };
   readonly closeThreadFind: () => void;
   readonly commands: ChatShortcutCommands;
 }
@@ -61,9 +59,7 @@ export function useChatShortcuts(input: ChatShortcutsInput) {
       context: shortcutContext,
     });
     if (!command) return;
-    const run =
-      input.commands[command] ??
-      composerShortcutCommands(input.composerRef, input.branchToolbarRef)[command];
+    const run = input.commands[command] ?? composerShortcutCommands(input.composerRef)[command];
     if (!run || run({ event }) === false) return;
     event.preventDefault();
     event.stopPropagation();
@@ -89,9 +85,7 @@ export function useChatShortcuts(input: ChatShortcutsInput) {
     const command = resolveShortcutCommand(event, input.keybindings, {
       context: input.getShortcutContext(event.target),
     });
-    const run = command
-      ? composerShortcutCommands(input.composerRef, input.branchToolbarRef)[command]
-      : undefined;
+    const run = command ? composerShortcutCommands(input.composerRef)[command] : undefined;
     if (!run || run({ event }) === false) return;
     event.preventDefault();
     event.stopPropagation();

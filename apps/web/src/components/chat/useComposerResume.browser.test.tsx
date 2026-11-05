@@ -58,7 +58,6 @@ function ResumeButton(props: {
     activeEnvironmentUnavailable: false,
     runtimeMode: "full-access",
     interactionMode: "default",
-    localCheckoutBranchMismatch: null,
     composerRef: props.composerRef,
     persistThreadSettingsForNextTurn: props.persistSettings,
     clearUsageLimitsFor: () => undefined,

@@ -90,7 +90,7 @@ export function resolveAutoFeatureBranchName(
   return resolved;
 }
 
-export function deriveLocalBranchNameFromRemoteRef(branchName: string): string {
+function deriveLocalBranchNameFromRemoteRef(branchName: string): string {
   const firstSeparatorIndex = branchName.indexOf("/");
   if (firstSeparatorIndex <= 0 || firstSeparatorIndex === branchName.length - 1) {
     return branchName;
@@ -281,11 +281,6 @@ function deriveLocalBranchNameCandidatesFromRemoteRef(
   }
 
   return [...candidates];
-}
-
-// Replace only Git-rejected whitespace; nonbreaking spaces are valid ref characters.
-export function sanitizeNewRefName(rawName: string): string {
-  return rawName.trim().replace(/[ \t\n\r\f\v]+/g, "-");
 }
 
 export function dedupeRemoteBranchesWithLocalMatches(

@@ -3,7 +3,6 @@ import { scopeThreadRef, scopedThreadKey } from "@aprende/client-runtime/environ
 import { resolveThreadWorkingStartedAt } from "@aprende/client-runtime/state/models";
 import { isShownUnderParent } from "@aprende/client-runtime/state/threads";
 import { backgroundWorkHoldsCompletion } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
-import { threadPullRequestSearchTerms } from "@aprende/shared/threadPullRequests";
 import * as React from "react";
 import {
   isAtomCommandInterrupted,
@@ -36,9 +35,7 @@ import {
   type ThreadSortInput,
 } from "@aprende/client-runtime/state/thread-sort";
 import type { SidebarThreadSummary, Thread } from "../types";
-import { normalizeSearchText } from "../lib/utils";
 import { isLatestRunSettled } from "../session-logic";
-import { observeIntersection } from "../lib/observeIntersection";
 import { deadlineAfter, deadlineStore } from "@aprende/client-runtime/clock";
 import { useDeadlinePassed } from "../hooks/useDeadline";
 import { legacyProjectCwdPreferenceKey } from "../uiStateStore";
@@ -70,31 +67,6 @@ export function resolveSidebarRowAccessibility(input: {
   return {
     label: [input.title, input.statusLabel, input.projectDisplayName].filter(Boolean).join(", "),
     current: input.isActive ? "page" : undefined,
-  };
-}
-
-// Each prewarm retains growing thread detail and a live subscription, multiplying heap and server load.
-const SIDEBAR_ROW_SUBSCRIPTION_OVERSCAN_PX = 160;
-
-export function useSidebarRowSubscriptionLease(isActive: boolean): {
-  readonly leaseLiveStatus: boolean;
-  readonly rowRef: (row: HTMLElement | null) => (() => void) | undefined;
-} {
-  const [isNearViewport, setIsNearViewport] = React.useState(isActive);
-  if (isActive && !isNearViewport) setIsNearViewport(true);
-  const canObserve = typeof IntersectionObserver !== "undefined";
-
-  return {
-    leaseLiveStatus: isActive || isNearViewport || !canObserve,
-    rowRef: (row) => {
-      if (row === null || isActive || !canObserve) return undefined;
-      // The overscan has to apply to the sidebar's own scroller; a viewport-rooted
-      // margin is still clipped by it.
-      return observeIntersection(row, (entry) => setIsNearViewport(entry.isIntersecting), {
-        root: row.closest('[data-slot="scroll-area-viewport"]'),
-        rootMargin: `${SIDEBAR_ROW_SUBSCRIPTION_OVERSCAN_PX}px 0px`,
-      });
-    },
   };
 }
 
@@ -151,18 +123,6 @@ export function useSnoozeWakeClock(
     return nextClockMs;
   }
   return clockMs;
-}
-
-export function useRetainedValue<T>(key: string | null, value: T | null): T | null {
-  const [retained, setRetained] = React.useState<{
-    readonly key: string;
-    readonly value: T;
-  } | null>(null);
-  if (key !== null && value !== null && (retained?.key !== key || retained.value !== value)) {
-    setRetained({ key, value });
-  }
-  if (value !== null) return value;
-  return key !== null && retained?.key === key ? retained.value : null;
 }
 
 // Sortable owns drag transforms; replaying committed order would animate drops twice.
@@ -1036,16 +996,6 @@ export function searchSidebarThreads<
     return thread && !listed.has(thread) ? [thread] : [];
   });
   return { titleMatches, contentMatches };
-}
-
-export function pullRequestMatchesSearchQuery(
-  pullRequest: Parameters<typeof threadPullRequestSearchTerms>[0],
-  query: string,
-): boolean {
-  const normalizedQuery = normalizeSearchText(query);
-  if (normalizedQuery.length === 0) return false;
-  const haystack = normalizeSearchText(threadPullRequestSearchTerms(pullRequest).join(" "));
-  return normalizedQuery.split(" ").every((token) => haystack.includes(token));
 }
 
 export function filterSidebarProjectScopeItems<TItem extends { readonly value: string }>(input: {

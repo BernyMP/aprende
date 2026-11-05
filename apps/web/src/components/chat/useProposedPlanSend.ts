@@ -60,14 +60,12 @@ interface PlanSendBase {
 
 interface PlanFollowUpSendInput extends PlanSendBase {
   readonly runtimeMode: RuntimeMode;
-  readonly localCheckoutBranchMismatch: { readonly currentBranch: string } | null;
   readonly setOptimisticUserMessages: Dispatch<SetStateAction<ChatMessage[]>>;
   readonly setThreadError: ReturnType<typeof makeThreadErrorSetter>;
   readonly anchorNewTurn: ReturnType<typeof useTimelineFollow>["anchorNewTurn"];
   readonly persistThreadSettingsForNextTurn: (input: {
     threadId: EnvironmentThreadShell["id"];
     createdAt: string;
-    branch?: string;
     runtimeMode: RuntimeMode;
     interactionMode: ProviderInteractionMode;
   }) => Promise<AtomCommandResult<void, unknown>>;
@@ -89,7 +87,6 @@ export function usePlanFollowUpSend(input: PlanFollowUpSendInput) {
     beginLocalDispatch,
     resetLocalDispatch,
     runtimeMode,
-    localCheckoutBranchMismatch,
     setOptimisticUserMessages,
     setThreadError,
     anchorNewTurn,
@@ -169,7 +166,6 @@ export function usePlanFollowUpSend(input: PlanFollowUpSendInput) {
     const settingsResult = await persistThreadSettingsForNextTurn({
       threadId: threadIdForSend,
       createdAt: messageCreatedAt,
-      ...(localCheckoutBranchMismatch ? { branch: localCheckoutBranchMismatch.currentBranch } : {}),
       runtimeMode,
       interactionMode: nextInteractionMode,
     });

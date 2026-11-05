@@ -60,7 +60,6 @@ function Chat(props: { composerKeys: string[]; launcher?: { keys: string; receiv
         },
       } as Partial<ChatComposerHandle> as ChatComposerHandle,
     },
-    branchToolbarRef: { current: null },
     closeThreadFind: () => {},
     commands: {},
   });
@@ -154,7 +153,6 @@ function SideChat(props: { toggles: string[]; stops: string[] }) {
         toggleModelPicker: () => props.toggles.push("model"),
       } as Partial<ChatComposerHandle> as ChatComposerHandle,
     },
-    branchToolbarRef: { current: null },
     closeThreadFind: () => {},
     commands: { "thread.stop": () => void props.stops.push("stop") },
   });

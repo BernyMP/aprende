@@ -1,9 +1,5 @@
-import {
-  parseScopedThreadKey,
-  scopedThreadKey,
-  scopeThreadRef,
-} from "@aprende/client-runtime/environment";
-import { EnvironmentId, ThreadId, type ScopedThreadRef } from "@aprende/contracts";
+import { parseScopedThreadKey, scopedThreadKey } from "@aprende/client-runtime/environment";
+import type { ScopedThreadRef, ThreadId } from "@aprende/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -12,10 +8,8 @@ import { resolveStorage } from "./lib/storage";
 import type { ThreadPanelPresentation } from "./rightPanelLayout";
 import type { ChatFileAttachment } from "./types";
 
-const RIGHT_PANEL_KINDS = ["files", "file", "pull-request", "pull-requests", "side-chat"] as const;
+const RIGHT_PANEL_KINDS = ["files", "file", "side-chat"] as const;
 export type RightPanelKind = (typeof RIGHT_PANEL_KINDS)[number];
-
-export type PullRequestDetailTab = "summary" | "guide" | "timeline" | "code";
 
 export type RightPanelSurface =
   | {
@@ -34,29 +28,12 @@ export type RightPanelSurface =
       /** Deepest workspace path retained for navigating back down after moving up. */
       folderTrail?: string;
     }
-  | {
-      id: `pull-request:${string}`;
-      kind: "pull-request";
-      /** Cross-environment lists can repeat project ids; thread panels inherit their ref's environment. */
-      environmentId?: string;
-      projectId: string;
-      host?: string;
-      repository: string;
-      number: number;
-      url?: string;
-      detailTab?: PullRequestDetailTab;
-    }
-  | { id: "pull-requests"; kind: "pull-requests" }
   | { id: `side-chat:${string}`; kind: "side-chat"; threadId: ThreadId };
 
 const RIGHT_PANEL_STORAGE_KEY = "aprende:right-panel-state:v2";
 const RIGHT_PANEL_STORAGE_VERSION = 15;
 
-export const PULL_REQUESTS_PANEL_REF = scopeThreadRef(
-  EnvironmentId.make("pull-requests-panel"),
-  ThreadId.make("pull-requests-panel"),
-);
-
+// The retired pull request page kept its panel under this synthetic thread.
 const isPullRequestsPanelKey = (threadKey: string) => threadKey.endsWith(":pull-requests-panel");
 
 export interface ThreadRightPanelState {
@@ -81,10 +58,7 @@ interface RightPanelStoreState {
   userActionRevisionByThreadKey: Record<string, number>;
   /** Bumped by each user close; closed tabs are remembered for reopening. */
   closeRevisionByThreadKey: Record<string, number>;
-  open: (
-    ref: ScopedThreadRef,
-    kind: Exclude<RightPanelKind, "file" | "pull-request" | "side-chat">,
-  ) => void;
+  open: (ref: ScopedThreadRef, kind: Exclude<RightPanelKind, "file" | "side-chat">) => void;
   openSideChat: (ref: ScopedThreadRef, threadId: ThreadId) => void;
   openFile: (ref: ScopedThreadRef, relativePath: string, line?: number) => void;
   /** Moves in place; "" opens the root explorer. folderTrail keeps the return path; keepSource opens beside the source. */
@@ -96,23 +70,6 @@ interface RightPanelStoreState {
     keepSource?: boolean,
   ) => void;
   openAttachment: (ref: ScopedThreadRef, attachment: ChatFileAttachment) => void;
-  openPullRequest: (
-    ref: ScopedThreadRef,
-    target: {
-      environmentId?: string;
-      projectId: string;
-      host?: string;
-      repository: string;
-      number: number;
-      url?: string;
-      detailTab?: PullRequestDetailTab;
-    },
-  ) => void;
-  setPullRequestDetailTab: (
-    ref: ScopedThreadRef,
-    surfaceId: string,
-    detailTab: PullRequestDetailTab,
-  ) => void;
   activateSurface: (ref: ScopedThreadRef, surfaceId: string) => void;
   /** Agent-driven activation. Not a user action, so it does not move keyboard focus. */
   revealSurface: (ref: ScopedThreadRef, surfaceId: string) => void;
@@ -126,10 +83,7 @@ interface RightPanelStoreState {
   close: (ref: ScopedThreadRef) => void;
   setMaximized: (ref: ScopedThreadRef, maximized: boolean) => void;
   toggleVisibility: (ref: ScopedThreadRef) => void;
-  toggle: (
-    ref: ScopedThreadRef,
-    kind: Exclude<RightPanelKind, "file" | "pull-request" | "side-chat">,
-  ) => void;
+  toggle: (ref: ScopedThreadRef, kind: Exclude<RightPanelKind, "file" | "side-chat">) => void;
   setThreadPanelOpen: (
     ref: ScopedThreadRef,
     presentation: ThreadPanelPresentation,
@@ -151,13 +105,11 @@ const DEFAULT_THREAD_PANEL_VISIBILITY: ThreadPanelVisibility = {
 };
 
 const singletonSurface = (
-  kind: Exclude<RightPanelKind, "file" | "pull-request" | "side-chat">,
+  kind: Exclude<RightPanelKind, "file" | "side-chat">,
 ): RightPanelSurface => {
   switch (kind) {
     case "files":
       return { id: "files", kind };
-    case "pull-requests":
-      return { id: "pull-requests", kind };
   }
 };
 
@@ -181,43 +133,6 @@ const attachmentSurface = (attachment: ChatFileAttachment): RightPanelSurface =>
   revealRequestId: 0,
   attachment,
 });
-
-export type PullRequestSurface = Extract<RightPanelSurface, { kind: "pull-request" }>;
-
-export function pullRequestSurfaceId(target: {
-  environmentId?: string;
-  projectId: string;
-  host?: string;
-  repository: string;
-  number: number;
-}): PullRequestSurface["id"] {
-  const scope =
-    target.environmentId === undefined ? "" : `${encodeURIComponent(target.environmentId)}:`;
-  const host = target.host === undefined ? "" : `${encodeURIComponent(target.host.toLowerCase())}:`;
-  return `pull-request:${scope}${encodeURIComponent(target.projectId)}:${host}${encodeURIComponent(target.repository)}:${target.number}`;
-}
-
-export function pullRequestSurface(target: {
-  environmentId?: string;
-  projectId: string;
-  host?: string;
-  repository: string;
-  number: number;
-  url?: string;
-  detailTab?: PullRequestDetailTab;
-}): PullRequestSurface {
-  return {
-    id: pullRequestSurfaceId(target),
-    kind: "pull-request",
-    ...(target.environmentId === undefined ? {} : { environmentId: target.environmentId }),
-    projectId: target.projectId,
-    ...(typeof target.host === "string" ? { host: target.host.toLowerCase() } : {}),
-    repository: target.repository,
-    number: target.number,
-    ...(typeof target.url === "string" ? { url: target.url } : {}),
-    ...(target.detailTab === undefined ? {} : { detailTab: target.detailTab }),
-  };
-}
 
 const upsertSurface = (
   current: ThreadRightPanelState,
@@ -370,6 +285,8 @@ const REMOVED_SURFACE_KINDS: ReadonlySet<string> = new Set([
   "terminal",
   "preview",
   "device",
+  "pull-request",
+  "pull-requests",
 ]);
 
 function normalizeRevealLine(line: number | undefined): number | null {
@@ -420,24 +337,6 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                           : 0;
                       return [{ ...surface, revealLine, revealRequestId }];
                     }
-                    if (surface.kind === "pull-request") {
-                      if (
-                        typeof surface.projectId !== "string" ||
-                        typeof surface.repository !== "string" ||
-                        typeof surface.number !== "number" ||
-                        !Number.isSafeInteger(surface.number) ||
-                        surface.number < 1
-                      ) {
-                        return [];
-                      }
-                      const { environmentId, ...rest } = surface;
-                      return [
-                        pullRequestSurface({
-                          ...rest,
-                          ...(typeof environmentId === "string" ? { environmentId } : {}),
-                        }),
-                      ];
-                    }
                     return [surface];
                   })
                 : [];
@@ -446,9 +345,7 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                 (surface) => surface.id === rawActiveSurfaceId,
               )
                 ? (rawActiveSurfaceId ?? null)
-                : rawActiveSurfaceId === "pull-request"
-                  ? (surfaces.find((surface) => surface.kind === "pull-request")?.id ?? null)
-                  : null;
+                : null;
               const isOpen =
                 surfaces.length > 0 &&
                 (typeof validThreadState?.isOpen === "boolean"
@@ -513,40 +410,6 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
             upsertSurface(current, { id: `side-chat:${threadId}`, kind: "side-chat", threadId }),
           ),
         ),
-      openPullRequest: (ref, target) =>
-        set((state) =>
-          userAction(state, scopedThreadKey(ref), (current) => {
-            const surface = pullRequestSurface(target);
-            const next = upsertSurface(current, surface);
-            return target.url
-              ? {
-                  ...next,
-                  surfaces: next.surfaces.map((entry) =>
-                    entry.id === surface.id && entry.kind === "pull-request"
-                      ? { ...entry, ...surface }
-                      : entry,
-                  ),
-                }
-              : next;
-          }),
-        ),
-      setPullRequestDetailTab: (ref, surfaceId, detailTab) =>
-        set((state) => {
-          const threadKey = scopedThreadKey(ref);
-          const existing = state.byThreadKey[threadKey]?.surfaces.find(
-            (surface) => surface.id === surfaceId,
-          );
-          if (existing?.kind !== "pull-request" || (existing.detailTab ?? "summary") === detailTab)
-            return state;
-          return automaticUpdate(state, threadKey, (current) => ({
-            ...current,
-            surfaces: current.surfaces.map((surface) =>
-              surface.id === surfaceId && surface.kind === "pull-request"
-                ? { ...surface, detailTab }
-                : surface,
-            ),
-          }));
-        }),
       openFile: (ref, requestedPath, line) =>
         set((state) =>
           userAction(state, scopedThreadKey(ref), (current) => {
@@ -813,11 +676,7 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
         resolveStorage(typeof window !== "undefined" ? window.localStorage : undefined),
       ),
       partialize: (state) => ({
-        byThreadKey: Object.fromEntries(
-          Object.entries(state.byThreadKey).filter(
-            ([threadKey]) => !isPullRequestsPanelKey(threadKey),
-          ),
-        ),
+        byThreadKey: state.byThreadKey,
         threadPanelVisibilityByThreadKey: Object.fromEntries(
           Object.entries(state.threadPanelVisibilityByThreadKey).flatMap(
             ([threadKey, visibility]) =>
@@ -885,7 +744,7 @@ export function selectActiveRightPanelSurface(
   return selectSelectedRightPanelSurface(byThreadKey, ref);
 }
 
-export function selectSelectedRightPanelSurface(
+function selectSelectedRightPanelSurface(
   byThreadKey: Record<string, ThreadRightPanelState>,
   ref: ScopedThreadRef | null | undefined,
 ): RightPanelSurface | null {

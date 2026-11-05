@@ -23,6 +23,7 @@ import { parseScopedThreadKey } from "@aprende/client-runtime/environment";
 import { resolveWorkGroupScrollAnchor } from "@aprende/client-runtime/work-log/scroll-anchor";
 import type { WorkflowOpening } from "@aprende/client-runtime/state/subagentRuntime";
 import { observeResize } from "~/lib/observeResize";
+import { openExternalLink } from "~/lib/openExternalLink";
 import { useStableCallback } from "~/hooks/useStableCallback";
 
 const NOOP_USE_ARTIFACT_TEMPLATE = () => {};
@@ -91,7 +92,6 @@ import { type ThreadFindMatch } from "./threadFind";
 import { useThreadFindNavigation } from "./useThreadFindNavigation";
 import { TooltipScrollDismissArea } from "../ui/tooltip";
 import { WorktreeSetupCard } from "./WorktreeSetupCard";
-import { useOpenPrLink } from "~/lib/openPullRequestLink";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { cn } from "~/lib/utils";
 import { type TimestampFormat } from "@aprende/contracts/settings";
@@ -455,7 +455,10 @@ const ConversationTimeline = memo(function ConversationTimeline({
     setExpandedAttemptIds(paintedExpandedAttemptIds);
   }
   const citationThreadRef = parseScopedThreadKey(routeThreadKey);
-  const openPullRequest = useOpenPrLink(citationThreadRef ?? undefined);
+  const openPullRequest = (event: { preventDefault: () => void }, url: string) => {
+    event.preventDefault();
+    void openExternalLink(url).catch(() => undefined);
+  };
   const [minimapStripMap] = useState(() => new Map<string, HTMLSpanElement>());
   const [disclosureToggleSettling, setDisclosureToggleSettling] = useState(false);
   const disclosureAnchorKeyRef = useRef<string | null>(null);

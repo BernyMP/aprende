@@ -1,9 +1,7 @@
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";
 import { requestCustomSnooze } from "../CustomSnoozeDialog";
-import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { useDeadlinePassed } from "~/hooks/useDeadline";
-import { resolveThreadCurrentPullRequestLink } from "@aprende/client-runtime/thread-pull-requests";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -11,7 +9,6 @@ import {
   hasQueuedTurnStart,
   QUEUED_TURN_START_GRACE_MS,
 } from "@aprende/client-runtime/state/thread-settled";
-import { formatDiffCount } from "@aprende/client-runtime/diff-count";
 import { resolveSettledThreadTimestamp } from "@aprende/client-runtime/state/thread-sort";
 import { type EnvironmentThreadSearchMatch } from "@aprende/client-runtime/state/thread-search";
 import {
@@ -37,7 +34,6 @@ import {
   CircleDashedIcon,
   CircleDotDashedIcon,
   ClockIcon,
-  GitBranchIcon,
   MessageCircleQuestionIcon,
   PinIcon,
   PinOffIcon,
@@ -57,14 +53,10 @@ import {
   type ReactNode,
 } from "react";
 
-import { useRightPanelStore } from "../../rightPanelStore";
-import { useOpenPrLink } from "../../lib/openPullRequestLink";
 import { useUiStateStore } from "../../uiStateStore";
 import { useThreadSelectionStore } from "../../threadSelectionStore";
 import { useNowMinute } from "../../hooks/useNowMinute";
 import { useNowSecond } from "../../hooks/useNowSecond";
-import { vcsEnvironment } from "../../state/vcs";
-import { useEnvironmentQuery } from "../../state/query";
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
 import { formatRelativeTimeLabel, parseTimestampDate } from "../../timestampFormat";
 import type { SidebarThreadSummary } from "../../types";
@@ -81,20 +73,8 @@ import {
   resolveThreadLastVisitedAt,
   shouldRecedeSidebarThread,
   resolveWorkingStartedAt,
-  useRetainedValue,
-  useSidebarRowSubscriptionLease,
   setFileDragActive,
 } from "../Sidebar.logic";
-import { resolveLocalCheckoutBranchMismatch } from "../BranchToolbar.logic";
-import {
-  ThreadPullRequestBadgeControl,
-  ThreadPullRequestsMiniList,
-  ThreadWorktreeIndicator,
-  prStatusIndicator,
-  resolveThreadPullRequestBadge,
-  useLinkedThreadPullRequest,
-  ThreadSearchPullRequestNumber,
-} from "../ThreadStatusIndicators";
 import { pickSnoozePreset, resolveSnoozePresets, type SnoozePreset } from "../Sidebar.snooze";
 import { useThreadShell } from "../../state/entities";
 import { ProjectFavicon, type ProjectFaviconProject } from "../ProjectFavicon";
@@ -103,11 +83,9 @@ import { makeWorkspaceFileDropHandlers } from "../chat/workspaceFileDrop";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { getTriggerDisplayModelName } from "../chat/providerIconUtils";
 import { shouldShowInstanceBadge, type ProviderInstanceEntry } from "../../providerInstances";
-import { InlineButton } from "../ui/button";
 import { Kbd } from "../ui/kbd";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { MiddleTruncate } from "../ui/middle-truncate";
 import { useThreadHasUnsentDraft } from "../../composerDraftStore";
 
 // The fields thread rows show. Provider status pushes refresh `checkedAt`,
@@ -229,7 +207,6 @@ function SidebarThreadTooltip({
   showInstanceBadge,
   modelInstanceId,
   modelLabel,
-  branchMismatch,
 }: {
   thread: SidebarThreadSummary;
   project: ProjectFaviconProject | null;
@@ -241,28 +218,14 @@ function SidebarThreadTooltip({
   showInstanceBadge: boolean;
   modelInstanceId: string;
   modelLabel: string;
-  branchMismatch: {
-    threadBranch: string;
-    currentBranch: string;
-  } | null;
 }) {
   const driverKind = providerEntry?.driverKind ?? null;
   const previousProviderNames = thread.providerInstanceHistory
     .filter((instanceId) => instanceId !== modelInstanceId)
     .map((instanceId) => providerEntryByInstanceId.get(instanceId)?.displayName ?? instanceId);
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
   return (
     <ThreadHoverCardPopup side="right" align="start" sideOffset={4}>
-      <ThreadHoverCard
-        title={thread.title}
-        footer={
-          supportsMultiplePullRequests && thread.pullRequests.length > 0 ? (
-            <div className="border-t border-border/60 pt-2 pl-0.5 text-xs text-muted-foreground">
-              <ThreadPullRequestsMiniList pullRequests={thread.pullRequests} />
-            </div>
-          ) : null
-        }
-      >
+      <ThreadHoverCard title={thread.title}>
         {projectDisplayName ? (
           <div className="flex min-w-0 items-center gap-2">
             {project ? <ProjectFavicon project={project} className="size-3 shrink-0" /> : null}
@@ -276,20 +239,6 @@ function SidebarThreadTooltip({
               className="size-3 shrink-0 stroke-muted-foreground"
             />
             <div className="min-w-0 truncate text-foreground/75">{environmentLabel}</div>
-          </div>
-        ) : null}
-        {thread.branch ? (
-          <div className="flex min-w-0 items-center gap-2">
-            <GitBranchIcon className="size-3 shrink-0 stroke-muted-foreground" />
-            <MiddleTruncate value={thread.branch} className="flex" />
-          </div>
-        ) : null}
-        {branchMismatch ? (
-          <div className="flex min-w-0 items-start gap-2 text-warning">
-            <CircleAlertIcon aria-hidden className="mt-0.5 size-3 shrink-0 stroke-current" />
-            <div className="min-w-0 flex-1 wrap-break-word">
-              You're currently checked out on another branch.
-            </div>
           </div>
         ) : null}
         {driverKind ? (
@@ -529,9 +478,8 @@ type SidebarThreadRowProps = {
   // Set on the active row only; scrolls it into view when a reveal is owed.
   revealRef?: ((row: HTMLElement, threadKey: string) => void) | undefined;
   // Unlike isActive, never true for the ancestor standing in for an open
-  // subagent: drafts and PR clicks care about which composer is on screen.
+  // subagent: drafts care about which composer is on screen.
   isRouteThread: boolean;
-  openPullRequestsInRightPanel: boolean;
   jumpLabel: string | null;
   currentEnvironmentId: string | null;
   environmentLabel: string | null;
@@ -623,7 +571,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     onUnsettle,
     onUnsnooze,
     onUnpin,
-    openPullRequestsInRightPanel,
     renamingTitle,
     thread,
     variant,
@@ -632,49 +579,20 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const threadRef = scopeThreadRef(thread.environmentId, thread.id);
   const threadKey = scopedThreadKey(threadRef);
   const canOperateThread = useEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope);
-  const { leaseLiveStatus, rowRef: leaseRowRef } = useSidebarRowSubscriptionLease(props.isActive);
   const { revealRef } = props;
   const rowRef = (row: HTMLElement | null) => {
     if (row !== null) revealRef?.(row, threadKey);
-    return leaseRowRef(row);
   };
   const isRegeneratingTitle = thread.titleRegeneration != null;
   const localLastVisitedAt = useUiStateStore((state) => state.threadLastVisitedAtById[threadKey]);
   const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
   const isSelected = useThreadSelectionStore((state) => state.selectedThreadKeys.has(threadKey));
-  const openPrLink = useOpenPrLink();
   const hasUnsentDraft = useThreadHasUnsentDraft(threadRef) && !props.isRouteThread;
   const handleDiscardDraftClick = (event: ReactMouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     discardComposerDraft(threadRef);
   };
-
-  const gitCwd = thread.worktreePath ?? props.project?.workspaceRoot ?? null;
-  const linkedPullRequestStatus = useLinkedThreadPullRequest(
-    thread.environmentId,
-    thread.linkedPullRequest,
-    leaseLiveStatus,
-    thread.pullRequests,
-    thread.branchPullRequest,
-  );
-  const gitStatus = useEnvironmentQuery(
-    leaseLiveStatus && (thread.branch != null || thread.worktreePath !== null) && gitCwd !== null
-      ? vcsEnvironment.status({
-          environmentId: thread.environmentId,
-          input: { cwd: gitCwd, includeRemote: false },
-        })
-      : null,
-  );
-  const visibleGitStatus = useRetainedValue(
-    JSON.stringify([thread.environmentId, gitCwd]),
-    gitStatus.data,
-  );
-  const pr = linkedPullRequestStatus?.pr ?? null;
-  const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
-  const currentLinkedPr = supportsMultiplePullRequests
-    ? resolveThreadCurrentPullRequestLink(thread.pullRequests)
-    : null;
 
   const isUnread = hasUnseenCompletion({ ...thread, lastVisitedAt });
   const status = resolveSidebarThreadStatus(thread);
@@ -754,14 +672,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                       : null;
   const isWokeStatus = topStatus?.icon === "woke";
 
-  const branchMismatch = resolveLocalCheckoutBranchMismatch({
-    effectiveEnvMode: thread.worktreePath === null ? "local" : "worktree",
-    activeWorktreePath: thread.worktreePath,
-    activeThreadBranch: thread.branch,
-    currentGitBranch: visibleGitStatus?.refName ?? null,
-  });
-  const prStatus = prStatusIndicator(pr, linkedPullRequestStatus?.sourceControlProvider);
-
   const modelInstanceId = thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId;
   const providerEntry = props.providerEntryByInstanceId.get(modelInstanceId) ?? null;
   const showInstanceBadge =
@@ -775,7 +685,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     : thread.modelSelection.model;
 
   const isRemote = thread.environmentId !== props.currentEnvironmentId;
-  const showsScratchMachine = !thread.branch && props.scratchMachineLabel !== null;
+  const showsScratchMachine = props.scratchMachineLabel !== null;
 
   const detailsTooltip = (
     <SidebarThreadTooltip
@@ -789,7 +699,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       showInstanceBadge={showInstanceBadge}
       modelInstanceId={modelInstanceId}
       modelLabel={modelLabel}
-      branchMismatch={branchMismatch}
     />
   );
 
@@ -906,15 +815,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   if (snoozeMenuOpenRaw && !showSnoozeButton) setSnoozeMenuOpen(false);
   const snoozeMenuOpen = snoozeMenuOpenRaw && showSnoozeButton;
   const jumpHintLabel = snoozeMenuOpen ? null : props.jumpLabel;
-  const handlePrClick = (event: ReactMouseEvent<HTMLElement>, targetUrl?: string) => {
-    const url = targetUrl ?? pr?.url ?? currentLinkedPr?.url;
-    if (!url) return;
-    const showInRightPanel = targetUrl !== undefined || openPullRequestsInRightPanel;
-    const openedInRightPanel = openPrLink(event, url, showInRightPanel ? threadRef : undefined);
-    if (openedInRightPanel && showInRightPanel && !props.isRouteThread) {
-      onThreadActivate(threadRef);
-    }
-  };
 
   const rowSurfaceClassName = cn(
     "group/sidebar-row relative w-full cursor-pointer overflow-hidden rounded-md text-left outline-none select-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
@@ -1018,26 +918,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   );
   const accessibleTitle = isRenaming ? null : <span className="sr-only">{thread.title}</span>;
 
-  const prBadgeShape = supportsMultiplePullRequests
-    ? resolveThreadPullRequestBadge(thread.pullRequests)
-    : null;
-  const handlePrListClick = () => {
-    useRightPanelStore.getState().open(threadRef, "pull-requests");
-    if (!props.isRouteThread) onThreadActivate(threadRef);
-  };
-  const prBadge =
-    prBadgeShape?.kind === "stack" || pr || currentLinkedPr ? (
-      <ThreadPullRequestBadgeControl
-        render={<InlineButton />}
-        badge={prBadgeShape}
-        pullRequests={thread.pullRequests}
-        number={pr?.number ?? currentLinkedPr?.number}
-        url={pr?.url ?? currentLinkedPr?.url}
-        status={prStatus}
-        onOpenList={handlePrListClick}
-        onOpenPullRequest={handlePrClick}
-      />
-    ) : null;
   const draftIndicator = hasUnsentDraft ? (
     <Tooltip>
       <TooltipTrigger
@@ -1096,37 +976,16 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         <EnvironmentMachineIcon aria-hidden kind={props.environmentMachine} className="size-3.5" />
       </span>
     ) : null;
-  const diff = latestRunDiff(thread);
   // Only the trailing icons would remain, so the row moves them to the title line instead.
-  const metaLineEmpty = !thread.branch && !showsScratchMachine && prBadge === null && diff === null;
+  const metaLineEmpty = !showsScratchMachine;
   const metaLine = metaLineEmpty ? null : (
     <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
-      {thread.branch ? (
-        <>
-          <ThreadWorktreeIndicator thread={thread} />
-          <span className="flex min-w-0 flex-1">
-            <MiddleTruncate value={thread.branch} showTitle={false} />
-          </span>
-        </>
-      ) : showsScratchMachine ? (
-        <>
-          <EnvironmentMachineIcon
-            aria-hidden
-            kind={props.environmentMachine}
-            className="size-3 shrink-0"
-          />
-          <span className="min-w-0 flex-1 truncate">{props.scratchMachineLabel}</span>
-        </>
-      ) : (
-        <span className="flex-1" />
-      )}
-      {prBadge}
-      {diff ? (
-        <span className="shrink-0 font-mono">
-          <span className="text-diff-addition-foreground">+{formatDiffCount(diff.insertions)}</span>{" "}
-          <span className="text-diff-deletion-foreground">−{formatDiffCount(diff.deletions)}</span>
-        </span>
-      ) : null}
+      <EnvironmentMachineIcon
+        aria-hidden
+        kind={props.environmentMachine}
+        className="size-3 shrink-0"
+      />
+      <span className="min-w-0 flex-1 truncate">{props.scratchMachineLabel}</span>
       <span
         aria-hidden
         className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
@@ -1550,13 +1409,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   );
 });
 
-function latestRunDiff(
-  thread: SidebarThreadSummary,
-): { insertions: number; deletions: number } | null {
-  void thread;
-  return null;
-}
-
 // Attached only to the highlighted result, so React calls it each time the
 // highlight lands on a different row: a new query, late rows replacing the first
 // result, or arrow keys moving past the scrolled edge.
@@ -1592,28 +1444,6 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
     isActive: props.isRouteActive,
   });
   const threadRef = scopeThreadRef(thread.environmentId, thread.id);
-  const { leaseLiveStatus, rowRef } = useSidebarRowSubscriptionLease(
-    props.isHighlighted || props.isRouteActive,
-  );
-  const gitCwd = thread.worktreePath ?? props.project?.workspaceRoot ?? null;
-  const gitStatus = useEnvironmentQuery(
-    leaseLiveStatus && (thread.branch != null || thread.worktreePath !== null) && gitCwd !== null
-      ? vcsEnvironment.status({
-          environmentId: thread.environmentId,
-          input: { cwd: gitCwd, includeRemote: false },
-        })
-      : null,
-  );
-  const visibleGitStatus = useRetainedValue(
-    JSON.stringify([thread.environmentId, gitCwd]),
-    gitStatus.data,
-  );
-  const branchMismatch = resolveLocalCheckoutBranchMismatch({
-    effectiveEnvMode: thread.worktreePath === null ? "local" : "worktree",
-    activeWorktreePath: thread.worktreePath,
-    activeThreadBranch: thread.branch,
-    currentGitBranch: visibleGitStatus?.refName ?? null,
-  });
   const modelInstanceId = thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId;
   const providerEntry = props.providerEntryByInstanceId.get(modelInstanceId) ?? null;
   const showInstanceBadge =
@@ -1645,14 +1475,12 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
         <TooltipTrigger
           render={
             <button
-              ref={rowRef}
               id={props.resultId}
               type="button"
               role="option"
               tabIndex={-1}
               aria-selected={props.isHighlighted}
               aria-current={accessibility.current}
-              aria-describedby={`${props.resultId}-pr`}
               aria-label={accessibility.label}
               onMouseMove={props.onHighlight}
               onClick={props.onSelect}
@@ -1693,14 +1521,6 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
               >
                 {thread.title}
               </span>
-              <span id={`${props.resultId}-pr`} className="contents">
-                <ThreadSearchPullRequestNumber
-                  thread={thread}
-                  query={props.searchQuery}
-                  enabled={leaseLiveStatus}
-                  settled={props.isSettled}
-                />
-              </span>
               <span className="w-8 shrink-0 text-right text-xs text-muted-foreground/55 tabular-nums">
                 <RelativeTimeLabel timestamp={threadTimeTimestamp(thread)} />
               </span>
@@ -1727,7 +1547,6 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
           showInstanceBadge={showInstanceBadge}
           modelInstanceId={modelInstanceId}
           modelLabel={modelLabel}
-          branchMismatch={branchMismatch}
         />
       </Tooltip>
     </li>

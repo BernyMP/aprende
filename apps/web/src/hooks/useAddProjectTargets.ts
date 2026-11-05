@@ -2,7 +2,7 @@ import { canCreateProjectInEnvironment } from "@aprende/client-runtime/operation
 import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 import { AuthSourceControlWriteScope, resolveEnvironmentMachineKind } from "@aprende/contracts";
 
-import type { EnvironmentOption } from "../components/BranchToolbar.logic";
+import type { EnvironmentOption } from "./useLogicalProjectEnvironments";
 import { useEnvironments } from "../state/environments";
 import { useEnvironmentsWithScope } from "../state/session";
 

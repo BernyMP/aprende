@@ -1,4 +1,4 @@
-import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
+import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { type ToolActivityIcon } from "@aprende/contracts";
 import { toolActivityFaviconUrl } from "@aprende/shared/favicon";
 import { getProjectFaviconCacheKey } from "@aprende/shared/projectFavicon";

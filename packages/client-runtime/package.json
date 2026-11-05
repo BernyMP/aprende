@@ -215,10 +215,6 @@
       "types": "./src/state/peerPairingCode.ts",
       "default": "./src/state/peerPairingCode.ts"
     },
-    "./state/preview": {
-      "types": "./src/state/preview.ts",
-      "default": "./src/state/preview.ts"
-    },
     "./state/projects": {
       "types": "./src/state/projects.ts",
       "default": "./src/state/projects.ts"
@@ -238,10 +234,6 @@
     "./state/relay": {
       "types": "./src/state/relayDiscovery.ts",
       "default": "./src/state/relayDiscovery.ts"
-    },
-    "./state/review": {
-      "types": "./src/state/review.ts",
-      "default": "./src/state/review.ts"
     },
     "./state/runtime": {
       "types": "./src/state/runtime.ts",
@@ -282,10 +274,6 @@
     "./state/source-control": {
       "types": "./src/state/sourceControl.ts",
       "default": "./src/state/sourceControl.ts"
-    },
-    "./state/terminal": {
-      "types": "./src/state/terminal.ts",
-      "default": "./src/state/terminal.ts"
     },
     "./state/threads": {
       "types": "./src/state/threads.ts",
@@ -391,29 +379,9 @@
       "types": "./src/work-log/scrollAnchor.ts",
       "default": "./src/work-log/scrollAnchor.ts"
     },
-    "./pull-request-link-input": {
-      "types": "./src/pullRequestLinkInput.ts",
-      "default": "./src/pullRequestLinkInput.ts"
-    },
-    "./change-request-links": {
-      "types": "./src/changeRequestLinks.ts",
-      "default": "./src/changeRequestLinks.ts"
-    },
-    "./thread-pull-requests": {
-      "types": "./src/threadPullRequests.ts",
-      "default": "./src/threadPullRequests.ts"
-    },
     "./thread-reference": {
       "types": "./src/threadReference.ts",
       "default": "./src/threadReference.ts"
-    },
-    "./pull-request-project-filter": {
-      "types": "./src/pullRequestProjectFilter.ts",
-      "default": "./src/pullRequestProjectFilter.ts"
-    },
-    "./thread-pull-request-compatibility": {
-      "types": "./src/threadPullRequestCompatibility.ts",
-      "default": "./src/threadPullRequestCompatibility.ts"
     },
     "./file-preview": {
       "types": "./src/filePreview.ts",
@@ -435,33 +403,9 @@
       "types": "./src/sourceControlClients.ts",
       "default": "./src/sourceControlClients.ts"
     },
-    "./review-guide-tour": {
-      "types": "./src/reviewGuideTour.ts",
-      "default": "./src/reviewGuideTour.ts"
-    },
     "./state/query-persistence": {
       "types": "./src/state/queryPersistence.ts",
       "default": "./src/state/queryPersistence.ts"
-    },
-    "./pull-request-markdown": {
-      "types": "./src/pullRequestMarkdown.ts",
-      "default": "./src/pullRequestMarkdown.ts"
-    },
-    "./pull-request-checks": {
-      "types": "./src/pullRequestChecks.ts",
-      "default": "./src/pullRequestChecks.ts"
-    },
-    "./pull-request-editing": {
-      "types": "./src/pullRequestEditing.ts",
-      "default": "./src/pullRequestEditing.ts"
-    },
-    "./pull-request-reactions": {
-      "types": "./src/pullRequestReactions.ts",
-      "default": "./src/pullRequestReactions.ts"
-    },
-    "./pull-request-query": {
-      "types": "./src/pullRequestQuery.ts",
-      "default": "./src/pullRequestQuery.ts"
     },
     "./model-traits": {
       "types": "./src/modelTraits.ts",

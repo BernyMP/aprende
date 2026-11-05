@@ -270,33 +270,6 @@ export function startNewThreadForProject(
   return true;
 }
 
-export function resolveThreadMetadataUpdateForNextTurn(input: {
-  currentModelSelection: ModelSelection;
-  nextModelSelection?: ModelSelection;
-  currentBranch: string | null;
-  nextBranch?: string;
-}): {
-  modelSelection?: ModelSelection;
-  branch?: string;
-  worktreePath?: null;
-} | null {
-  const nextModelSelection = input.nextModelSelection;
-  const modelSelectionChanged =
-    nextModelSelection !== undefined &&
-    (nextModelSelection.model !== input.currentModelSelection.model ||
-      nextModelSelection.instanceId !== input.currentModelSelection.instanceId ||
-      JSON.stringify(nextModelSelection.options ?? null) !==
-        JSON.stringify(input.currentModelSelection.options ?? null));
-  const branchChanged = input.nextBranch !== undefined && input.nextBranch !== input.currentBranch;
-  if (!modelSelectionChanged && !branchChanged) {
-    return null;
-  }
-  return {
-    ...(modelSelectionChanged ? { modelSelection: nextModelSelection } : {}),
-    ...(branchChanged ? { branch: input.nextBranch, worktreePath: null } : {}),
-  };
-}
-
 export function buildLocalDraftThread(
   threadId: ThreadId,
   draftThread: DraftThreadState,
@@ -486,8 +459,6 @@ export function collectUserMessageBlobPreviewUrls(message: ChatMessage): string[
 
 export { readFileAsDataUrl } from "../lib/imageCompression";
 
-export { resolveSendEnvMode } from "@aprende/shared/projectSettings";
-
 export function resolveBackgroundDraftWorkspaceOptions(input: {
   envMode: DraftThreadEnvMode;
   branch: string | null;
@@ -571,29 +542,6 @@ export function buildExpiredTerminalContextToastCopy(
   };
 }
 
-export function branchMismatchKey(
-  threadId: string | null,
-  mismatch: { threadBranch: string; currentBranch: string } | null,
-): string | null {
-  if (!threadId || !mismatch) {
-    return null;
-  }
-  return `${threadId}:${mismatch.threadBranch}:${mismatch.currentBranch}`;
-}
-
-// Composer autofocus makes focus unreliable as draft intent.
-export function shouldShowBranchMismatchBanner(input: {
-  hasMismatch: boolean;
-  isDismissed: boolean;
-  composerHasContent: boolean;
-  wasShownForCurrentMismatch: boolean;
-}): boolean {
-  if (!input.hasMismatch || input.isDismissed) {
-    return false;
-  }
-  return input.composerHasContent || input.wasShownForCurrentMismatch;
-}
-
 export function shouldShowPlanFollowUpPrompt(input: {
   pendingUserInputCount: number;
   interactionMode: ProviderInteractionMode;
@@ -608,16 +556,6 @@ export function shouldShowPlanFollowUpPrompt(input: {
     input.hasActionableProposedPlan &&
     !input.hasComposerAttachments
   );
-}
-
-const sessionDismissedBranchMismatchKeys = new Set<string>();
-
-export function dismissBranchMismatchForSession(key: string): void {
-  sessionDismissedBranchMismatchKeys.add(key);
-}
-
-export function isBranchMismatchDismissedForSession(key: string | null): boolean {
-  return key !== null && sessionDismissedBranchMismatchKeys.has(key);
 }
 
 // Remember non-Git checkouts to avoid flashing the branch strip before delayed Git status arrives.
@@ -1054,10 +992,6 @@ export type LocalThreadErrorEntry = {
   readonly message: string | null;
   readonly at: number;
 };
-
-export function chatActionErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "An error occurred.";
-}
 
 export function releaseChatTimelineAnchor<T extends { readonly messageId: MessageId | null }>(
   current: T,

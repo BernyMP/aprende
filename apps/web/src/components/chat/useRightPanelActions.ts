@@ -10,28 +10,23 @@ import {
   useRightPanelStore,
 } from "../../rightPanelStore";
 import { requestWorkspaceContentFocus, requestWorkspaceFocus } from "../../lib/workspaceFocus";
-import type { threadPullRequestPanelTarget } from "../pullRequest/pullRequestDetail.logic";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import type { ChatShortcutCommands } from "./useChatShortcuts";
 interface RightPanelActionsInput {
   readonly activeThreadRef: ScopedThreadRef | null;
   readonly activeProject: EnvironmentProject | null;
   readonly activeRightPanelSurface: RightPanelSurface | null;
-  readonly pullRequestPanelTarget: ReturnType<typeof threadPullRequestPanelTarget> | null;
   readonly threadPanelPresentation: ThreadPanelPresentation;
   readonly rightPanelOpen: boolean;
   readonly canMaximizeRightPanel: boolean;
   readonly rightPanelMaximized: boolean;
-  readonly supportsPullRequests: boolean;
-  readonly pullRequestsSurfaceAvailable: boolean;
   readonly gitCwd: string | null;
   readonly activeProjectCwd: string | null;
   readonly closeRightPanelSurface: (surface: RightPanelSurface) => void;
 }
 
 /**
- * Opening, closing, and arranging the right panel's surfaces: files, pull requests, and
- * side chats.
+ * Opening, closing, and arranging the right panel's surfaces: files and side chats.
  */
 export function useRightPanelActions(input: RightPanelActionsInput) {
   const {
@@ -39,13 +34,10 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     activeThreadRef,
     activeProject,
     activeRightPanelSurface,
-    pullRequestPanelTarget,
     threadPanelPresentation,
     rightPanelOpen,
     canMaximizeRightPanel,
     rightPanelMaximized,
-    supportsPullRequests,
-    pullRequestsSurfaceAvailable,
     gitCwd,
     activeProjectCwd,
   } = input;
@@ -55,11 +47,6 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     useRightPanelStore.getState().open(activeThreadRef, "files");
   };
   const addFilesSurfaceStable = useStableCallback(addFilesSurface);
-  const addPullRequestsSurface = () => {
-    if (!activeThreadRef || !pullRequestsSurfaceAvailable) return;
-    useRightPanelStore.getState().open(activeThreadRef, "pull-requests");
-  };
-  const addPullRequestsSurfaceStable = useStableCallback(addPullRequestsSurface);
   const openFileSurface = (relativePath: string) => {
     if (!activeThreadRef || !activeProject) return;
     useRightPanelStore.getState().openFile(activeThreadRef, relativePath);
@@ -148,12 +135,6 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     );
   };
   const copyRightPanelFilePathStable = useStableCallback(copyRightPanelFilePath);
-  const addPullRequestSurface = () => {
-    if (!supportsPullRequests || activeThreadRef === null || pullRequestPanelTarget === null)
-      return;
-    useRightPanelStore.getState().openPullRequest(activeThreadRef, pullRequestPanelTarget);
-  };
-  const addPullRequestSurfaceStable = useStableCallback(addPullRequestSurface);
   const shortcuts = {
     "rightPanel.toggle": () => toggleRightPanel(),
     "rightPanel.toggleMaximized": ({ event }) => {
@@ -170,8 +151,6 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     shortcuts,
     activateRightPanelSurfaceStable,
     addFilesSurfaceStable,
-    addPullRequestSurfaceStable,
-    addPullRequestsSurfaceStable,
     closeRightPanelStable,
     copyRightPanelFilePathStable,
     moveRightPanelSurfaceStable,

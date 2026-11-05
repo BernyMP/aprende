@@ -1,12 +1,5 @@
-import type { EnvironmentId, ProjectId } from "@aprende/contracts";
-
 import type { ClosedView, ClosedViewEntry } from "./closedViewStore";
-import type { PullRequestListPreferences } from "./components/pullRequest/pullRequestListPreferences";
-import {
-  type RightPanelSurface,
-  type ThreadRightPanelState,
-  useRightPanelStore,
-} from "./rightPanelStore";
+import { type ThreadRightPanelState, useRightPanelStore } from "./rightPanelStore";
 
 export interface ReopenOwnerState {
   environmentKnown: boolean;
@@ -45,44 +38,6 @@ export function planNextReopen(
   return { drop, restore: null };
 }
 
-type PullRequestsSearchLike = Partial<PullRequestListPreferences> & {
-  repository?: string;
-  number?: number;
-  selectedProjectId?: ProjectId;
-  selectedHost?: string;
-  selectedEnvironmentId?: EnvironmentId;
-};
-
-export function pullRequestsSearchForRestore<S extends PullRequestsSearchLike>(
-  previous: S,
-  selected: RightPanelSurface | null,
-): S & PullRequestListPreferences {
-  const {
-    repository: _repository,
-    number: _number,
-    selectedProjectId: _projectId,
-    selectedHost: _host,
-    selectedEnvironmentId: _environmentId,
-    ...filters
-  } = previous;
-  return {
-    ...filters,
-    involvement: previous.involvement ?? "all",
-    state: previous.state ?? "open",
-    ...(selected?.kind === "pull-request"
-      ? {
-          repository: selected.repository,
-          number: selected.number,
-          selectedProjectId: selected.projectId as ProjectId,
-          ...(selected.host === undefined ? {} : { selectedHost: selected.host }),
-          ...(selected.environmentId === undefined
-            ? {}
-            : { selectedEnvironmentId: selected.environmentId as EnvironmentId }),
-        }
-      : {}),
-  } as S & PullRequestListPreferences;
-}
-
 export function reopenClosedView(
   view: ClosedView,
   options: { workspaceAvailable: boolean },
@@ -100,9 +55,6 @@ export function reopenClosedView(
     case "file":
       if (surface.attachment) panels.openAttachment(ref, surface.attachment);
       else panels.openFile(ref, surface.relativePath, surface.revealLine ?? undefined);
-      break;
-    case "pull-request":
-      panels.openPullRequest(ref, surface);
       break;
     case "side-chat":
       panels.openSideChat(ref, surface.threadId);

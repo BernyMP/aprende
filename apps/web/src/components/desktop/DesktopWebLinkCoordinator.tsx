@@ -1,54 +1,23 @@
-import { scopeProjectRef } from "@aprende/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@aprende/client-runtime/state/runtime";
-import { sourceControlClients } from "@aprende/client-runtime/source-control-clients";
 import { promptLinkAppPath } from "@aprende/shared/promptLinks";
 import { readPairingAppLink, resolveRemotePairingTarget } from "@aprende/shared/remote";
 import { useRouter } from "@tanstack/react-router";
-import * as Effect from "effect/Effect";
-import { AtomRegistry } from "effect/reactivity";
-import * as Stream from "effect/Stream";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { requestConfirmDialog } from "../../confirmDialog";
 import { openExternalLink } from "../../lib/openExternalLink";
 import { connectPairing } from "../../connection/onboarding";
 import { isLocalEnvironmentDisabled } from "../../localEnvironment";
-import { useClientSettings } from "../../hooks/useSettings";
-import { useOpenChangeRequestLink } from "../../lib/openPullRequestLink";
-import { appAtomRegistry } from "../../rpc/atomRegistry";
-import { resolveThreadRouteTarget } from "../../threadRoutes";
-import { readProject, readThreadShell } from "../../state/entities";
 import { usePrimaryEnvironment } from "../../state/environments";
-import { allReachableShellsLiveAtom } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { stackedThreadToast, toastManager } from "../ui/toast";
-
-/** A link handed over by the OS is a plain click: nothing about it asks for the browser. */
-const externalClick = {
-  preventDefault() {},
-  stopPropagation() {},
-  metaKey: false,
-  ctrlKey: false,
-};
-
-/** Resolves once every reachable environment has reported its projects or settled offline. */
-const projectsSettled = (): Promise<void> =>
-  Effect.runPromise(
-    AtomRegistry.toStream(appAtomRegistry, allReachableShellsLiveAtom).pipe(
-      Stream.filter((settled) => settled),
-      Stream.runHead,
-      Effect.asVoid,
-    ),
-  );
 
 export function DesktopWebLinkCoordinator() {
   const router = useRouter();
   const primaryEnvironment = usePrimaryEnvironment();
-  const openPullRequestsInApp = useClientSettings((settings) => settings.pullRequestLinksOpenInApp);
-  const openChangeRequest = useOpenChangeRequestLink();
   const connectPairingEnvironment = useAtomCommand(connectPairing, { reportFailure: false });
   const queueRef = useRef(Promise.resolve());
   const pairedUrlsRef = useRef(new Set<string>());
@@ -119,36 +88,11 @@ export function DesktopWebLinkCoordinator() {
       await router.navigate({ href: appPath });
       return;
     }
-    const routeParams = router.state.matches.at(-1)?.params ?? {};
-    const routeTarget = resolveThreadRouteTarget(routeParams);
-    const activeThreadRef = routeTarget?.kind === "server" ? routeTarget.threadRef : undefined;
-    const activeThread = activeThreadRef ? readThreadShell(activeThreadRef) : null;
-    const activeProject =
-      activeThread && activeThreadRef
-        ? readProject(scopeProjectRef(activeThreadRef.environmentId, activeThread.projectId))
-        : null;
-    const commitThreadRef =
-      activeThread &&
-      sourceControlClients.parseCommitUrl(url, activeProject?.repositoryIdentity?.provider) !== null
-        ? activeThreadRef
-        : undefined;
-    if (openChangeRequest(externalClick, url, commitThreadRef)) return;
     await openInBrowser(url);
   });
 
   const receiveLink = useEffectEvent((url: string) => {
-    // A connected server publishes its config before its project snapshot, so a source control
-    // link delivered at launch would miss its project and fall through to the browser. Hold
-    // those links until discovery settles; an ordinary link never waits for it.
-    const hold =
-      openPullRequestsInApp &&
-      (sourceControlClients.parseChangeRequestUrl(url) !== null ||
-        sourceControlClients.parseCommitUrl(url) !== null)
-        ? projectsSettled()
-        : Promise.resolve();
-    void hold.then(() => {
-      queueRef.current = queueRef.current.then(() => openLink(url)).catch(() => undefined);
-    });
+    queueRef.current = queueRef.current.then(() => openLink(url)).catch(() => undefined);
   });
 
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- subscribes to desktop web link opens over the bridge and marks the renderer ready

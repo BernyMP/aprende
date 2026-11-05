@@ -40,8 +40,6 @@ import { ExpandedImageDialog } from "~/components/chat/ExpandedImageDialog";
 import type { ExpandedImagePreview } from "~/components/chat/ExpandedImagePreview";
 import { useHtmlRenderTheme } from "~/hooks/useHtmlRenderTheme";
 import { shortcutConflictKey } from "~/keybindings";
-import { useOpenChangeRequestLink } from "~/lib/openPullRequestLink";
-import { readLocalApi } from "~/localApi";
 import { cn } from "~/lib/utils";
 import { primaryServerKeybindingsAtom, serverEnvironment } from "~/state/server";
 
@@ -245,25 +243,7 @@ export function HtmlRenderDocument(props: {
       );
     },
   );
-  const openChangeRequestLink = useOpenChangeRequestLink(props.threadRef);
-  const open = useEffectEvent((url: string, modifiers: { metaKey: boolean; ctrlKey: boolean }) => {
-    if (modifiers.metaKey || modifiers.ctrlKey) {
-      void readLocalApi()
-        ?.shell.openExternal(url)
-        .catch((cause: unknown) => console.error(cause));
-      return;
-    }
-    if (
-      props.threadRef !== undefined &&
-      openChangeRequestLink(
-        { ...modifiers, preventDefault: () => undefined, stopPropagation: () => undefined },
-        url,
-        undefined,
-        props.threadRef.environmentId,
-      )
-    ) {
-      return;
-    }
+  const open = useEffectEvent((url: string) => {
     void openExternalLink(url).catch((cause: unknown) => console.error(cause));
   });
   const { onFullscreenChange } = props;
@@ -285,7 +265,7 @@ export function HtmlRenderDocument(props: {
     if (document.activeElement !== frame || navigator.userActivation?.isActive === false) return;
     const linkRequest = readHtmlRenderLinkRequest(event.data);
     if (linkRequest !== undefined) {
-      open(linkRequest.url, linkRequest);
+      open(linkRequest.url);
       frame.contentWindow?.postMessage(htmlRenderResult(linkRequest.id), "*");
       return;
     }

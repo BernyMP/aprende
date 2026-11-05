@@ -4,10 +4,6 @@ import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/uti
 import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@aprende/contracts";
 import type { EnvironmentId } from "@aprende/contracts";
 import type { EnvironmentConnectionPhase } from "@aprende/client-runtime/connection";
-import {
-  sourceControlClients,
-  type SourceControlDefinition,
-} from "@aprende/client-runtime/source-control-clients";
 import { DEFAULT_KEYBINDINGS } from "@aprende/shared/keybindings";
 import * as Schema from "effect/Schema";
 import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
@@ -27,8 +23,6 @@ export type SettingsPath =
   | "/settings/providers"
   | "/settings/threads"
   | "/settings/scheduled-tasks"
-  | "/settings/source-control"
-  | "/settings/worktrees"
   | "/settings/connections"
   | "/settings/access"
   | "/settings/secrets"
@@ -93,8 +87,6 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/providers": "Providers",
   "/settings/threads": "Threads",
   "/settings/scheduled-tasks": "Scheduled tasks",
-  "/settings/source-control": "Source control",
-  "/settings/worktrees": "Worktrees",
   "/settings/connections": "Environments",
   "/settings/access": "Sharing & access",
   "/settings/secrets": "Secrets",
@@ -156,47 +148,6 @@ const KEYBINDING_SEARCH_ITEMS = STATIC_KEYBINDING_COMMANDS.toSorted((left, right
   };
 });
 
-export function sourceControlHostSettingsSearchId(kind: string) {
-  return `source-control-host-${kind}` as const;
-}
-
-/** Each host's own settings: its accounts and token, or the fields of its settings form. */
-export function sourceControlHostSearchItems(
-  definitions: ReadonlyArray<SourceControlDefinition>,
-): ReadonlyArray<
-  SettingsSearchItem & { readonly id: ReturnType<typeof sourceControlHostSettingsSearchId> }
-> {
-  return definitions.flatMap((definition) => {
-    if (!definition.settings) return [];
-    const names = [definition.label, ...(definition.searchKeywords ?? [])].join(" ");
-    const { credentials } = definition;
-    return [
-      {
-        id: sourceControlHostSettingsSearchId(definition.kind),
-        title: credentials
-          ? `${definition.label} accounts and token`
-          : `${definition.label} credentials`,
-        to: "/settings/source-control" as const,
-        searchTerms: [
-          credentials
-            ? `${names} ${credentials.cliName} account login user host switch multiple accounts disable sign in token personal access token pat api key credential`
-            : `${names} ${Object.keys(definition.settings.fields).join(" ")} token credentials sign in`,
-        ],
-        environmentOnly: true,
-        scope: "environment-defaults" as const,
-      },
-    ];
-  });
-}
-
-/** For settings that apply to every host. */
-const SOURCE_CONTROL_HOST_LABELS = sourceControlClients.definitions
-  .map((definition) => definition.label)
-  .join(" ");
-const SOURCE_CONTROL_HOST_TERMS = sourceControlClients.definitions
-  .flatMap((definition) => [definition.label, ...(definition.searchKeywords ?? [])])
-  .join(" ");
-
 export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "tutor-prompt",
@@ -205,37 +156,11 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["system prompt instructions teaching method tutor"],
   },
   {
-    id: "storage-worktree-keep-when",
-    targetId: "storage-worktrees",
-    title: "Keep worktrees with local changes",
-    to: "/settings/worktrees",
-    scope: "project-defaults",
-    searchTerms: [
-      "any local files uncommitted changes edited tracked files ignored env build output cleanup",
-    ],
-  },
-  {
     id: "storage-delete-now",
     title: "Delete now",
     to: "/settings/maintenance",
     scope: "environment-defaults",
     searchTerms: ["storage cleanup run now results report removed kept failed"],
-  },
-  {
-    id: "storage-worktrees",
-    title: "Worktree cleanup",
-    to: "/settings/worktrees",
-    scope: "project-defaults",
-    searchTerms: [
-      "disk storage automatic delete deleted archived threads old inactive merged settled unchanged worktrees retention days project inherit off custom",
-    ],
-  },
-  {
-    id: "storage-worktrees-location",
-    title: "Worktree location",
-    to: "/settings/worktrees",
-    scope: "environment-defaults",
-    searchTerms: ["worktree location folder directory path drive external disk"],
   },
   {
     id: "storage-artifacts",
@@ -584,20 +509,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["default workspace mode draft local worktree"],
   },
   {
-    id: "worktree-submodules",
-    title: "Submodules",
-    to: "/settings/worktrees",
-    scope: "project-defaults",
-    searchTerms: ["git submodule init recursive top-level none worktree t3.json"],
-  },
-  {
-    id: "start-from-origin",
-    title: "Start from remote",
-    to: "/settings/worktrees",
-    scope: "project-defaults",
-    searchTerms: ["new worktrees start remote origin latest fetched branch local"],
-  },
-  {
     id: "add-project-starts-in",
     title: "Add project starts in",
     to: "/settings/threads",
@@ -784,38 +695,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     providerSettingsOnly: true,
   },
   {
-    id: "automatic-pull",
-    title: "Automatically pull",
-    to: "/settings/source-control",
-    scope: "project-defaults",
-    searchTerms: ["auto pull default branch current checkout fast forward upstream"],
-  },
-  {
-    id: "remove-agent-credits-on-merge",
-    title: "Remove agent credits when merging",
-    to: "/settings/source-control",
-    scope: "project-defaults",
-    searchTerms: [
-      `pull request ${SOURCE_CONTROL_HOST_LABELS} squash co-authored-by attribution claude codex generated`,
-    ],
-  },
-  {
-    id: "pull-request-merge-method",
-    title: "Default merge method",
-    to: "/settings/source-control",
-    scope: "project-defaults",
-    searchTerms: ["pull request merge squash rebase last selected"],
-  },
-  {
-    id: "source-control",
-    title: "Source control",
-    to: "/settings/source-control",
-    scope: "environment-defaults",
-    searchTerms: [
-      `version control git ${SOURCE_CONTROL_HOST_TERMS} hosting integrations credentials scan server environment`,
-    ],
-  },
-  {
     id: "git-fetch-interval",
     title: "Git fetch interval",
     to: "/settings/maintenance",
@@ -825,67 +704,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
     environmentOnly: true,
     scope: "environment-defaults",
-  },
-  {
-    id: "worktree-branch-naming",
-    title: "Worktree branch naming",
-    to: "/settings/worktrees",
-    searchTerms: ["static semantic prefix custom prompt instructions feat fix refactor chore"],
-    environmentOnly: true,
-    scope: "project-defaults",
-  },
-  ...sourceControlHostSearchItems(sourceControlClients.definitions),
-  {
-    id: "source-control-writing-style",
-    title: "Source control writing style",
-    to: "/settings/source-control",
-    searchTerms: [
-      "repository conventions conventional commits custom instructions change descriptions request titles",
-    ],
-    environmentOnly: true,
-  },
-  {
-    id: "follow-change-request-templates",
-    title: "Follow change request templates",
-    to: "/settings/source-control",
-    searchTerms: ["repository pr pull request description structure"],
-    environmentOnly: true,
-  },
-  {
-    id: "source-control-writer-model",
-    title: "Source control writer model",
-    to: "/settings/source-control",
-    searchTerms: [
-      "override generated commit change request pr titles descriptions branch bookmark",
-    ],
-    environmentOnly: true,
-    scope: "project-defaults",
-  },
-  {
-    id: "review-guides",
-    title: "Review guides (beta)",
-    to: "/settings/source-control",
-    searchTerms: ["pull request pr guided review guide tour beta experimental"],
-    environmentOnly: true,
-  },
-  {
-    id: "review-guide-model",
-    title: "Review guide model",
-    to: "/settings/source-control",
-    // Hidden until review guides are on, so a search lands on the switch that shows it.
-    targetId: "review-guides",
-    searchTerms: ["pull request pr guided review guide brief maintainer"],
-    environmentOnly: true,
-    scope: "project-defaults",
-  },
-  {
-    id: "review-guide-instructions",
-    title: "Review guide instructions",
-    to: "/settings/source-control",
-    targetId: "review-guides",
-    searchTerms: ["pull request pr guided review guide preferences taste prompt custom"],
-    environmentOnly: true,
-    scope: "project-defaults",
   },
   {
     id: "environment-icon",
@@ -990,14 +808,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
-    id: "pull-request-routing",
-    title: "Pull request sharing",
-    to: "/settings/connections",
-    searchTerms: [
-      `pull request routing trusted environments shared credentials permissions read actions source control ${SOURCE_CONTROL_HOST_LABELS}`,
-    ],
-  },
-  {
     id: "secret-providers",
     title: "Secret providers",
     to: "/settings/secrets",
@@ -1035,8 +845,6 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/keybindings": null,
   "/settings/providers": null,
   "/settings/threads": null,
-  "/settings/source-control": "environment-defaults",
-  "/settings/worktrees": "project-defaults",
   "/settings/connections": "connections",
   "/settings/access": "connections",
   "/settings/secrets": null,
@@ -1054,7 +862,6 @@ const RENAMED_SETTINGS_PATHS: Readonly<Record<string, SettingsPath>> = {
 const SPLIT_SETTINGS_PATHS: ReadonlySet<string> = new Set([
   "/settings/general",
   "/settings/appearance",
-  "/settings/source-control",
   "/settings/connections",
   ...Object.keys(RENAMED_SETTINGS_PATHS),
 ]);

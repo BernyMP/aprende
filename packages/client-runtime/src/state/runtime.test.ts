@@ -1,18 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import {
-  EnvironmentId,
-  ORCHESTRATION_V2_WS_METHODS,
-  ThreadId,
-  type ReviewDiffPreviewInput,
-  type PreviewEvent,
-  type TerminalAttachInput,
-  type TerminalAttachStreamEvent,
-  type TerminalMetadataStreamEvent,
-  type TerminalSummary,
-  WS_METHODS,
-} from "@aprende/contracts";
+import { EnvironmentId, ORCHESTRATION_V2_WS_METHODS, ThreadId } from "@aprende/contracts";
 import * as Cause from "effect/Cause";
-import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -39,15 +27,11 @@ import * as EnvironmentSupervisor from "../connection/supervisor.ts";
 import { EnvironmentRpcUnavailableError } from "../rpc/client.ts";
 import type * as RpcSession from "../rpc/session.ts";
 import { createOrchestrationEnvironmentAtoms } from "./orchestration.ts";
-import { createReviewEnvironmentAtoms } from "./review.ts";
-import { createPreviewEnvironmentAtoms } from "./preview.ts";
 import type { QueryPersistence } from "./queryPersistence.ts";
 import type { EnvironmentShellState } from "./shell.ts";
-import { createTerminalEnvironmentAtoms } from "./terminal.ts";
 import {
   createAtomCommandScheduler,
   createEnvironmentQueryAtomFamily,
-  selectEnvironmentQueryData,
   createEnvironmentSubscriptionAtomFamily,
   createRuntimeCommand,
   environmentSessionGenerationAtom,
@@ -192,139 +176,6 @@ const mountEnvironmentQuery = Effect.fn("TestEnvironmentQuery.mount")(function* 
   return registry;
 });
 
-it.effect("keeps complete review metadata visible while a refresh is held", () =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const started = yield* Deferred.make<void>();
-      const release = yield* Deferred.make<void>();
-      let fullReads = 0;
-      const rpcSession = {
-        client: {
-          [WS_METHODS.reviewGetDiffPreview]: (input: ReviewDiffPreviewInput) =>
-            Effect.gen(function* () {
-              if (!input.trackedOnly && ++fullReads > 1) {
-                yield* Deferred.succeed(started, undefined);
-                yield* Deferred.await(release);
-              }
-              return {
-                cwd: input.cwd,
-                generatedAt: DateTime.makeUnsafe(0),
-                ...(input.trackedOnly ? { incomplete: true } : {}),
-                sources: [
-                  {
-                    id: "working-tree",
-                    kind: "working-tree" as const,
-                    title: "Uncommitted",
-                    baseRef: "HEAD",
-                    headRef: null,
-                    diff: "",
-                    diffHash: String(fullReads),
-                    truncated: false,
-                    patchesDeferred: true,
-                    files: (input.trackedOnly ? ["tracked"] : ["tracked", "untracked"]).map(
-                      (path) => ({ path, previousPath: null, additions: 1, deletions: 0 }),
-                    ),
-                  },
-                ],
-              };
-            }),
-        },
-      } as unknown as RpcSession.RpcSession;
-      const harness = yield* makeEnvironmentQueryHarness(Effect.void, { rpcSession });
-      const atom = createReviewEnvironmentAtoms(harness.runtime).diffPreview({
-        environmentId: QUERY_ENVIRONMENT.environmentId,
-        input: { cwd: "/project", sourceKind: "working-tree", metadataOnly: true },
-      });
-      const registry = yield* mountEnvironmentQuery(atom);
-      expect((yield* readEnvironmentQuery(registry, atom)).sources[0]!.files).toHaveLength(2);
-      registry.refresh(atom);
-      yield* Deferred.await(started);
-      yield* Effect.sync(() => {
-        const value = AsyncResult.getOrElse(registry.get(atom), () => null);
-        expect(value?.incomplete).not.toBe(true);
-        expect(value?.sources[0]!.files).toHaveLength(2);
-      }).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
-      expect((yield* readEnvironmentQuery(registry, atom)).sources[0]!.diffHash).toBe("2");
-    }),
-  ),
-);
-
-describe("preview event subscriptions", () => {
-  it.effect("delivers every open and close when RPC events arrive in batches", () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const opened: PreviewEvent[] = ["thread-a", "thread-b"].map((threadId, index) => ({
-          type: "opened",
-          threadId,
-          tabId: `tab-${index}`,
-          serverEpoch: "epoch-1",
-          revision: index + 1,
-          createdAt: "2026-10-02T00:00:00.000Z",
-          snapshot: {
-            threadId,
-            tabId: `tab-${index}`,
-            navStatus: { _tag: "Idle" },
-            canGoBack: false,
-            canGoForward: false,
-            updatedAt: "2026-10-02T00:00:00.000Z",
-          },
-        }));
-        const closed: PreviewEvent[] = opened.map((event, index) => ({
-          type: "closed",
-          threadId: event.threadId,
-          tabId: event.tabId,
-          serverEpoch: event.serverEpoch,
-          revision: opened.length + index + 1,
-          createdAt: event.createdAt,
-        }));
-        const releaseEvents = yield* Deferred.make<void>();
-        // Each iterable is one RPC chunk; separate emissions would hide lost events.
-        const stream = Stream.fromEffect(Deferred.await(releaseEvents)).pipe(
-          Stream.flatMap(() =>
-            Stream.fromIterable(opened).pipe(
-              Stream.concat(Stream.fromIterable(closed)),
-              Stream.concat(Stream.never),
-            ),
-          ),
-        );
-        const harness = yield* makeEnvironmentQueryHarness(Effect.void, {
-          rpcSession: {
-            client: { [WS_METHODS.subscribePreviewEvents]: () => stream },
-          } as unknown as RpcSession.RpcSession,
-        });
-        const atom = createPreviewEnvironmentAtoms(harness.runtime).events({
-          environmentId: QUERY_ENVIRONMENT.environmentId,
-          input: {},
-        });
-        const registry = AtomRegistry.make();
-        const observed: PreviewEvent[] = [];
-        const sawLast = yield* Deferred.make<void>();
-        const unsubscribe = registry.subscribe(
-          atom,
-          (result) => {
-            if (!AsyncResult.isSuccess(result)) return;
-            observed.push(result.value);
-            if (result.value === closed[closed.length - 1]) {
-              Deferred.doneUnsafe(sawLast, Exit.void);
-            }
-          },
-          { immediate: true },
-        );
-        yield* Effect.addFinalizer(() =>
-          Effect.sync(() => {
-            unsubscribe();
-            registry.dispose();
-          }),
-        );
-
-        yield* Deferred.succeed(releaseEvents, undefined);
-        yield* Deferred.await(sawLast);
-        expect(observed).toEqual([...opened, ...closed]);
-      }),
-    ),
-  );
-});
-
 describe("finite environment subscription lifecycle", () => {
   it.effect(
     "exposes early values and settles on the terminal value without waiting for a reconnect",
@@ -394,153 +245,6 @@ describe("finite environment subscription lifecycle", () => {
 });
 
 describe("environment query lifecycle", () => {
-  it.effect(
-    "terminal metadata waits for snapshots and retains known sessions across restarts",
-    () =>
-      Effect.gen(function* () {
-        const harness = yield* makeEnvironmentQueryHarness(Effect.void);
-        const started = yield* Queue.unbounded<void>();
-        const events = yield* Queue.unbounded<TerminalMetadataStreamEvent>();
-        const receivedCheckout = yield* Deferred.make<void>();
-        const receivedEmpty = yield* Deferred.make<void>();
-        const checkout: TerminalSummary = {
-          threadId: "thread-1",
-          terminalId: "terminal-1",
-          cwd: "/repo/root/packages/app",
-          worktreePath: null,
-          status: "running",
-          pid: 123,
-          exitCode: null,
-          exitSignal: null,
-          hasRunningSubprocess: false,
-          label: "Terminal 1",
-          updatedAt: "2026-04-01T00:00:00.000Z",
-        };
-        const client = {
-          [WS_METHODS.subscribeTerminalMetadata]: () =>
-            Stream.fromEffect(Queue.offer(started, undefined)).pipe(
-              Stream.drain,
-              Stream.concat(Stream.fromQueue(events)),
-            ),
-        } as unknown as RpcSession.RpcSession["client"];
-        const session = { ...QUERY_RPC_SESSION, client };
-        yield* SubscriptionRef.set(harness.supervisorSession, Option.some(session));
-        const atoms = createTerminalEnvironmentAtoms(harness.runtime);
-        const atom = atoms.metadata({
-          environmentId: QUERY_ENVIRONMENT.environmentId,
-          input: null,
-        });
-        const registry = AtomRegistry.make();
-        const observed: Array<ReadonlyArray<TerminalSummary>> = [];
-        const unsubscribe = registry.subscribe(
-          atom,
-          (result) => {
-            if (!AsyncResult.isSuccess(result)) return;
-            observed.push(result.value);
-            if (result.value.length > 0) Deferred.doneUnsafe(receivedCheckout, Exit.void);
-            else Deferred.doneUnsafe(receivedEmpty, Exit.void);
-          },
-          { immediate: true },
-        );
-        yield* Effect.addFinalizer(() =>
-          Effect.sync(() => {
-            unsubscribe();
-            registry.dispose();
-          }),
-        );
-
-        yield* Queue.take(started);
-        expect(selectEnvironmentQueryData(registry.get(atom))).toBeNull();
-        expect(observed).toEqual([]);
-
-        yield* Queue.offer(events, { type: "snapshot", terminals: [checkout] });
-        yield* Deferred.await(receivedCheckout);
-        expect(selectEnvironmentQueryData(registry.get(atom))).toEqual([checkout]);
-
-        yield* SubscriptionRef.set(harness.supervisorSession, Option.some({ ...session }));
-        yield* Queue.take(started);
-        expect(selectEnvironmentQueryData(registry.get(atom))).toEqual([checkout]);
-
-        yield* SubscriptionRef.update(harness.streamGeneration, (generation) => generation + 1);
-        yield* Queue.take(started);
-        expect(selectEnvironmentQueryData(registry.get(atom))).toEqual([checkout]);
-
-        yield* Queue.offer(events, { type: "snapshot", terminals: [] });
-        yield* Deferred.await(receivedEmpty);
-        expect(selectEnvironmentQueryData(registry.get(atom))).toEqual([]);
-      }),
-  );
-
-  it.effect("terminal attach resubscribes with resume only after the stream replied", () =>
-    Effect.gen(function* () {
-      const harness = yield* makeEnvironmentQueryHarness(Effect.void);
-      const inputs = yield* Queue.unbounded<TerminalAttachInput>();
-      const events = yield* Queue.unbounded<TerminalAttachStreamEvent>();
-      const received = yield* Deferred.make<void>();
-      const client = {
-        [WS_METHODS.terminalAttach]: (input: TerminalAttachInput) =>
-          Stream.fromEffect(Queue.offer(inputs, input)).pipe(
-            Stream.drain,
-            Stream.concat(Stream.fromQueue(events)),
-          ),
-      } as unknown as RpcSession.RpcSession["client"];
-      const firstSession = { ...QUERY_RPC_SESSION, client };
-      yield* SubscriptionRef.set(harness.supervisorSession, Option.some(firstSession));
-      const input = {
-        threadId: "thread-1",
-        terminalId: "terminal-1",
-        cwd: "/tmp/project",
-        restartIfNotRunning: true,
-      };
-      const atoms = createTerminalEnvironmentAtoms(harness.runtime);
-      const registry = AtomRegistry.make();
-      const atom = atoms.attach({ environmentId: QUERY_ENVIRONMENT.environmentId, input });
-      const unmount = registry.subscribe(
-        atom,
-        (result) => {
-          if (AsyncResult.isSuccess(result) && result.value.version > 0) {
-            Deferred.doneUnsafe(received, Exit.void);
-          }
-        },
-        { immediate: true },
-      );
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          unmount();
-          registry.dispose();
-        }),
-      );
-
-      expect(yield* Queue.take(inputs)).toEqual(input);
-      yield* SubscriptionRef.set(harness.supervisorSession, Option.some({ ...firstSession }));
-      expect(yield* Queue.take(inputs)).toEqual(input);
-      yield* Queue.offer(events, {
-        type: "closed",
-        threadId: input.threadId,
-        terminalId: input.terminalId,
-      });
-      yield* Deferred.await(received);
-
-      yield* SubscriptionRef.set(harness.supervisorSession, Option.some({ ...firstSession }));
-      expect(yield* Queue.take(inputs)).toEqual({ ...input, resume: true });
-      // Catalog replacements rerun the same stream through followStream's switchMap.
-      yield* SubscriptionRef.update(harness.streamGeneration, (generation) => generation + 1);
-      expect(yield* Queue.take(inputs)).toEqual({ ...input, resume: true });
-
-      unmount();
-      registry.dispose();
-      const remountedRegistry = AtomRegistry.make();
-      const remount = remountedRegistry.subscribe(atom, () => {}, { immediate: true });
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => {
-          remount();
-          remountedRegistry.dispose();
-        }),
-      );
-      expect(yield* Queue.take(inputs)).toEqual(input);
-    }),
-  );
-
   it.effect(
     "hides a session replacement, reports the relay backoff, and recovers on reconnect",
     () =>

@@ -1,5 +1,4 @@
 import type { ComposerHandleRef } from "../../composerHandleContext";
-import type { BranchToolbarHandle } from "../BranchToolbar";
 import type { ChatComposerHandle } from "./ChatComposer";
 import type { ChatShortcutCommands } from "./useChatShortcuts";
 
@@ -9,11 +8,8 @@ const openControl =
     if (!event.repeat) composerRef.current?.openControl(control);
   };
 
-/** Chords that open or step the composer's controls and its branch toolbar. Held keys do not repeat them. */
-export function composerShortcutCommands(
-  composerRef: ComposerHandleRef,
-  branchToolbarRef: { readonly current: BranchToolbarHandle | null },
-): ChatShortcutCommands {
+/** Chords that open or step the composer's controls. Held keys do not repeat them. */
+export function composerShortcutCommands(composerRef: ComposerHandleRef): ChatShortcutCommands {
   return {
     "modelPicker.toggle": ({ event }) => {
       if (!event.repeat) composerRef.current?.toggleModelPicker();
@@ -28,11 +24,5 @@ export function composerShortcutCommands(
     "composer.effort": openControl(composerRef, "composer.effort"),
     "composer.mode": openControl(composerRef, "composer.mode"),
     "composer.workspace": openControl(composerRef, "composer.workspace"),
-    "composer.branch": ({ event }) => {
-      if (!event.repeat) branchToolbarRef.current?.openBranchPicker();
-    },
-    "composer.previousWorktree": ({ event }) => {
-      if (!event.repeat) branchToolbarRef.current?.usePreviousWorktree();
-    },
   } satisfies ChatShortcutCommands;
 }
