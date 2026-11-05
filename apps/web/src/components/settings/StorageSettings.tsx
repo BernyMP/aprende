@@ -1,9 +1,4 @@
-import type {
-  StorageCleanupReport,
-  StorageCleanupSettings,
-  WorktreeCleanupRules,
-} from "@aprende/contracts";
-import { resolveWorktreeCleanup } from "@aprende/shared/projectSettings";
+import type { StorageCleanupReport, StorageCleanupSettings } from "@aprende/contracts";
 import { useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -126,13 +121,11 @@ function CleanupResults({
     <>
       {report.entries.map((entry, index) => {
         const name =
-          entry.kind === "worktree"
-            ? ((entry.threadId === null
-                ? entry.path
-                : entry.path?.split(/[\\/]/).findLast(Boolean)) ?? "Worktrees")
-            : entry.kind === "logs"
-              ? "Rotated logs"
-              : "Browser artifacts";
+          entry.kind === "logs"
+            ? "Rotated logs"
+            : entry.kind === "browser-artifacts"
+              ? "Browser artifacts"
+              : (entry.path ?? entry.kind);
         return (
           <SettingsRow
             key={`${entry.path ?? entry.kind}:${entry.threadId ?? index}`}
@@ -171,7 +164,7 @@ function CleanupResults({
                 (entry.outcome === "kept" && entry.bytes !== null)) && (
                 <span className="text-xs text-muted-foreground">
                   {[
-                    entry.kind !== "worktree" && entry.files !== null
+                    entry.files !== null
                       ? `${entry.files.toLocaleString()} ${entry.files === 1 ? "file" : "files"}`
                       : null,
                     entry.bytes !== null ? formatBytes(entry.bytes) : null,
@@ -232,20 +225,9 @@ function CleanupSection() {
   const hasRules = supported.some((environment) => {
     const settings = environment.serverConfig?.settings;
     if (!settings) return false;
-    const enabled = (rules: WorktreeCleanupRules) =>
-      rules.worktreeAfterDays !== null ||
-      rules.worktreeSettledAfterDays !== null ||
-      rules.worktreeOnMerge ||
-      rules.worktreeOnDelete ||
-      rules.worktreeUnchanged;
     return (
       settings.storageCleanup.browserArtifactsAfterDays !== null ||
-      settings.storageCleanup.logsAfterDays !== null ||
-      enabled(resolveWorktreeCleanup(settings, null)) ||
-      Object.values(settings.projectSettingsOverrides).some(
-        (override) =>
-          override.worktreeCleanup?.mode === "custom" && enabled(override.worktreeCleanup.rules),
-      )
+      settings.storageCleanup.logsAfterDays !== null
     );
   });
   if (supported.length === 0) return null;
@@ -382,7 +364,7 @@ function StorageCleanupScopeNotice() {
   );
 }
 
-/** Retention for logs and captures, and the manual cleanup run, which covers worktrees too. */
+/** Retention for logs and captures, and the manual cleanup run. */
 export function StorageCleanupSections() {
   const { scope, connectedEnvironments, targets } = useSettingsScope();
   const scopedSettings = useScopedSettings();

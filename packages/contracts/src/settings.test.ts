@@ -11,6 +11,7 @@ import {
   ClientSettingsSchema,
   ClientSettingsPatch,
   ClaudeSettings,
+  DEFAULT_CLIENT_SETTINGS,
   DEFAULT_SERVER_SETTINGS,
   globalIdleCompaction,
   idleCompactionPatch,
@@ -42,75 +43,47 @@ const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
 
 describe("storage cleanup settings", () => {
   it("keeps cleanup disabled for existing installations", () => {
-    expect(decodeServerSettings({}).worktreeCleanup).toBeNull();
     expect(decodeServerSettings({}).storageCleanup).toEqual({
-      worktreeAfterDays: null,
-      worktreeSettledAfterDays: null,
-      worktreeOnMerge: false,
-      worktreeOnDelete: false,
-      worktreeUnchanged: false,
-      worktreeKeepWhen: "uncommitted-changes",
       browserArtifactsAfterDays: null,
       logsAfterDays: null,
     });
   });
 
-  it("accepts partial custom patches but requires complete stored project rules", () => {
-    expect(
-      decodeServerSettingsPatch({
-        worktreeCleanup: { mode: "custom", rules: { worktreeAfterDays: 8 } },
-      }),
-    ).toEqual({ worktreeCleanup: { mode: "custom", rules: { worktreeAfterDays: 8 } } });
-    expect(() =>
-      decodeServerSettings({
-        projectSettingsOverrides: {
-          project: { worktreeCleanup: { mode: "custom", rules: { worktreeAfterDays: 8 } } },
-        },
-      }),
-    ).toThrow();
-    expect(
-      decodeServerSettings({
-        projectSettingsOverrides: {
-          project: {
-            worktreeCleanup: {
-              mode: "custom",
-              rules: {
-                worktreeAfterDays: null,
-                worktreeOnMerge: false,
-                worktreeOnDelete: false,
-                worktreeUnchanged: false,
-              },
-            },
-          },
-        },
-      }).projectSettingsOverrides[ProjectId.make("project")]?.worktreeCleanup,
-    ).toMatchObject({
-      mode: "custom",
-      rules: { worktreeSettledAfterDays: null, worktreeKeepWhen: "uncommitted-changes" },
-    });
-  });
-
-  it("decodes older custom rules with the default local-file policy", () => {
+  it("loads settings saved before the git and worktree settings were retired", () => {
+    const projectId = ProjectId.make("project");
     const settings = decodeServerSettings({
-      worktreeCleanup: {
-        mode: "custom",
-        rules: {
-          worktreeAfterDays: 8,
-          worktreeOnMerge: false,
-          worktreeOnDelete: false,
-          worktreeUnchanged: false,
-        },
+      worktreeCleanup: { mode: "custom", rules: { worktreeAfterDays: 8 } },
+      storageCleanup: {
+        worktreeAfterDays: 8,
+        worktreeKeepWhen: "any-local-files",
+        logsAfterDays: 3,
+      },
+      worktreesDirectory: "/work",
+      previousWorktreesDirectories: ["/old"],
+      defaultAutoPull: true,
+      projectAutoPullOverrides: { [projectId]: true },
+      automaticGitFetchInterval: 15_000,
+      backgroundActivity: { profile: "custom", overrides: { automaticGitFetchInterval: 15_000 } },
+      defaultThreadEnvMode: "worktree",
+      newWorktreesStartFromOrigin: false,
+      worktreeSubmodules: "none",
+      projectSettingsOverrides: {
+        [projectId]: { defaultAutoPull: true, responseStreamingMode: "turn" },
       },
     });
-    expect(settings.worktreeCleanup).toMatchObject({
-      rules: { worktreeKeepWhen: "uncommitted-changes" },
+    expect(settings.storageCleanup).toEqual({ browserArtifactsAfterDays: null, logsAfterDays: 3 });
+    expect(settings.backgroundActivity.overrides).toEqual({});
+    for (const key of ["worktreeCleanup", "worktreesDirectory", "defaultAutoPull"]) {
+      expect(key in settings).toBe(false);
+    }
+    // Override entries keep keys this version does not know, so a newer or older build reads them back.
+    expect(settings.projectSettingsOverrides[projectId]).toEqual({
+      defaultAutoPull: true,
+      responseStreamingMode: "turn",
     });
-    expect(
-      decodeServerSettingsPatch({ storageCleanup: { worktreeKeepWhen: "tracked-changes" } }),
-    ).toEqual({ storageCleanup: { worktreeKeepWhen: "tracked-changes" } });
-    expect(() =>
-      decodeServerSettingsPatch({ storageCleanup: { worktreeKeepWhen: "unknown" } }),
-    ).toThrow();
+    expect(decodeClientSettings({ diffLayout: "split", proactivePanelsEnabled: true })).toEqual(
+      DEFAULT_CLIENT_SETTINGS,
+    );
   });
 });
 
@@ -158,10 +131,10 @@ describe("ServerSettings secret providers", () => {
   it("keeps an unknown kind or a longer label from invalidating the rest of the settings", () => {
     const openbao = { kind: "openbao", label: "V".repeat(65), config: { address: "https://x" } };
     const decoded = decodeServerSettings({
-      worktreesDirectory: "/work",
+      addProjectBaseDirectory: "/work",
       secretProviders: { vault: openbao, personal: onePassword("my.1password.com") },
     });
-    expect(decoded.worktreesDirectory).toBe("/work");
+    expect(decoded.addProjectBaseDirectory).toBe("/work");
     expect(encodeServerSettings(decoded).secretProviders).toEqual({
       vault: openbao,
       personal: onePassword("my.1password.com"),
@@ -345,29 +318,6 @@ describe("provider enabled defaults", () => {
   });
 });
 
-describe("ServerSettings worktree defaults", () => {
-  it("defaults the thread env mode to inherit and keeps stored values", () => {
-    expect(decodeServerSettings({}).defaultThreadEnvMode).toBeNull();
-    expect(decodeServerSettings({ defaultThreadEnvMode: "worktree" }).defaultThreadEnvMode).toBe(
-      "worktree",
-    );
-    expect(
-      decodeServerSettings({ defaultThreadEnvMode: "remote" }).defaultThreadEnvMode,
-    ).toBeNull();
-    expect(
-      decodeServerSettingsPatch({ defaultThreadEnvMode: null }).defaultThreadEnvMode,
-    ).toBeNull();
-  });
-
-  it("keeps an inherited thread env mode off the wire for older clients", () => {
-    const encode = Schema.encodeSync(ServerSettings);
-    expect("defaultThreadEnvMode" in encode(decodeServerSettings({}))).toBe(false);
-    expect(
-      encode(decodeServerSettings({ defaultThreadEnvMode: "worktree" })).defaultThreadEnvMode,
-    ).toBe("worktree");
-  });
-});
-
 describe("ServerSettings environment icon", () => {
   it("decodes a kind from a newer server as null instead of failing the snapshot", () => {
     expect(decodeServerSettings({ environmentIcon: "toaster" }).environmentIcon).toBeNull();
@@ -380,16 +330,16 @@ describe("ServerSettings project overrides across versions", () => {
     // As an older client reads a newer server's settings, with one key it does not know.
     const entry = decodeServerSettings({
       projectSettingsOverrides: {
-        [projectId]: { defaultAutoPull: true, addedByNewerServer: { mode: "kept" } },
+        [projectId]: { responseStreamingMode: "turn", addedByNewerServer: { mode: "kept" } },
       },
     }).projectSettingsOverrides[projectId];
 
     const sent = encodeServerSettingsPatch({
-      projectSettingsOverrides: { [projectId]: { ...entry, defaultAutoPull: false } },
+      projectSettingsOverrides: { [projectId]: { ...entry, responseStreamingMode: "paragraph" } },
     });
 
     expect(decodeServerSettingsPatch(sent).projectSettingsOverrides?.[projectId]).toEqual({
-      defaultAutoPull: false,
+      responseStreamingMode: "paragraph",
       addedByNewerServer: { mode: "kept" },
     });
   });

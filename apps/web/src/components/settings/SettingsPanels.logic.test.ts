@@ -12,15 +12,6 @@ describe("background activity settings restore", () => {
       hasChangedBackgroundActivitySettings({
         backgroundActivity: DEFAULT_UNIFIED_SETTINGS.backgroundActivity,
         backgroundActivityProfile: DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile,
-        automaticGitFetchInterval: Duration.seconds(45),
-        providerHealthRefreshInterval: DEFAULT_UNIFIED_SETTINGS.providerHealthRefreshInterval,
-      }),
-    ).toBe(true);
-    expect(
-      hasChangedBackgroundActivitySettings({
-        backgroundActivity: DEFAULT_UNIFIED_SETTINGS.backgroundActivity,
-        backgroundActivityProfile: DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile,
-        automaticGitFetchInterval: DEFAULT_UNIFIED_SETTINGS.automaticGitFetchInterval,
         providerHealthRefreshInterval: Duration.minutes(7),
       }),
     ).toBe(true);
@@ -28,7 +19,7 @@ describe("background activity settings restore", () => {
   });
 
   it("preserves advanced overrides when the shared policy changes", () => {
-    const automaticGitFetchInterval = Duration.seconds(42);
+    const providerHealthRefreshInterval = Duration.seconds(420);
     expect(
       backgroundActivitySharedPolicySettings(
         {
@@ -38,7 +29,7 @@ describe("background activity settings restore", () => {
             profile: "custom",
             baseProfile: "balanced",
             overrides: {
-              automaticGitFetchInterval,
+              providerHealthRefreshInterval,
               pauseWhenOnBattery: true,
             },
           },
@@ -50,19 +41,19 @@ describe("background activity settings restore", () => {
       profile: "custom",
       baseProfile: "performance",
       overrides: {
-        automaticGitFetchInterval,
+        providerHealthRefreshInterval,
         pauseWhenOnBattery: true,
       },
     });
   });
 
   it("materializes legacy advanced overrides before changing the shared policy", () => {
-    const automaticGitFetchInterval = Duration.seconds(42);
+    const providerHealthRefreshInterval = Duration.seconds(420);
     expect(
       backgroundActivitySharedPolicySettings(
         {
           ...DEFAULT_UNIFIED_SETTINGS,
-          automaticGitFetchInterval,
+          providerHealthRefreshInterval,
         },
         "battery-saver",
       ),
@@ -71,7 +62,7 @@ describe("background activity settings restore", () => {
       profile: "custom",
       baseProfile: "battery-saver",
       overrides: {
-        automaticGitFetchInterval,
+        providerHealthRefreshInterval,
       },
     });
   });

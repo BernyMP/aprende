@@ -44,7 +44,6 @@ vi.mock(import("./SettingsScopeContext"), async (original) => ({
           capabilities: {
             storageCleanup: true,
             storageCleanupRun: true,
-            settledWorktreeCleanup: true,
           },
         },
       },
@@ -96,12 +95,7 @@ function setup() {
   state.settings = {
     ...DEFAULT_SERVER_SETTINGS,
     storageCleanup: {
-      worktreeKeepWhen: "uncommitted-changes",
-      worktreeAfterDays: null,
-      worktreeSettledAfterDays: null,
-      worktreeOnMerge: false,
-      worktreeOnDelete: false,
-      worktreeUnchanged: false,
+      ...DEFAULT_SERVER_SETTINGS.storageCleanup,
       browserArtifactsAfterDays: null,
       logsAfterDays: null,
     },

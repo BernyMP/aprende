@@ -51,19 +51,12 @@ export function rememberEnabledProjectGroupingMode(mode: SidebarProjectGroupingM
 export function hasChangedBackgroundActivitySettings(
   settings: Pick<
     UnifiedSettings,
-    | "backgroundActivity"
-    | "backgroundActivityProfile"
-    | "automaticGitFetchInterval"
-    | "providerHealthRefreshInterval"
+    "backgroundActivity" | "backgroundActivityProfile" | "providerHealthRefreshInterval"
   >,
 ): boolean {
   return (
     !Equal.equals(settings.backgroundActivity, DEFAULT_UNIFIED_SETTINGS.backgroundActivity) ||
     settings.backgroundActivityProfile !== DEFAULT_UNIFIED_SETTINGS.backgroundActivityProfile ||
-    !Equal.equals(
-      settings.automaticGitFetchInterval,
-      DEFAULT_UNIFIED_SETTINGS.automaticGitFetchInterval,
-    ) ||
     !Equal.equals(
       settings.providerHealthRefreshInterval,
       DEFAULT_UNIFIED_SETTINGS.providerHealthRefreshInterval,
@@ -113,7 +106,6 @@ export function resolveBackgroundActivityProfileOption(
     profile: "custom",
     baseProfile: resolved.profile,
     overrides: {
-      automaticGitFetchInterval: resolved.automaticGitFetchInterval,
       providerHealthRefreshInterval: resolved.providerHealthRefreshInterval,
       hostPowerMonitorActiveInterval: resolved.hostPowerMonitorActiveInterval,
       hostPowerMonitorIdleInterval: resolved.hostPowerMonitorIdleInterval,
@@ -183,7 +175,6 @@ export function backgroundActivityOverrideSettings(
   overrides: BackgroundActivityOverridePatch,
 ) {
   const nextOverrides: BackgroundActivityOverridePatch = {
-    automaticGitFetchInterval: resolved.automaticGitFetchInterval,
     providerHealthRefreshInterval: resolved.providerHealthRefreshInterval,
     hostPowerMonitorActiveInterval: resolved.hostPowerMonitorActiveInterval,
     hostPowerMonitorIdleInterval: resolved.hostPowerMonitorIdleInterval,

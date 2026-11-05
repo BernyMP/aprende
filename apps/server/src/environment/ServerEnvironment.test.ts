@@ -109,10 +109,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("ServerEnvironmen
           mode === "web" ? undefined : "desktop-managed",
         );
         expect(descriptor.capabilities).toMatchObject({
-          settledWorktreeCleanup: true,
           storageCleanupRun: true,
-          projectWorktreeCleanup: true,
-          worktreesDirectory: true,
           threadAutoSettlementScope: true,
         });
       }
@@ -211,7 +208,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("ServerEnvironmen
       expect(second.capabilities.connectionProbe).toBe(true);
       expect(second.capabilities.attachmentUploads).toBe(true);
       expect(second.capabilities.fileAttachments).toEqual({ maxUploadBytes: 50 * 1024 * 1024 });
-      expect(second.capabilities.requiredWorktreeBootstrap).toBe(true);
       expect(second.capabilities.usagePriceOverrides).toBe(true);
       expect(second.capabilities.threadActiveReorder).toBe(true);
       expect(second.capabilities.threadTitleRegeneration).toBe(true);

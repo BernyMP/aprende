@@ -1,59 +1,10 @@
-import { type EnvironmentId, T3_PROJECT_FILE_NAME, type T3ProjectFile } from "@aprende/contracts";
-import { parseT3ProjectFile } from "@aprende/shared/t3ProjectFile";
-import { useAtomValue } from "@effect/atom-react";
-import { AsyncResult, Atom } from "effect/reactivity";
 import { createContext, type ReactNode, useContext } from "react";
 
 import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
-import { getProjectFileQueryAtom, optimisticFileAtom } from "../files/projectFilesQueryState";
 import { useSettingsProjectGroups } from "./useSettingsProjectGroups";
 import { resolveScopedSettingsTargets, selectScopedSettingsEnvironments } from "./scopedSettings";
 import { resolveSettingsScope, type SettingsScopeSearch } from "./settingsScope";
 import { selectSingleEnvironmentScope } from "./settingsScopeAxis";
-
-type ProjectFileMember = readonly [
-  environmentId: EnvironmentId,
-  workspaceRoot: string,
-  physicalProjectKey: string,
-];
-
-const memberProjectFilesAtom = Atom.family((membersKey: string) => {
-  const members = JSON.parse(membersKey) as ReadonlyArray<ProjectFileMember>;
-  return Atom.make((get) => {
-    const files = new Map<string, T3ProjectFile | null>();
-    for (const [environmentId, workspaceRoot, physicalProjectKey] of members) {
-      const result = get(
-        getProjectFileQueryAtom(environmentId, workspaceRoot, T3_PROJECT_FILE_NAME),
-      );
-      if (result.waiting) continue;
-      const data =
-        get(optimisticFileAtom(environmentId, workspaceRoot, T3_PROJECT_FILE_NAME))?.data ??
-        AsyncResult.getOrElse(result, () => null);
-      files.set(
-        physicalProjectKey,
-        data === null || data.exists === false || data.truncated
-          ? null
-          : parseT3ProjectFile(data.contents),
-      );
-    }
-    return files;
-  }).pipe(Atom.withLabel(`web-settings-member-project-files:${membersKey}`));
-});
-
-function useMemberProjectFiles(scope: ReturnType<typeof resolveSettingsScope>) {
-  const members = scope.kind === "project" || scope.kind === "checkout" ? scope.members : [];
-  return useAtomValue(
-    memberProjectFilesAtom(
-      JSON.stringify(
-        members.map((member): ProjectFileMember => [
-          member.environmentId,
-          member.workspaceRoot,
-          member.physicalProjectKey,
-        ]),
-      ),
-    ),
-  );
-}
 
 function useResolvedSettingsScope(rawSearch: SettingsScopeSearch, singleEnvironment: boolean) {
   const groups = useSettingsProjectGroups();
@@ -68,13 +19,12 @@ function useResolvedSettingsScope(rawSearch: SettingsScopeSearch, singleEnvironm
       )
     : rawSearch;
   const scope = resolveSettingsScope(search, groups, availableEnvironments);
-  const projectFiles = useMemberProjectFiles(scope);
   const selected = selectScopedSettingsEnvironments(
     scope,
     availableEnvironments,
     primaryEnvironmentId,
   );
-  const targets = resolveScopedSettingsTargets(scope, selected.connectedEnvironments, projectFiles);
+  const targets = resolveScopedSettingsTargets(scope, selected.connectedEnvironments);
   const target =
     targets.find((candidate) => candidate.environmentId === selected.environment?.environmentId) ??
     targets[0] ??

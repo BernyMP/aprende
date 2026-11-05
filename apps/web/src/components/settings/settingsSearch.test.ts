@@ -64,9 +64,11 @@ describe("searchSettings", () => {
     expect(searchSettings("glass").map((item) => item.id)).toEqual(["setting-glass-opacity"]);
     expect(searchSettings("panel animations").map((item) => item.id)).toEqual(["panel-animations"]);
     expect(searchSettings("thè\u{1ab0}mes")[0]?.id).toBe("theme");
-    const localeLowerCase = vi.spyOn(String.prototype, "toLocaleLowerCase").mockReturnValue("gıt");
+    const localeLowerCase = vi
+      .spyOn(String.prototype, "toLocaleLowerCase")
+      .mockReturnValue("chat wıdth");
     try {
-      expect(searchSettings("GIT")[0]?.id).toBe("git-fetch-interval");
+      expect(searchSettings("CHAT WIDTH")[0]?.id).toBe("chat-width");
       expect(localeLowerCase).not.toHaveBeenCalled();
     } finally {
       localeLowerCase.mockRestore();
@@ -102,7 +104,6 @@ describe("searchSettings", () => {
     });
 
     const gatedIds = new Set<string>([
-      "git-fetch-interval",
       "network-access",
       "provider-health-check-interval",
       "tailscale-https",

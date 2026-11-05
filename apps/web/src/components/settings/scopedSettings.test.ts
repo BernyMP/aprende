@@ -7,9 +7,7 @@ import {
   type ServerSettings,
 } from "@aprende/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { applyServerSettingsPatch } from "@aprende/shared/serverSettings";
 import * as Cause from "effect/Cause";
-import { resolveWorktreeCleanup } from "@aprende/shared/projectSettings";
 
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import {
@@ -125,72 +123,25 @@ describe("scoped settings targets", () => {
   it("resolves each member's effective settings and source at project scope", () => {
     const overridden = environment("Server", {
       settings: {
-        defaultAutoPull: false,
-        projectSettingsOverrides: { [projectId]: { defaultAutoPull: true } },
+        responseStreamingMode: "paragraph",
+        projectSettingsOverrides: { [projectId]: { responseStreamingMode: "turn" } },
       },
     });
     const targets = resolveScopedSettingsTargets(project, [laptop, overridden]);
-    expect(targets.map((target) => [target.projectId, target.settings.defaultAutoPull])).toEqual([
-      [projectId, true],
-      [laptopProjectId, false],
+    expect(
+      targets.map((target) => [target.projectId, target.settings.responseStreamingMode]),
+    ).toEqual([
+      [projectId, "turn"],
+      [laptopProjectId, "paragraph"],
     ]);
-    expect(scopedSettingsSource(targets, ["defaultAutoPull"])).toBe("mixed");
-    expect(scopedSettingsSource([targets[0]!], ["defaultAutoPull"])).toBe("project");
+    expect(scopedSettingsSource(targets, ["responseStreamingMode"])).toBe("mixed");
+    expect(scopedSettingsSource([targets[0]!], ["responseStreamingMode"])).toBe("project");
     expect(scopedSettingsSource(targets, ["enableProviderUpdateChecks"])).toBe("environment");
-    expect(scopedSettingsAreMixed(targets, ["defaultAutoPull"])).toBe(true);
+    expect(scopedSettingsAreMixed(targets, ["responseStreamingMode"])).toBe(true);
   });
 });
 
 describe("scoped settings writes", () => {
-  it("edits the effective machine policy without changing other machines' rules", () => {
-    const custom = environment("Laptop", {
-      settings: {
-        worktreeCleanup: {
-          mode: "custom",
-          rules: {
-            worktreeAfterDays: 12,
-            worktreeSettledAfterDays: null,
-            worktreeOnDelete: true,
-            worktreeOnMerge: true,
-            worktreeUnchanged: false,
-            worktreeKeepWhen: "uncommitted-changes",
-          },
-        },
-      },
-    });
-    const disabled = environment("Server", {
-      settings: { worktreeCleanup: { mode: "off" } },
-    });
-    const targets = [custom, disabled];
-    const plan = planScopedSettingsPatch(all, targets, {
-      storageCleanup: { worktreeOnDelete: false },
-    });
-    const policies = plan.serverWrites.map((write, index) =>
-      resolveWorktreeCleanup(
-        applyServerSettingsPatch(targets[index]!.serverConfig!.settings, write.patch),
-        null,
-      ),
-    );
-    expect(policies).toEqual([
-      {
-        worktreeAfterDays: 12,
-        worktreeSettledAfterDays: null,
-        worktreeOnDelete: false,
-        worktreeOnMerge: true,
-        worktreeUnchanged: false,
-        worktreeKeepWhen: "uncommitted-changes",
-      },
-      {
-        worktreeAfterDays: null,
-        worktreeSettledAfterDays: null,
-        worktreeOnDelete: false,
-        worktreeOnMerge: false,
-        worktreeUnchanged: false,
-        worktreeKeepWhen: "uncommitted-changes",
-      },
-    ]);
-  });
-
   it("compares idle compaction by mode, and offers Never only where every server stores it", () => {
     const fixed = {
       settings: {
@@ -290,9 +241,9 @@ describe("scoped settings writes", () => {
     it("reports a dropped key inside a project override", async () => {
       expect(
         await outcome(
-          planScopedSettingsPatch(project, environments, { defaultAutoPull: true }),
+          planScopedSettingsPatch(project, environments, { responseStreamingMode: "turn" }),
           upgradedLaptop({
-            projectSettingsOverrides: { [laptopProjectId]: { defaultAutoPull: true } },
+            projectSettingsOverrides: { [laptopProjectId]: { responseStreamingMode: "turn" } },
           }),
         ),
       ).toEqual({ saved: [laptop.label], failed: unsupported });
@@ -313,13 +264,13 @@ describe("scoped settings writes", () => {
     const persistClient = vi.fn();
     await persistScopedSettingsPatch(
       planScopedSettingsPatch(named, environments, {
-        diffIgnoreWhitespace: false,
+        confirmThreadArchive: true,
         enableProviderUpdateChecks: false,
       }),
       persistServer,
       persistClient,
     );
-    expect(persistClient).toHaveBeenCalledExactlyOnceWith({ diffIgnoreWhitespace: false });
+    expect(persistClient).toHaveBeenCalledExactlyOnceWith({ confirmThreadArchive: true });
     expect(persistServer).toHaveBeenCalledExactlyOnceWith({
       environmentId: server.environmentId,
       input: { patch: { enableProviderUpdateChecks: false } },
@@ -333,7 +284,7 @@ describe("scoped settings writes", () => {
       },
     });
     const plan = planScopedSettingsPatch(project, [laptop, withExisting], {
-      defaultAutoPull: true,
+      responseStreamingMode: "turn",
     });
     expect(plan.unavailableReason).toBeNull();
     expect(plan.serverWrites).toEqual([
@@ -343,7 +294,7 @@ describe("scoped settings writes", () => {
         previous: expect.anything(),
         patch: {
           projectSettingsOverrides: {
-            [projectId]: { continueThreadsAfterServerUpdate: false, defaultAutoPull: true },
+            [projectId]: { continueThreadsAfterServerUpdate: false, responseStreamingMode: "turn" },
           },
         },
       },
@@ -351,97 +302,16 @@ describe("scoped settings writes", () => {
         environmentId: laptop.environmentId,
         label: laptop.label,
         previous: expect.anything(),
-        patch: { projectSettingsOverrides: { [laptopProjectId]: { defaultAutoPull: true } } },
+        patch: {
+          projectSettingsOverrides: { [laptopProjectId]: { responseStreamingMode: "turn" } },
+        },
       },
     ]);
     expect(
-      planScopedSettingsPatch(checkout, [laptop, server], { defaultAutoPull: true }),
+      planScopedSettingsPatch(checkout, [laptop, server], { responseStreamingMode: "turn" }),
     ).toMatchObject({
       serverWrites: [{ environmentId: server.environmentId }],
     });
-  });
-
-  it("keeps each project's other cleanup rules when changing one rule across machines", () => {
-    const machine = environment("Laptop", {
-      settings: {
-        storageCleanup: { ...DEFAULT_SERVER_SETTINGS.storageCleanup, worktreeAfterDays: 30 },
-      },
-    });
-    const customized = environment("Server", {
-      settings: {
-        projectSettingsOverrides: {
-          [projectId]: {
-            defaultAutoPull: true,
-            worktreeCleanup: {
-              mode: "custom",
-              rules: {
-                worktreeAfterDays: 8,
-                worktreeSettledAfterDays: null,
-                worktreeOnDelete: false,
-                worktreeOnMerge: true,
-                worktreeUnchanged: false,
-                worktreeKeepWhen: "uncommitted-changes",
-              },
-            },
-          },
-        },
-      },
-    });
-    const plan = planScopedSettingsPatch(project, [machine, customized], {
-      worktreeCleanup: { mode: "custom", rules: { worktreeOnDelete: true } },
-    });
-    const settledPlan = planScopedSettingsPatch(project, [machine, customized], {
-      worktreeCleanup: { mode: "custom", rules: { worktreeSettledAfterDays: 0 } },
-    });
-    expect(
-      settledPlan.serverWrites.map((write) => write.patch.projectSettingsOverrides),
-    ).toMatchObject([
-      { [projectId]: { worktreeCleanup: { rules: { worktreeSettledAfterDays: 0 } } } },
-      { [laptopProjectId]: { worktreeCleanup: { rules: { worktreeSettledAfterDays: 0 } } } },
-    ]);
-    expect(plan.serverWrites.map((write) => write.patch.projectSettingsOverrides)).toEqual([
-      {
-        [projectId]: {
-          defaultAutoPull: true,
-          worktreeCleanup: {
-            mode: "custom",
-            rules: {
-              worktreeAfterDays: 8,
-              worktreeSettledAfterDays: null,
-              worktreeOnDelete: true,
-              worktreeOnMerge: true,
-              worktreeUnchanged: false,
-              worktreeKeepWhen: "uncommitted-changes",
-            },
-          },
-        },
-      },
-      {
-        [laptopProjectId]: {
-          worktreeCleanup: {
-            mode: "custom",
-            rules: {
-              worktreeAfterDays: 30,
-              worktreeSettledAfterDays: null,
-              worktreeOnDelete: true,
-              worktreeOnMerge: false,
-              worktreeUnchanged: false,
-              worktreeKeepWhen: "uncommitted-changes",
-            },
-          },
-        },
-      },
-    ]);
-    expect(
-      planScopedSettingsClear(checkout, [customized], ["worktreeCleanup"]).serverWrites[0]?.patch,
-    ).toEqual({
-      projectSettingsOverrides: { [projectId]: { defaultAutoPull: true } },
-    });
-    expect(
-      planScopedSettingsPatch(project, [machine, customized], {
-        storageCleanup: { browserArtifactsAfterDays: 8 },
-      }).serverWrites,
-    ).toEqual([]);
   });
 
   it("refuses environment-wide keys at project scope", () => {
@@ -457,11 +327,15 @@ describe("scoped settings writes", () => {
     const withOverrides = environment("Server", {
       settings: {
         projectSettingsOverrides: {
-          [projectId]: { defaultAutoPull: true, continueThreadsAfterServerUpdate: false },
+          [projectId]: { responseStreamingMode: "turn", continueThreadsAfterServerUpdate: false },
         },
       },
     });
-    const plan = planScopedSettingsClear(checkout, [laptop, withOverrides], ["defaultAutoPull"]);
+    const plan = planScopedSettingsClear(
+      checkout,
+      [laptop, withOverrides],
+      ["responseStreamingMode"],
+    );
     expect(plan.serverWrites).toEqual([
       {
         environmentId: server.environmentId,
@@ -476,7 +350,7 @@ describe("scoped settings writes", () => {
       planScopedSettingsClear(
         checkout,
         [laptop, withOverrides],
-        ["defaultAutoPull", "continueThreadsAfterServerUpdate"],
+        ["responseStreamingMode", "continueThreadsAfterServerUpdate"],
       ).serverWrites[0]?.patch,
     ).toEqual({ projectSettingsOverrides: { [projectId]: null } });
   });
@@ -553,15 +427,15 @@ describe("project overrides at environment scope", () => {
     const plan = planProjectOverridesClear(
       [
         environment(laptop, {
-          [fleet]: { defaultAutoPull: true, defaultThreadEnvMode: "local" },
-          [t3]: { defaultAutoPull: true },
+          [fleet]: { responseStreamingMode: "turn", threadTitleInstructions: "Short" },
+          [t3]: { responseStreamingMode: "turn" },
         }),
       ],
       [
         { environmentId: laptop, projectId: fleet },
         { environmentId: laptop, projectId: t3 },
       ],
-      ["defaultAutoPull"],
+      ["responseStreamingMode"],
     );
     expect(plan.serverWrites).toEqual([
       {
@@ -569,7 +443,7 @@ describe("project overrides at environment scope", () => {
         label: laptop,
         previous: expect.anything(),
         patch: {
-          projectSettingsOverrides: { [fleet]: { defaultThreadEnvMode: "local" }, [t3]: null },
+          projectSettingsOverrides: { [fleet]: { threadTitleInstructions: "Short" }, [t3]: null },
         },
       },
     ]);
@@ -577,7 +451,7 @@ describe("project overrides at environment scope", () => {
 });
 
 describe("null patches at project scope", () => {
-  it("removes the override for keys that cannot store null and keeps it for keys that can", () => {
+  it("keeps a null override for keys that can store null", () => {
     const environmentId = EnvironmentId.make("laptop");
     const projectId = ProjectId.make("fleet");
     const scope = {
@@ -597,7 +471,7 @@ describe("null patches at project scope", () => {
           settings: {
             ...DEFAULT_SERVER_SETTINGS,
             projectSettingsOverrides: {
-              [projectId]: { defaultThreadEnvMode: "worktree" as const, defaultAutoPull: true },
+              [projectId]: { responseStreamingMode: "turn" as const },
             },
           },
           environment: { capabilities: { projectSettingsOverrides: true } },
@@ -605,17 +479,12 @@ describe("null patches at project scope", () => {
       },
     ];
     expect(
-      planScopedSettingsPatch(scope, environments, { defaultThreadEnvMode: null }).serverWrites[0]
-        ?.patch,
-    ).toEqual({ projectSettingsOverrides: { [projectId]: { defaultAutoPull: true } } });
-    expect(
       planScopedSettingsPatch(scope, environments, { defaultModelSelection: null }).serverWrites[0]
         ?.patch,
     ).toEqual({
       projectSettingsOverrides: {
         [projectId]: {
-          defaultThreadEnvMode: "worktree",
-          defaultAutoPull: true,
+          responseStreamingMode: "turn",
           defaultModelSelection: null,
         },
       },

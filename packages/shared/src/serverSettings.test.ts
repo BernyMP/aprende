@@ -86,19 +86,13 @@ describe("serverSettings helpers", () => {
 
   it("changes a cleanup rule without replacing the machine's other rules", () => {
     const enabled = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
-      storageCleanup: { worktreeAfterDays: 8, worktreeOnMerge: true, logsAfterDays: 30 },
+      storageCleanup: { browserArtifactsAfterDays: 8, logsAfterDays: 30 },
     });
     expect(
       applyServerSettingsPatch(enabled, {
-        storageCleanup: { worktreeAfterDays: null },
+        storageCleanup: { browserArtifactsAfterDays: null },
       }).storageCleanup,
     ).toEqual({
-      worktreeAfterDays: null,
-      worktreeSettledAfterDays: null,
-      worktreeOnMerge: true,
-      worktreeOnDelete: false,
-      worktreeUnchanged: false,
-      worktreeKeepWhen: "uncommitted-changes",
       browserArtifactsAfterDays: null,
       logsAfterDays: 30,
     });
@@ -179,29 +173,6 @@ describe("serverSettings helpers", () => {
     ]);
     expect(resolveProjectScripts(reset, secondProject)).toEqual([secondAction]);
     expect(resolveProjectScripts(secondUpdate, firstProject)).toEqual([firstAction]);
-  });
-
-  it("preserves other projects' boolean overrides across separate updates and resets", () => {
-    const firstProjectId = ProjectId.make("first-project");
-    const secondProjectId = ProjectId.make("second-project");
-    const firstUpdate = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
-      defaultAutoPull: true,
-      projectAutoPullOverrides: { [firstProjectId]: false },
-    });
-    const secondUpdate = applyServerSettingsPatch(firstUpdate, {
-      projectAutoPullOverrides: { [secondProjectId]: false },
-    });
-    expect(secondUpdate.projectAutoPullOverrides).toEqual({
-      [firstProjectId]: false,
-      [secondProjectId]: false,
-    });
-
-    const reset = applyServerSettingsPatch(secondUpdate, {
-      projectAutoPullOverrides: { [firstProjectId]: null },
-    });
-    expect(reset.projectAutoPullOverrides[firstProjectId]).toBeUndefined();
-    expect(reset.projectAutoPullOverrides[secondProjectId]).toBe(false);
-    expect(secondUpdate.projectAutoPullOverrides[firstProjectId]).toBe(false);
   });
 
   it("parses lenient persisted settings JSON and trims observability URLs", () => {
@@ -335,7 +306,7 @@ describe("serverSettings helpers", () => {
       ...DEFAULT_SERVER_SETTINGS,
       projectSettingsOverrides: {
         [projectId]: {
-          newWorktreesStartFromOrigin: true,
+          continueThreadsAfterServerUpdate: true,
           providerInstances: { [instanceId]: { enabled: false } },
         },
       },
@@ -343,12 +314,12 @@ describe("serverSettings helpers", () => {
 
     const patched = applyServerSettingsPatch(current, {
       projectSettingsOverrides: {
-        [projectId]: { newWorktreesStartFromOrigin: false },
+        [projectId]: { continueThreadsAfterServerUpdate: false },
       },
     });
 
     expect(patched.projectSettingsOverrides[projectId]).toEqual({
-      newWorktreesStartFromOrigin: false,
+      continueThreadsAfterServerUpdate: false,
       providerInstances: { [instanceId]: { enabled: false } },
     });
   });
@@ -359,18 +330,22 @@ describe("serverSettings helpers", () => {
     const current = decodeServerSettings({
       projectSettingsFolded: true,
       projectSettingsOverrides: {
-        [projectId]: { defaultAutoPull: true, addedByNewerServer: 3 },
+        [projectId]: { continueThreadsAfterServerUpdate: true, addedByNewerServer: 3 },
       },
     });
     const patch = decodeServerSettingsPatch({
       projectSettingsOverrides: {
-        [projectId]: { defaultAutoPull: false, addedByNewerServer: 4, addedByNewerClient: "x" },
+        [projectId]: {
+          continueThreadsAfterServerUpdate: false,
+          addedByNewerServer: 4,
+          addedByNewerClient: "x",
+        },
       },
     });
 
     const updated = applyServerSettingsPatch(current, patch);
     expect(updated.projectSettingsOverrides[projectId]).toEqual({
-      defaultAutoPull: false,
+      continueThreadsAfterServerUpdate: false,
       addedByNewerServer: 3,
     });
     const reset = applyServerSettingsPatch(updated, {
@@ -391,7 +366,7 @@ describe("serverSettings helpers", () => {
       ...DEFAULT_SERVER_SETTINGS,
       projectSettingsOverrides: {
         [projectId]: {
-          newWorktreesStartFromOrigin: true,
+          continueThreadsAfterServerUpdate: true,
           providerInstances: { [instanceId]: { enabled: false } },
         },
       },
@@ -399,12 +374,12 @@ describe("serverSettings helpers", () => {
 
     const patched = applyServerSettingsPatch(current, {
       projectSettingsOverrides: {
-        [projectId]: { newWorktreesStartFromOrigin: true, providerInstances: {} },
+        [projectId]: { continueThreadsAfterServerUpdate: true, providerInstances: {} },
       },
     });
 
     expect(patched.projectSettingsOverrides[projectId]).toEqual({
-      newWorktreesStartFromOrigin: true,
+      continueThreadsAfterServerUpdate: true,
       providerInstances: {},
     });
   });
@@ -491,7 +466,6 @@ describe("serverSettings helpers", () => {
       overrides: {},
     });
     expect(next.backgroundActivityProfile).toBe("battery-saver");
-    expect(Duration.toMillis(next.automaticGitFetchInterval)).toBe(0);
     expect(Duration.toMillis(next.providerHealthRefreshInterval)).toBe(
       Duration.toMillis(Duration.minutes(15)),
     );
@@ -499,7 +473,7 @@ describe("serverSettings helpers", () => {
 
   it("turns legacy interval patches into custom background activity overrides", () => {
     const next = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
-      automaticGitFetchInterval: Duration.seconds(15),
+      providerHealthRefreshInterval: Duration.minutes(2),
     });
 
     expect(next.backgroundActivity).toEqual({
@@ -507,20 +481,21 @@ describe("serverSettings helpers", () => {
       profile: "custom",
       baseProfile: "balanced",
       overrides: {
-        automaticGitFetchInterval: Duration.seconds(15),
+        providerHealthRefreshInterval: Duration.minutes(2),
       },
     });
     expect(resolveServerBackgroundActivitySettings(next).profile).toBe("balanced");
     expect(
-      Duration.toMillis(resolveServerBackgroundActivitySettings(next).automaticGitFetchInterval),
-    ).toBe(15_000);
+      Duration.toMillis(
+        resolveServerBackgroundActivitySettings(next).providerHealthRefreshInterval,
+      ),
+    ).toBe(120_000);
   });
 
   it("preserves legacy background activity settings when applying an unrelated patch", () => {
     const current = {
       ...DEFAULT_SERVER_SETTINGS,
       backgroundActivityProfile: "performance" as const,
-      automaticGitFetchInterval: Duration.seconds(7),
       providerHealthRefreshInterval: Duration.minutes(4),
     };
 
@@ -531,12 +506,10 @@ describe("serverSettings helpers", () => {
       profile: "custom",
       baseProfile: "performance",
       overrides: {
-        automaticGitFetchInterval: Duration.seconds(7),
         providerHealthRefreshInterval: Duration.minutes(4),
       },
     });
     expect(next.backgroundActivityProfile).toBe("performance");
-    expect(Duration.toMillis(next.automaticGitFetchInterval)).toBe(7_000);
     expect(Duration.toMillis(next.providerHealthRefreshInterval)).toBe(240_000);
   });
 
@@ -553,7 +526,7 @@ describe("serverSettings helpers", () => {
     };
 
     const next = applyServerSettingsPatch(current, {
-      automaticGitFetchInterval: Duration.seconds(15),
+      providerHealthRefreshInterval: Duration.minutes(2),
     });
 
     expect(next.backgroundActivity).toEqual({
@@ -561,7 +534,7 @@ describe("serverSettings helpers", () => {
       profile: "custom",
       baseProfile: "battery-saver",
       overrides: {
-        automaticGitFetchInterval: Duration.seconds(15),
+        providerHealthRefreshInterval: Duration.minutes(2),
       },
     });
   });
@@ -573,7 +546,7 @@ describe("serverSettings helpers", () => {
         profile: "battery-saver",
         overrides: {},
       },
-      automaticGitFetchInterval: Duration.seconds(5),
+      providerHealthRefreshInterval: Duration.seconds(5),
       backgroundActivityProfile: "performance",
     });
 
@@ -583,15 +556,15 @@ describe("serverSettings helpers", () => {
       overrides: {},
     });
     expect(next.backgroundActivityProfile).toBe("battery-saver");
-    expect(Duration.toMillis(next.automaticGitFetchInterval)).toBe(0);
+    expect(Duration.toMillis(next.providerHealthRefreshInterval)).toBe(900_000);
   });
 
   it("reconciles custom background activity back to a preset when overrides match the preset", () => {
     const custom = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
-      automaticGitFetchInterval: Duration.seconds(15),
+      providerHealthRefreshInterval: Duration.minutes(2),
     });
     const next = applyServerSettingsPatch(custom, {
-      automaticGitFetchInterval: Duration.seconds(30),
+      providerHealthRefreshInterval: Duration.minutes(5),
     });
 
     expect(next.backgroundActivity).toEqual({
@@ -600,7 +573,7 @@ describe("serverSettings helpers", () => {
       overrides: {},
     });
     expect(next.backgroundActivityProfile).toBe("balanced");
-    expect(Duration.toMillis(next.automaticGitFetchInterval)).toBe(30_000);
+    expect(Duration.toMillis(next.providerHealthRefreshInterval)).toBe(300_000);
   });
 
   it("replaces the complete background override record", () => {
@@ -610,7 +583,7 @@ describe("serverSettings helpers", () => {
         profile: "custom",
         baseProfile: "balanced",
         overrides: {
-          automaticGitFetchInterval: Duration.seconds(15),
+          pauseWhenOnBattery: true,
           providerHealthRefreshInterval: Duration.minutes(3),
         },
       },
@@ -619,7 +592,7 @@ describe("serverSettings helpers", () => {
     const next = applyServerSettingsPatch(current, {
       backgroundActivity: {
         overrides: {
-          automaticGitFetchInterval: Duration.seconds(10),
+          providerHealthRefreshInterval: Duration.minutes(2),
         },
       },
     });
@@ -629,7 +602,7 @@ describe("serverSettings helpers", () => {
       profile: "custom",
       baseProfile: "balanced",
       overrides: {
-        automaticGitFetchInterval: Duration.seconds(10),
+        providerHealthRefreshInterval: Duration.minutes(2),
       },
     });
   });
@@ -637,7 +610,6 @@ describe("serverSettings helpers", () => {
   it("keeps interval overrides supplied with a profile patch", () => {
     const next = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
       backgroundActivityProfile: "performance",
-      automaticGitFetchInterval: Duration.seconds(0),
       providerHealthRefreshInterval: Duration.minutes(4),
     });
 
@@ -646,23 +618,9 @@ describe("serverSettings helpers", () => {
       profile: "custom",
       baseProfile: "performance",
       overrides: {
-        automaticGitFetchInterval: Duration.seconds(0),
         providerHealthRefreshInterval: Duration.minutes(4),
       },
     });
-  });
-});
-
-describe("worktreesDirectory", () => {
-  it("remembers previous custom locations so their worktrees stay managed", () => {
-    const first = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, { worktreesDirectory: "/a" });
-    expect(first.previousWorktreesDirectories).toEqual([]);
-    const second = applyServerSettingsPatch(first, { worktreesDirectory: "/b" });
-    expect(second.previousWorktreesDirectories).toEqual(["/a"]);
-    const reset = applyServerSettingsPatch(second, { worktreesDirectory: "" });
-    expect(reset.previousWorktreesDirectories).toEqual(["/a", "/b"]);
-    const back = applyServerSettingsPatch(reset, { worktreesDirectory: "/a" });
-    expect(back.previousWorktreesDirectories).toEqual(["/b"]);
   });
 });
 

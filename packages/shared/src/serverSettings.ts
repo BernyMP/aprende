@@ -208,26 +208,22 @@ function mergeProjectSettingsOverridesPatch(
 
 export function deriveLegacyProjectOverrides(
   settings: Pick<ServerSettings, "projectSettingsOverrides">,
-): Pick<ServerSettings, "projectAutoPullOverrides" | "projectScriptOverrides"> {
-  const projectAutoPullOverrides: Record<string, boolean> = {};
+): Pick<ServerSettings, "projectScriptOverrides"> {
   const projectScriptOverrides: Record<string, ServerSettings["defaultProjectScripts"] | null> = {};
   for (const [projectId, entry] of Object.entries(settings.projectSettingsOverrides)) {
-    if (entry.defaultAutoPull !== undefined) {
-      projectAutoPullOverrides[projectId] = entry.defaultAutoPull;
-    }
     if (entry.defaultProjectScripts !== undefined) {
       projectScriptOverrides[projectId] = entry.defaultProjectScripts;
     }
   }
-  return { projectAutoPullOverrides, projectScriptOverrides };
+  return { projectScriptOverrides };
 }
 
 function translateLegacyProjectOverridePatch(
   current: Pick<ServerSettings, "projectSettingsOverrides">,
   patch: ServerSettingsPatch,
 ): ServerSettingsPatch {
-  const { projectAutoPullOverrides, projectScriptOverrides, ...rest } = patch;
-  if (projectAutoPullOverrides === undefined && projectScriptOverrides === undefined) {
+  const { projectScriptOverrides, ...rest } = patch;
+  if (projectScriptOverrides === undefined) {
     return patch;
   }
   const currentEntries: Readonly<Record<string, ProjectSettingsOverrides>> =
@@ -255,7 +251,6 @@ function translateLegacyProjectOverridePatch(
       entries.set(projectId, Object.keys(entry).length === 0 ? null : entry);
     }
   };
-  applyKey(projectAutoPullOverrides, "defaultAutoPull");
   applyKey(projectScriptOverrides, "defaultProjectScripts");
   return {
     ...rest,
@@ -291,11 +286,9 @@ export function applyServerSettingsPatch(
     setModelsHidden,
     setProviderModelOrder,
     providerModelPreferences,
-    automaticGitFetchInterval,
     providerHealthRefreshInterval,
     backgroundActivityProfile,
     backgroundActivity,
-    worktreeCleanup: worktreeCleanupPatch,
     // Merged per entry below; its `null` removals must not reach deepMerge.
     usageLimitSources: usageLimitSourcesPatch,
     secretProviders: secretProvidersPatch,
@@ -303,7 +296,6 @@ export function applyServerSettingsPatch(
     usageModelAliases: usageModelAliasesPatch,
     // Entry replacement: deepMerge would keep keys the client meant to clear.
     projectSettingsOverrides: projectSettingsOverridesPatch,
-    projectAutoPullOverrides: _legacyAutoPull,
     projectScriptOverrides: _legacyScripts,
     ...patchForMerge
   } = patch;
@@ -313,20 +305,16 @@ export function applyServerSettingsPatch(
       ? {
           schemaVersion: 1 as const,
           profile:
-            automaticGitFetchInterval !== undefined || providerHealthRefreshInterval !== undefined
+            providerHealthRefreshInterval !== undefined
               ? ("custom" as const)
               : backgroundActivityProfile,
-          ...(automaticGitFetchInterval !== undefined || providerHealthRefreshInterval !== undefined
+          ...(providerHealthRefreshInterval !== undefined
             ? { baseProfile: backgroundActivityProfile }
             : {}),
-          overrides: {
-            ...(automaticGitFetchInterval !== undefined ? { automaticGitFetchInterval } : {}),
-            ...(providerHealthRefreshInterval !== undefined
-              ? { providerHealthRefreshInterval }
-              : {}),
-          },
+          overrides:
+            providerHealthRefreshInterval !== undefined ? { providerHealthRefreshInterval } : {},
         }
-      : automaticGitFetchInterval !== undefined || providerHealthRefreshInterval !== undefined
+      : providerHealthRefreshInterval !== undefined
         ? {
             schemaVersion: 1 as const,
             profile: "custom" as const,
@@ -335,7 +323,6 @@ export function applyServerSettingsPatch(
               ...(currentBackgroundActivity.profile === "custom"
                 ? currentBackgroundActivity.overrides
                 : {}),
-              ...(automaticGitFetchInterval !== undefined ? { automaticGitFetchInterval } : {}),
               ...(providerHealthRefreshInterval !== undefined
                 ? { providerHealthRefreshInterval }
                 : {}),
@@ -399,28 +386,6 @@ export function applyServerSettingsPatch(
     ...next,
     favorites,
     providerModelPreferences: nextModelPreferences,
-    ...(worktreeCleanupPatch === undefined
-      ? {}
-      : {
-          worktreeCleanup:
-            worktreeCleanupPatch?.mode === "custom"
-              ? {
-                  mode: "custom" as const,
-                  rules: {
-                    worktreeKeepWhen: next.storageCleanup.worktreeKeepWhen,
-                    worktreeAfterDays: next.storageCleanup.worktreeAfterDays,
-                    worktreeSettledAfterDays: next.storageCleanup.worktreeSettledAfterDays,
-                    worktreeOnMerge: next.storageCleanup.worktreeOnMerge,
-                    worktreeOnDelete: next.storageCleanup.worktreeOnDelete,
-                    worktreeUnchanged: next.storageCleanup.worktreeUnchanged,
-                    ...(current.worktreeCleanup?.mode === "custom"
-                      ? current.worktreeCleanup.rules
-                      : {}),
-                    ...worktreeCleanupPatch.rules,
-                  },
-                }
-              : worktreeCleanupPatch,
-        }),
     ...(backgroundActivity !== undefined
       ? {
           backgroundActivity: {
@@ -436,20 +401,6 @@ export function applyServerSettingsPatch(
       : {}),
     ...(patch.providerInstances !== undefined
       ? { providerInstances: patch.providerInstances }
-      : {}),
-    ...(patch.worktreesDirectory !== undefined &&
-    patch.worktreesDirectory !== current.worktreesDirectory
-      ? {
-          previousWorktreesDirectories: [
-            ...current.previousWorktreesDirectories.filter(
-              (directory) => directory !== patch.worktreesDirectory,
-            ),
-            ...(current.worktreesDirectory !== "" &&
-            !current.previousWorktreesDirectories.includes(current.worktreesDirectory)
-              ? [current.worktreesDirectory]
-              : []),
-          ],
-        }
       : {}),
     ...(projectSettingsOverridesPatch !== undefined
       ? {
@@ -499,7 +450,6 @@ export function applyServerSettingsPatch(
           ),
         }
       : {}),
-    ...(automaticGitFetchInterval !== undefined ? { automaticGitFetchInterval } : {}),
     ...(providerHealthRefreshInterval !== undefined ? { providerHealthRefreshInterval } : {}),
   };
   const normalizedBackgroundActivity = normalizeBackgroundActivitySettings(
@@ -512,7 +462,6 @@ export function applyServerSettingsPatch(
     ...withIdleCompaction(nextWithReplacementsBase, patchedIdleCompaction(current, patch)),
     ...deriveLegacyProjectOverrides(nextWithReplacementsBase),
     backgroundActivity: normalizedBackgroundActivity,
-    automaticGitFetchInterval: resolvedBackgroundActivity.automaticGitFetchInterval,
     providerHealthRefreshInterval: resolvedBackgroundActivity.providerHealthRefreshInterval,
     backgroundActivityProfile: resolvedBackgroundActivity.profile,
   };

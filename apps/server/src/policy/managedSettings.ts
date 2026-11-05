@@ -23,16 +23,18 @@ const PROJECT_OVERRIDE_KEYS: ReadonlySet<string> = new Set(
 /** Per-project stores; admins lock the top-level key and the lock reaches every project. */
 const UNMANAGEABLE_KEYS: ReadonlySet<string> = new Set([
   "projectSettingsOverrides",
-  "projectAutoPullOverrides",
   "projectScriptOverrides",
 ]);
 
 /** Settings of removed features. Policies written for older releases still load; these have no effect. */
 const RETIRED_KEYS: ReadonlySet<string> = new Set([
+  "automaticGitFetchInterval",
   "branchNameInstructions",
   "branchNamePrefix",
   "branchNamingMode",
   "cursorKeychainUsageEnabled",
+  "defaultAutoPull",
+  "defaultThreadEnvMode",
   "deviceHosts",
   "deviceOnboardingCompleted",
   "easDeviceHosts",
@@ -42,7 +44,10 @@ const RETIRED_KEYS: ReadonlySet<string> = new Set([
   "ghqCloneLayout",
   "guestSharingEnabled",
   "linkedEnvironmentsEnabled",
+  "newWorktreesStartFromOrigin",
+  "previousWorktreesDirectories",
   "projectAgentBrowserAccessOverrides",
+  "projectAutoPullOverrides",
   "pullRequestMergeMethod",
   "removeAgentCreditsOnMerge",
   "reviewGuideInstructions",
@@ -55,21 +60,26 @@ const RETIRED_KEYS: ReadonlySet<string> = new Set([
   "sourceControlHosts",
   "sourceControlWriterModelSelection",
   "sourceControlWritingStyle",
+  "worktreeCleanup",
+  "worktreeSubmodules",
+  "worktreesDirectory",
+]);
+
+/** Retired fields inside settings that remain; dropped from a lock or default of the whole object. */
+const RETIRED_PATHS: ReadonlySet<string> = new Set([
+  "backgroundActivity.overrides.automaticGitFetchInterval",
+  "storageCleanup.worktreeAfterDays",
+  "storageCleanup.worktreeKeepWhen",
+  "storageCleanup.worktreeOnDelete",
+  "storageCleanup.worktreeOnMerge",
+  "storageCleanup.worktreeSettledAfterDays",
+  "storageCleanup.worktreeUnchanged",
 ]);
 
 /** Legacy settings the server derives from another on every write; manage that one instead. */
 const DERIVED_FROM: ReadonlyMap<string, string> = new Map([
   ["compactIdleThreads", "idleCompaction"],
 ]);
-
-/**
- * Settings another one overrides when it is set: `worktreeCleanup`, also per project, wins over
- * the worktree rules in `storageCleanup`. A lock on the first alone would look enforced without
- * being, so the second must be locked too.
- */
-const OVERRIDDEN_BY: ReadonlyArray<readonly [overridden: string, by: string]> = [
-  ["storageCleanup.worktree", "worktreeCleanup"],
-];
 
 type Segments = ReadonlyArray<string>;
 
@@ -84,6 +94,17 @@ const syncIdleCompaction = (settings: ServerSettings): ServerSettings =>
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
+
+const withoutRetiredPaths = (path: string, value: unknown): unknown =>
+  isRecord(value)
+    ? Object.fromEntries(
+        Object.entries(value).flatMap(([key, child]) =>
+          RETIRED_PATHS.has(`${path}.${key}`)
+            ? []
+            : [[key, withoutRetiredPaths(`${path}.${key}`, child)]],
+        ),
+      )
+    : value;
 
 const getPath = (tree: unknown, segments: Segments): unknown => {
   let current = tree;
@@ -279,7 +300,7 @@ export function makeManagedSettings(
     if (head === undefined || segments.some((segment) => segment.length === 0)) {
       return { _tag: "Invalid", reason: `"${path}" is not a settings path` };
     }
-    if (RETIRED_KEYS.has(head)) continue;
+    if (RETIRED_KEYS.has(head) || RETIRED_PATHS.has(path)) continue;
     if (!(head in ServerSettings.fields) || UNMANAGEABLE_KEYS.has(head)) {
       return { _tag: "Invalid", reason: `"${path}" is not a setting this version can manage` };
     }
@@ -290,21 +311,14 @@ export function makeManagedSettings(
         reason: `"${head}" follows "${source}"; manage "${source}" instead`,
       };
     }
-    (setting.locked ? locks : defaults).push({ path, segments, value: setting.value });
+    (setting.locked ? locks : defaults).push({
+      path,
+      segments,
+      value: withoutRetiredPaths(path, setting.value),
+    });
   }
 
   for (const lock of locks) {
-    const unheld = OVERRIDDEN_BY.find(
-      ([overridden, by]) =>
-        (lock.path.startsWith(overridden) || overridden.startsWith(`${lock.path}.`)) &&
-        !locks.some((other) => other.path === by),
-    );
-    if (unheld !== undefined) {
-      return {
-        _tag: "Invalid",
-        reason: `"${lock.path}" can be overridden by "${unheld[1]}"; lock "${unheld[1]}" too`,
-      };
-    }
     // An instance's fields override each other: a variable replaces launch arguments, a home
     // path rewrites a home variable, and a setup mode brings its own runtime.
     const [head, instanceId] = lock.segments;

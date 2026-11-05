@@ -46,6 +46,9 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
             // Settings of removed features still load, and have no effect.
             reviewGuidesEnabled: { value: false, locked: true },
             "sourceControlWritingStyle.mode": { value: "plain", locked: true },
+            worktreeCleanup: { value: { mode: "off" }, locked: true },
+            "storageCleanup.worktreeAfterDays": { value: 7, locked: true },
+            defaultAutoPull: { value: true, locked: false },
           },
         }),
       );
@@ -54,6 +57,19 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
         supportUrl: "https://it.example/t3",
         lockedSettings: ["storageCleanup.logsAfterDays"],
       });
+      const wholeObject = yield* loadFrom(
+        JSON.stringify({
+          schemaVersion: 1,
+          organization: "Example Corp",
+          settings: {
+            storageCleanup: {
+              value: { browserArtifactsAfterDays: null, logsAfterDays: 30, worktreeAfterDays: 7 },
+              locked: true,
+            },
+          },
+        }),
+      );
+      assert.deepEqual(wholeObject.summary?.lockedSettings, ["storageCleanup"]);
     }),
   );
 
@@ -118,11 +134,6 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
             ...base,
             settings: { compactIdleThreads: { value: false, locked: true } },
           }),
-          // It would look locked while worktreeCleanup, which overrides it, stays the user's.
-          JSON.stringify({
-            ...base,
-            settings: { "storageCleanup.worktreeAfterDays": { value: 7, locked: true } },
-          }),
           // An instance's own variables, home paths, and setup mode would override the lock.
           JSON.stringify({
             ...base,
@@ -141,14 +152,13 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
             Effect.map((error) => error.reason),
           ),
       );
-      assert.lengthOf(reasons, 12);
+      assert.lengthOf(reasons, 11);
       assert.include(reasons[3], "storageCleanup.logsAfterDayz");
       assert.include(reasons[6], "adds entries users could not remove");
       assert.include(reasons[7], "adds entries users could not remove");
       assert.include(reasons[8], 'manage "defaultModelSelection" as a whole');
       assert.include(reasons[9], 'manage "idleCompaction" instead');
-      assert.include(reasons[10], 'lock "worktreeCleanup" too');
-      assert.include(reasons[11], 'lock "providerInstances.codex" as a whole');
+      assert.include(reasons[10], 'lock "providerInstances.codex" as a whole');
     }),
   );
 

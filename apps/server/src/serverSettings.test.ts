@@ -222,28 +222,33 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         config.settingsPath,
         `{
           "responseStreamingMode": "token",
-          "defaultAutoPull": true,
+          "continueThreadsAfterServerUpdate": false,
+          "worktreesDirectory": "/retired",
           "projectSettingsOverrides": {
-            "legacy": { "responseStreamingMode": "token", "defaultAutoPull": true },
+            "legacy": { "responseStreamingMode": "token", "continueThreadsAfterServerUpdate": false },
             "buffered": { "responseStreamingMode": "turn" },
-            "inherited": { "defaultAutoPull": false }
+            "inherited": { "continueThreadsAfterServerUpdate": true }
           }
         }`,
       );
 
       const settings = yield* service.getSettings;
       assert.equal(settings.responseStreamingMode, "paragraph");
-      assert.isTrue(settings.defaultAutoPull);
+      assert.isFalse(settings.continueThreadsAfterServerUpdate);
       assert.deepEqual(settings.projectSettingsOverrides, {
-        [ProjectId.make("legacy")]: { responseStreamingMode: "paragraph", defaultAutoPull: true },
+        [ProjectId.make("legacy")]: {
+          responseStreamingMode: "paragraph",
+          continueThreadsAfterServerUpdate: false,
+        },
         [ProjectId.make("buffered")]: { responseStreamingMode: "turn" },
-        [ProjectId.make("inherited")]: { defaultAutoPull: false },
+        [ProjectId.make("inherited")]: { continueThreadsAfterServerUpdate: true },
       });
 
       yield* service.updateSettings({ responseStreamingMode: "turn" });
-      const persisted = yield* decodeServerSettingsJson(
-        yield* fs.readFileString(config.settingsPath),
-      );
+      const raw = yield* fs.readFileString(config.settingsPath);
+      // A retired setting in an older file loads and is dropped on the next write.
+      assert.notInclude(raw, "worktreesDirectory");
+      const persisted = yield* decodeServerSettingsJson(raw);
       assert.equal(persisted.responseStreamingMode, "turn");
       assert.deepEqual(persisted.projectSettingsOverrides, settings.projectSettingsOverrides);
     }).pipe(Effect.provide(layerServerSettings())),
@@ -257,19 +262,22 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       const projectId = ProjectId.make("project-a");
       yield* fs.writeFileString(
         config.settingsPath,
-        `{ "projectSettingsOverrides": { "project-a": { "defaultAutoPull": true, "addedByNewerServer": 3 } } }`,
+        `{ "projectSettingsOverrides": { "project-a": { "responseStreamingMode": "turn", "addedByNewerServer": 3 } } }`,
       );
       const loaded = yield* service.getSettings;
 
       yield* service.updateSettings({
         projectSettingsOverrides: {
-          [projectId]: { ...loaded.projectSettingsOverrides[projectId], defaultAutoPull: false },
+          [projectId]: {
+            ...loaded.projectSettingsOverrides[projectId],
+            responseStreamingMode: "paragraph",
+          },
         },
       });
 
       const persisted = JSON.parse(yield* fs.readFileString(config.settingsPath));
       assert.deepEqual(persisted.projectSettingsOverrides, {
-        [projectId]: { defaultAutoPull: false, addedByNewerServer: 3 },
+        [projectId]: { responseStreamingMode: "paragraph", addedByNewerServer: 3 },
       });
     }).pipe(Effect.provide(layerServerSettings())),
   );
@@ -624,15 +632,15 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           usageLimitSources,
         });
         const updated = yield* serverSettings.updateSettings({
-          storageCleanup: { worktreeSettledAfterDays: 0, worktreeKeepWhen: "any-local-files" },
+          storageCleanup: { browserArtifactsAfterDays: 9, logsAfterDays: 3 },
         });
         assert.deepStrictEqual(updated.usageLimitSources, saved.usageLimitSources);
         const persisted = yield* readPersisted;
         assert.deepStrictEqual(persisted.usagePriceOverrides, { "example-model": prices });
         assert.deepStrictEqual(persisted.usageModelAliases, usageModelAliases);
         assert.deepStrictEqual(persisted.usageLimitSources, usageLimitSources);
-        assert.equal(persisted.storageCleanup.worktreeSettledAfterDays, 0);
-        assert.equal(persisted.storageCleanup.worktreeKeepWhen, "any-local-files");
+        assert.equal(persisted.storageCleanup.browserArtifactsAfterDays, 9);
+        assert.equal(persisted.storageCleanup.logsAfterDays, 3);
 
         yield* serverSettings.updateSettings({ usagePriceOverrides: { "example-model": null } });
         const restored = yield* readPersisted;
@@ -1541,20 +1549,9 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       assert.deepEqual<ServerSettings["projectSettingsOverrides"]>(
         settings.projectSettingsOverrides,
         {
-          [legacyProject]: {
-            defaultModelSelection: model,
-            defaultThreadEnvMode: "worktree",
-            defaultAutoPull: true,
-          },
-          [scriptedProject]: { defaultAutoPull: true, defaultProjectScripts: [script] },
-        },
-      );
-
-      assert.deepEqual<ServerSettings["projectAutoPullOverrides"]>(
-        settings.projectAutoPullOverrides,
-        {
-          [legacyProject]: true,
-          [scriptedProject]: true,
+          // The retired thread mode and auto-pull columns are no longer folded.
+          [legacyProject]: { defaultModelSelection: model },
+          [scriptedProject]: { defaultProjectScripts: [script] },
         },
       );
       assert.deepEqual<ServerSettings["projectScriptOverrides"]>(settings.projectScriptOverrides, {
@@ -1586,7 +1583,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           ${"2026-08-25T00:00:00.000Z"}, ${"2026-08-25T00:00:00.000Z"}
         )
       `;
-      const broken = '{"defaultAutoPull": tru';
+      const broken = '{"hideTaggedThreads": tru';
       yield* fileSystem.writeFileString(serverConfig.settingsPath, broken);
 
       const settings = yield* serverSettings.getSettings;
@@ -1640,7 +1637,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           JSON.stringify({ defaultRuntimeMode: "approval-required" }),
         );
 
-        yield* service.updateSettings({ defaultAutoPull: true });
+        yield* service.updateSettings({ hideTaggedThreads: true });
         assert.include(yield* fs.readFileString(config.settingsPath), '"approval-required"');
       }).pipe(Effect.provide(layerServerSettings(policy))),
     );
@@ -1665,7 +1662,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
 
         // Picking another model on the policy's instance differs from the policy in one field only.
         yield* service.updateSettings({
-          defaultAutoPull: true,
+          hideTaggedThreads: true,
           defaultModelSelection: chosenModel,
         });
         const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
@@ -1713,7 +1710,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
             yield* fs.writeFileString(config.settingsPath, JSON.stringify({ compactIdleThreads }));
 
             assert.equal((yield* service.getSettings).idleCompaction, chosen);
-            yield* service.updateSettings({ defaultAutoPull: true });
+            yield* service.updateSettings({ hideTaggedThreads: true });
             // What applies once the policy is gone is still the user's choice.
             const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
             assert.equal(globalIdleCompaction(stored), chosen);
@@ -1754,7 +1751,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         });
 
         const rejected = yield* service
-          .updateSettings({ continueThreadsAfterServerUpdate: false, defaultAutoPull: true })
+          .updateSettings({ continueThreadsAfterServerUpdate: false, hideTaggedThreads: true })
           .pipe(Effect.flip);
         assert.equal(rejected.operation, "write-managed-setting");
         assert.equal(rejected.managedSetting, "continueThreadsAfterServerUpdate");
@@ -1762,7 +1759,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           rejected.message,
           "continueThreadsAfterServerUpdate is managed by Example Corp and cannot be changed.",
         );
-        assert.isFalse((yield* service.getSettings).defaultAutoPull);
+        assert.isFalse((yield* service.getSettings).hideTaggedThreads);
 
         const projectRejected = yield* service
           .updateSettings({
@@ -1774,9 +1771,9 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         // Unrelated writes, and writes that keep the locked value, go through.
         yield* service.updateSettings({
           continueThreadsAfterServerUpdate: true,
-          defaultAutoPull: true,
+          hideTaggedThreads: true,
         });
-        assert.isTrue((yield* service.getSettings).defaultAutoPull);
+        assert.isTrue((yield* service.getSettings).hideTaggedThreads);
 
         // The user's own value stays on disk, ready for when the policy is removed.
         const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
@@ -1868,7 +1865,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           "approval-required",
         );
 
-        yield* service.updateSettings({ defaultAutoPull: true });
+        yield* service.updateSettings({ hideTaggedThreads: true });
         const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
         assert.equal(stored.defaultRuntimeMode, "auto");
         assert.equal(stored.projectSettingsOverrides[raised].defaultRuntimeMode, "full-access");
@@ -2261,7 +2258,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         assert.equal(commandArgs.managedSetting, "providerInstances.acp_devin.config.commandArgs");
 
         // Unrelated writes carry the stored instance through unchanged, duplicates included.
-        yield* service.updateSettings({ defaultAutoPull: true });
+        yield* service.updateSettings({ hideTaggedThreads: true });
 
         // What the client was shown saves, with user-owned edits, and the stored values survive.
         yield* service.updateProviderInstance({
