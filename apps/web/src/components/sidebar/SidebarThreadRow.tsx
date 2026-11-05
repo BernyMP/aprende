@@ -1,5 +1,4 @@
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
-import { ThreadTerminalStatusButton } from "../ThreadStatusIndicators";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";
 import { requestCustomSnooze } from "../CustomSnoozeDialog";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
@@ -44,7 +43,6 @@ import {
   PinOffIcon,
   ShieldQuestionIcon,
   SquarePenIcon,
-  TerminalIcon,
   Undo2Icon,
   UserRoundIcon,
   XIcon,
@@ -94,8 +92,6 @@ import {
   ThreadWorktreeIndicator,
   prStatusIndicator,
   resolveThreadPullRequestBadge,
-  terminalStatusFromRunningIds,
-  type TerminalStatusIndicator,
   useLinkedThreadPullRequest,
   ThreadSearchPullRequestNumber,
 } from "../ThreadStatusIndicators";
@@ -107,7 +103,6 @@ import { makeWorkspaceFileDropHandlers } from "../chat/workspaceFileDrop";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { getTriggerDisplayModelName } from "../chat/providerIconUtils";
 import { shouldShowInstanceBadge, type ProviderInstanceEntry } from "../../providerInstances";
-import { useThreadRunningTerminalIds } from "../../state/terminalSessions";
 import { InlineButton } from "../ui/button";
 import { Kbd } from "../ui/kbd";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "../ui/menu";
@@ -175,10 +170,6 @@ function WorkingDurationLabel(props: { startedMs: number }) {
   );
 }
 
-function terminalProcessLabel(count: number): string {
-  return `${count} terminal ${count === 1 ? "process" : "processes"} running`;
-}
-
 function SidebarProviderStack(props: {
   thread: SidebarThreadSummary;
   providerEntryByInstanceId: ReadonlyMap<string, SidebarProviderEntry>;
@@ -239,8 +230,6 @@ function SidebarThreadTooltip({
   modelInstanceId,
   modelLabel,
   branchMismatch,
-  terminalStatus,
-  terminalProcessCount,
 }: {
   thread: SidebarThreadSummary;
   project: ProjectFaviconProject | null;
@@ -256,8 +245,6 @@ function SidebarThreadTooltip({
     threadBranch: string;
     currentBranch: string;
   } | null;
-  terminalStatus: TerminalStatusIndicator | null;
-  terminalProcessCount: number;
 }) {
   const driverKind = providerEntry?.driverKind ?? null;
   const previousProviderNames = thread.providerInstanceHistory
@@ -332,17 +319,6 @@ function SidebarThreadTooltip({
             <ArrowRightLeftIcon className="size-3 shrink-0 stroke-muted-foreground" />
             <div className="min-w-0 truncate text-foreground/75">
               Handed off from {previousProviderNames.join(", ")}
-            </div>
-          </div>
-        ) : null}
-        {terminalStatus ? (
-          <div className="flex min-w-0 items-center gap-2">
-            <TerminalIcon
-              aria-hidden
-              className={cn("size-3 shrink-0", terminalStatus.colorClass)}
-            />
-            <div className="min-w-0 truncate text-foreground/75">
-              {terminalProcessLabel(terminalProcessCount)}
             </div>
           </div>
         ) : null}
@@ -667,12 +643,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
   const isSelected = useThreadSelectionStore((state) => state.selectedThreadKeys.has(threadKey));
   const openPrLink = useOpenPrLink();
-  const runningTerminalIds = useThreadRunningTerminalIds({
-    environmentId: thread.environmentId,
-    threadId: thread.id,
-  });
-  const terminalStatus = terminalStatusFromRunningIds(runningTerminalIds);
-  const terminalProcessCount = runningTerminalIds.length;
   const hasUnsentDraft = useThreadHasUnsentDraft(threadRef) && !props.isRouteThread;
   const handleDiscardDraftClick = (event: ReactMouseEvent) => {
     event.preventDefault();
@@ -820,8 +790,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       modelInstanceId={modelInstanceId}
       modelLabel={modelLabel}
       branchMismatch={branchMismatch}
-      terminalStatus={terminalStatus}
-      terminalProcessCount={terminalProcessCount}
     />
   );
 
@@ -1070,13 +1038,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         onOpenPullRequest={handlePrClick}
       />
     ) : null;
-  const terminalStatusIcon = (
-    <ThreadTerminalStatusButton
-      threadRef={threadRef}
-      terminalIds={runningTerminalIds}
-      onThreadActivate={onThreadActivate}
-    />
-  );
   const draftIndicator = hasUnsentDraft ? (
     <Tooltip>
       <TooltipTrigger
@@ -1137,12 +1098,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     ) : null;
   const diff = latestRunDiff(thread);
   // Only the trailing icons would remain, so the row moves them to the title line instead.
-  const metaLineEmpty =
-    !thread.branch &&
-    !showsScratchMachine &&
-    prBadge === null &&
-    diff === null &&
-    runningTerminalIds.length === 0;
+  const metaLineEmpty = !thread.branch && !showsScratchMachine && prBadge === null && diff === null;
   const metaLine = metaLineEmpty ? null : (
     <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
       {thread.branch ? (
@@ -1164,7 +1120,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       ) : (
         <span className="flex-1" />
       )}
-      {terminalStatusIcon}
       {prBadge}
       {diff ? (
         <span className="shrink-0 font-mono">
@@ -1256,7 +1211,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               {title}
               {multiline ? titleLineIcons : null}
               {pinIndicator}
-              {multiline ? null : terminalStatusIcon}
+
               {isRegeneratingTitle ? (
                 <span role="status" className="sr-only">
                   Regenerating title
@@ -1670,11 +1625,6 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
   const modelLabel = selectedModel
     ? getTriggerDisplayModelName(selectedModel, providerEntry?.driverKind)
     : thread.modelSelection.model;
-  const runningTerminalIds = useThreadRunningTerminalIds({
-    environmentId: thread.environmentId,
-    threadId: thread.id,
-  });
-  const terminalStatus = terminalStatusFromRunningIds(runningTerminalIds);
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const onFileDropThreads = props.onFileDropThreads;
   const fileDropHandlers = makeWorkspaceFileDropHandlers({
@@ -1778,8 +1728,6 @@ export const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props
           modelInstanceId={modelInstanceId}
           modelLabel={modelLabel}
           branchMismatch={branchMismatch}
-          terminalStatus={terminalStatus}
-          terminalProcessCount={runningTerminalIds.length}
         />
       </Tooltip>
     </li>

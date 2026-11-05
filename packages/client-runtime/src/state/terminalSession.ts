@@ -22,7 +22,6 @@ export {
   type TerminalOutputState,
   type TerminalOutputUpdate,
 } from "./terminalOutput.ts";
-export { DEFAULT_MAX_TERMINAL_BUFFER_BYTES } from "@aprende/contracts";
 
 /** The PTY grid every renderer of a shared terminal draws. */
 export interface TerminalGrid {
@@ -64,31 +63,11 @@ export interface KnownTerminalSession {
   readonly state: TerminalSessionState;
 }
 
-export function selectRunningSubprocessTerminalIds(
-  sessions: ReadonlyArray<KnownTerminalSession>,
-): ReadonlyArray<string> {
-  return sessions
-    .filter((session) => session.state.hasRunningSubprocess)
-    .map((session) => session.target.terminalId);
-}
-
 export const EMPTY_TERMINAL_BUFFER_STATE = Object.freeze<TerminalBufferState>({
   output: EMPTY_TERMINAL_OUTPUT_STATE,
   grid: null,
   status: "closed",
   error: null,
-  updatedAt: null,
-  version: 0,
-  lifecycleVersion: 0,
-});
-
-export const EMPTY_TERMINAL_SESSION_STATE = Object.freeze<TerminalSessionState>({
-  summary: null,
-  output: EMPTY_TERMINAL_OUTPUT_STATE,
-  grid: null,
-  status: "closed",
-  error: null,
-  hasRunningSubprocess: false,
   updatedAt: null,
   version: 0,
   lifecycleVersion: 0,

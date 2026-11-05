@@ -310,10 +310,6 @@ export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
 }
 
 function BackgroundWorktreeSetupChip({ snapshot }: { snapshot: WorktreeSetupSnapshot }) {
-  const ctx = use(TimelineRowCtx);
-  const terminalId = snapshot.setupScript?.terminalId ?? null;
-  const openTerminal = ctx.onOpenWorktreeSetupTerminal;
-  const onOpenTerminal = openTerminal && terminalId ? () => openTerminal(terminalId) : null;
   const scriptName = snapshot.setupScript?.name ?? "Setup script";
   return (
     <Popover>
@@ -336,7 +332,7 @@ function BackgroundWorktreeSetupChip({ snapshot }: { snapshot: WorktreeSetupSnap
           embedded
           onCancel={null}
           onWorkLocally={null}
-          onOpenTerminal={onOpenTerminal}
+          onOpenTerminal={null}
         />
       </PopoverPopup>
     </Popover>

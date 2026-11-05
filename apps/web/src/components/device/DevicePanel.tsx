@@ -10,18 +10,13 @@ import { useAtomMount } from "@effect/atom-react";
 import { type ReactNode, useState } from "react";
 
 import { usePreviewMiniPlayerStore } from "~/previewMiniPlayerStore";
-import {
-  selectThreadRightPanelState,
-  useRightPanelStore,
-  type RightPanelSurface,
-} from "~/rightPanelStore";
+import { useRightPanelStore, type RightPanelSurface } from "~/rightPanelStore";
 import { Button } from "~/components/ui/button";
 import { DiscoveryList } from "~/components/ui/discovery-list";
 import { Dialog } from "~/components/ui/dialog";
 import { WizardPopup } from "~/components/ui/wizard";
 import { Spinner } from "~/components/ui/spinner";
 import { cn } from "~/lib/utils";
-import { focusPanelTerminalAfterClose } from "~/lib/terminalFocus";
 import {
   deviceEnvironment,
   deviceHostProbeAtom,
@@ -142,9 +137,7 @@ export function DevicePanel(props: {
 
   const closeSurface = () => {
     const store = useRightPanelStore.getState();
-    const { activeSurfaceId } = selectThreadRightPanelState(store.byThreadKey, props.threadRef);
     store.closeSurface(props.threadRef, props.surface.id);
-    focusPanelTerminalAfterClose(props.threadRef, activeSurfaceId);
   };
 
   const closeActive = (powerOff: boolean) => {

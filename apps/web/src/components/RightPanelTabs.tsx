@@ -23,7 +23,6 @@ import type {
   ResolvedKeybindingsConfig,
   ThreadId,
 } from "@aprende/contracts";
-import { getTerminalLabel } from "@aprende/shared/terminalLabels";
 import {
   closestCenter,
   DndContext,
@@ -44,7 +43,6 @@ import {
   Globe2,
   MessagesSquare,
   Plus,
-  TerminalSquare,
 } from "lucide-react";
 import { Volume2, VolumeOff } from "lucide";
 import {
@@ -122,7 +120,6 @@ export interface RightPanelTabsProps {
   desktopByTabId: Readonly<Record<string, DesktopPreviewOverlay>>;
   /** Maps server-local session ids to desktop runtime ids; session ids cannot address desktop operations. */
   previewRuntimeTabId?: ((tabId: string) => string) | undefined;
-  terminalLabelsById: ReadonlyMap<string, string>;
   onActivate: (surface: RightPanelSurface) => void;
   onRenameDevice?: (surfaceId: string, title: string) => void;
   onCloseSurface: (surface: RightPanelSurface) => void;
@@ -134,7 +131,6 @@ export interface RightPanelTabsProps {
   onAddBrowser: () => void;
   /** Keep separate from the DOM click handler so a MouseEvent cannot become a profile id. */
   onAddBrowserInProfile: (profileId: string) => void;
-  onAddTerminal: () => void;
   onAddFiles: () => void;
   onAddPullRequest: () => void;
   onAddPullRequests: () => void;
@@ -142,7 +138,6 @@ export interface RightPanelTabsProps {
   /** Absent where side chats are not offered. */
   onAddSideChat?: (() => void) | undefined;
   browserAvailable: boolean;
-  terminalAvailable: boolean;
   filesAvailable: boolean;
   pullRequestAvailable: boolean;
   pullRequestsAvailable: boolean;
@@ -170,7 +165,6 @@ function shouldOpenDefaultBrowserProfileFromMenuClick(pointerType: string | unde
 
 const SURFACE_DISABLED_REASONS = {
   browser: "Browser previews are only available in the aprende desktop app.",
-  terminal: "Terminal surfaces are only available from a project thread.",
   files: "Files are only available when a project is open.",
   pullRequest: "This thread's branch has no pull request yet.",
   pullRequests: "No linked pull requests are available for this thread.",
@@ -194,7 +188,6 @@ const LAUNCHER_SHORTCUT_BLOCKING_LAYERS = [
 
 const SURFACE_UNAVAILABLE_HINTS = {
   browser: "Only available in the desktop app.",
-  terminal: "Available when a project is open.",
   files: "Available when a project is open.",
   pullRequest: "No pull request on this branch yet.",
   pullRequests: "No linked pull requests available.",
@@ -311,7 +304,6 @@ function RightPanelEmptyState(props: {
   onAddBrowser: () => void;
   onAddBrowserInProfile: (profileId: string) => void;
   browserProfiles: ReadonlyArray<{ readonly id: string; readonly name: string }>;
-  onAddTerminal: () => void;
   onAddFiles: () => void;
   onAddPullRequest: () => void;
   onAddPullRequests: () => void;
@@ -319,7 +311,6 @@ function RightPanelEmptyState(props: {
   /** Absent where side chats are not offered. */
   onAddSideChat?: (() => void) | undefined;
   browserAvailable: boolean;
-  terminalAvailable: boolean;
   filesAvailable: boolean;
   pullRequestAvailable: boolean;
   pullRequestsAvailable: boolean;
@@ -337,14 +328,6 @@ function RightPanelEmptyState(props: {
       available: props.browserAvailable,
       disabledReason: SURFACE_UNAVAILABLE_HINTS.browser,
       onClick: props.onAddBrowser,
-    },
-    {
-      label: "Terminal",
-      icon: TerminalSquare,
-      shortcut: "T",
-      available: props.terminalAvailable,
-      disabledReason: SURFACE_UNAVAILABLE_HINTS.terminal,
-      onClick: props.onAddTerminal,
     },
     {
       label: "Files",
@@ -555,7 +538,6 @@ function RightPanelEmptyState(props: {
 function surfaceTitle(
   surface: RightPanelSurface,
   sessions: Readonly<Record<string, PreviewSessionSnapshot>>,
-  terminalLabelsById: ReadonlyMap<string, string>,
 ): string {
   switch (surface.kind) {
     case "files":
@@ -563,11 +545,6 @@ function surfaceTitle(
     case "file":
       return surface.relativePath.slice(
         Math.max(surface.relativePath.lastIndexOf("/"), surface.relativePath.lastIndexOf("\\")) + 1,
-      );
-    case "terminal":
-      return (
-        terminalLabelsById.get(surface.activeTerminalId) ??
-        getTerminalLabel(surface.activeTerminalId)
       );
     case "pull-request":
       return `#${surface.number}`;
@@ -651,8 +628,6 @@ function SurfaceIcon({
           className="size-3"
         />
       );
-    case "terminal":
-      return <TerminalSquare className="size-3 shrink-0" />;
     case "pull-request":
       return (
         <PullRequestSurfaceIcon
@@ -1081,14 +1056,6 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       onClick: props.onAddBrowser,
     },
     {
-      label: "Terminal",
-      icon: TerminalSquare,
-      shortcut: "T",
-      available: props.terminalAvailable,
-      disabledReason: SURFACE_DISABLED_REASONS.terminal,
-      onClick: props.onAddTerminal,
-    },
-    {
       label: "Files",
       icon: Files,
       shortcut: "F",
@@ -1294,7 +1261,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       workspaceFocusKey={`panel:${props.environmentId}:${props.activeSurfaceId ?? "empty"}`}
       workspaceLabel={
         focusedSurface
-          ? `Workspace panel: ${surfaceTitle(focusedSurface, props.previewSessions, props.terminalLabelsById)}`
+          ? `Workspace panel: ${surfaceTitle(focusedSurface, props.previewSessions)}`
           : "Workspace panel"
       }
       mode={props.mode}
@@ -1338,7 +1305,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                     dragDisabled={!props.onMoveSurface || renamingDevice === surface.id}
                     active={surface.id === props.activeSurfaceId}
                     pending={props.pendingSurfaceIds.has(surface.id)}
-                    title={surfaceTitle(surface, props.previewSessions, props.terminalLabelsById)}
+                    title={surfaceTitle(surface, props.previewSessions)}
                     audio={tabAudioState(
                       previewTabId ? (props.desktopByTabId[previewTabId] ?? null) : null,
                     )}
@@ -1500,14 +1467,12 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddBrowser={props.onAddBrowser}
             onAddBrowserInProfile={props.onAddBrowserInProfile}
             browserProfiles={browserProfiles}
-            onAddTerminal={props.onAddTerminal}
             onAddFiles={props.onAddFiles}
             onAddPullRequest={props.onAddPullRequest}
             onAddPullRequests={props.onAddPullRequests}
             onAddDevice={props.onAddDevice}
             onAddSideChat={props.onAddSideChat}
             browserAvailable={props.browserAvailable}
-            terminalAvailable={props.terminalAvailable}
             filesAvailable={props.filesAvailable}
             pullRequestAvailable={props.pullRequestAvailable}
             pullRequestsAvailable={props.pullRequestsAvailable}

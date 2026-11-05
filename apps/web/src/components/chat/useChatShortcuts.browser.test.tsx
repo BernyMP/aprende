@@ -9,8 +9,6 @@ import type { ChatComposerHandle } from "./ChatComposer";
 import { useChatShortcuts } from "./useChatShortcuts";
 
 const shortcutContext = {
-  terminalFocus: false,
-  terminalOpen: false,
   previewFocus: false,
   previewOpen: false,
   isWeb: true,
@@ -51,7 +49,6 @@ function Chat(props: { composerKeys: string[]; launcher?: { keys: string; receiv
   useChatShortcuts({
     enabled: true,
     keybindings: [],
-    scriptKeybindings: [],
     getShortcutContext: () => shortcutContext,
     threadFindActive: false,
     // Type-to-focus only calls insertTextAtEnd, so the stand-in composer implements just that.
@@ -66,7 +63,6 @@ function Chat(props: { composerKeys: string[]; launcher?: { keys: string; receiv
     branchToolbarRef: { current: null },
     closeThreadFind: () => {},
     commands: {},
-    fallback: () => undefined,
   });
   return props.launcher ? <Launcher {...props.launcher} /> : null;
 }
@@ -151,7 +147,6 @@ function SideChat(props: { toggles: string[]; stops: string[] }) {
     embedded: true,
     composerElement,
     keybindings: sideChatKeybindings,
-    scriptKeybindings: [],
     getShortcutContext: () => shortcutContext,
     threadFindActive: false,
     composerRef: {
@@ -162,7 +157,6 @@ function SideChat(props: { toggles: string[]; stops: string[] }) {
     branchToolbarRef: { current: null },
     closeThreadFind: () => {},
     commands: { "thread.stop": () => void props.stops.push("stop") },
-    fallback: () => undefined,
   });
   return (
     <>

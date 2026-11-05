@@ -13,12 +13,7 @@ import { lazy, Suspense } from "react";
 import SideChatPane from "./SideChatPane";
 import type { ComposerImageAttachment, DraftId } from "../../composerDraftStore";
 import type { ShortcutMatchContext } from "../../keybindings";
-import type { SideChatParentPanel } from "../../lib/sideChatPane";
 import { type RightPanelSurface, useRightPanelStore } from "../../rightPanelStore";
-import {
-  PersistentThreadTerminalPanel,
-  type PersistentThreadTerminalPanelProps,
-} from "../PersistentThreadTerminals";
 import { pullRequestPanelContext } from "../pullRequest/pullRequestDetail.logic";
 import { PullRequestDetailPanel } from "../pullRequest/PullRequestDetailPanel";
 import { PullRequestDetailGhost } from "../pullRequest/PullRequestGhosts";
@@ -32,11 +27,6 @@ const DevicePanel = lazy(() =>
   import("../device/DevicePanel").then((module) => ({ default: module.DevicePanel })),
 );
 const FilePreviewPanel = lazy(() => import("../files/FilePreviewPanel"));
-
-type RightPanelTerminalProps = Omit<
-  PersistentThreadTerminalPanelProps,
-  "visible" | "threadRef" | "surface"
->;
 
 interface RightPanelPullRequestProps {
   readonly capabilityKnown: boolean;
@@ -73,10 +63,8 @@ export function RightPanelSurfaceContent(props: {
     image: ComposerImageAttachment | null,
   ) => void;
   readonly onCloseSurface: (surface: RightPanelSurface) => void;
-  readonly terminal: RightPanelTerminalProps;
   readonly pullRequest: RightPanelPullRequestProps;
   readonly files: RightPanelFileProps;
-  readonly sideChatParentPanel: SideChatParentPanel;
 }) {
   const { surface, threadRef, visible, onCloseSurface } = props;
   if (surface === null) return null;
@@ -93,15 +81,6 @@ export function RightPanelSurfaceContent(props: {
             onSendAnnotation={props.onSendAnnotation}
           />
         </Suspense>
-      );
-    case "terminal":
-      return (
-        <PersistentThreadTerminalPanel
-          {...props.terminal}
-          visible={visible}
-          threadRef={threadRef}
-          surface={surface}
-        />
       );
     case "pull-request": {
       const pullRequest = props.pullRequest;
@@ -162,7 +141,6 @@ export function RightPanelSurfaceContent(props: {
           key={surface.id}
           parentRef={threadRef}
           threadId={surface.threadId}
-          parentPanel={props.sideChatParentPanel}
           onClose={() => onCloseSurface(surface)}
         />
       );

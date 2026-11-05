@@ -1000,12 +1000,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     scope: "project-defaults",
   },
   {
-    id: "project-actions",
-    title: "Actions",
-    to: "/settings/projects",
-    searchTerms: ["commands scripts setup run dev server checkout worktree t3.json import"],
-  },
-  {
     id: "environment-icon",
     title: "Environment icon",
     to: "/settings/access",

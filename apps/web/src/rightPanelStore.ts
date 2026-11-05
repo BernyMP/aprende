@@ -17,7 +17,6 @@ const RIGHT_PANEL_KINDS = [
   "file",
   "preview",
   "device",
-  "terminal",
   "pull-request",
   "pull-requests",
   "side-chat",
@@ -37,14 +36,6 @@ export type RightPanelSurface =
   | { id: `browser:${string}`; kind: "preview"; resourceId: string }
   | { id: "browser:new"; kind: "preview"; resourceId: null }
   | { id: "device" | `device:${string}`; kind: "device"; target?: DeviceTabTarget; title?: string }
-  | {
-      id: `terminal:${string}`;
-      kind: "terminal";
-      resourceId: string;
-      terminalIds: string[];
-      activeTerminalId: string;
-      splitDirection?: "horizontal" | "vertical";
-    }
   | {
       id: "files";
       kind: "files";
@@ -111,7 +102,7 @@ interface RightPanelStoreState {
   closeRevisionByThreadKey: Record<string, number>;
   open: (
     ref: ScopedThreadRef,
-    kind: Exclude<RightPanelKind, "file" | "terminal" | "pull-request" | "side-chat">,
+    kind: Exclude<RightPanelKind, "file" | "pull-request" | "side-chat">,
   ) => void;
   openSideChat: (ref: ScopedThreadRef, threadId: ThreadId) => void;
   openDevice: (ref: ScopedThreadRef, target: DeviceTabTarget, automatic?: boolean) => void;
@@ -144,15 +135,6 @@ interface RightPanelStoreState {
     surfaceId: string,
     detailTab: PullRequestDetailTab,
   ) => void;
-  openTerminal: (ref: ScopedThreadRef, terminalId: string) => void;
-  splitTerminal: (
-    ref: ScopedThreadRef,
-    surfaceId: string,
-    terminalId: string,
-    direction?: "horizontal" | "vertical",
-  ) => void;
-  activateTerminal: (ref: ScopedThreadRef, surfaceId: string, terminalId: string) => void;
-  closeTerminal: (ref: ScopedThreadRef, surfaceId: string, terminalId: string) => void;
   activateSurface: (ref: ScopedThreadRef, surfaceId: string) => void;
   /** Agent-driven activation. Not a user action, so it does not move keyboard focus. */
   revealSurface: (ref: ScopedThreadRef, surfaceId: string) => void;
@@ -173,7 +155,7 @@ interface RightPanelStoreState {
   toggleVisibility: (ref: ScopedThreadRef) => void;
   toggle: (
     ref: ScopedThreadRef,
-    kind: Exclude<RightPanelKind, "file" | "terminal" | "pull-request" | "side-chat">,
+    kind: Exclude<RightPanelKind, "file" | "pull-request" | "side-chat">,
   ) => void;
   setThreadPanelOpen: (
     ref: ScopedThreadRef,
@@ -196,7 +178,7 @@ const DEFAULT_THREAD_PANEL_VISIBILITY: ThreadPanelVisibility = {
 };
 
 const singletonSurface = (
-  kind: Exclude<RightPanelKind, "file" | "preview" | "terminal" | "pull-request" | "side-chat">,
+  kind: Exclude<RightPanelKind, "file" | "preview" | "pull-request" | "side-chat">,
 ): RightPanelSurface => {
   switch (kind) {
     case "files":
@@ -232,14 +214,6 @@ const attachmentSurface = (attachment: ChatFileAttachment): RightPanelSurface =>
   revealLine: null,
   revealRequestId: 0,
   attachment,
-});
-
-const terminalSurface = (terminalId: string): RightPanelSurface => ({
-  id: `terminal:${terminalId}`,
-  kind: "terminal",
-  resourceId: terminalId,
-  terminalIds: [terminalId],
-  activeTerminalId: terminalId,
 });
 
 export type PullRequestSurface = Extract<RightPanelSurface, { kind: "pull-request" }>;
@@ -450,7 +424,7 @@ const closeAction = (
 ): Partial<RightPanelStoreState> => userAction(state, threadKey, updater, true);
 
 // Panels that no longer exist; saved tabs of these kinds are dropped on load.
-const REMOVED_SURFACE_KINDS: ReadonlySet<string> = new Set(["plan", "agents", "diff"]);
+const REMOVED_SURFACE_KINDS: ReadonlySet<string> = new Set(["plan", "agents", "diff", "terminal"]);
 
 function normalizeRevealLine(line: number | undefined): number | null {
   if (line === undefined || !Number.isFinite(line)) return null;
@@ -518,38 +492,7 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                         }),
                       ];
                     }
-                    if (surface.kind !== "terminal") return [surface];
-                    if (
-                      !("resourceId" in surface) ||
-                      typeof surface.resourceId !== "string" ||
-                      surface.id !== `terminal:${surface.resourceId}`
-                    ) {
-                      return [];
-                    }
-                    const terminalIds =
-                      "terminalIds" in surface && Array.isArray(surface.terminalIds)
-                        ? [
-                            ...new Set(
-                              surface.terminalIds.filter(
-                                (terminalId): terminalId is string =>
-                                  typeof terminalId === "string",
-                              ),
-                            ),
-                          ]
-                        : [surface.resourceId];
-                    const activeTerminalId =
-                      "activeTerminalId" in surface &&
-                      typeof surface.activeTerminalId === "string" &&
-                      terminalIds.includes(surface.activeTerminalId)
-                        ? surface.activeTerminalId
-                        : (terminalIds[0] ?? surface.resourceId);
-                    return [
-                      {
-                        ...surface,
-                        terminalIds: terminalIds.length > 0 ? terminalIds : [surface.resourceId],
-                        activeTerminalId,
-                      },
-                    ];
+                    return [surface];
                   })
                 : [];
               const rawActiveSurfaceId = validThreadState?.activeSurfaceId;
@@ -785,85 +728,6 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
               { ...current, surfaces: withoutStandaloneExplorer },
               attachmentSurface(attachment),
             );
-          }),
-        ),
-      openTerminal: (ref, terminalId) =>
-        set((state) =>
-          userAction(state, scopedThreadKey(ref), (current) =>
-            upsertSurface(current, terminalSurface(terminalId)),
-          ),
-        ),
-      splitTerminal: (ref, surfaceId, terminalId, direction = "horizontal") =>
-        set((state) =>
-          userAction(state, scopedThreadKey(ref), (current) => ({
-            ...current,
-            isOpen: true,
-            activeSurfaceId: surfaceId,
-            surfaces: current.surfaces.map((surface) => {
-              if (surface.id !== surfaceId || surface.kind !== "terminal") return surface;
-              const { splitDirection: _splitDirection, ...baseSurface } = surface;
-              return {
-                ...baseSurface,
-                terminalIds: surface.terminalIds.includes(terminalId)
-                  ? surface.terminalIds
-                  : [...surface.terminalIds, terminalId],
-                activeTerminalId: terminalId,
-                ...(direction === "vertical" ? { splitDirection: "vertical" as const } : {}),
-              };
-            }),
-          })),
-        ),
-      activateTerminal: (ref, surfaceId, terminalId) =>
-        set((state) =>
-          userAction(state, scopedThreadKey(ref), (current) => ({
-            ...current,
-            activeSurfaceId: surfaceId,
-            surfaces: current.surfaces.map((surface) =>
-              surface.id === surfaceId &&
-              surface.kind === "terminal" &&
-              surface.terminalIds.includes(terminalId)
-                ? { ...surface, activeTerminalId: terminalId }
-                : surface,
-            ),
-          })),
-        ),
-      closeTerminal: (ref, surfaceId, terminalId) =>
-        set((state) =>
-          closeAction(state, scopedThreadKey(ref), (current) => {
-            const surface = current.surfaces.find(
-              (entry) => entry.id === surfaceId && entry.kind === "terminal",
-            );
-            if (!surface || surface.kind !== "terminal") return current;
-            const terminalIds = surface.terminalIds.filter((id) => id !== terminalId);
-            if (terminalIds.length === 0) {
-              const index = current.surfaces.findIndex((entry) => entry.id === surfaceId);
-              const surfaces = current.surfaces.filter((entry) => entry.id !== surfaceId);
-              const fallback = surfaces[Math.min(index, surfaces.length - 1)] ?? null;
-              return {
-                ...current,
-                isOpen: surfaces.length > 0 && current.isOpen,
-                surfaces,
-                activeSurfaceId:
-                  current.activeSurfaceId === surfaceId
-                    ? (fallback?.id ?? null)
-                    : current.activeSurfaceId,
-              };
-            }
-            return {
-              ...current,
-              surfaces: current.surfaces.map((entry) =>
-                entry.id === surfaceId && entry.kind === "terminal"
-                  ? {
-                      ...entry,
-                      terminalIds,
-                      activeTerminalId:
-                        entry.activeTerminalId === terminalId
-                          ? (terminalIds.at(-1) ?? terminalIds[0]!)
-                          : entry.activeTerminalId,
-                    }
-                  : entry,
-              ),
-            };
           }),
         ),
       activateSurface: (ref, surfaceId) =>
@@ -1129,11 +993,7 @@ useRightPanelStore.subscribe((next, previous) => {
       ...removed.filter((surface) => surface.id === before.activeSurfaceId),
     ];
     for (const surface of closedInOrder) {
-      if (
-        surface.kind === "terminal" ||
-        (surface.kind === "preview" && surface.resourceId !== null)
-      )
-        continue;
+      if (surface.kind === "preview" && surface.resourceId !== null) continue;
       useClosedViewStore.getState().remember({ kind: "panel-tab", threadRef, surface });
     }
   }

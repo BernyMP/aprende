@@ -20,7 +20,6 @@ import { requestWorkspaceContentFocus, requestWorkspaceFocus } from "../../lib/w
 import { setActivePreviewTab } from "../../previewStateStore";
 import { BrowserSettingsReadError } from "../../browser/openFileInPreview";
 import { addBrowserSurface } from "../preview/addBrowserSurface";
-import { focusActivePanelTerminal, focusTerminal } from "../../lib/terminalFocus";
 import { subscribePreviewAction } from "../preview/previewActionBus";
 import { floatDeviceSurface } from "../preview/agentOpenedPreviews";
 import { browserMiniPlayerSource, usePreviewMiniPlayerStore } from "../../previewMiniPlayerStore";
@@ -57,7 +56,7 @@ interface RightPanelActionsInput {
 
 /**
  * Opening, closing, and arranging the right panel's surfaces: browser, files, pull
- * requests, device, and terminal tabs.
+ * requests, and device tabs.
  */
 export function useRightPanelActions(input: RightPanelActionsInput) {
   const {
@@ -168,9 +167,6 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     if (surface.kind === "preview" && surface.resourceId) {
       setActivePreviewTab(activeThreadRef, surface.resourceId);
     }
-    if (surface.kind === "terminal") {
-      focusTerminal(activeThreadRef, surface.activeTerminalId);
-    }
   };
   const activateRightPanelSurfaceStable = useStableCallback(activateRightPanelSurface);
   const toggleRightPanel = () => {
@@ -180,7 +176,6 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
       return;
     }
     useRightPanelStore.getState().toggleVisibility(activeThreadRef);
-    focusActivePanelTerminal(activeThreadRef);
   };
   const toggleRightPanelStable = useStableCallback(toggleRightPanel);
   const toggleThreadPanel = () => {

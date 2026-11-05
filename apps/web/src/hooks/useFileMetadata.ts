@@ -16,7 +16,7 @@ import { projectEnvironment } from "../state/projects";
 import { useEnvironmentQuery } from "../state/query";
 import { FileMetadataThreadContext } from "./FileMetadataThreadProvider";
 
-export function getFileMetadataQueryAtom(
+function getFileMetadataQueryAtom(
   environmentId: EnvironmentId,
   path: string,
   cwd?: string,

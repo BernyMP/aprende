@@ -100,9 +100,6 @@ import {
 type ThreadProjection = EnvironmentThread["projection"];
 type ThreadStructureRow = ThreadStructure["visibleTurnItems"][number];
 
-export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "aprende:last-invoked-script-by-project";
-export const MAX_HIDDEN_MOUNTED_TERMINAL_THREADS = 10;
-
 export const ENVIRONMENT_RECONNECT_WARNING_GRACE_MS = 2_000;
 
 export function agentControlledBrowserCloseConfirmation(
@@ -446,48 +443,6 @@ export function resolveComposerInteractionMode(input: {
     enabled,
     interactionMode: enabled ? input.interactionMode : "default",
   };
-}
-
-export function reconcileMountedTerminalThreadIds(input: {
-  currentThreadIds: ReadonlyArray<string>;
-  openThreadIds: ReadonlyArray<string>;
-  activeThreadId: string | null;
-  activeThreadTerminalOpen: boolean;
-  maxHiddenThreadCount?: number;
-}): string[] {
-  const openThreadIdSet = new Set(input.openThreadIds);
-  const hiddenThreadIds = input.currentThreadIds.filter(
-    (threadId) => threadId !== input.activeThreadId && openThreadIdSet.has(threadId),
-  );
-  const maxHiddenThreadCount = Math.max(
-    0,
-    input.maxHiddenThreadCount ?? MAX_HIDDEN_MOUNTED_TERMINAL_THREADS,
-  );
-  const nextThreadIds =
-    hiddenThreadIds.length > maxHiddenThreadCount
-      ? hiddenThreadIds.slice(-maxHiddenThreadCount)
-      : hiddenThreadIds;
-
-  if (
-    input.activeThreadId &&
-    input.activeThreadTerminalOpen &&
-    !nextThreadIds.includes(input.activeThreadId)
-  ) {
-    nextThreadIds.push(input.activeThreadId);
-  }
-
-  return nextThreadIds;
-}
-
-// Null identifies the project checkout when a launch or session is known.
-export function resolveTerminalWorktreePath(input: {
-  launchContext: { readonly worktreePath: string | null } | null;
-  summary: { readonly worktreePath: string | null } | null;
-  threadWorktreePath: string | null;
-}): string | null {
-  if (input.launchContext !== null) return input.launchContext.worktreePath;
-  if (input.summary !== null) return input.summary.worktreePath;
-  return input.threadWorktreePath;
 }
 
 export async function resolveFileAttachmentUrl(input: {

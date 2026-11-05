@@ -435,7 +435,6 @@ export interface ChatComposerProps {
   resolvedTheme: "light" | "dark";
   settings: UnifiedSettings;
   keybindings: ResolvedKeybindingsConfig;
-  terminalOpen: boolean;
   gitCwd: string | null;
   pullRequestProjectId: ProjectId | null;
   pullRequestRepository: string | null;
@@ -560,7 +559,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     resolvedTheme,
     settings,
     keybindings,
-    terminalOpen,
     gitCwd,
     pullRequestProjectId,
     pullRequestRepository,
@@ -2240,7 +2238,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       files: composerFilesRef.current,
     }),
     readTerminalContexts: () => composerTerminalContextsRef.current,
-    routeThreadRef,
     projectSelectionRequired,
     pendingUserInputs,
     activePendingProgress,
@@ -2342,7 +2339,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       providerInstanceEntries={providerInstanceEntries}
       keybindings={keybindings}
       modelOptionsByInstance={modelOptionsByInstance}
-      terminalOpen={terminalOpen}
       modelPickerOpen={isComposerModelPickerOpen}
       onModelPickerOpenChange={setIsComposerModelPickerOpen}
       modelPickerIconClassName={composerProviderState.modelPickerIconClassName}
@@ -3301,11 +3297,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     composerFormRef={composerFormRef}
                     entries={stashQueue}
                     stashShortcutLabel={shortcutLabelForCommand(keybindings, "composer.stash", {
-                      context: {
-                        terminalFocus: false,
-                        terminalOpen,
-                        modelPickerOpen: false,
-                      },
+                      context: { modelPickerOpen: false },
                     })}
                     onRestore={restoreStashEntryStable}
                     onDelete={deleteStashEntryStable}

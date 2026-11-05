@@ -16,7 +16,6 @@ import { useEffect, useState } from "react";
 
 import { ComposerHandleContext } from "../../composerHandleContext";
 import { useClientSettings } from "../../hooks/useSettings";
-import type { SideChatParentPanel } from "../../lib/sideChatPane";
 import { readLocalApi } from "../../localApi";
 import { hostRightPanel, useRightPanelStore } from "../../rightPanelStore";
 import { useQuietThreadProjection, useQuietThreadShell } from "../../state/entities";
@@ -34,7 +33,6 @@ import { BackgroundThreadContext } from "./backgroundThread";
 export default function SideChatPane(props: {
   readonly parentRef: ScopedThreadRef;
   readonly threadId: ThreadId;
-  readonly parentPanel: SideChatParentPanel;
   readonly onClose: () => void;
 }) {
   const { parentRef, threadId } = props;
@@ -169,7 +167,7 @@ export default function SideChatPane(props: {
               environmentId={parentRef.environmentId}
               threadId={threadId}
               routeKind="server"
-              embedded={props.parentPanel}
+              embedded
             />
           </ComposerHandleContext>
         </BackgroundThreadContext>

@@ -97,9 +97,7 @@ import {
   threadTraversalDirectionFromCommand,
 } from "../keybindings";
 import { useShortcutModifierState } from "../shortcutModifierState";
-import { isTerminalFocused } from "../lib/terminalFocus";
 import { isModelPickerOpen } from "../modelPickerVisibility";
-import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { isMacPlatform } from "~/lib/utils";
 import { readLocalApi } from "../localApi";
 import { configuredHostedAppUrl } from "../hostedPairing";
@@ -128,7 +126,6 @@ import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { useOrderWhileOpen } from "../hooks/useOrderWhileOpen";
 import { useProjectPin } from "../hooks/useProjectGroupUpdate";
 import { useSidebarProjectGroups } from "../hooks/useSidebarProjectGroups";
-import { useTerminalFocus } from "../hooks/useTerminalFocus";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { registerSettleAndAdvance } from "../settleAndAdvance";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
@@ -1058,7 +1055,6 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   const snoozingThreadKeysRef = useRef(new Set<string>());
   const removeFromSelection = useThreadSelectionStore((s) => s.removeFromSelection);
   const shortcutModifiers = useShortcutModifierState();
-  const terminalFocused = useTerminalFocus();
   const openAddProjectCommandPalette = () => openCommandPalette({ open: "add-project" });
   const routeThreadRef = resolveActiveThreadRouteRef(routeTarget, routeDraftThread);
   const routeThreadKey = routeThreadRef ? scopedThreadKey(routeThreadRef) : null;
@@ -2858,11 +2854,6 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     },
   );
 
-  const routeTerminalOpen = useTerminalUiStateStore((state) =>
-    routeThreadRef
-      ? selectThreadTerminalUiState(state.terminalUiStateByThreadKey, routeThreadRef).terminalOpen
-      : false,
-  );
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- subscribes to window keydown for thread navigation shortcuts using the current thread list
   useEffect(() => {
     const onWindowKeyDown = (event: KeyboardEvent) => {
@@ -2872,8 +2863,6 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       const command = resolveShortcutCommand(event, keybindings, {
         platform: navigator.platform,
         context: {
-          terminalFocus: isTerminalFocused(),
-          terminalOpen: routeTerminalOpen,
           modelPickerOpen: isModelPickerOpen(),
           isWeb: !isElectron,
           isDesktop: isElectron,
@@ -2905,14 +2894,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     };
     window.addEventListener("keydown", onWindowKeyDown);
     return () => window.removeEventListener("keydown", onWindowKeyDown);
-  }, [
-    keybindings,
-    navigateToThread,
-    orderedThreadKeys,
-    routeRowThreadKey,
-    routeTerminalOpen,
-    threadByKey,
-  ]);
+  }, [keybindings, navigateToThread, orderedThreadKeys, routeRowThreadKey, threadByKey]);
 
   const shouldShowJumpHintsNow = shouldShowThreadJumpHintsForModifiers(
     shortcutModifiers,
@@ -2920,8 +2902,6 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     {
       platform: navigator.platform,
       context: {
-        terminalFocus: terminalFocused,
-        terminalOpen: routeTerminalOpen,
         modelPickerOpen: isModelPickerOpen(),
         isWeb: !isElectron,
         isDesktop: isElectron,

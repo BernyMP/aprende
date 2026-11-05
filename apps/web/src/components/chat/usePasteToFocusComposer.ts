@@ -4,7 +4,6 @@ import { isPasteAsTextShortcut } from "@aprende/client-runtime/text-paste";
 import { useEffect, useRef } from "react";
 import { isMacPlatform } from "../../lib/utils";
 import { isCommandPaletteOpen } from "../../commandPaletteBus";
-import { getTerminalFocusOwner } from "../../lib/terminalFocus";
 import { isInSideChatPane } from "../../lib/sideChatPane";
 import type { ThreadId } from "@aprende/contracts";
 import type { ComposerHandleRef } from "../../composerHandleContext";
@@ -30,7 +29,6 @@ export function usePasteToFocusComposer(
     };
     const handler = (event: ClipboardEvent) => {
       if (isCommandPaletteOpen() || isInSideChatPane(event.target)) return;
-      if (getTerminalFocusOwner() !== null) return;
       if (composerRef.current?.isModelPickerOpen()) return;
       const text = pasteTextToFocusComposer(event);
       const clipboardData = event.clipboardData;

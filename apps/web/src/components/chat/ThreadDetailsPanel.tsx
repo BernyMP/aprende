@@ -2,20 +2,14 @@ import type {
   EditorId,
   EnvironmentId,
   ProjectId,
-  ProjectScript,
   ResolvedKeybindingsConfig,
   ThreadId,
 } from "@aprende/contracts";
 
 import type { DraftId } from "../../composerDraftStore";
-import { useT3ProjectFileScripts } from "../../hooks/useT3ProjectFileScripts";
 import { type EnvMode, type EnvironmentOption } from "../BranchToolbar.logic";
 import { BranchToolbar } from "../BranchToolbar";
 import BaseGitActionsControl from "../GitActionsControl";
-import ProjectScriptsControl, {
-  type NewProjectScriptInput,
-  type ProjectScriptActionResult,
-} from "../ProjectScriptsControl";
 import { memo, useState, type ComponentProps } from "react";
 import { ThreadDetailsCard } from "./ThreadDetailsCard";
 import { OpenInPicker } from "./OpenInPicker";
@@ -54,8 +48,6 @@ interface ThreadDetailsPanelProps extends Pick<
   isServerThread: boolean;
   draftId?: DraftId;
   activeProjectName: string | undefined;
-  activeProjectScripts: ReadonlyArray<ProjectScript> | undefined;
-  preferredScriptId: string | null;
   keybindings: ResolvedKeybindingsConfig;
   availableEditors: ReadonlyArray<EditorId>;
   showOpenInPicker: boolean;
@@ -75,23 +67,12 @@ interface ThreadDetailsPanelProps extends Pick<
   onStartFromOriginChange: (startFromOrigin: boolean) => void;
   onCheckoutPullRequestRequest?: (reference: string) => void;
   onComposerFocusRequest: () => void;
-  onRunProjectScript: (script: ProjectScript) => void;
-  onAddProjectScript: (input: NewProjectScriptInput) => Promise<ProjectScriptActionResult>;
-  onUpdateProjectScript: (
-    scriptId: string,
-    input: NewProjectScriptInput,
-  ) => Promise<ProjectScriptActionResult>;
-  onDeleteProjectScript: (scriptId: string) => Promise<ProjectScriptActionResult>;
   usage: ThreadDetailsUsageInput;
 }
 
 export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
   const visible = useClientSettings(resolveThreadDetailsVisibility);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
-  const fileScripts = useT3ProjectFileScripts(
-    props.environmentId,
-    props.activeProjectScripts && visible.scripts ? props.gitCwd : null,
-  );
   const activeThreadRef = { environmentId: props.environmentId, threadId: props.threadId };
   const branchToolbarProps = {
     showGitControls: props.isGitRepo,
@@ -151,7 +132,6 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
         const show = {
           environment: density === "full" && visible.environment,
           openIn: density !== "essential" && visible.openIn && props.showOpenInPicker,
-          scripts: visible.scripts && props.activeProjectScripts !== undefined,
           branch: props.gitCwd !== null && props.isGitRepo && visible.branch,
           git:
             props.gitCwd !== null &&
@@ -161,7 +141,7 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
         return (
           <>
             <div className="group/details-items">
-              {show.environment || show.openIn || show.scripts ? (
+              {show.environment || show.openIn ? (
                 <ThreadDetailsSection
                   headingId="thread-details-workspace-heading"
                   title="Workspace"
@@ -191,20 +171,6 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                         openInCwd={props.gitCwd}
                         enableShortcut={props.openInShortcutEnabled}
                         displayMode="panel"
-                      />
-                    ) : null}
-
-                    {show.scripts && props.activeProjectScripts ? (
-                      <ProjectScriptsControl
-                        environmentId={props.environmentId}
-                        displayMode="panel"
-                        scripts={props.activeProjectScripts}
-                        fileScripts={fileScripts}
-                        preferredScriptId={props.preferredScriptId}
-                        onRunScript={props.onRunProjectScript}
-                        onAddScript={props.onAddProjectScript}
-                        onUpdateScript={props.onUpdateProjectScript}
-                        onDeleteScript={props.onDeleteProjectScript}
                       />
                     ) : null}
                   </div>

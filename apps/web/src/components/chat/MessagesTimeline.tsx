@@ -231,7 +231,6 @@ interface MessagesTimelineProps {
   retryableWorkspacePreparationRunIds?: ReadonlySet<RunId>;
   onRetryWorkspacePreparation?: (runId: RunId) => void;
   onWorktreeSetupWorkLocally?: () => void;
-  onOpenWorktreeSetupTerminal?: (terminalId: string) => void;
   isPreparingWorktree?: boolean;
   isCompacting?: boolean;
   awaitingUser?: "approval" | "input" | null;
@@ -343,7 +342,6 @@ const ConversationTimeline = memo(function ConversationTimeline({
   retryableWorkspacePreparationRunIds = EMPTY_RUN_IDS,
   onRetryWorkspacePreparation,
   onWorktreeSetupWorkLocally,
-  onOpenWorktreeSetupTerminal,
   isPreparingWorktree = false,
   isCompacting = false,
   awaitingUser = null,
@@ -1041,7 +1039,6 @@ const ConversationTimeline = memo(function ConversationTimeline({
     retryableWorkspacePreparationRunIds,
     onRetryWorkspacePreparation: onRetryWorkspacePreparation ?? null,
     onWorktreeSetupWorkLocally: onWorktreeSetupWorkLocally ?? null,
-    onOpenWorktreeSetupTerminal: onOpenWorktreeSetupTerminal ?? null,
     workGroupViewState,
   };
   const compactionAwaitingRow =
@@ -1506,9 +1503,6 @@ function WorktreeSetupTimelineRow({
   row: Extract<TimelineRow, { kind: "worktree-setup" }>;
 }) {
   const ctx = use(TimelineRowCtx);
-  const terminalId = row.snapshot.setupScript?.terminalId ?? null;
-  const openTerminal = ctx.onOpenWorktreeSetupTerminal;
-  const onOpenTerminal = openTerminal && terminalId ? () => openTerminal(terminalId) : null;
   return (
     <WorktreeSetupCard
       snapshot={row.snapshot}
@@ -1517,7 +1511,7 @@ function WorktreeSetupTimelineRow({
       onWorkLocally={
         !row.embedded && row.snapshot.phase === "running" ? ctx.onWorktreeSetupWorkLocally : null
       }
-      onOpenTerminal={onOpenTerminal}
+      onOpenTerminal={null}
     />
   );
 }

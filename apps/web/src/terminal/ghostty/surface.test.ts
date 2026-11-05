@@ -1,10 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import {
-  applyTerminalAttachStreamEvent,
-  INITIAL_TERMINAL_OUTPUT_CURSOR,
-  nextTerminalAttachSeedState,
-} from "@aprende/client-runtime/state/terminal";
-import { synchronizeTerminalSession } from "../../components/ThreadTerminalDrawer";
 
 import { GhosttyTerminalCore, type GhosttyCell, type GhosttyRow } from "./core";
 import {
@@ -441,52 +435,6 @@ describe("GhosttyTerminalSurface visibility", () => {
       expect(harness.onData.mock.calls).toEqual([["echo hi"], ["echo hi"]]);
     },
   );
-
-  it("keeps a selection through redraws until the selected text changes", async () => {
-    const harness = createHarness();
-    const surface = await harness.create();
-    const seed = nextTerminalAttachSeedState();
-    let state = applyTerminalAttachStreamEvent(seed, {
-      type: "snapshot",
-      snapshot: {
-        threadId: "thread",
-        terminalId: "term-1",
-        cwd: "/repo",
-        worktreePath: null,
-        status: "running",
-        pid: 123,
-        history: "* Working |",
-        exitCode: null,
-        exitSignal: null,
-        label: "Terminal",
-        updatedAt: "2026-10-20T00:00:00.000Z",
-      },
-    });
-    let cursor = synchronizeTerminalSession(surface, seed, state, INITIAL_TERMINAL_OUTPUT_CURSOR);
-    harness.flushFrame();
-    harness.pointer("pointerdown", 5, 1);
-    harness.pointer("pointermove", 85, 1);
-    harness.pointer("pointerup", 85, 0);
-    expect(surface.getSelection()).toBe("* Working |");
-
-    // A TUI repaints its spinner line in place, the way Claude Code redraws.
-    const redraw = (data: string) => {
-      const previous = state;
-      state = applyTerminalAttachStreamEvent(state, {
-        type: "output",
-        threadId: "thread",
-        terminalId: "term-1",
-        data,
-      });
-      cursor = synchronizeTerminalSession(surface, previous, state, cursor);
-    };
-    redraw("\r\x1b[2K* Working |");
-    expect(surface.getSelection()).toBe("* Working |");
-
-    redraw("\r\x1b[2K* Working /");
-    expect(surface.getSelection()).toBe("");
-    expect(surface.getSelectionPosition()).toBeNull();
-  });
 
   it("reports where a selection sits after output scrolls it", async () => {
     const harness = createHarness();

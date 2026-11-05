@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { GhosttyTerminalSurface } from "../../terminal/ghostty/surface";
 import { ensureLocalApi } from "../../localApi";
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { terminalThemeFromApp } from "../ThreadTerminalDrawer";
+import { terminalThemeFromApp } from "../../terminal/ghostty/appTheme";
 
 export default function ProviderAuthTerminal({
   output,

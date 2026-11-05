@@ -3,7 +3,6 @@ import type { KeybindingCommand, ResolvedKeybindingsConfig } from "@aprende/cont
 import { resolveShortcutCommand, type ShortcutMatchContext } from "../keybindings";
 import { isEditableFocused } from "../lib/editableFocus";
 import { isPreviewFocused } from "../lib/previewFocus";
-import { isTerminalFocused } from "../lib/terminalFocus";
 import { isModelPickerOpen } from "../modelPickerVisibility";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { primaryServerKeybindingsAtom } from "../state/server";
@@ -16,7 +15,7 @@ export type CommandHandlers = Partial<Record<KeybindingCommand, CommandHandler>>
 export interface CommandScopeOptions {
   /** Read at event time; a scope whose guard fails is skipped. */
   readonly when?: (event: KeyboardEvent) => boolean;
-  /** When-clause context the dispatcher cannot know (terminalOpen, previewOpen), read at event time. */
+  /** When-clause context the dispatcher cannot know (previewOpen), read at event time. */
   readonly context?: () => Partial<ShortcutMatchContext>;
   readonly keybindings?: () => ResolvedKeybindingsConfig;
   /** For shortcuts that are not keybinding commands (Escape, "/"); runs before command lookup. */
@@ -46,7 +45,6 @@ const observerScopes: CommandScope[] = [];
 
 function readFocusContext(event: KeyboardEvent): Partial<ShortcutMatchContext> {
   return {
-    terminalFocus: isTerminalFocused(),
     previewFocus: isPreviewFocused(),
     editableFocus: isEditableFocused(event.target),
     modelPickerOpen: isModelPickerOpen(),

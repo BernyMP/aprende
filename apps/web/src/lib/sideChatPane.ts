@@ -7,15 +7,6 @@ export function isInSideChatPane(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest("[data-side-chat-pane]") !== null;
 }
 
-/**
- * Runs an embedded side chat's shell commands in the parent's terminal drawer, since the embedded
- * view hides its own. Other panel actions reach the parent through `hostRightPanel`; the drawer is
- * not panel state.
- */
-export interface SideChatParentPanel {
-  readonly runShellCommand: (command: string) => void;
-}
-
 /** Opens `thread` in its tab when it is a side chat of `parentRef`; false for any other thread. */
 export function openSideChatTab(
   parentRef: ScopedThreadRef,

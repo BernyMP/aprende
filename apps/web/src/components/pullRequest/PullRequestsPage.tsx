@@ -80,7 +80,6 @@ import { isCommandPaletteOpen } from "~/commandPaletteBus";
 import { isElectron } from "~/env";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "~/keybindings";
 import { registerCommands } from "~/shortcuts/dispatcher";
-import { isTerminalFocused } from "~/lib/terminalFocus";
 import { PanelLayoutControls, RightPanelMaximizeControl } from "../chat/PanelLayoutControls";
 import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
@@ -115,8 +114,6 @@ import { getSourceControlPresentationForKind } from "~/sourceControlPresentation
 
 function getShortcutContext() {
   return {
-    terminalFocus: isTerminalFocused(),
-    terminalOpen: false,
     previewFocus: false,
     previewOpen: false,
     modelPickerOpen: false,
@@ -137,7 +134,6 @@ const EMPTY_PARTITIONS: PullRequestPartitionsSnapshot = { authored: [], reviewin
 const NO_LIST_TARGETS: ReadonlyArray<EnvironmentQueryTarget<PullRequestListInput>> = [];
 const EMPTY_PREVIEW_SESSIONS = {};
 const EMPTY_PREVIEW_DESKTOP_STATE = {};
-const EMPTY_TERMINAL_LABELS = new Map<string, string>();
 const EMPTY_PENDING_SURFACES = new Set<string>();
 export function PullRequestsPage() {
   const search = useSearch({ from: "/_chat/pull-requests" });
@@ -1102,11 +1098,7 @@ export function PullRequestsPage() {
   );
   const panelToggleControls = (
     <PanelLayoutControls
-      showTerminalControl={false}
       showThreadPanelControl={false}
-      terminalAvailable={false}
-      terminalOpen={false}
-      terminalShortcutLabel={null}
       threadPanelOpen={false}
       threadPanelPresentation="inline"
       threadPanelShortcutLabel={null}
@@ -1115,7 +1107,6 @@ export function PullRequestsPage() {
       rightPanelOpen={rightPanelState.isOpen}
       rightPanelShortcutLabel={shortcutLabelForCommand(keybindings, "rightPanel.toggle")}
       rightPanelUnavailableLabel="Select a pull request first"
-      onToggleTerminal={() => undefined}
       onToggleRightPanel={toggleRightPanel}
     />
   );
@@ -1469,7 +1460,6 @@ export function PullRequestsPage() {
             pendingSurfaceIds={EMPTY_PENDING_SURFACES}
             previewSessions={EMPTY_PREVIEW_SESSIONS}
             desktopByTabId={EMPTY_PREVIEW_DESKTOP_STATE}
-            terminalLabelsById={EMPTY_TERMINAL_LABELS}
             onActivate={(surface) => {
               if (surface.kind === "pull-request") activateSurface(surface);
             }}
@@ -1490,13 +1480,11 @@ export function PullRequestsPage() {
             onCopyFilePath={() => undefined}
             onAddBrowser={() => undefined}
             onAddBrowserInProfile={() => undefined}
-            onAddTerminal={() => undefined}
             onAddFiles={() => undefined}
             onAddPullRequest={() => undefined}
             onAddPullRequests={() => undefined}
             onAddDevice={() => undefined}
             browserAvailable={false}
-            terminalAvailable={false}
             filesAvailable={false}
             pullRequestAvailable={false}
             pullRequestsAvailable={false}
