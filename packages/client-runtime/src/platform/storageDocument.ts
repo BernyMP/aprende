@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@aprende/contracts";
+import { EnvironmentId, ForwardCompatibleArray } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -17,7 +17,8 @@ export type StoredConnectionCredential = typeof StoredConnectionCredential.Type;
 
 export const ConnectionCatalogDocument = Schema.Struct({
   schemaVersion: Schema.Literal(1),
-  targets: Schema.Array(PersistedConnectionTarget),
+  // Drops targets of retired kinds, such as T3 Connect relays, instead of discarding the whole catalog.
+  targets: ForwardCompatibleArray(PersistedConnectionTarget),
   profiles: Schema.Array(ConnectionProfile),
   credentials: Schema.Array(StoredConnectionCredential),
   // Pull request routing grants. The field name predates the rename and stays, so older and

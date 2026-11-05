@@ -22,6 +22,7 @@ import {
 
 const ENVIRONMENT_ID = EnvironmentId.make("environment-1");
 const decodeCatalogDocument = Schema.decodeUnknownSync(ConnectionCatalogDocument);
+const encodeCatalogDocument = Schema.encodeSync(ConnectionCatalogDocument);
 
 const BEARER_TARGET = new BearerConnectionTarget({
   environmentId: ENVIRONMENT_ID,
@@ -67,16 +68,29 @@ describe("ConnectionCatalogDocument", () => {
     );
   });
 
-  it("decodes a document written before the disabled list existed, with retired relay tokens", () => {
+  it("decodes a document written before the disabled list existed, with retired relay records", () => {
+    const registered = registerConnectionInCatalog(
+      EMPTY_CONNECTION_CATALOG_DOCUMENT,
+      new BearerConnectionRegistration({
+        target: BEARER_TARGET,
+        profile: BEARER_PROFILE,
+        credential: BEARER_CREDENTIAL,
+      }),
+    );
+    const stored = encodeCatalogDocument(registered);
+    // A T3 Connect target beside a bearer connection must not cost the learner that connection.
     const decoded = decodeCatalogDocument({
       schemaVersion: 1,
-      targets: [],
-      profiles: [],
-      credentials: [],
+      targets: [
+        { ...stored.targets[0], _tag: "RelayConnectionTarget", environmentId: "env-relay" },
+        ...stored.targets,
+      ],
+      profiles: stored.profiles,
+      credentials: stored.credentials,
       remoteDpopTokens: [],
     });
 
-    expect(decoded).toEqual(EMPTY_CONNECTION_CATALOG_DOCUMENT);
+    expect(decoded).toEqual(registered);
   });
 
   it("switches a saved environment off and back on without touching its records", () => {
