@@ -1,9 +1,4 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import {
-  DEFAULT_SERVER_SETTINGS,
-  ProviderDriverKind,
-  ProviderInstanceId,
-} from "@aprende/contracts";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -18,7 +13,7 @@ const layerTest = ServerConfig.layerTest(process.cwd(), {
   prefix: "aprende-legacy-credentials-",
 }).pipe(Layer.provideMerge(NodeServices.layer));
 
-it.effect("removes stored provider credentials and managed Codex homes once", () => {
+it.effect("removes stored provider credentials once and leaves Codex homes alone", () => {
   const logs: string[] = [];
   const logger = Logger.make(({ message }) => logs.push(JSON.stringify(message)));
   return Effect.gen(function* () {
@@ -35,24 +30,12 @@ it.effect("removes stored provider credentials and managed Codex homes once", ()
     for (const [name, value] of Object.entries(stored)) {
       yield* fs.writeFileString(path.join(secretsDir, name), value);
     }
-    const codexDir = path.join(stateDir, "providers", "codex");
-    const managedShadow = path.join(codexDir, "codex_chatgpt", "shadow");
-    const learnerShadow = path.join(codexDir, "codex_mine", "shadow");
-    for (const shadow of [managedShadow, learnerShadow]) {
-      yield* fs.makeDirectory(shadow, { recursive: true });
-      yield* fs.writeFileString(path.join(shadow, "auth.json"), "{}");
-    }
-    const settings = {
-      ...DEFAULT_SERVER_SETTINGS,
-      providerInstances: {
-        [ProviderInstanceId.make("codex_mine")]: {
-          driver: ProviderDriverKind.make("codex"),
-          config: { shadowHomePath: learnerShadow },
-        },
-      },
-    };
+    // A learner may still use an old managed home through CODEX_HOME or a symlink.
+    const shadow = path.join(stateDir, "providers", "codex", "codex_chatgpt", "shadow");
+    yield* fs.makeDirectory(shadow, { recursive: true });
+    yield* fs.writeFileString(path.join(shadow, "auth.json"), "{}");
 
-    const first = yield* removeLegacyProviderCredentials(settings);
+    const first = yield* removeLegacyProviderCredentials();
 
     assert.sameMembers(
       [...first.secrets],
@@ -62,17 +45,14 @@ it.effect("removes stored provider credentials and managed Codex homes once", ()
         "provider-config-Y29kZXg-Y29kZXg-a2V5.bin",
       ],
     );
-    assert.deepEqual(first.codexShadowHomes, ["codex_chatgpt"]);
     assert.deepEqual(yield* fs.readDirectory(secretsDir), ["server-signing-key.bin"]);
-    assert.isFalse(yield* fs.exists(managedShadow));
-    assert.isTrue(yield* fs.exists(path.join(learnerShadow, "auth.json")));
+    assert.isTrue(yield* fs.exists(path.join(shadow, "auth.json")));
     const logged = logs.join("\n");
     assert.include(logged, "provider-auth-0a1b2c.bin");
     for (const value of Object.values(stored)) assert.notInclude(logged, value);
 
     logs.length = 0;
-    const second = yield* removeLegacyProviderCredentials(settings);
-    assert.deepEqual(second, { secrets: [], codexShadowHomes: [] });
+    assert.deepEqual(yield* removeLegacyProviderCredentials(), { secrets: [] });
     assert.deepEqual(logs, []);
   }).pipe(
     Effect.provide(Layer.merge(layerTest, Logger.layer([logger], { mergeWithExisting: false }))),

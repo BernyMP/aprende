@@ -297,15 +297,7 @@ const layerIdleCompactionWorker = Layer.effectDiscard(
   IdleCompactionService.make.pipe(Effect.flatMap((service) => service.start())),
 ).pipe(Layer.provide(ProjectionStoreV2.layer));
 
-const layerLegacyCredentialCleanup = Layer.effectDiscard(
-  ServerSettings.ServerSettingsService.pipe(
-    Effect.flatMap((settings) => settings.getSettings),
-    Effect.flatMap(removeLegacyProviderCredentials),
-    Effect.catch((cause) =>
-      Effect.logWarning("could not check for stored provider credentials", { cause }),
-    ),
-  ),
-);
+const layerLegacyCredentialCleanup = Layer.effectDiscard(removeLegacyProviderCredentials());
 
 const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   layerThreadSettlementWorker,
