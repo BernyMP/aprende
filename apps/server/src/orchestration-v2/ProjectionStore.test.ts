@@ -26,7 +26,6 @@ import {
   RunId,
   ThreadId,
   TurnItemId,
-  type ThreadPullRequestLink,
   isLiveSubagentShell,
   isListedThreadLineage,
 } from "@aprende/contracts";
@@ -1544,38 +1543,23 @@ const backgroundThreadUpdatesKeepTimestamp = Effect.gen(function* () {
     snapshot: null,
     stack: null,
   };
+  // Pull requests are gone; their stored events decode and leave the thread as it was.
   yield* store.apply({
     id: EventId.make("event:background-updates:pull-request-synced"),
     type: "thread.pull-request-synced",
     threadId,
     occurredAt: DateTime.add(createdAt, { minutes: 45 }),
-    payload: { ...thread, pullRequests: [link] },
+    payload: { ...thread, title: "Ignored" },
   });
-  const synced = yield* readActivity;
-  assert.deepEqual(synced.updatedAt, createdAt);
-  assert.equal(synced.thread.pullRequests?.[0]?.number, 42);
-
-  const snapshot = {
-    state: "open" as const,
-    title: "Ship it",
-    headBranch: "feature",
-    baseBranch: "main",
-    isDraft: false,
-    updatedAt: DateTime.formatIso(DateTime.add(createdAt, { minutes: 46 })),
-    syncedAt: DateTime.formatIso(DateTime.add(createdAt, { minutes: 47 })),
-    closedAt: null,
-    mergedAt: null,
-  };
   yield* store.apply({
     id: EventId.make("event:background-updates:pull-request-link-updated"),
     type: "thread.pull-request-link-updated",
     threadId,
     occurredAt: DateTime.add(createdAt, { minutes: 48 }),
-    payload: { ...link, snapshot },
+    payload: link,
   });
   const refreshed = yield* readActivity;
-  assert.deepEqual(refreshed.updatedAt, createdAt);
-  assert.deepEqual(refreshed.thread.pullRequests?.[0]?.snapshot, snapshot);
+  assert.equal(refreshed.thread.title, thread.title);
 
   yield* store.apply({
     id: EventId.make("event:background-updates:active-reordered"),
@@ -4217,76 +4201,6 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
           .filter((id) => id === readThreadId || id === laterThreadId);
 
       yield* createThread(readThreadId);
-      yield* sql`UPDATE orchestration_v2_projection_threads
-        SET payload_json = json_set(payload_json, '$.linkedPullRequest', json(${JSON.stringify({
-          projectId: "project:shell-read",
-          repository: "acme/project",
-          number: 42,
-          url: "https://github.com/acme/project/pull/42",
-        })})) WHERE thread_id = ${readThreadId}`;
-      const trace = traceSqlStatements();
-      const discovery = yield* projectionStore
-        .getPullRequestSnapshot({})
-        .pipe(Effect.withTracer(trace.tracer));
-      assert.deepEqual(
-        discovery.threads
-          .map((thread) => thread.id)
-          .filter((id) => id === readThreadId || id === laterThreadId),
-        [readThreadId],
-      );
-      assert.strictEqual(discovery.snapshotSequence, 0);
-      assert.strictEqual(trace.queryTransactions.length, 2);
-      assert.isNotNull(trace.queryTransactions[0]);
-      assert.strictEqual(new Set(trace.queryTransactions).size, 1);
-      assert.isFalse(
-        trace.statements.some((query) =>
-          /orchestration_v2_projection_(runs|messages|turn_items|provider_threads)/.test(query),
-        ),
-      );
-      const fullShell = (yield* projectionStore.getShellSnapshot()).threads.find(
-        (thread) => thread.id === readThreadId,
-      )!;
-      const metadata = discovery.threads.find((thread) => thread.id === readThreadId)!;
-      for (const key of Object.keys(metadata) as Array<keyof typeof metadata>) {
-        assert.deepEqual(metadata[key], fullShell[key]);
-      }
-      const narrow = yield* projectionStore.getPullRequestSnapshot({ threadId: readThreadId });
-      assert.deepEqual(
-        narrow.threads,
-        discovery.threads.filter((thread) => thread.id === readThreadId),
-      );
-      const settledPayload = (settledAt: string | null, archivedAt: string | null) => sql`
-        UPDATE orchestration_v2_projection_threads
-        SET payload_json = json_set(payload_json, '$.settledAt', ${settledAt}, '$.archivedAt', ${archivedAt})
-        WHERE thread_id = ${readThreadId}
-      `;
-      yield* settledPayload(DateTime.formatIso(now), null);
-      assert.isFalse(
-        (yield* projectionStore.getPullRequestSnapshot({ unsettledOnly: true })).threads.some(
-          (thread) => thread.id === readThreadId,
-        ),
-      );
-      assert.strictEqual(
-        (yield* projectionStore.getPullRequestSnapshot({ threadId: readThreadId })).threads.length,
-        1,
-      );
-      yield* settledPayload(null, DateTime.formatIso(now));
-      assert.isFalse(
-        (yield* projectionStore.getPullRequestSnapshot({})).threads.some(
-          (thread) => thread.id === readThreadId,
-        ),
-      );
-      assert.strictEqual(
-        (yield* projectionStore.getPullRequestSnapshot({ threadId: readThreadId })).threads.length,
-        1,
-      );
-      yield* sql`UPDATE orchestration_v2_projection_threads SET deleted_at = '2026-11-03T00:00:00.000Z' WHERE thread_id = ${readThreadId}`;
-      assert.deepEqual(
-        (yield* projectionStore.getPullRequestSnapshot({ threadId: readThreadId })).threads,
-        [],
-      );
-      yield* sql`UPDATE orchestration_v2_projection_threads SET deleted_at = NULL WHERE thread_id = ${readThreadId}`;
-      yield* settledPayload(null, null);
       const decode = yield* sql.withTransaction(projectionStore.readShellSnapshot());
       yield* createThread(laterThreadId);
 
@@ -8115,130 +8029,6 @@ it.layer(layerTest)("ProjectionStoreV2", (it) => {
           ["local", targetThreadId, "command_execution"],
         ],
       );
-    }),
-  );
-
-  it.effect("a pull request watch keeps a finished thread working until it ends", () =>
-    Effect.gen(function* () {
-      const store = yield* ProjectionStore.ProjectionStoreV2;
-      const threadId = ThreadId.make("thread:watched-pull-request");
-      const runId = RunId.make("run:watched-pull-request");
-      const at = DateTime.makeUnsafe("2026-10-05T12:00:00.000Z");
-      const thread = {
-        createdBy: "user" as const,
-        creationSource: "web" as const,
-        id: threadId,
-        projectId: ProjectId.make("project:watched-pull-request"),
-        title: "Babysit the PR",
-        providerInstanceId,
-        modelSelection,
-        runtimeMode: "full-access" as const,
-        interactionMode: "default" as const,
-        branch: null,
-        worktreePath: null,
-        activeProviderThreadId: null,
-        lineage: { parentThreadId: null, relationshipToParent: null, rootThreadId: threadId },
-        forkedFrom: null,
-        createdAt: at,
-        updatedAt: at,
-        archivedAt: null,
-        settledOverride: null,
-        settledAt: null,
-        lastVisitedAt: null,
-        deletedAt: null,
-      };
-      yield* store.apply({
-        id: EventId.make("event:watched-pull-request:thread"),
-        type: "thread.created",
-        threadId,
-        occurredAt: at,
-        payload: thread,
-      });
-      yield* store.apply({
-        id: EventId.make("event:watched-pull-request:run"),
-        type: "run.created",
-        threadId,
-        runId,
-        driver,
-        providerInstanceId,
-        occurredAt: at,
-        payload: {
-          id: runId,
-          threadId,
-          ordinal: 1,
-          providerInstanceId,
-          modelSelection,
-          providerThreadId: null,
-          userMessageId: MessageId.make("message:watched-pull-request"),
-          rootNodeId: null,
-          activeAttemptId: null,
-          status: "completed",
-          requestedAt: at,
-          startedAt: at,
-          completedAt: at,
-          checkpointId: null,
-          contextHandoffId: null,
-        },
-      });
-      const link = {
-        host: "github.com",
-        repository: "bernymp/aprende",
-        number: 7,
-        url: "https://github.com/bernymp/aprende/pull/7",
-        source: "agent" as const,
-        linkedAt: DateTime.formatIso(at),
-        snapshot: null,
-        stack: null,
-      };
-      const syncPullRequests = (id: string, pullRequests: ReadonlyArray<ThreadPullRequestLink>) =>
-        store.apply({
-          id: EventId.make(`event:watched-pull-request:${id}`),
-          type: "thread.pull-request-synced",
-          threadId,
-          occurredAt: at,
-          payload: { ...thread, pullRequests },
-        });
-      const project = { title: "Project" };
-      const environmentId = EnvironmentId.make("environment:watched-pull-request");
-      const phase = Effect.gen(function* () {
-        const shell = yield* store.getThreadShell(threadId);
-        const listed = (yield* store.getShellSnapshot()).threads.find(
-          (candidate) => candidate.id === threadId,
-        );
-        assert.deepEqual(listed?.pendingBackgroundTasks, shell?.pendingBackgroundTasks);
-        yield* assertShellIndexCoversShells();
-        return shell && projectThreadAwarenessV2({ environmentId, project, thread: shell })?.phase;
-      });
-
-      yield* syncPullRequests("watched", [
-        {
-          ...link,
-          watch: {
-            startedAt: DateTime.formatIso(at),
-            headSha: null,
-            failedChecks: [],
-            passed: false,
-            passedChecks: [],
-            remarksThrough: DateTime.formatIso(at),
-            remarkIds: [],
-            conflicting: false,
-            wakes: 0,
-          },
-        },
-      ]);
-      assert.deepEqual((yield* store.getThreadShell(threadId))?.pendingBackgroundTasks, [
-        {
-          taskId: "pull-request-watch:github.com/bernymp/aprende#7",
-          description: "Watching pull request #7",
-          kind: "monitor",
-          awaited: true,
-        },
-      ]);
-      assert.equal(yield* phase, "running");
-
-      yield* syncPullRequests("unwatched", [link]);
-      assert.deepEqual((yield* store.getThreadShell(threadId))?.pendingBackgroundTasks, []);
-      assert.equal(yield* phase, "completed");
     }),
   );
 

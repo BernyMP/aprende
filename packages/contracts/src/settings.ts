@@ -34,7 +34,6 @@ import { ModelSelection } from "./modelSelection.ts";
 import { ProjectScript, type ProjectMutation } from "./project.ts";
 import { DEFAULT_RUNTIME_MODE, RuntimeMode } from "./providerPolicy.ts";
 import { ProviderInstanceConfig, ProviderInstanceId } from "./providerInstance.ts";
-import { PullRequestMergeMethod } from "./pullRequest.ts";
 
 export const TimestampFormat = Schema.Literals(["locale", "12-hour", "24-hour"]);
 export type TimestampFormat = typeof TimestampFormat.Type;
@@ -368,12 +367,6 @@ export const ClientSettingsSchema = Schema.Struct({
   providerModelPreferences: ProviderModelPreferences.pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
-  pullRequestMergeMethodOverrides: Schema.Record(
-    TrimmedNonEmptyString,
-    PullRequestMergeMethod,
-  ).pipe(Schema.withDecodingDefault(Effect.succeed({}))),
-
-  pullRequestLinksOpenInApp: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
 
   planModeEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   contextWindowMeterEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -506,7 +499,7 @@ declare module "effect/Schema" {
   }
 }
 
-export function secretSetting<S extends Schema.Top>(schema: S): S["Rebuild"] {
+function secretSetting<S extends Schema.Top>(schema: S): S["Rebuild"] {
   return schema.annotateKey({ settingsSecret: true });
 }
 
@@ -720,63 +713,12 @@ const SecretProviderConfigWrite = Schema.Struct({
   label: SecretProviderLabel,
 });
 
-export const SourceControlHostSettings = Schema.Record(Schema.String, Schema.Unknown);
-export type SourceControlHostSettings = typeof SourceControlHostSettings.Type;
-
 export const ObservabilitySettings = Schema.Struct({
   otlpTracesUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   otlpMetricsUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   otlpLogsUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
 });
 export type ObservabilitySettings = typeof ObservabilitySettings.Type;
-
-export const SourceControlWritingStyleMode = Schema.Literals([
-  "repo_conventions",
-  "conventional_commits",
-  "custom",
-]);
-export type SourceControlWritingStyleMode = typeof SourceControlWritingStyleMode.Type;
-
-export const SourceControlWritingStyleSettings = Schema.Struct({
-  mode: SourceControlWritingStyleMode.pipe(
-    Schema.withDecodingDefault(Effect.succeed("repo_conventions" as const)),
-  ),
-  customInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-  followChangeRequestTemplates: Schema.Boolean.pipe(
-    Schema.withDecodingDefault(Effect.succeed(true)),
-  ),
-});
-export type SourceControlWritingStyleSettings = typeof SourceControlWritingStyleSettings.Type;
-
-const LegacySourceControlWritingStyle = TrimmedString.pipe(
-  Schema.decodeTo(
-    Schema.toType(SourceControlWritingStyleSettings),
-    SchemaTransformation.transform({
-      decode: (value): SourceControlWritingStyleSettings => ({
-        mode: value.length > 0 ? "custom" : "repo_conventions",
-        customInstructions: value,
-        followChangeRequestTemplates: true,
-      }),
-      encode: (value) => value.customInstructions,
-    }),
-  ),
-);
-
-// The struct member comes first so encoding uses its defaulted fields: the server strips
-// default sub-fields before writing settings.json, and a toType target would reject them.
-const SourceControlWritingStyleSetting = Schema.Union([
-  SourceControlWritingStyleSettings,
-  LegacySourceControlWritingStyle,
-]);
-
-export const BranchNamingMode = Schema.Literals(["static", "semantic", "custom"]);
-export type BranchNamingMode = typeof BranchNamingMode.Type;
-
-export interface BranchNamingOptions {
-  mode: BranchNamingMode;
-  prefix: string;
-  instructions: string;
-}
 
 export const DEFAULT_AUTOMATIC_GIT_FETCH_INTERVAL = Duration.seconds(30);
 export const DEFAULT_PROVIDER_HEALTH_REFRESH_INTERVAL = Duration.minutes(5);
@@ -869,18 +811,7 @@ export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "defaultProjectScripts",
   "textGenerationModelSelection",
   "threadTitleInstructions",
-  "sourceControlWriterModelSelection",
-  "reviewGuideModelSelection",
-  "reviewGuideInstructions",
-  "sourceControlWritingStyle",
-  "removeAgentCreditsOnMerge",
-  "branchNamingMode",
-  "branchNamePrefix",
-  "branchNameInstructions",
-  "pullRequestMergeMethod",
-  "sidebarAutoSettleOnMerge",
   "sidebarAutoSettleAfterDays",
-  "sidebarAutoSettleKeepPullRequests",
   "continueThreadsAfterServerUpdate",
   "responseStreamingMode",
 ] as const;
@@ -904,18 +835,7 @@ export const ProjectSettingsOverrides = Schema.Struct({
   defaultProjectScripts: Schema.optionalKey(Schema.Array(ProjectScript)),
   textGenerationModelSelection: Schema.optionalKey(ModelSelection),
   threadTitleInstructions: Schema.optionalKey(TrimmedString),
-  sourceControlWriterModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
-  reviewGuideModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
-  reviewGuideInstructions: Schema.optionalKey(TrimmedString),
-  sourceControlWritingStyle: Schema.optionalKey(SourceControlWritingStyleSetting),
-  removeAgentCreditsOnMerge: Schema.optionalKey(Schema.Boolean),
-  branchNamingMode: Schema.optionalKey(BranchNamingMode),
-  branchNamePrefix: Schema.optionalKey(TrimmedString),
-  branchNameInstructions: Schema.optionalKey(TrimmedString),
-  pullRequestMergeMethod: Schema.optionalKey(Schema.NullOr(PullRequestMergeMethod)),
-  sidebarAutoSettleOnMerge: Schema.optionalKey(Schema.Boolean),
   sidebarAutoSettleAfterDays: Schema.optionalKey(Schema.NullOr(SidebarAutoSettleAfterDays)),
-  sidebarAutoSettleKeepPullRequests: Schema.optionalKey(Schema.Boolean),
   continueThreadsAfterServerUpdate: Schema.optionalKey(Schema.Boolean),
   responseStreamingMode: Schema.optionalKey(ResponseStreamingMode),
   providerInstances: Schema.optionalKey(
@@ -942,13 +862,7 @@ const NULLABLE_PROJECT_SETTINGS_OVERRIDES: ReadonlySet<ProjectScopedServerSettin
   {
     [K in ProjectScopedServerSettingKey]: null extends ProjectSettingsOverrides[K] ? K : never;
   }[ProjectScopedServerSettingKey]
->([
-  "defaultModelSelection",
-  "sourceControlWriterModelSelection",
-  "reviewGuideModelSelection",
-  "pullRequestMergeMethod",
-  "sidebarAutoSettleAfterDays",
-]);
+>(["defaultModelSelection", "sidebarAutoSettleAfterDays"]);
 
 /** Reclaimable bytes from which the offline `aprende doctor` repair is worth suggesting. */
 export const DATABASE_COMPACTION_RECOMMENDED_BYTES = 1024 ** 3;
@@ -1087,17 +1001,6 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed([])),
   ),
   hideTaggedThreads: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  /** Beta: guest links for this machine's threads. Off refuses new links and pauses existing ones. */
-  guestSharingEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  /**
-   * Beta: links to the user's other machines, both ways. Off refuses new links, calls over links
-   * and tasks on another machine; tasks already running there finish.
-   */
-  linkedEnvironmentsEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  sidebarAutoSettleKeepPullRequests: Schema.Boolean.pipe(
-    Schema.withDecodingDefault(Effect.succeed(false)),
-  ),
-  sidebarAutoSettleOnMerge: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
   backgroundActivity: BackgroundActivitySettings,
 
   automaticGitFetchInterval: Schema.DurationFromMillis.pipe(
@@ -1131,8 +1034,6 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(null)),
   ),
   addProjectBaseDirectory: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-  /** Clones default to `<addProjectBaseDirectory>/<host>/<owner>/<repo>`, like ghq. */
-  ghqCloneLayout: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   textGenerationModelSelection: ModelSelection.pipe(
     Schema.withDecodingDefault(
       Effect.succeed({
@@ -1148,36 +1049,12 @@ export const ServerSettings = Schema.Struct({
     ),
   ),
   threadTitleInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-  branchNamingMode: BranchNamingMode.pipe(
-    Schema.withDecodingDefault(Effect.succeed("static" as const)),
-  ),
-  branchNamePrefix: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed("t3"))),
-  branchNameInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-  removeAgentCreditsOnMerge: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  sourceControlWritingStyle: SourceControlWritingStyleSetting.pipe(
-    Schema.withDecodingDefault(Effect.succeed({})),
-  ),
-  sourceControlWriterModelSelection: Schema.NullOr(ModelSelection).pipe(
-    Schema.withDecodingDefault(Effect.succeed(null)),
-  ),
-  reviewGuidesEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
-  reviewGuideModelSelection: Schema.NullOr(ModelSelection).pipe(
-    Schema.withDecodingDefault(Effect.succeed(null)),
-  ),
-  reviewGuideInstructions: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
-
-  pullRequestMergeMethod: Schema.NullOr(PullRequestMergeMethod).pipe(
-    Schema.withDecodingDefault(Effect.succeed(null)),
-  ),
 
   // Schema.Unknown preserves unknown-driver configs across versions; see providerInstance.ts.
   providerInstances: Schema.Record(ProviderInstanceId, ProviderInstanceConfig).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
   observability: ObservabilitySettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
-  sourceControlHosts: Schema.Record(Schema.String, SourceControlHostSettings).pipe(
-    Schema.withDecodingDefault(Effect.succeed({})),
-  ),
   // User-chosen ids preserve rows across edits; undecodable entries round-trip untouched.
   usageLimitSources: Schema.Record(UsageLimitSourceId, UsageLimitSourceConfig).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
@@ -1435,7 +1312,6 @@ export const ServerSettingsPatch = Schema.Struct({
         keepUnknownOverrideKeys(
           Schema.Struct({
             ...ProjectSettingsOverrides.fields,
-            sourceControlWritingStyle: Schema.optionalKey(SourceControlWritingStyleSettings),
           }),
         ),
       ),
@@ -1444,15 +1320,11 @@ export const ServerSettingsPatch = Schema.Struct({
   sidebarAutoSettleAfterDays: Schema.optionalKey(Schema.NullOr(SidebarAutoSettleAfterDays)),
   compactIdleThreads: Schema.optionalKey(LegacyCompactIdleThreads),
   idleCompaction: Schema.optionalKey(IdleCompactionMode),
-  sidebarAutoSettleKeepPullRequests: Schema.optionalKey(Schema.Boolean),
-  sidebarAutoSettleOnMerge: Schema.optionalKey(Schema.Boolean),
   autoResumeLimitedThreads: Schema.optionalKey(Schema.Boolean),
   snoozeLimitedThreads: Schema.optionalKey(Schema.Boolean),
   snoozePresets: Schema.optionalKey(SnoozePresetSettings),
   hiddenThreadTags: Schema.optionalKey(Schema.Array(Schema.String)),
   hideTaggedThreads: Schema.optionalKey(Schema.Boolean),
-  guestSharingEnabled: Schema.optionalKey(Schema.Boolean),
-  linkedEnvironmentsEnabled: Schema.optionalKey(Schema.Boolean),
   backgroundActivity: Schema.optionalKey(
     Schema.Struct({
       schemaVersion: Schema.optionalKey(Schema.Literal(1)),
@@ -1469,25 +1341,8 @@ export const ServerSettingsPatch = Schema.Struct({
   newWorktreesStartFromOrigin: Schema.optionalKey(Schema.Boolean),
   worktreeSubmodules: Schema.optionalKey(Schema.NullOr(WorktreeSubmodules)),
   addProjectBaseDirectory: Schema.optionalKey(TrimmedString),
-  ghqCloneLayout: Schema.optionalKey(Schema.Boolean),
   textGenerationModelSelection: Schema.optionalKey(ModelSelectionPatch),
   threadTitleInstructions: Schema.optionalKey(TrimmedString),
-  branchNamingMode: Schema.optionalKey(BranchNamingMode),
-  branchNamePrefix: Schema.optionalKey(TrimmedString),
-  branchNameInstructions: Schema.optionalKey(TrimmedString),
-  removeAgentCreditsOnMerge: Schema.optionalKey(Schema.Boolean),
-  sourceControlWritingStyle: Schema.optionalKey(
-    Schema.Struct({
-      mode: Schema.optionalKey(SourceControlWritingStyleMode),
-      customInstructions: Schema.optionalKey(TrimmedString),
-      followChangeRequestTemplates: Schema.optionalKey(Schema.Boolean),
-    }),
-  ),
-  sourceControlWriterModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
-  reviewGuidesEnabled: Schema.optionalKey(Schema.Boolean),
-  reviewGuideModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
-  reviewGuideInstructions: Schema.optionalKey(TrimmedString),
-  pullRequestMergeMethod: Schema.optionalKey(Schema.NullOr(PullRequestMergeMethod)),
   observability: Schema.optionalKey(
     Schema.Struct({
       otlpTracesUrl: Schema.optionalKey(TrimmedString),
@@ -1495,8 +1350,6 @@ export const ServerSettingsPatch = Schema.Struct({
       otlpLogsUrl: Schema.optionalKey(TrimmedString),
     }),
   ),
-  /** Merges per host, replacing patched fields whole; redaction markers retain secrets, empty secrets remove them. A non-empty token map keeps the saved tokens of hosts it omits; an empty map clears them all. */
-  sourceControlHosts: Schema.optionalKey(Schema.Record(Schema.String, SourceControlHostSettings)),
   // Replace whole maps to avoid half-merged driver configs.
   providerInstances: Schema.optionalKey(Schema.Record(ProviderInstanceId, ProviderInstanceConfig)),
   // Merge per source to avoid racing other edits; null removes an entry.
@@ -1586,10 +1439,6 @@ export const ClientSettingsPatch = Schema.Struct({
   persistComposerContextStrip: Schema.optionalKey(Schema.Boolean),
   favorites: Schema.optionalKey(ModelFavorites),
   providerModelPreferences: Schema.optionalKey(ProviderModelPreferences),
-  pullRequestMergeMethodOverrides: Schema.optionalKey(
-    Schema.Record(TrimmedNonEmptyString, PullRequestMergeMethod),
-  ),
-  pullRequestLinksOpenInApp: Schema.optionalKey(Schema.Boolean),
   planModeEnabled: Schema.optionalKey(Schema.Boolean),
   contextWindowMeterEnabled: Schema.optionalKey(Schema.Boolean),
   composerRichTextEnabled: Schema.optionalKey(Schema.Boolean),

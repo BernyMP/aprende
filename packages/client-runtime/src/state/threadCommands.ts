@@ -20,8 +20,6 @@ import {
 import {
   type InterruptThreadTurnInput,
   archiveThread,
-  closeGuestShare,
-  resolveGuestMessage,
   cancelQueuedRun,
   createThread,
   deleteThread,
@@ -34,7 +32,6 @@ import {
   promoteQueuedRun,
   resumeThreadQueue,
   retryWorkspacePreparation,
-  linkThreadPullRequest,
   respondToThreadApproval,
   respondToThreadUserInput,
   dismissThreadUserInput,
@@ -50,13 +47,11 @@ import {
   startThreadTurn,
   stopThreadSession,
   unarchiveThread,
-  unlinkThreadPullRequest,
   unpinThread,
   unsettleThread,
   unsnoozeThread,
   updateThreadMetadata,
   visitThread,
-  watchThreadPullRequest,
 } from "../operations/commands.ts";
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import * as EnvironmentSupervisor from "../connection/supervisor.ts";
@@ -128,18 +123,6 @@ export function createThreadEnvironmentAtoms<R, E>(
     delete: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:thread:delete",
       execute: deleteThread,
-      scheduler,
-      concurrency,
-    }),
-    closeGuestShare: createEnvironmentCommand(runtime, {
-      label: "environment-data:commands:thread:close-guest-share",
-      execute: closeGuestShare,
-      scheduler,
-      concurrency,
-    }),
-    resolveGuestMessage: createEnvironmentCommand(runtime, {
-      label: "environment-data:commands:thread:resolve-guest-message",
-      execute: resolveGuestMessage,
       scheduler,
       concurrency,
     }),
@@ -224,24 +207,6 @@ export function createThreadEnvironmentAtoms<R, E>(
     updateMetadata: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:thread:update-metadata",
       execute: updateThreadMetadata,
-      scheduler,
-      concurrency,
-    }),
-    linkPullRequest: createEnvironmentCommand(runtime, {
-      label: "environment-data:commands:thread:link-pull-request",
-      execute: linkThreadPullRequest,
-      scheduler,
-      concurrency,
-    }),
-    unlinkPullRequest: createEnvironmentCommand(runtime, {
-      label: "environment-data:commands:thread:unlink-pull-request",
-      execute: unlinkThreadPullRequest,
-      scheduler,
-      concurrency,
-    }),
-    watchPullRequest: createEnvironmentCommand(runtime, {
-      label: "environment-data:commands:thread:watch-pull-request",
-      execute: watchThreadPullRequest,
       scheduler,
       concurrency,
     }),

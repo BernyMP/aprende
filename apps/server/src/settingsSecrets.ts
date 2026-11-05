@@ -9,12 +9,53 @@ import {
   secretSettingsFields,
 } from "@aprende/contracts";
 import { acpRegistryClient } from "@aprende/provider-acp-registry/client";
-import {
-  readSecretFieldValues,
-  SOURCE_CONTROL_HOST_SECRET_FIELDS,
-  sourceControlHostSecretName,
-  writeSecretFieldValues,
-} from "./sourceControl/sourceControlHostSecrets.ts";
+import type * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
+import * as Effect from "effect/Effect";
+
+function readSecretFieldValues(
+  value: unknown,
+): ReadonlyArray<readonly [serverHost: string | null, value: string]> {
+  if (typeof value === "string") return [[null, value]];
+  if (isSecretReference(value)) return [];
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.entries(value).flatMap(([serverHost, entry]) =>
+    typeof entry === "string" ? [[serverHost.trim().toLowerCase(), entry] as const] : [],
+  );
+}
+
+function writeSecretFieldValues(
+  original: unknown,
+  values: ReadonlyArray<readonly [serverHost: string | null, value: string]>,
+): unknown {
+  if (typeof original === "string") return values[0]?.[1] ?? "";
+  if (isSecretReference(original)) return original;
+  const sources =
+    original !== null && typeof original === "object" && !Array.isArray(original)
+      ? Object.entries(original).flatMap(([serverHost, entry]) =>
+          isSecretReference(entry) ? [[serverHost.trim().toLowerCase(), entry] as const] : [],
+        )
+      : [];
+  return Object.fromEntries([
+    ...sources,
+    ...values.map(([serverHost, value]) => [serverHost ?? "", value] as const),
+  ]);
+}
+
+/** Settings that cannot be read clear every cached secret, so a refresh never keeps a stale one. */
+export const invalidateSettingsSecrets = Effect.fn("SettingsSecrets.invalidate")(function* <E>(
+  resolver: SecretResolver.SecretResolver["Service"],
+  settings: Effect.Effect<Pick<ServerSettings, "usageLimitSources">, E>,
+) {
+  const references = yield* settings.pipe(
+    Effect.map((current) =>
+      Object.values(current.usageLimitSources).flatMap(({ managementKey }) =>
+        isSecretReference(managementKey) ? [managementKey] : [],
+      ),
+    ),
+    Effect.orElseSucceed(() => undefined),
+  );
+  yield* resolver.invalidate(references);
+});
 
 export const SECRET_REDACTED = "\u2022\u2022\u2022\u2022\u2022\u2022";
 
@@ -160,15 +201,6 @@ function mapSecretFieldGroups(
     }),
   );
 
-  const sourceControlHosts = Object.fromEntries(
-    Object.entries(settings.sourceControlHosts).map(([kind, fields]) => [
-      kind,
-      mapFields(fields, SOURCE_CONTROL_HOST_SECRET_FIELDS.get(kind) ?? [], (field, serverHost) =>
-        sourceControlHostSecretName({ kind, field, serverHost }),
-      ),
-    ]),
-  ) as ServerSettings["sourceControlHosts"];
-
   const usageLimitSources = Object.fromEntries(
     Object.entries(settings.usageLimitSources).map(([id, source]) => [
       id,
@@ -187,7 +219,6 @@ function mapSecretFieldGroups(
   return {
     ...settings,
     providerInstances,
-    sourceControlHosts,
     usageLimitSources,
   };
 }

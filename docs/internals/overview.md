@@ -18,17 +18,6 @@ versioned clients and servers. Subscriptions send the state a client needs, so a
 thread does not pay for every thread's history. Authentication of a socket does not authorize every
 method on it. See [environment auth](./environment-auth.md).
 
-### Pull request linking compatibility
-
-Every protocol-2 environment advertises `threadPullRequests`. Once an environment's server config
-has loaded, clients use persisted `pullRequests[]`, multi-link commands, stack UI, and reverse thread
-lookup. Before that, they hide linking actions.
-
-Environments keep advertising `threadPullRequestLinking`, accepting legacy metadata commands, and
-emitting the derived `linkedPullRequest` field, because older clients still read them. That
-hostless field includes only links in the thread project's own repository. Retain the legacy wire
-fields, projection column, and replay support.
-
 Provider-specific behavior belongs behind an adapter. Orchestration works with normalized commands
 and events, so adding a provider should not require branches throughout the domain or clients.
 See [provider constraints](./providers.md).
@@ -91,16 +80,11 @@ workspace state with the provider conversation. A provider that cannot roll back
 must reject that operation before changing the filesystem.
 
 Thread settlement is server-owned. The
-[settlement service](../../apps/server/src/orchestration-v2/ThreadSettlementService.ts) evaluates PR
-and inactivity settings without a connected client. Merge notifications invalidate cached PR state
-and trigger a check. A merge outside T3, such as an agent running `gh pr merge`, sends no
-notification, so the [PR sync reactor](../../apps/server/src/orchestration-v2/PullRequestSyncReactor.ts)
-re-reads a thread's open links when a run that ran a merge or close command ends. Each forge's
-definition names its CLI's commands in `changeRequestCloseCommand`. The guarded
-`thread.auto-settle` command rejects newer activity, explicit settlement overrides, and live or
-blocked work. It records the activity timestamp for stable
-sorting and detaches idle provider sessions. Clients render the persisted result; they do not
-derive settlement from their own clocks or PR caches.
+[settlement service](../../apps/server/src/orchestration-v2/ThreadSettlementService.ts) evaluates the
+inactivity setting without a connected client. The guarded `thread.auto-settle` command rejects
+newer activity, explicit settlement overrides, and live or blocked work. It records the activity
+timestamp for stable sorting and detaches idle provider sessions. Clients render the persisted
+result; they do not derive settlement from their own clocks.
 
 ## Waiting for asynchronous work
 

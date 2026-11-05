@@ -3,7 +3,6 @@ import type { ClientSettings } from "@aprende/contracts";
 // Ids are stored in client settings, so never rename one.
 export const THREAD_DETAILS_ITEMS = [
   { id: "openIn", label: "Open in editor", defaultVisible: true },
-  { id: "automations", label: "Automations", defaultVisible: true },
   { id: "lineage", label: "Lineage", defaultVisible: true },
   { id: "sideChats", label: "Side chats", defaultVisible: true },
   { id: "usage", label: "Usage limits", defaultVisible: false },

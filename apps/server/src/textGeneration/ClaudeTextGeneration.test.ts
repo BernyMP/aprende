@@ -118,7 +118,6 @@ it.layer(layerClaudeTextGenerationTest)("ClaudeTextGeneration", (it) => {
           output: JSON.stringify({
             structured_output: {
               title: "Improve orchestration flow",
-              body: "Body",
             },
           }),
           argsMustContain: `--model ${SYNTHETIC_CLAUDE_CAPABLE_MODEL}[expanded] --effort max --settings {"disableAllHooks":true,"fastMode":true}`,
@@ -126,13 +125,9 @@ it.layer(layerClaudeTextGenerationTest)("ClaudeTextGeneration", (it) => {
         },
         (textGeneration) =>
           Effect.gen(function* () {
-            const generated = yield* textGeneration.generatePrContent({
+            const generated = yield* textGeneration.generateThreadTitle({
               cwd: process.cwd(),
-              baseBranch: "main",
-              headBranch: "feature/claude-effect",
-              commitSummary: "Improve orchestration",
-              diffSummary: "1 file changed",
-              diffPatch: "diff --git a/README.md b/README.md",
+              message: "Improve orchestration",
               modelSelection: {
                 ...createModelSelection(
                   ProviderInstanceId.make("claudeAgent"),

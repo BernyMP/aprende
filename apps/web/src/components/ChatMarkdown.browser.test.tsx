@@ -240,9 +240,6 @@ describe("ChatMarkdown favicon privacy", () => {
     }
     await rerender(markdown("https://example.com"));
     expect(container.querySelectorAll("img")).toHaveLength(1);
-    await rerender(markdown("https://github.com/BernyMP/aprende/pull/1"));
-    expect(container.querySelectorAll("img")).toHaveLength(0);
-    expect(container.querySelector("a svg")).not.toBeNull();
   });
 });
 

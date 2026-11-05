@@ -6,6 +6,7 @@ import {
   type AuthCreatePairingCredentialInput,
   EnvironmentHttpApi,
   mcpClientScopes,
+  MCP_PEER_LINK_SOFTWARE_ID,
 } from "@aprende/contracts";
 import { expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
@@ -200,6 +201,20 @@ it.live("registers loopback and https clients and never redirects for an unverif
         expect(response.status).toBe(400);
         expect(yield* json<unknown>(response)).toMatchObject({ error: "invalid_redirect_uri" });
       }
+
+      const peerLink = yield* handler(
+        at("/oauth/mcp/register", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: encodeJson({
+            client_name: "aprende · laptop",
+            redirect_uris: [REDIRECT],
+            software_id: MCP_PEER_LINK_SOFTWARE_ID,
+          }),
+        }),
+      );
+      expect(peerLink.status).toBe(400);
+      expect(yield* json<unknown>(peerLink)).toMatchObject({ error: "invalid_client_metadata" });
 
       const registered = yield* register(handler);
       expect(registered.status).toBe(201);

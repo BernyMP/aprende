@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 
 import * as ServerConfig from "../config.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
-import * as GitManager from "./GitManager.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import * as GitWorkflowService from "./GitWorkflowService.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
@@ -43,7 +43,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("GitWorkflowServi
               resolve: () => Effect.succeed({ kind: "git" } as VcsDriverRegistry.VcsDriverHandle),
             }),
           ),
-          Layer.provide(Layer.mock(GitManager.GitManager)({})),
+          Layer.provide(Layer.mock(ServerSettings.ServerSettingsService)({})),
           Layer.provideMerge(GitVcsDriver.layer),
           Layer.provideMerge(VcsProcess.layer),
           Layer.provideMerge(

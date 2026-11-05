@@ -56,17 +56,6 @@ function summarize(
   }
   const link = parseNewThreadLink(url.search);
   if (!link.ok) return link;
-  if (link.value.kind === "pull-request") {
-    const { owner, name, number } = link.value.pullRequest;
-    return {
-      ok: true,
-      value: {
-        ...PROMPT_HEADER,
-        prompt: link.value.prompt,
-        details: [`Pull request ${owner}/${name}#${number}`],
-      },
-    };
-  }
   const { repository, provider, model } = link.value;
   return {
     ok: true,

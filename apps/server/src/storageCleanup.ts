@@ -35,7 +35,6 @@ import * as SubscriptionRef from "effect/SubscriptionRef";
 import { parse as parseYaml } from "yaml";
 
 import * as ServerConfig from "./config.ts";
-import * as GitManager from "./git/GitManager.ts";
 import * as ProjectStore from "./orchestration-v2/ProjectStore.ts";
 import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
 import * as ProjectionStore from "./orchestration-v2/ProjectionStore.ts";
@@ -259,28 +258,6 @@ function worktreeSettlementChain(
   return chain;
 }
 
-/** Squash/rebase merges require the merged PR to name this exact head commit. */
-export function storageCleanupPullRequestMerged(
-  pullRequest: Pick<
-    GitManager.GitBranchPullRequest,
-    "state" | "headRef" | "baseRef" | "headSha"
-  > | null,
-  worktree: {
-    readonly branch: string;
-    readonly defaultBranch: string;
-    readonly headSha: string;
-    readonly integrated: boolean;
-  },
-): boolean {
-  return (
-    pullRequest?.state === "merged" &&
-    (worktree.integrated ||
-      (pullRequest.headRef === worktree.branch &&
-        pullRequest.baseRef === worktree.defaultBranch &&
-        pullRequest.headSha === worktree.headSha))
-  );
-}
-
 export class StorageCleanup extends Context.Service<
   StorageCleanup,
   {
@@ -300,7 +277,6 @@ const make = Effect.gen(function* () {
   const providerSessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
   const sql = yield* SqlClient.SqlClient;
   const git = yield* GitVcsDriver.GitVcsDriver;
-  const gitManager = yield* GitManager.GitManager;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const orphanSizes = new Map<string, number | null>();
@@ -1004,19 +980,6 @@ const make = Effect.gen(function* () {
               remote === null
                 ? "no commits beyond the project branch"
                 : "no commits beyond the default branch";
-          if (!eligible && remote !== null && settings.worktreeOnMerge && thread.branch !== null) {
-            const pullRequest = yield* gitManager.branchPullRequest(
-              { cwd: worktreePath, branch: thread.branch },
-              { refresh: true },
-            );
-            eligible = storageCleanupPullRequestMerged(pullRequest, {
-              branch: thread.branch,
-              defaultBranch: branch,
-              headSha: head.commitSha,
-              integrated,
-            });
-            if (eligible) removalReason = "pull request was merged";
-          }
           if (!eligible && remote === null) return keep("has commits beyond the project branch");
         }
         if (!eligible)
@@ -1162,7 +1125,6 @@ const make = Effect.gen(function* () {
           run: (args) => cleanupGit(project.workspaceRoot, [...args], "git worktree remove"),
         });
         entries.push({ ...entry, outcome: "removed", reason: sentence(removalReason), bytes });
-        yield* gitManager.invalidateStatus(project.workspaceRoot);
         // Preserve branch/path so ProviderTurnStartService can recreate the checkout on resume.
         yield* Effect.logInfo("storage cleanup removed worktree", { threadId: thread.id });
       }).pipe(

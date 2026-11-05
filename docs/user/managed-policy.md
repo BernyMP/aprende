@@ -75,7 +75,7 @@ Administrative Templates > aprende. Set **Organization** whenever you set any ot
 Locks and provider fields go in the two JSON policies, as the same objects a policy file would hold.
 Machines pick up a change at the next Group Policy refresh; run `gpupdate /target:computer /force`
 to apply it now, then restart aprende.
-Setting **Allow T3 Connect**, **Allow webhook tasks**, **Allow importing browser cookies**, or
+Setting **Allow T3 Connect**, **Allow importing browser cookies**, or
 **Allow usage data** to **Disabled** turns that feature off. Setting any other aprende policy to
 **Disabled** restricts nothing, the same as **Not Configured**.
 
@@ -165,7 +165,6 @@ A few settings need care:
     "maxRuntimeMode": "auto-accept-edits",
     "clients": ["desktop"],
     "connect": false,
-    "webhookTasks": false,
     "browserCookieImport": false,
     "telemetry": false,
     "providers": {
@@ -186,7 +185,7 @@ A few settings need care:
 
 `maxRuntimeMode` is the broadest [permission mode](./permission-modes.md) any thread may use:
 `approval-required` (Supervised), `auto-accept-edits`, `auto`, or `full-access`. It covers threads
-that users start, agents start, and scheduled tasks start. A thread already above the limit cannot
+that users and agents start. A thread already above the limit cannot
 run another turn until someone lowers its mode; its queued messages send once that happens. New
 threads start at the limit when the user's default is above it.
 
@@ -244,8 +243,6 @@ so restart aprende after that.
 
 ### Other capabilities
 
-- `webhookTasks: false`: scheduled tasks cannot use webhook triggers. Existing webhook tasks stay
-  but do not run, and cannot be turned back on. Users can still edit or delete them.
 - `browserCookieImport: false`: users cannot import cookies from another browser into aprende's
   browser.
 - `telemetry: false`: the server and desktop app send no relay connection traces

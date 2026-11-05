@@ -199,8 +199,8 @@ async function click(element: HTMLElement) {
   await act(async () => element.click());
 }
 
-function setup({ scheduledTasks = [] as ReadonlyArray<{ id: string; title: string }> } = {}) {
-  environmentQuery.data = { tasks: scheduledTasks };
+function setup() {
+  environmentQuery.data = null;
 }
 
 const TASK_ID = ScheduledTaskId.make("task-1");
@@ -730,27 +730,19 @@ describe("MessagesTimeline citations", () => {
 });
 
 describe("MessagesTimeline automation prompts", () => {
-  it("folds an automation prompt into a bubble titled by its task", async () => {
-    setup({ scheduledTasks: [{ id: TASK_ID, title: "Nightly triage" }] });
+  it("folds an automation prompt into a bubble titled by its first line", async () => {
+    setup();
     await using screen = await renderTimeline([
       message(AUTOMATION_PROMPT, { scheduledTaskId: TASK_ID }),
     ]);
     const row = screen.button(/^Automation/);
-    expect(row.textContent).toContain("Nightly triage");
+    expect(row.textContent).toContain("Triage the inbox");
     expect(row.getAttribute("aria-expanded")).toBe("false");
     expect(screen.text()).not.toContain("close duplicates");
 
     await click(row);
     expect(screen.text()).toContain("Label every new issue and close duplicates.");
     expect(screen.buttons(/copy/i)).not.toHaveLength(0);
-  });
-
-  it("falls back to the prompt's first line without a task title", async () => {
-    setup();
-    await using screen = await renderTimeline([
-      message(AUTOMATION_PROMPT, { scheduledTaskId: TASK_ID }),
-    ]);
-    expect(screen.button(/^Automation/).textContent).toContain("Triage the inbox");
   });
 
   it("leaves ordinary user messages as full bubbles", async () => {

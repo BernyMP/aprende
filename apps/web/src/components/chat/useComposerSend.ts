@@ -59,7 +59,6 @@ import {
 } from "../../composer-logic";
 import { resolvePlanFollowUpSubmission } from "../../proposedPlan";
 import { type ChatMessage } from "../../types";
-import { recordPromptSent } from "../GitHubStarPrompt";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { newMessageId, newThreadId } from "~/lib/utils";
 import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
@@ -73,7 +72,6 @@ import {
   composerDraftHasUserContent,
   type ComposerFileAttachment,
   type ComposerImageAttachment,
-  type DraftThreadEnvMode,
   useComposerDraftStore,
   DraftId,
 } from "../../composerDraftStore";
@@ -89,16 +87,14 @@ import {
 import { environmentServerConfigsAtom } from "../../state/server";
 import { threadEnvironment } from "../../state/threads";
 import { runMobileComposerTransition } from "./draftHeroTransition";
-import { useClientSettingsHydrated, useEnvironmentSettings } from "../../hooks/useSettings";
+import { useClientSettingsHydrated } from "../../hooks/useSettings";
 import { environmentPresentations } from "../../state/presentation";
 import {
   approvalRedirectNotice,
   loadBalancingSendWarning,
-  multipleModelSendBlock,
   referencedThreadContexts,
 } from "./composerSend.logic";
 import { usePlanFollowUpSend } from "./useProposedPlanSend";
-import { useMultipleModelSend } from "./useMultipleModelSend";
 import { type ComposerDispatchMode } from "@aprende/client-runtime/state/composer-dispatch";
 import {
   awaitAttachmentUploads,
@@ -116,21 +112,13 @@ import {
   ATTACHMENT_ONLY_BOOTSTRAP_PROMPT,
   threadContextsOutsideEnvironment,
 } from "@aprende/shared/composerContextReferences";
-import {
-  draftSendState,
-  type MultipleModelTarget,
-  resolveMultipleModelTargets,
-  prepareTurnAttachments,
-  restoreComposerDraft,
-} from "./chatViewSend";
+import { draftSendState, prepareTurnAttachments, restoreComposerDraft } from "./chatViewSend";
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
 } from "@aprende/client-runtime/state/shell";
-import type { UnifiedSettings } from "@aprende/contracts";
 import type { Dispatch } from "react";
 import type { ComposerThreadTarget } from "../../composerDraftStore";
-import type { ProviderInstanceEntry } from "../../providerInstances";
 import type { SessionPhase } from "../../types";
 import type { DraftSessionState } from "../../composerDraftStore";
 import type { ComposerHandleRef } from "../../composerHandleContext";
@@ -142,14 +130,10 @@ import type { usePendingThreadRequests } from "./usePendingThreadRequests";
 import type { useQueuedRunEdit } from "./useQueuedRunEdit";
 import type { useTimelineFollow } from "./useTimelineFollow";
 import type { useUsageLimitsPanel } from "./useUsageLimitsPanel";
-import type { useWorktreeSetup } from "./useWorktreeSetup";
 
 // Threads can only name threads on their own environment.
-const NO_LINKED_ENVIRONMENTS: ReadonlyMap<EnvironmentId, string> = new Map();
 
 const ENVIRONMENT_UNAVAILABLE_SEND_TOAST_TRAIL_SIZE = 3;
-
-const selectPlanModeEnabled = (settings: UnifiedSettings) => settings.planModeEnabled;
 
 function readEnvironmentPresentation(environmentId: EnvironmentId) {
   return appAtomRegistry.get(environmentPresentations.presentationsAtom).get(environmentId);
@@ -178,16 +162,11 @@ interface ComposerSendInput {
   readonly activeProject: EnvironmentProject | null;
   readonly activeProjectDefaultModelSelection: ModelSelection | null;
   readonly activeProposedPlan: LatestProposedPlanState | null;
-  readonly activeMessageCount: number;
   readonly isServerThread: boolean;
   readonly isLocalDraftThread: boolean;
-  readonly isGitRepo: boolean;
   readonly phase: SessionPhase;
   readonly runtimeMode: RuntimeMode;
-  readonly sendEnvMode: DraftThreadEnvMode;
-  readonly startFromOrigin: boolean;
   readonly logicalProjectEnvironments: ReturnType<typeof useLogicalProjectEnvironments>;
-  readonly providerInstanceEntries: ReadonlyArray<ProviderInstanceEntry>;
   readonly composerRef: ComposerHandleRef;
   readonly composerDraftTarget: ComposerThreadTarget;
   readonly promptRef: { current: string };
@@ -221,7 +200,6 @@ interface ComposerSendInput {
   readonly onRespondToApproval: PendingThreadRequests["onRespondToApproval"];
   readonly beginLocalDispatch: LocalDispatchState["beginLocalDispatch"];
   readonly resetLocalDispatch: LocalDispatchState["resetLocalDispatch"];
-  readonly beginWorktreeSetup: ReturnType<typeof useWorktreeSetup>["begin"];
   readonly captureDraftHeroComposerRect: () => void;
   readonly setDockedDraftHeroThreadKey: Dispatch<SetStateAction<string | null>>;
   readonly setSetupQueueSendThreadKey: Dispatch<SetStateAction<string | null>>;
@@ -271,16 +249,11 @@ export function useComposerSend(input: ComposerSendInput) {
     activeProject,
     activeProjectDefaultModelSelection,
     activeProposedPlan,
-    activeMessageCount,
     isServerThread,
     isLocalDraftThread,
-    isGitRepo,
     phase,
     runtimeMode,
-    sendEnvMode,
-    startFromOrigin,
     logicalProjectEnvironments,
-    providerInstanceEntries,
     composerRef,
     composerDraftTarget,
     promptRef,
@@ -314,7 +287,6 @@ export function useComposerSend(input: ComposerSendInput) {
     onRespondToApproval: onRespondToApprovalStable,
     beginLocalDispatch,
     resetLocalDispatch,
-    beginWorktreeSetup,
     captureDraftHeroComposerRect,
     setDockedDraftHeroThreadKey,
     setSetupQueueSendThreadKey,
@@ -331,11 +303,9 @@ export function useComposerSend(input: ComposerSendInput) {
     handleNewThreadInActiveProject,
     persistThreadSettingsForNextTurn,
   } = input;
-  const linkedEnvironments = NO_LINKED_ENVIRONMENTS;
   const handleNewThread = useNewThreadHandler();
   const navigate = useNavigate();
   const clientSettingsHydrated = useClientSettingsHydrated();
-  const planModeEnabled = useEnvironmentSettings(environmentId, selectPlanModeEnabled);
   const startThreadTurn = useOrchestrationCommand(threadEnvironment.startTurn, {
     reportFailure: false,
   });
@@ -355,19 +325,6 @@ export function useComposerSend(input: ComposerSendInput) {
     (store) => store.setEnvironmentContexts,
   );
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
-  const sendToMultipleModels = useMultipleModelSend({
-    environmentId,
-    routeThreadKey,
-    currentRouteThreadKeyRef,
-    draftId,
-    composerDraftTarget,
-    composerRef,
-    promptRef,
-    runtimeMode,
-    startFromOrigin,
-    resetLocalDispatch,
-    setThreadError,
-  });
   const submitPlanFollowUp = usePlanFollowUpSend({
     environmentId,
     routeThreadKey,
@@ -386,7 +343,6 @@ export function useComposerSend(input: ComposerSendInput) {
     persistThreadSettingsForNextTurn,
   });
   const { sendInFlight: sendInFlightRef } = draftSendState(routeThreadKey);
-  const composerSendGenerationRef = useRef(0);
   const environmentUnavailableSendToastSlotRef = useRef(0);
   // A send awaits uploads before it declines, so it reads the approvals pending by then.
   const pendingApprovalsRef = useRef(pendingApprovals);
@@ -540,38 +496,10 @@ export function useComposerSend(input: ComposerSendInput) {
       notifyDirectAnnotationAttached();
       return;
     }
-    const multipleModelSelections = sendCtx.multipleModelSelections;
     const approvalFeedbackTarget = pendingApprovalsRef.current.find(
       (approval) =>
         approval.supportsFeedback && approval.requestId === sendCtx.shownPendingApprovalIds[0],
     );
-    const multipleModelBlock =
-      multipleModelSelections === null
-        ? null
-        : multipleModelSendBlock({
-            selectionCount: multipleModelSelections.length,
-            serverSupportsWorktreeBootstrap:
-              readEnvironmentPresentation(activeThread.environmentId)?.serverConfig?.environment
-                .capabilities.requiredWorktreeBootstrap === true,
-            isLocalDraftThread,
-            isGitRepo,
-            branch: activeThreadBranch,
-          });
-    if (multipleModelBlock === "server-outdated") {
-      setThreadError(activeThread.id, "Update this server before starting multiple models.");
-      return;
-    }
-    if (multipleModelBlock === "needs-new-git-thread") {
-      toastManager.add(
-        stackedThreadToast({
-          type: "warning",
-          title: "Choose models and a base branch",
-          description:
-            "Multiple models need a new thread in a Git project. Each gets its own worktree.",
-        }),
-      );
-      return;
-    }
     const {
       images: sendContextImages,
       files: composerFiles,
@@ -606,7 +534,6 @@ export function useComposerSend(input: ComposerSendInput) {
       text: promptForSend,
       records: composerThreadContexts,
       environmentId,
-      linkedEnvironments,
     })[0];
     if (strandedThread) {
       const owner =
@@ -665,7 +592,7 @@ export function useComposerSend(input: ComposerSendInput) {
       composerEnvironmentContexts.length === 0
         ? parseCodexFeedbackCommand(trimmed)
         : null;
-    if (feedbackCommand && multipleModelSelections === null) {
+    if (feedbackCommand) {
       if (!isServerThread || activeThread.activeProviderThreadId === null) {
         toastManager.add(
           stackedThreadToast({
@@ -803,7 +730,7 @@ export function useComposerSend(input: ComposerSendInput) {
       composerEnvironmentContexts.length === 0
         ? parseStandaloneComposerSlashCommand(trimmed)
         : null;
-    if (standaloneSlashCommand && multipleModelSelections === null) {
+    if (standaloneSlashCommand) {
       handleInteractionModeChange(standaloneSlashCommand);
       promptRef.current = "";
       clearComposerDraftContent(composerDraftTarget);
@@ -858,29 +785,14 @@ export function useComposerSend(input: ComposerSendInput) {
       environmentContexts: composerEnvironmentContextsSnapshot,
       messageText: messageTextForSend,
     } = sendSnapshot;
-    const {
-      missingWorktreeBaseBranch,
-      baseBranchForWorktree,
-      compactBeforeSend,
-      turnDispatchMode,
-      shouldQueueBehindActiveRun,
-    } = planComposerTurn({
+    const { compactBeforeSend, turnDispatchMode, shouldQueueBehindActiveRun } = planComposerTurn({
       messageText: messageTextForSend,
       sendQueuesBehindSetup,
-      isServerThread,
-      activeMessageCount,
-      sendEnvMode,
-      worktreePath: activeThread.worktreePath,
-      activeThreadBranch,
       resumeCompactionTokens,
       keepFullHistory,
       phase,
       dispatchMode,
     });
-    if (missingWorktreeBaseBranch) {
-      setThreadError(threadIdForSend, "Select a base branch before sending in New worktree mode.");
-      return;
-    }
     // Records bind attachments by the id each side knows: the local id for the optimistic
     // row, the upload id (or local id on the data-URL path) on the wire; the server
     // rebinds them to the persisted id.
@@ -927,24 +839,7 @@ export function useComposerSend(input: ComposerSendInput) {
       };
     };
 
-    const multipleTargets: MultipleModelTarget[] = [];
-    for (const resolved of resolveMultipleModelTargets({
-      selections: multipleModelSelections ?? [],
-      providerInstanceEntries,
-      messageText: messageTextForSend,
-      planModeEnabled,
-      interactionMode: sendInteractionMode,
-    })) {
-      if ("error" in resolved) {
-        setThreadError(threadIdForSend, resolved.error);
-        return;
-      }
-      if (composerRef.current?.validateProviderInput(resolved.text) === false) return;
-      multipleTargets.push(resolved);
-    }
-
     sendInFlightRef.current = true;
-    const sendGeneration = ++composerSendGenerationRef.current;
     const attachmentCapabilitiesBeforeUpload = readLiveAttachmentCapabilities();
     if (attachmentCapabilitiesBeforeUpload.fileBlockReason !== null) {
       sendInFlightRef.current = false;
@@ -982,7 +877,6 @@ export function useComposerSend(input: ComposerSendInput) {
     }
 
     if (
-      multipleModelSelections === null &&
       shouldDockDraftHeroForSubmission({ isDraftHeroState, activeThreadKey, submissionIntent }) &&
       activeThreadKey
     ) {
@@ -1151,17 +1045,12 @@ export function useComposerSend(input: ComposerSendInput) {
       setSetupQueueSendThreadKey(activeThreadKey);
     } else {
       beginLocalDispatch({
-        preparingWorktree: multipleModelSelections !== null || Boolean(baseBranchForWorktree),
+        preparingWorktree: false,
         submissionIntent:
           submissionIntent === "background" && !isLocalDraftThread
             ? "foreground"
             : submissionIntent,
       });
-      beginWorktreeSetup(
-        multipleModelSelections === null && baseBranchForWorktree
-          ? { environmentId: activeThread.environmentId, threadId: threadIdForSend }
-          : null,
-      );
     }
 
     const turnAttachmentsPromise = prepareTurnAttachments({
@@ -1169,23 +1058,6 @@ export function useComposerSend(input: ComposerSendInput) {
       attachments: composerAttachmentsSnapshot,
       usesAttachmentUploads: turnUsesAttachmentUploads,
     });
-    if (multipleModelSelections !== null) {
-      await sendToMultipleModels({
-        threadId: threadIdForSend,
-        project: activeProject,
-        branch: activeThreadBranch!,
-        selections: multipleModelSelections,
-        targets: multipleTargets,
-        sendSnapshot,
-        createdAt: messageCreatedAt,
-        attachmentsPromise: turnAttachmentsPromise,
-        usesAttachmentUploads: turnUsesAttachmentUploads,
-        readFileBlockReason: () => readLiveAttachmentCapabilities().fileBlockReason,
-        buildOutgoingMessageContext,
-        isCurrentSend: () => composerSendGenerationRef.current === sendGeneration,
-      });
-      return;
-    }
     const optimisticAttachments = optimisticMessageAttachments(composerAttachmentsSnapshot);
     if (!shouldQueueBehindActiveRun) {
       anchorNewTurn(
@@ -1302,35 +1174,20 @@ export function useComposerSend(input: ComposerSendInput) {
     let backgroundDraftOpened = false;
     let turnStartSucceeded = false;
     if (failure === null && turnAttachmentsResult._tag === "Success") {
-      const bootstrap =
-        isLocalDraftThread || baseBranchForWorktree
-          ? {
-              ...(isLocalDraftThread
-                ? {
-                    createThread: {
-                      projectId: activeProject.id,
-                      title,
-                      modelSelection: threadCreateModelSelection,
-                      runtimeMode,
-                      interactionMode: sendInteractionMode,
-                      branch: activeThreadBranch,
-                      worktreePath: activeThread.worktreePath,
-                      createdAt: activeThread.createdAt,
-                    },
-                  }
-                : {}),
-              ...(baseBranchForWorktree
-                ? {
-                    prepareWorktree: {
-                      projectCwd: activeProject.workspaceRoot,
-                      baseBranch: baseBranchForWorktree,
-                      ...(startFromOrigin ? { startFromOrigin: true } : {}),
-                    },
-                    runSetupScript: true,
-                  }
-                : {}),
-            }
-          : undefined;
+      const bootstrap = isLocalDraftThread
+        ? {
+            createThread: {
+              projectId: activeProject.id,
+              title,
+              modelSelection: threadCreateModelSelection,
+              runtimeMode,
+              interactionMode: sendInteractionMode,
+              branch: activeThreadBranch,
+              worktreePath: activeThread.worktreePath,
+              createdAt: activeThread.createdAt,
+            },
+          }
+        : undefined;
       const backgroundThreadRef =
         submissionIntent === "background" && isLocalDraftThread
           ? scopeThreadRef(environmentId, threadIdForSend)
@@ -1366,9 +1223,9 @@ export function useComposerSend(input: ComposerSendInput) {
             await handleNewThread(
               scopeProjectRef(activeProject.environmentId, activeProject.id),
               resolveBackgroundDraftWorkspaceOptions({
-                envMode: sendEnvMode,
+                envMode: "local",
                 branch: activeThreadBranch,
-                startFromOrigin,
+                startFromOrigin: false,
               }),
             ),
           );
@@ -1427,7 +1284,6 @@ export function useComposerSend(input: ComposerSendInput) {
         ) {
           handleNewThreadInActiveProject();
         }
-        void recordPromptSent(environmentId);
       }
     }
 

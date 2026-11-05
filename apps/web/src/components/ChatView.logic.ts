@@ -42,9 +42,7 @@ import {
   type EnvironmentContextRecord,
   type ThreadId,
   type RunId,
-  type WorktreeSetupSnapshot,
 } from "@aprende/contracts";
-import { worktreeSetupAgentStarted } from "@aprende/client-runtime/worktree-setup";
 import * as DateTime from "effect/DateTime";
 import { resolveAssetUrl } from "@aprende/client-runtime/state/assets";
 import {
@@ -147,38 +145,13 @@ export function shouldReleaseTimelineAnchorForToolActivity(input: {
   });
 }
 
-export { resolveVisibleWorktreeSetup } from "@aprende/client-runtime/worktree-setup";
-
-export function resolveWorktreeSetupProgress(input: {
-  threadId: ThreadId;
-  localPreparing: boolean;
-  runStatus: NonNullable<Thread["latestRun"]>["status"] | undefined;
-  latest: WorktreeSetupSnapshot | null | undefined;
-  held: WorktreeSetupSnapshot | null;
-}) {
-  const latest = input.latest?.threadId === input.threadId ? input.latest : null;
-  const held = input.held?.threadId === input.threadId ? input.held : null;
-  const snapshot = latest && (!held || latest.sequence >= held.sequence) ? latest : held;
-  return {
-    snapshot,
-    isPreparingWorktree:
-      input.localPreparing ||
-      input.runStatus === "preparing" ||
-      (snapshot?.phase === "running" && !worktreeSetupAgentStarted(snapshot)),
-  };
-}
-
 export function resolveDraftHeroState(input: {
   isLocalDraftThread: boolean;
   hasTimelineEntries: boolean;
   isWorking: boolean;
   draftHeroDockRequested: boolean;
   backgroundSubmissionPending: boolean;
-  hasWorktreeSetupCard?: boolean;
 }): boolean {
-  if (input.hasWorktreeSetupCard) {
-    return false;
-  }
   if (input.backgroundSubmissionPending) {
     return true;
   }
@@ -1111,20 +1084,11 @@ export type ComposerSendSnapshot = ReturnType<typeof snapshotComposerSend>;
 export function planComposerTurn(input: {
   readonly messageText: string;
   readonly sendQueuesBehindSetup: boolean;
-  readonly isServerThread: boolean;
-  readonly activeMessageCount: number;
-  readonly sendEnvMode: DraftThreadEnvMode;
-  readonly worktreePath: string | null;
-  readonly activeThreadBranch: string | null;
   readonly resumeCompactionTokens: number | null;
   readonly keepFullHistory: boolean;
   readonly phase: SessionPhase;
   readonly dispatchMode: ComposerDispatchMode;
 }) {
-  const isFirstMessage =
-    !input.sendQueuesBehindSetup && (!input.isServerThread || input.activeMessageCount === 0);
-  const shouldCreateWorktree =
-    isFirstMessage && input.sendEnvMode === "worktree" && !input.worktreePath;
   // A stale Claude session compacts before this message so the turn does not re-read the
   // old history. The message queues behind the /compact run, since steering into it is
   // rejected.
@@ -1133,10 +1097,6 @@ export function planComposerTurn(input: {
     !input.keepFullHistory &&
     !COMPACT_COMMAND_PATTERN.test(input.messageText);
   return {
-    // In worktree mode, require an explicit base branch so we don't silently
-    // fall back to local execution when branch selection is missing.
-    missingWorktreeBaseBranch: shouldCreateWorktree && !input.activeThreadBranch,
-    baseBranchForWorktree: shouldCreateWorktree ? input.activeThreadBranch : null,
     compactBeforeSend,
     turnDispatchMode:
       compactBeforeSend || input.sendQueuesBehindSetup ? ("queue" as const) : input.dispatchMode,
@@ -1278,7 +1238,6 @@ export function deriveThreadPendingBackgroundTasks(projection: ThreadStructure |
       turnItems: projection.turnItems,
       activeProviderThreadId: projection.thread.activeProviderThreadId,
       runs: projection.runs,
-      pullRequests: projection.thread.pullRequests,
     }),
   ];
 }

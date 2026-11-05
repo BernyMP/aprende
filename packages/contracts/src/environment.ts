@@ -8,7 +8,6 @@ import {
   ThreadId,
   TrimmedNonEmptyString,
 } from "./baseSchemas.ts";
-import { SourceControlProviderKind } from "./sourceControl.ts";
 
 export const ORCHESTRATION_PROTOCOL_VERSION = 2;
 export const ORCHESTRATION_PROTOCOL_VERSION_TEXT = "2";
@@ -84,8 +83,6 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
       maxUploadBytes: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
     }),
   ),
-  pullRequests: Schema.optionalKey(Schema.Boolean),
-  pullRequestChecks: Schema.optionalKey(Schema.Boolean),
   /** Side chats: hidden `lineage.sideChat` forks. Older servers ignore the fork flag. */
   sideChats: Schema.optionalKey(Schema.Boolean),
   /** Every protocol-2 server sends this; older mobile builds still read it. */
@@ -122,14 +119,10 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   threadProjectFromScratch: Schema.optionalKey(Schema.Boolean),
   threadTitleRegeneration: Schema.optionalKey(Schema.Boolean),
   threadVisitedTracking: Schema.optionalKey(Schema.Boolean),
-  threadPullRequestLinking: Schema.optionalKey(Schema.Boolean),
   serverResolvedCommandContext: Schema.optionalKey(Schema.Boolean),
   threadStop: Schema.optionalKey(Schema.Boolean),
   /** Absent on older servers and on Windows hosts, which cannot stop a discovered server. */
   localServerStop: Schema.optionalKey(Schema.Boolean),
-  threadPullRequests: Schema.optionalKey(Schema.Boolean),
-  threadPullRequestWatch: Schema.optionalKey(Schema.Boolean),
-  pullRequestStackActions: Schema.optionalKey(Schema.Boolean),
   serverSelfUpdate: Schema.optionalKey(ServerSelfUpdateCapability),
   /** Server answers server.getNpmRelease using its configured npm registry. */
   npmReleaseLookup: Schema.optionalKey(Schema.Boolean),
@@ -137,7 +130,6 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   serverInstallation: ForwardCompatibleOptional(ServerInstallation),
   serverSelfUpdateProgress: Schema.optionalKey(Schema.Boolean),
   serverUpdateThreadContinuation: Schema.optionalKey(Schema.Boolean),
-  projectCloneTracking: Schema.optionalKey(Schema.Boolean),
   /** Server keeps `pinned` and `archived` from project.update. Older servers drop them. */
   projectOrganization: Schema.optionalKey(Schema.Boolean),
   /** Server answers projects.listIgnoredFiles. */
@@ -186,7 +178,7 @@ export const RepositoryIdentity = Schema.Struct({
   /** Work tree root, or the git dir for a bare repository. */
   rootPath: Schema.optionalKey(TrimmedNonEmptyString),
   displayName: Schema.optionalKey(TrimmedNonEmptyString),
-  provider: Schema.optionalKey(SourceControlProviderKind),
+  provider: Schema.optionalKey(TrimmedNonEmptyString),
   owner: Schema.optionalKey(TrimmedNonEmptyString),
   name: Schema.optionalKey(TrimmedNonEmptyString),
   origin: Schema.optionalKey(RepositoryOrigin),

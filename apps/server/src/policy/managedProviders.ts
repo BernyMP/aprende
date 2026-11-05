@@ -336,15 +336,6 @@ export function makeManagedProviders(
   const allowed =
     limits.allowedDrivers === undefined ? undefined : new Set<string>(limits.allowedDrivers);
   const isDriverAllowed = (driver: ProviderDriverKind) => allowed?.has(driver) ?? true;
-  const allowedSelection = (
-    settings: ServerSettings,
-    selection: { readonly instanceId: ProviderInstanceId } | null | undefined,
-  ) =>
-    selection == null ||
-    isDriverAllowed(
-      settings.providerInstances[selection.instanceId]?.driver ??
-        ProviderDriverKind.make(selection.instanceId),
-    );
 
   const cache = new WeakMap<ServerSettings, ServerSettings>();
   const applyLimits = (settings: ServerSettings): ServerSettings => {
@@ -365,19 +356,9 @@ export function makeManagedProviders(
         providerInstances[instanceId] = overlayInstance(instance, rule, variableKey);
       }
     }
-    // A cleared selection falls back to the text generation model, which is resolved afterwards.
     const result: ServerSettings = {
       ...settings,
       providerInstances: providerInstances as ServerSettings["providerInstances"],
-      sourceControlWriterModelSelection: allowedSelection(
-        settings,
-        settings.sourceControlWriterModelSelection,
-      )
-        ? settings.sourceControlWriterModelSelection
-        : null,
-      reviewGuideModelSelection: allowedSelection(settings, settings.reviewGuideModelSelection)
-        ? settings.reviewGuideModelSelection
-        : null,
     };
     cache.set(settings, result);
     return result;

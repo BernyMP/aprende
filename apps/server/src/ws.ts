@@ -1,7 +1,6 @@
 import { OrchestrationDispatchCommandError } from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
-import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
 
 import * as Duration from "effect/Duration";
 import * as Base64 from "effect/encoding/Base64";
@@ -24,13 +23,9 @@ import {
   authScopeResponse,
   AuthAccessStreamError,
   type AuthAccessStreamEvent,
-  AuthOrchestrationOperateScope,
-  type ScheduledTaskListResult,
   AuthSessionId,
   type EditorId,
   type FileManagerRevealKind,
-  type GitActionProgressEvent,
-  type GitManagerServiceError,
   type MessageId,
   type AcpRegistryImportSessionInput,
   type AcpRegistryDeleteSessionInput,
@@ -75,7 +70,6 @@ import {
   FilesystemBrowseError,
   AssetWorkspaceContextNotFoundError,
   AssetWorkspaceContextResolutionError,
-  SOURCE_CONTROL_MEDIA_ASSET,
   ChatAttachmentId,
   PersistChatAttachmentsError,
   RpcClientId,
@@ -83,7 +77,6 @@ import {
   type ProviderDriverKind,
   type ProviderInstanceId,
   ThreadId,
-  type PullRequestRef,
   WS_METHODS,
   WsRpcGroup,
 } from "@aprende/contracts";
@@ -108,7 +101,6 @@ import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts"
 import * as ThreadMessageIntake from "./orchestration-v2/ThreadMessageIntake.ts";
 import * as DocumentText from "./provider/DocumentText.ts";
 import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
-import * as ScheduledTasks from "./scheduledTasks/ScheduledTaskService.ts";
 import * as Learning from "./learning/LearningService.ts";
 import * as SecretRequests from "./secrets/SecretRequests.ts";
 import {
@@ -168,7 +160,7 @@ import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
 import * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
 import * as ServerSettings from "./serverSettings.ts";
-import { invalidateSettingsSecrets } from "./sourceControl/sourceControlHostSecrets.ts";
+import { invalidateSettingsSecrets } from "./settingsSecrets.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as StorageCleanup from "./storageCleanup.ts";
 import { issueAssetUrl } from "./assets/AssetAccess.ts";
@@ -187,16 +179,11 @@ import * as WorkspacePaths from "./workspace/WorkspacePaths.ts";
 import * as VcsStatusBroadcaster from "./vcs/VcsStatusBroadcaster.ts";
 import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
 import * as GitWorkflowService from "./git/GitWorkflowService.ts";
-import { refreshPushedPullRequests } from "./git/refreshPushedPullRequests.ts";
-import { linkCreatedPullRequest } from "./git/linkCreatedPullRequest.ts";
 import * as ProjectEnrichmentService from "./project/ProjectEnrichmentService.ts";
 import * as ProjectService from "./project/ProjectService.ts";
 import * as ManagedProjectFolders from "./project/ManagedProjectFolders.ts";
 import * as ScratchThreadPromotion from "./project/ScratchThreadPromotion.ts";
-import { mutateProjectWithClone } from "./project/ProjectMutation.ts";
-import * as ProjectCloneTracker from "./project/ProjectCloneTracker.ts";
-import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolver.ts";
-import * as WorktreeSetupTracker from "./project/WorktreeSetupTracker.ts";
+import { projectMutationOperation } from "./project/ProjectMutation.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import * as DirectEndpoints from "./environment/DirectEndpoints.ts";
 import * as RemoteOpenTargets from "./environment/RemoteOpenTargets.ts";
@@ -212,21 +199,8 @@ import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
 import * as HostResources from "./resourceTelemetry/HostResources.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import * as TraceDiagnostics from "./diagnostics/TraceDiagnostics.ts";
-import * as PullRequestService from "./pullRequest/PullRequestService.ts";
-import * as PullRequestReviewGuideService from "./pullRequest/PullRequestReviewGuideService.ts";
-import { listLinkedPullRequestThreads } from "./pullRequest/linkedThreads.ts";
-import { pullRequestSyncKey } from "./pullRequest/pullRequestSyncKey.ts";
 import * as SqlClient from "effect/sql/SqlClient";
-import * as PullRequestSyncReactor from "./orchestration-v2/PullRequestSyncReactor.ts";
-import * as SourceControlDiscovery from "./sourceControl/SourceControlDiscovery.ts";
 import * as OtlpEndpointCheck from "./observability/OtlpEndpointCheck.ts";
-import * as SourceControlRepositoryService from "./sourceControl/SourceControlRepositoryService.ts";
-import * as SourceControlSignIn from "./sourceControl/SourceControlSignIn.ts";
-import * as SourceControlBuiltInDrivers from "./sourceControl/builtInDrivers.ts";
-import * as SourceControlProviderRegistry from "./sourceControl/SourceControlProviderRegistry.ts";
-import * as GitVcsDriver from "./vcs/GitVcsDriver.ts";
-import * as VcsDriverRegistry from "./vcs/VcsDriverRegistry.ts";
-import * as VcsProjectConfig from "./vcs/VcsProjectConfig.ts";
 import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
 import * as SessionStore from "./auth/SessionStore.ts";
 import { failEnvironmentAuthInvalid, failEnvironmentInternal } from "./auth/http.ts";
@@ -599,7 +573,7 @@ const ServerWsRpcGroup = WsRpcGroup.middleware(RpcInstrumentation);
 // crosses TypeScript's instantiation limit and the layer's requirements degrade to
 // `any`, so the handlers are registered as two disjoint, smaller groups.
 type ServerWsRpc = RpcGroup.Rpcs<typeof ServerWsRpcGroup>;
-const SPLIT_WS_RPC_PREFIXES = ["server", "pullRequests", "provider", "orchestration"] as const;
+const SPLIT_WS_RPC_PREFIXES = ["server", "provider", "orchestration"] as const;
 type SplitWsRpc = Extract<
   ServerWsRpc,
   { readonly _tag: `${(typeof SPLIT_WS_RPC_PREFIXES)[number]}.${string}` }
@@ -1274,35 +1248,14 @@ export const layerWsRpc = (
       const threadLaunch = yield* ThreadLaunchService.ThreadLaunchService;
       const commandOutputHub = yield* CommandOutputHub.CommandOutputHub;
       const providerSessionManager = yield* ProviderSessionManager.ProviderSessionManagerV2;
-      const scheduledTasks = yield* ScheduledTasks.ScheduledTaskService;
       const learning = yield* Learning.LearningService;
       const secretRequests = yield* SecretRequests.SecretRequests;
-      const pullRequests = yield* PullRequestService.PullRequestService;
-      const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
-      const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
-      const orchestrationEngine = yield* Orchestrator.OrchestratorV2;
+
       const random = yield* SecureRandom.SecureRandom;
-      const serverCommandId = (tag: string) =>
-        random.uuidV4().pipe(
-          Effect.orDie,
-          Effect.map((id) => CommandId.make(`server:${tag}:${id}`)),
-        );
-      const resolvePullRequestSyncKey = (reference: PullRequestRef) =>
-        reference.host !== undefined && reference.repository.includes("/")
-          ? Effect.succeed(pullRequestSyncKey(reference))
-          : projectService.getShell(reference.projectId).pipe(
-              Effect.map((project) =>
-                pullRequestSyncKey(reference, Option.getOrUndefined(project)?.repositoryIdentity),
-              ),
-              Effect.orElseSucceed(() => null),
-            );
+
       const usage = yield* UsageService.UsageService;
       const usageLimitSources = yield* UsageLimitSources.UsageLimitSources;
-      const worktreeSetupTracker = yield* WorktreeSetupTracker.WorktreeSetupTracker;
-      const projectCloneTracker = yield* ProjectCloneTracker.ProjectCloneTracker;
-      const repositoryIdentityResolver =
-        yield* RepositoryIdentityResolver.RepositoryIdentityResolver;
-      const projectEnrichment = yield* ProjectEnrichmentService.ProjectEnrichmentService;
+
       const agentSessionScanner = yield* AgentSessionScanner.AgentSessionScanner;
       const agentSessionImporter = yield* AgentSessionImporter.AgentSessionImporter;
       const checkpointDiffQuery = yield* CheckpointDiffQuery.CheckpointDiffQuery;
@@ -1351,25 +1304,13 @@ export const layerWsRpc = (
         ),
       );
       const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
-      const sourceControlDiscovery = yield* SourceControlDiscovery.SourceControlDiscovery;
       const otlpEndpointCheck = yield* OtlpEndpointCheck.OtlpEndpointCheck;
-      const sourceControlRepositories =
-        yield* SourceControlRepositoryService.SourceControlRepositoryService;
-      const sourceControlSignIn = yield* SourceControlSignIn.SourceControlSignIn;
-      const withPullRequestViewer = pullRequests.withRoutingCredential;
       const bootstrapCredentials = yield* PairingGrantStore.PairingGrantStore;
       const sessions = yield* SessionStore.SessionStore;
       const processDiagnostics = yield* ProcessDiagnostics.ProcessDiagnostics;
       const hostResources = yield* HostResources.HostResources;
       const processResourceMonitor = yield* ProcessResourceMonitor.ProcessResourceMonitor;
       const resourceTelemetry = yield* ResourceTelemetry.ResourceTelemetry;
-      // Webhook URLs start agents; expose them only to operate-scoped sessions while keeping tasks readable.
-      const withVisibleWebhookUrls = (result: ScheduledTaskListResult): ScheduledTaskListResult =>
-        currentSession.scopes.includes(AuthOrchestrationOperateScope)
-          ? result
-          : {
-              tasks: result.tasks.map(({ webhook: _webhook, ...task }) => task),
-            };
       const acpRegistryProject = Effect.fn("ws.acpRegistry.project")(function* (
         projectId: ProjectId,
       ) {
@@ -1847,7 +1788,7 @@ export const layerWsRpc = (
       );
 
       const mutateProject = Effect.fn("ws.projects.mutate")(function* (mutation: ProjectMutation) {
-        return yield* mutateProjectWithClone(projectService, projectCloneTracker, mutation);
+        return yield* projectMutationOperation(projectService, mutation);
       });
 
       const handlers = ServerWsRpcGroup.of({
@@ -1990,11 +1931,6 @@ export const layerWsRpc = (
                 }),
             ),
           ),
-        [ORCHESTRATION_V2_WS_METHODS.getWorktreeThreadIds]: (input) =>
-          readOmittableShellRows(
-            { worktreePath: input.worktreePath },
-            "Failed to load the worktree's threads",
-          ).pipe(Effect.map(({ threads }) => ({ threadIds: threads.map((thread) => thread.id) }))),
         [ORCHESTRATION_V2_WS_METHODS.getThreadProjection]: (input) =>
           Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
             Effect.andThen(
@@ -2044,7 +1980,11 @@ export const layerWsRpc = (
                     modelSelection: input.modelSelection,
                     runtimeMode: input.runtimeMode,
                     interactionMode: input.interactionMode,
-                    workspaceStrategy: input.workspaceStrategy,
+                    // Worktrees are gone: an older client's worktree request runs at the root.
+                    workspaceStrategy:
+                      input.workspaceStrategy.type === "worktree"
+                        ? { type: "root", branch: input.workspaceStrategy.branch }
+                        : input.workspaceStrategy,
                     ...(input.initialMessage === undefined
                       ? {}
                       : {
@@ -2123,36 +2063,9 @@ export const layerWsRpc = (
         [WS_METHODS.learningGetTutorPrompt]: () => learning.getTutorPrompt(),
         [WS_METHODS.learningSetTutorPrompt]: (input) => learning.setTutorPrompt(input),
         [WS_METHODS.learningGetKnowledge]: () => learning.getKnowledge(),
-        [WS_METHODS.scheduledTasksSubscribe]: (_input) =>
-          scheduledTasks.subscribeList().pipe(Stream.map(withVisibleWebhookUrls)),
-        [WS_METHODS.scheduledTasksUpsert]: (input) => scheduledTasks.upsert(input),
-        [WS_METHODS.scheduledTasksSetEnabled]: (input) =>
-          Effect.annotateCurrentSpan({ "scheduled_task.id": input.id }).pipe(
-            Effect.andThen(scheduledTasks.setEnabled(input)),
-          ),
-        [WS_METHODS.scheduledTasksDelete]: (input) =>
-          Effect.annotateCurrentSpan({ "scheduled_task.id": input.id }).pipe(
-            Effect.andThen(scheduledTasks.delete(input)),
-          ),
-        [WS_METHODS.scheduledTasksRunNow]: (input) =>
-          Effect.annotateCurrentSpan({ "scheduled_task.id": input.id }).pipe(
-            Effect.andThen(scheduledTasks.runNow(input)),
-          ),
-        [WS_METHODS.scheduledTasksRotateWebhookToken]: (input) =>
-          Effect.annotateCurrentSpan({ "scheduled_task.id": input.id }).pipe(
-            Effect.andThen(scheduledTasks.rotateWebhookToken(input)),
-          ),
         [WS_METHODS.secretsAnswerRequest]: (input) =>
           Effect.annotateCurrentSpan({ "orchestration_v2.thread_id": input.threadId }).pipe(
             Effect.andThen(secretRequests.answer(input)),
-          ),
-        [WS_METHODS.scheduledTasksListWebhookDeliveries]: (input) =>
-          Effect.annotateCurrentSpan({ "scheduled_task.id": input.id }).pipe(
-            Effect.andThen(scheduledTasks.listWebhookDeliveries(input)),
-          ),
-        [WS_METHODS.scheduledTasksGetWebhookDelivery]: (input) =>
-          Effect.annotateCurrentSpan({ "scheduled_task.id": input.id }).pipe(
-            Effect.andThen(scheduledTasks.getWebhookDelivery(input)),
           ),
         [WS_METHODS.serverProbe]: (_input) => Effect.succeed({}),
         [WS_METHODS.serverGetConfig]: (_input) =>
@@ -2471,7 +2384,6 @@ export const layerWsRpc = (
               : serverSettings.updateProviderInstance(providerInstanceMutation, patch);
             return ServerSettings.redactServerSettingsForClient(settings, settingsClient);
           }),
-        [WS_METHODS.serverDiscoverSourceControl]: (_input) => sourceControlDiscovery.discover,
         [WS_METHODS.serverGetTraceDiagnostics]: (_input) =>
           TraceDiagnostics.readTraceDiagnostics({
             traceFilePath: config.serverTracePath,
@@ -2502,142 +2414,6 @@ export const layerWsRpc = (
               ),
             ),
           ),
-        [WS_METHODS.pullRequestsList]: (input) => pullRequests.list(input),
-        [WS_METHODS.pullRequestsListStats]: (input) => pullRequests.listStats(input),
-        [WS_METHODS.pullRequestsFilterOptions]: (input) => pullRequests.filterOptions(input),
-        [WS_METHODS.pullRequestsRoutingIdentity]: (input) => pullRequests.routingIdentity(input),
-        [WS_METHODS.pullRequestsRouting]: (input) => pullRequests.routing(input),
-        [WS_METHODS.pullRequestsSummary]: (input) =>
-          withPullRequestViewer(input, pullRequests.summary(input)),
-        [WS_METHODS.pullRequestsStack]: (input) =>
-          withPullRequestViewer(input, pullRequests.stack(input)),
-        [WS_METHODS.pullRequestsLinkedThreads]: (input) =>
-          resolvePullRequestSyncKey(input).pipe(
-            Effect.flatMap((key) =>
-              key === null
-                ? Effect.succeed({ threads: [] })
-                : listLinkedPullRequestThreads(key).pipe(
-                    Effect.provideService(SqlClient.SqlClient, sql),
-                  ),
-            ),
-          ),
-        [WS_METHODS.pullRequestsDetail]: (input) =>
-          withPullRequestViewer(input, pullRequests.detail(input)),
-        [WS_METHODS.pullRequestsPreview]: (input) =>
-          withPullRequestViewer(input, pullRequests.preview(input)),
-        [WS_METHODS.pullRequestsChecks]: (input) =>
-          withPullRequestViewer(input, pullRequests.checks(input)),
-        [WS_METHODS.pullRequestsActivity]: (input) =>
-          withPullRequestViewer(input, pullRequests.activity(input)),
-        [WS_METHODS.pullRequestsReviewGuide]: (input) =>
-          withPullRequestViewer(input, reviewGuides.get(input)),
-        [WS_METHODS.pullRequestsGenerateReviewGuide]: (input) =>
-          withPullRequestViewer(input, reviewGuides.generate(input)),
-        [WS_METHODS.pullRequestsThreadComments]: (input) =>
-          withPullRequestViewer(input, pullRequests.threadComments(input)),
-        [WS_METHODS.pullRequestsDiffFileContents]: (input) =>
-          withPullRequestViewer(input, pullRequests.diffFileContents(input)),
-        [WS_METHODS.pullRequestsFilesViewed]: (input) =>
-          withPullRequestViewer(input, pullRequests.filesViewed(input)),
-        [WS_METHODS.pullRequestsChangeBreakdown]: (input) =>
-          withPullRequestViewer(input, pullRequests.changeBreakdown(input)),
-        [WS_METHODS.pullRequestsSetFilesViewed]: (input) =>
-          withPullRequestViewer(input, pullRequests.setFilesViewed(input)),
-        [WS_METHODS.pullRequestsRunAction]: (input) =>
-          withPullRequestViewer(input, pullRequests.runAction(input)).pipe(
-            Effect.tap(() =>
-              resolvePullRequestSyncKey(input).pipe(
-                Effect.flatMap((key) =>
-                  key === null ? Effect.void : pullRequestSync.requestSync(key),
-                ),
-              ),
-            ),
-          ),
-        [WS_METHODS.pullRequestsUpdate]: (input) =>
-          withPullRequestViewer(input, pullRequests.update(input)),
-        [WS_METHODS.pullRequestsComment]: (input) =>
-          withPullRequestViewer(input, pullRequests.comment(input)),
-        [WS_METHODS.pullRequestsUpdateComment]: (input) =>
-          withPullRequestViewer(input, pullRequests.updateComment(input)),
-        [WS_METHODS.pullRequestsSubmitReview]: (input) =>
-          withPullRequestViewer(input, pullRequests.submitReview(input)),
-        [WS_METHODS.pullRequestsReplyToThread]: (input) =>
-          withPullRequestViewer(input, pullRequests.replyToThread(input)),
-        [WS_METHODS.pullRequestsSetThreadResolution]: (input) =>
-          withPullRequestViewer(input, pullRequests.setThreadResolution(input)),
-        [WS_METHODS.pullRequestsSetReaction]: (input) =>
-          withPullRequestViewer(input, pullRequests.setReaction(input)),
-        [WS_METHODS.pullRequestsReportState]: (input) => pullRequests.reportState(input),
-        [WS_METHODS.pullRequestsInvalidate]: (input) =>
-          pullRequests
-            .invalidate(input, { notifyReaders: true })
-            .pipe(
-              Effect.andThen(
-                input.reference === undefined || input.filesViewedOnly === true
-                  ? Effect.void
-                  : resolvePullRequestSyncKey(input.reference).pipe(
-                      Effect.flatMap((key) =>
-                        key === null ? Effect.void : pullRequestSync.requestSync(key),
-                      ),
-                    ),
-              ),
-            ),
-        [WS_METHODS.pullRequestsSubscribeRefreshes]: () => pullRequests.subscribeRefreshes,
-        [WS_METHODS.pullRequestsReviewerCandidates]: (input) =>
-          withPullRequestViewer(input, pullRequests.reviewerCandidates(input)),
-        [WS_METHODS.pullRequestsRequestReviewers]: (input) =>
-          withPullRequestViewer(input, pullRequests.requestReviewers(input)),
-        [WS_METHODS.pullRequestsLabelCandidates]: (input) =>
-          withPullRequestViewer(input, pullRequests.labelCandidates(input)),
-        [WS_METHODS.pullRequestsSetLabels]: (input) =>
-          withPullRequestViewer(input, pullRequests.setLabels(input)),
-        [WS_METHODS.sourceControlLookupRepository]: (input) =>
-          sourceControlRepositories.lookupRepository(input),
-        [WS_METHODS.sourceControlCloneRepository]: (input) =>
-          sourceControlRepositories.cloneRepository(input),
-        [WS_METHODS.sourceControlSignInStart]: (input) => sourceControlSignIn.start(input),
-        [WS_METHODS.sourceControlSignInWait]: (input) => sourceControlSignIn.wait(input),
-        [WS_METHODS.sourceControlSignInCancel]: (input) => sourceControlSignIn.cancel(input),
-        [WS_METHODS.sourceControlAppAccess]: (input) => sourceControlSignIn.access(input),
-        [WS_METHODS.sourceControlStarred]: (input) => sourceControlSignIn.starred(input),
-        [WS_METHODS.sourceControlStar]: (input) => sourceControlSignIn.star(input),
-        [WS_METHODS.projectCloneStart]: (input) =>
-          projectCloneTracker.start(input, {
-            createProject: (project) =>
-              projectService
-                .create({
-                  commandId: CommandId.make(`project-clone-create:${project.projectId}`),
-                  projectId: project.projectId,
-                  title: project.title,
-                  workspaceRoot: project.workspaceRoot,
-                  createWorkspaceRootIfMissing: true,
-                })
-                .pipe(
-                  Effect.asVoid,
-                  Effect.mapError(
-                    (cause) =>
-                      new OrchestrationDispatchCommandError({
-                        message: "Failed to create clone project.",
-                        cause,
-                      }),
-                  ),
-                ),
-            onCloned: (project) =>
-              repositoryIdentityResolver.resolve(project.workspaceRoot, { refresh: true }).pipe(
-                Effect.andThen(
-                  projectService.update({
-                    commandId: CommandId.make(`project-clone-done:${project.projectId}`),
-                    projectId: project.projectId,
-                  }),
-                ),
-                Effect.andThen(refreshGitStatus(project.workspaceRoot)),
-                // The folder was empty when the project was created, so the cached
-                // enrichment says "no repository" and clients cannot group it yet.
-                Effect.andThen(projectEnrichment.invalidate([project.workspaceRoot])),
-                Effect.andThen(projectEnrichment.request(project.workspaceRoot)),
-                Effect.ignoreCause({ log: true }),
-              ),
-          }),
         [WS_METHODS.projectsEnsureScratch]: () =>
           managedFolders.ensureScratchProject.pipe(
             Effect.mapError(
@@ -2660,16 +2436,6 @@ export const layerWsRpc = (
                 (cause) => new OrchestrationDispatchCommandError({ message: cause.message, cause }),
               ),
             ),
-        [WS_METHODS.projectCloneCancel]: (input) =>
-          projectCloneTracker.cancel(input.projectId).pipe(Effect.map((applied) => ({ applied }))),
-        [WS_METHODS.projectCloneRetry]: (input) =>
-          projectCloneTracker.retry(input.projectId).pipe(Effect.map((applied) => ({ applied }))),
-        [WS_METHODS.subscribeProjectClones]: () => projectCloneTracker.stream,
-        [WS_METHODS.sourceControlPublishRepository]: (input) =>
-          sourceControlRepositories.publishRepository(input).pipe(
-            Effect.tap(() => repositoryIdentityResolver.resolve(input.cwd, { refresh: true })),
-            Effect.tap(() => refreshGitStatus(input.cwd)),
-          ),
         [WS_METHODS.projectsSearchEntries]: (input) =>
           workspaceEntries.search(input).pipe(
             Effect.mapError(
@@ -2781,7 +2547,6 @@ export const layerWsRpc = (
               input.resource._tag === "attachment" ||
               input.resource._tag === "native-app-icon" ||
               input.resource._tag === "tool-output-image" ||
-              input.resource._tag === SOURCE_CONTROL_MEDIA_ASSET ||
               // A network path is served only from the thread's project, looked up below.
               (input.resource._tag === "media-file" &&
                 path.isAbsolute(input.resource.path) &&
@@ -2812,15 +2577,10 @@ export const layerWsRpc = (
                   resource: input.resource,
                 });
               }
-              // Clone projects precede their files; clients retry asset URLs after clone completion.
-              const clone = yield* projectCloneTracker.get(project.value.projectId);
               return yield* issueAssetUrl({
                 resource: input.resource,
                 ...(project.value.faviconPath
                   ? { projectFaviconPath: project.value.faviconPath }
-                  : {}),
-                ...(clone !== null && clone.destinationPath === project.value.workspaceRoot
-                  ? { projectCheckout: clone.phase === "done" ? "cloned" : "pending" }
                   : {}),
               });
             }
@@ -2857,11 +2617,6 @@ export const layerWsRpc = (
         [WS_METHODS.assetsPersistChatAttachments]: (input) =>
           persistChatAttachments(input).pipe(Effect.map((attachments) => ({ attachments }))),
         [WS_METHODS.subscribeVcsStatus]: (input) => vcsStatusBroadcaster.streamStatus(input),
-        [WS_METHODS.subscribeWorktreeSetup]: (input) => worktreeSetupTracker.stream(input.threadId),
-        [WS_METHODS.worktreeSetupCancel]: (input) =>
-          worktreeSetupTracker
-            .cancel(input.threadId)
-            .pipe(Effect.map((cancelled) => ({ cancelled }))),
         [WS_METHODS.vcsRefreshStatus]: (input) =>
           vcsStatusBroadcaster.refreshStatus(input.cwd, { localOnly: input.localOnly ?? false }),
         [WS_METHODS.vcsPull]: (input) =>
@@ -2872,51 +2627,6 @@ export const layerWsRpc = (
                 refreshGitStatus(input.cwd).pipe(Effect.ignore({ log: true }), Effect.as(result)),
             }),
           ),
-        [WS_METHODS.gitRunStackedAction]: (input) =>
-          Stream.callback<GitActionProgressEvent, GitManagerServiceError>((queue) =>
-            gitWorkflow
-              .runStackedAction(input, {
-                actionId: input.actionId,
-                progressReporter: {
-                  publish: (event) => Queue.offer(queue, event).pipe(Effect.asVoid),
-                },
-              })
-              .pipe(
-                Effect.matchCauseEffect({
-                  onFailure: (cause) => Queue.failCause(queue, cause),
-                  onSuccess: (result) =>
-                    (input.threadId === undefined
-                      ? Effect.void
-                      : linkCreatedPullRequest({
-                          threadId: input.threadId,
-                          result,
-                          commandId: serverCommandId("pr-created-link"),
-                        }).pipe(
-                          Effect.provideService(Orchestrator.OrchestratorV2, orchestrationEngine),
-                          Effect.provideService(ProjectService.ProjectService, projectService),
-                        )
-                    ).pipe(
-                      Effect.andThen(
-                        refreshPushedPullRequests(input, result).pipe(
-                          Effect.provideService(Orchestrator.OrchestratorV2, orchestrationEngine),
-                          Effect.provideService(ProjectStore.ProjectStoreV2, projectStore),
-                          Effect.provideService(
-                            PullRequestService.PullRequestService,
-                            pullRequests,
-                          ),
-                        ),
-                      ),
-                      Effect.andThen(refreshGitStatus(input.cwd)),
-                      Effect.andThen(Queue.end(queue).pipe(Effect.asVoid)),
-                    ),
-                }),
-              ),
-          ),
-        [WS_METHODS.gitResolvePullRequest]: (input) => gitWorkflow.resolvePullRequest(input),
-        [WS_METHODS.gitPreparePullRequestThread]: (input) =>
-          gitWorkflow
-            .preparePullRequestThread(input)
-            .pipe(Effect.tap(() => refreshGitStatus(input.cwd))),
         [WS_METHODS.vcsListRefs]: (input) => gitWorkflow.listRefs(input),
         [WS_METHODS.vcsCreateWorktree]: (input) =>
           gitWorkflow.createWorktree(input).pipe(Effect.tap(() => refreshGitStatus(input.cwd))),
@@ -3137,8 +2847,6 @@ export const layer = Layer.unwrap(
   Effect.gen(function* () {
     const serverSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
     const npmRelease = yield* NpmRelease.NpmRelease;
-    const pullRequests = yield* PullRequestService.PullRequestService;
-    const reviewGuides = yield* PullRequestReviewGuideService.PullRequestReviewGuideService;
     const sql = yield* SqlClient.SqlClient;
     return HttpRouter.add(
       "GET",
@@ -3190,28 +2898,7 @@ export const layer = Layer.unwrap(
               Layer.provide(ProviderMaintenanceRunner.layer),
               Layer.provide(Layer.succeed(NpmRelease.NpmRelease, npmRelease)),
               Layer.provide(Layer.succeed(ServerSelfUpdate.ServerSelfUpdate, serverSelfUpdate)),
-              // Share server-lifetime PR caches so WS mutations invalidate every client's HTTP diffs.
-              Layer.provide(Layer.succeed(PullRequestService.PullRequestService, pullRequests)),
               Layer.provide(OtlpEndpointCheck.layer),
-              Layer.provide(
-                Layer.succeed(
-                  PullRequestReviewGuideService.PullRequestReviewGuideService,
-                  reviewGuides,
-                ),
-              ),
-              Layer.provide(
-                SourceControlDiscovery.layer.pipe(
-                  Layer.provide(
-                    SourceControlProviderRegistry.layer.pipe(
-                      Layer.provide(SourceControlBuiltInDrivers.layer),
-                      Layer.provideMerge(GitVcsDriver.layer),
-                      Layer.provide(
-                        VcsDriverRegistry.layer.pipe(Layer.provide(VcsProjectConfig.layer)),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             ),
           ),
         );

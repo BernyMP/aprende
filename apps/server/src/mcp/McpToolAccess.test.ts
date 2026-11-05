@@ -8,9 +8,7 @@ import {
   RuntimeMode,
   ThreadId,
 } from "@aprende/contracts";
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { McpSchema, McpServer, Tool, Toolkit } from "effect/ai";
@@ -231,15 +229,6 @@ const mismatchedProvider = {
 const supervisedClient = clientCaller("approval-required");
 const fullAccessClient = clientCaller("full-access");
 const readOnlyClient = clientCaller("read-only");
-const linkedClient: McpInvocationContext.McpInvocationScope = {
-  ...supervisedClient,
-  client: { ...supervisedClient.client!, linked: true },
-};
-// A full-access link's agents can do anything this environment's user can.
-const fullAccessLinkedClient: McpInvocationContext.McpInvocationScope = {
-  ...fullAccessClient,
-  client: { ...fullAccessClient.client!, linked: true },
-};
 const worktreeOnly = { ...fullAccess, capabilities: new Set(["worktree"] as const) };
 
 it.effect.each([
@@ -274,10 +263,6 @@ it.effect.each([
   ["writes_with_capability", worktreeOnly, {}, "ran"],
   ["writes_with_capability", readOnlyClient, {}, "capability_denied"],
   ["writes_with_capability", ended, {}, "parent_not_active"],
-  ["writes", linkedClient, {}, "capability_denied"],
-  ["writes_with_capability", linkedClient, {}, "capability_denied"],
-  ["writes", fullAccessLinkedClient, {}, "ran"],
-  ["writes_with_capability", fullAccessLinkedClient, {}, "ran"],
 
   ["writes_threads", supervised, {}, "ran"],
   ["writes_threads", supervised, { threadId: planThreadId }, "ran"],
@@ -359,7 +344,7 @@ it.effect("refuses a change when the calling thread cannot be read", () =>
 
 const box = EnvironmentId.make("environment-box");
 const here = EnvironmentId.make("environment");
-const linkedProbe = {
+const environmentProbe = {
   ...probe,
   parameters: Schema.Struct({
     environmentId: OrchestratorMcpEnvironmentTarget,
@@ -368,21 +353,21 @@ const linkedProbe = {
     interactionMode: Schema.optional(ProviderInteractionMode),
   }),
 };
-const LinkedProbeToolkit = Toolkit.make(
-  Tool.make("reads", linkedProbe),
-  Tool.make("writes", linkedProbe),
-  Tool.make("writes_with_capability", linkedProbe),
-  Tool.make("writes_threads", linkedProbe),
-  Tool.make("starts_threads", linkedProbe),
-  Tool.make("writes_environment", linkedProbe),
+const EnvironmentProbeToolkit = Toolkit.make(
+  Tool.make("reads", environmentProbe),
+  Tool.make("writes", environmentProbe),
+  Tool.make("writes_with_capability", environmentProbe),
+  Tool.make("writes_threads", environmentProbe),
+  Tool.make("starts_threads", environmentProbe),
+  Tool.make("writes_environment", environmentProbe),
 );
 /** Runs here, and tells whether `environmentId` reached the handler. */
 const ranHere = <P extends object>(params: P) =>
   Effect.succeed({ ran: "environmentId" in params ? "saw environmentId" : "here" });
 
-const linkedProbeServer = McpHttpServer.toolkitRegistration(
-  LinkedProbeToolkit,
-  McpToolAccess.toLayer(LinkedProbeToolkit, {
+const environmentProbeServer = McpHttpServer.toolkitRegistration(
+  EnvironmentProbeToolkit,
+  McpToolAccess.toLayer(EnvironmentProbeToolkit, {
     reads: McpToolAccess.reads(ranHere),
     writes: McpToolAccess.writes(ranHere),
     writes_with_capability: McpToolAccess.writesWithCapability(ranHere),
@@ -400,32 +385,18 @@ const linkedProbeServer = McpHttpServer.toolkitRegistration(
 );
 
 it.effect.each([
-  ["reads", supervised, { environmentId: box }, "orchestration_error"],
+  // Another environment is refused before anything else; the handler never sees the id.
+  ["reads", supervised, { environmentId: box }, "invalid_request"],
+  ["writes", readOnlyClient, { environmentId: box }, "invalid_request"],
+  ["writes_environment", fullAccess, { environmentId: box }, "invalid_request"],
   ["reads", supervised, { environmentId: here }, "here"],
   ["reads", supervised, {}, "here"],
-
-  // The caller is checked here before anything goes.
-  ["writes", readOnlyClient, { environmentId: box }, "capability_denied"],
-  ["writes", ended, { environmentId: box }, "parent_not_active"],
-  ["writes", supervised, { environmentId: box }, "orchestration_error"],
-  ["writes_with_capability", readOnlyClient, { environmentId: box }, "capability_denied"],
+  ["writes_environment", fullAccess, { environmentId: here }, "here"],
   [
     "starts_threads",
     plan,
-    { environmentId: box, interactionMode: "default" },
+    { environmentId: here, interactionMode: "default" },
     "interaction_mode_escalation_denied",
-  ],
-  ["starts_threads", plan, { environmentId: box }, "orchestration_error"],
-  ["writes_environment", supervised, { environmentId: box }, "capability_denied"],
-  ["writes_environment", fullAccess, { environmentId: box }, "orchestration_error"],
-  ["writes_environment", fullAccess, { environmentId: here }, "here"],
-
-  // A thread id names a thread where the call runs, and is checked there.
-  [
-    "writes_threads",
-    supervised,
-    { environmentId: box, threadId: fullAccessThreadId },
-    "orchestration_error",
   ],
   [
     "writes_threads",
@@ -433,23 +404,9 @@ it.effect.each([
     { environmentId: here, threadId: fullAccessThreadId },
     "runtime_mode_escalation_denied",
   ],
-] as const)("a linked %s from %o with %o: %s", ([tool, scope, args, expected]) =>
+] as const)("%s taking environmentId from %o with %o: %s", ([tool, scope, args, expected]) =>
   call(tool, scope, args).pipe(
     Effect.map((outcome) => expect(outcome).toBe(expected)),
-    Effect.provide(linkedProbeServer),
+    Effect.provide(environmentProbeServer),
   ),
-);
-
-it.effect("refuses a linked environment to a tool that acts as its calling thread", () =>
-  Effect.gen(function* () {
-    const CallerToolkit = Toolkit.make(Tool.make("acts_as_caller", linkedProbe));
-    const built = yield* Layer.build(
-      McpToolAccess.HandlersLayer.layer(
-        McpToolAccess.toLayer(CallerToolkit, {
-          acts_as_caller: McpToolAccess.actsAsCaller(ranHere),
-        }),
-      ),
-    ).pipe(Effect.scoped, Effect.exit);
-    expect(Exit.isFailure(built) && Cause.hasDies(built.cause)).toBe(true);
-  }),
 );

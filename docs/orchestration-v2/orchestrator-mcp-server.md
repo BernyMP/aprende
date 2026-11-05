@@ -10,10 +10,9 @@ agent can use this endpoint to:
 - cancel an active delegated task; and
 - create one or more ordinary top-level T3 threads;
 - list a project's threads and incrementally read any thread;
-- rename threads, regenerate titles, and link or unlink pull requests;
-- send or steer follow-up messages;
-- wait for or interrupt ordinary thread runs; and
-- schedule recurring work that runs without an active turn.
+- rename threads and regenerate titles;
+- send or steer follow-up messages; and
+- wait for or interrupt ordinary thread runs.
 
 These are T3 orchestration operations, not provider-native sub-agent APIs.
 Delegated tasks always create a T3 child thread and run. The child receives
@@ -329,10 +328,9 @@ the published task result.
 
 Stops the child thread with the internal `thread.stop` command, then stops every
 task the child delegated, and disposes automatic parent delivery. Like a user Stop,
-`thread.stop` interrupts the running turn, holds queued turns, and ends pull request
-watches. A nonterminal task with no interruptible run is rejected. A terminal task
+`thread.stop` interrupts the running turn and holds queued turns. A nonterminal task with no interruptible run is rejected. A terminal task
 returns its existing status, and its child thread still stops, including later
-runs and watch wakes. Published task results remain available. It accepts an
+runs. Published task results remain available. It accepts an
 optional cancellation reason.
 
 ### `create_threads`
@@ -363,12 +361,8 @@ without a prompt remain idle.
 
 ### `t3_thread_launch`
 
-Launches one ordinary top-level thread through the app's launch service. Use an
-explicit `workspaceStrategy` to create a new worktree (`worktree` with `baseRef`),
-attach an existing checkout (`existing_worktree` with `worktreePath`), or use the
-project root (`root`, also the default). The thread is bound to that workspace
-before the agent starts. Creating a worktree in the task prompt does not update
-this binding.
+Launches one ordinary top-level thread through the app's launch service, at the
+project root. The thread is bound to that workspace before the agent starts.
 
 Pass the task in `message`. Project, model, and modes inherit when omitted;
 workspace does not. `scratch: true` launches without a project, in a folder of
@@ -405,13 +399,12 @@ distinguishable from human-authored messages.
 Agents mention another thread by the `link` its result carries,
 `<t3-thread://v2/<environmentId>/<threadId>>`, so they never format an id or
 write a title, which goes stale when the user renames the thread. The
-environment that owns the thread builds the link, so forwarded results and tasks
-delegated to a linked environment name that environment. Clients open only that
+environment that owns the thread builds the link. Clients open only that
 environment's thread and show its current title; a link to a thread they do not
 know renders as a label that opens nothing. Older `t3-thread://v1/<threadId>`
 links name no environment: clients resolve them in the message's environment,
-then by a unique match in another enabled environment. An outside OAuth client,
-one that is not a linked environment, cannot render `t3-thread://` links, so it
+then by a unique match in another enabled environment. An outside OAuth client
+cannot render `t3-thread://` links, so it
 gets the link Copy thread copies, `https://app.aprende.invalid/threads/<environmentId>/<threadId>`
 on the server's `APRENDE_HOSTED_APP_URL`, for threads in this environment. The
 hosted app offers the desktop app, the mobile app, or itself.
@@ -425,16 +418,13 @@ runs, background wakes, and delegated completions keep it snoozed.
 ### `t3_thread_update`
 
 Updates metadata for the calling thread or any other thread in the environment.
-The typed actions are `rename`, `regenerate_title`, `link_pull_request`, and
-`unlink_pull_request`. A link input supplies the repository, number, and URL;
-the server records the target thread's project ID. Branch and workspace changes
-are outside this tool.
+The typed actions are `rename` and `regenerate_title`. Branch and workspace
+changes are outside this tool.
 
 The result includes the command ID and durable event sequence together with the
-resultant title, title-regeneration marker, and linked pull request. Reusing a
-`clientRequestId` for the same action and thread replays the same command
-receipt. Thread list and read results expose the linked pull request, and thread
-detail also exposes an in-flight title regeneration.
+resultant title and title-regeneration marker. Reusing a `clientRequestId` for
+the same action and thread replays the same command receipt. Thread detail also
+exposes an in-flight title regeneration.
 
 ### `t3_thread_send`
 
@@ -464,22 +454,6 @@ Interrupts a selected active run through the normal V2 `run.interrupt` command.
 Without `runId`, it selects the newest interruptible run. A terminal run is
 returned unchanged, and a thread with no active provider turn returns
 `no_active_run`.
-
-### Scheduled tasks
-
-`schedule_task`, `list_scheduled_tasks`, and `delete_scheduled_task` manage
-recurring work in the app scheduler; `schedule_task` with a `scheduledTaskId`
-updates an existing task. A schedule
-runs its prompt on an interval, at a fixed time in the server's local time
-zone, or on each qualifying webhook request, even when no turn is active.
-Without a signature, anyone with the webhook URL can trigger a run.
-Signature checks, filters, and dedupe can skip a webhook request.
-`bindToCurrentThread` defaults to `true` only when the caller has a thread in
-the task's project; otherwise it defaults to `false`. Bound runs post into
-that thread; unbound runs each launch a fresh thread in the task's project.
-Explicit `bindToCurrentThread: true` without a caller thread in that project
-is rejected. Pausing uses `schedule_task` with `scheduledTaskId` and `enabled: false`;
-deletion is permanent.
 
 ## Delegated Task Lifecycle
 

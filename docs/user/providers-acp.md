@@ -122,7 +122,7 @@ Devin runs its commands through aprende's terminals, and those commands follow t
 permission mode. For other agents, aprende shows the command, output, and exit status the agent
 reports but does not run or stop their terminals.
 
-Registry agents can schedule work and use T3's MCP tools. Child-task presentation depends on what
+Registry agents can use aprende's MCP tools. Child-task presentation depends on what
 the agent exposes: ACP has no portable native subagent-lineage contract, so richer delegation views
 remain agent-specific.
 
@@ -132,9 +132,8 @@ Checkpoint rollback restores your files as usual. ACP agents cannot rewind their
 so the next turn after a rollback starts a fresh agent session that no longer remembers the
 conversation from before the checkpoint.
 
-Registry instances are not used for T3's app-owned text generation, such as thread titles, commit
-messages, branch names, or pull request descriptions. Configure a text-generation-capable provider
-for those actions.
+Registry instances are not used for aprende's thread titles. Configure a text-generation-capable
+provider for them.
 
 ## Advanced configuration
 

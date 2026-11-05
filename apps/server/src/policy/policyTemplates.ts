@@ -109,8 +109,8 @@ const policies = (): ReadonlyArray<Policy> => [
   },
   {
     id: "WebhookTasks",
-    title: "Allow webhook tasks",
-    help: "Disabled stops scheduled tasks from using webhook triggers. Existing webhook tasks are kept but do not run.",
+    title: "Allow webhook tasks (no effect)",
+    help: "Has no effect: aprende has no scheduled or webhook tasks. Kept so existing policies still load.",
     toggle: "WebhookTasks",
   },
   {

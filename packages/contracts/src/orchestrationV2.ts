@@ -15,8 +15,6 @@ import {
   ContextHandoffId,
   ContextTransferId,
   EventId,
-  GuestMessageId,
-  GuestShareId,
   IsoDateTime,
   MessageId,
   EnvironmentId,
@@ -43,7 +41,6 @@ import {
 } from "./baseSchemas.ts";
 import { AuthMcpClientAccess } from "./auth.ts";
 import { ChatAttachment } from "./chatAttachment.ts";
-import { ThreadGuestShare } from "./guestShare.ts";
 import { StoredThreadTags, ThreadTag } from "./threadTags.ts";
 import {
   OrchestrationSearchThreadsInput,
@@ -56,15 +53,7 @@ import {
   OrchestrationGetTurnDiffResult,
 } from "./checkpointDiff.ts";
 import { ModelSelection } from "./modelSelection.ts";
-import {
-  ThreadLinkedPullRequest,
-  ThreadPullRequestLink,
-  ThreadPullRequestKey,
-  ThreadPullRequestLinkSource,
-  ThreadPullRequestSnapshot,
-  ThreadPullRequestStack,
-  ThreadPullRequestWatch,
-} from "./threadPullRequest.ts";
+import { ThreadPullRequestLink } from "./threadPullRequest.ts";
 import {
   ProviderApprovalDecision,
   ProviderApprovalFullAccessOverride,
@@ -452,9 +441,6 @@ export const OrchestrationV2AppThread = Schema.Struct({
   interactionMode: ProviderInteractionMode,
   branch: Schema.NullOr(TrimmedNonEmptyString),
   worktreePath: Schema.NullOr(TrimmedNonEmptyString),
-  linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
-  pullRequests: Schema.optional(Schema.Array(ThreadPullRequestLink)),
-  branchPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
   activeProviderThreadId: Schema.NullOr(ProviderThreadId),
   historyOrigin: Schema.optional(OrchestrationV2ThreadHistoryOrigin),
   linkOrigin: Schema.optional(OrchestrationV2LinkOrigin),
@@ -485,7 +471,6 @@ export const OrchestrationV2AppThread = Schema.Struct({
   snoozedAt: Schema.optional(Schema.NullOr(Schema.DateTimeUtc)),
   lastSnoozeWakeAt: Schema.optional(Schema.NullOr(Schema.DateTimeUtc)),
   limitRecovery: Schema.optional(Schema.NullOr(OrchestrationV2LimitRecovery)),
-  guestShare: Schema.optional(Schema.NullOr(ThreadGuestShare)),
   pinnedAt: Schema.optional(Schema.NullOr(Schema.DateTimeUtc)),
   autoSettleDisabledAt: Schema.optional(Schema.NullOr(Schema.DateTimeUtc)),
   pinOrderKey: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
@@ -1895,6 +1880,7 @@ export const OrchestrationV2DomainEvent = Schema.Union([
     ]),
     payload: OrchestrationV2AppThread,
   }),
+  // Pull requests are gone; stored link events still decode and project as no-ops.
   Schema.Struct({
     ...OrchestrationV2EventBase.fields,
     type: Schema.Literal("thread.pull-request-link-updated"),
@@ -2080,9 +2066,6 @@ export const OrchestrationV2ThreadShell = Schema.Struct({
   interactionMode: ProviderInteractionMode,
   branch: Schema.NullOr(TrimmedNonEmptyString),
   worktreePath: Schema.NullOr(TrimmedNonEmptyString),
-  linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
-  pullRequests: Schema.optional(Schema.Array(ThreadPullRequestLink)),
-  branchPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
   lineage: OrchestrationV2AppThreadLineage,
   forkedFrom: Schema.NullOr(OrchestrationV2AppThread.fields.forkedFrom),
   activeProviderThreadId: Schema.NullOr(ProviderThreadId),
@@ -2106,8 +2089,6 @@ export const OrchestrationV2ThreadShell = Schema.Struct({
   lastErrorCode: Schema.optional(Schema.NullOr(Schema.String)),
   usageLimitResetAt: Schema.optional(Schema.NullOr(IsoDateTime)),
   pendingRuntimeRequest: Schema.NullOr(OrchestrationV2PendingRuntimeRequestSummary),
-  /** Guest messages waiting for the owner to send or dismiss. Absent from older servers. */
-  pendingGuestMessageCount: Schema.optional(NonNegativeInt),
   latestVisibleMessage: Schema.NullOr(OrchestrationV2LatestVisibleMessageSummary),
   latestUserMessageAt: Schema.NullOr(Schema.DateTimeUtc),
   /** Excludes wakes and agent messages that advance latestUserMessageAt through the user role. */
@@ -2937,17 +2918,6 @@ export const OrchestrationV2Command = Schema.Union([
     threadId: ThreadId,
   }),
   Schema.Struct({
-    type: Schema.Literal("thread.guest-share.close"),
-    commandId: CommandId,
-    threadId: ThreadId,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.guest-message.dismiss"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    guestMessageId: GuestMessageId,
-  }),
-  Schema.Struct({
     type: Schema.Literal("thread.unarchive"),
     commandId: CommandId,
     threadId: ThreadId,
@@ -3055,61 +3025,6 @@ export const OrchestrationV2Command = Schema.Union([
     /** Reject unless no message or run has landed on this thread. */
     expectedEmpty: Schema.optional(Schema.Boolean),
     limitRecovery: Schema.optional(Schema.NullOr(OrchestrationV2LimitRecoveryUpdate)),
-    /** Link (object) or unlink (null) a pull request; absent leaves it unchanged. */
-    linkedPullRequest: Schema.optional(Schema.NullOr(ThreadLinkedPullRequest)),
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.pull-request.link"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    ...ThreadPullRequestKey.fields,
-    url: TrimmedNonEmptyString,
-    source: ThreadPullRequestLinkSource,
-    repositoryWebUrl: Schema.optional(TrimmedNonEmptyString),
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.pull-request.unlink"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    ...ThreadPullRequestKey.fields,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.pull-request-link.sync"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    ...ThreadPullRequestKey.fields,
-    snapshot: ThreadPullRequestSnapshot,
-    stack: Schema.NullOr(ThreadPullRequestStack),
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.pull-request.watch"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    ...ThreadPullRequestKey.fields,
-    watching: Schema.Boolean,
-    link: Schema.optional(
-      Schema.Struct({
-        url: TrimmedNonEmptyString,
-        source: ThreadPullRequestLinkSource,
-        repositoryWebUrl: Schema.optional(TrimmedNonEmptyString),
-      }),
-    ),
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.pull-request.sync"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    projectId: ProjectId,
-    snapshotSequence: NonNegativeInt,
-    expected: Schema.Struct({
-      workspaceRoot: TrimmedNonEmptyString,
-      branch: Schema.NullOr(TrimmedNonEmptyString),
-      worktreePath: Schema.NullOr(TrimmedNonEmptyString),
-      linkedPullRequest: Schema.NullOr(ThreadLinkedPullRequest),
-      branchPullRequest: Schema.NullOr(ThreadLinkedPullRequest),
-    }),
-    branchPullRequest: Schema.NullOr(ThreadLinkedPullRequest),
-    linkedPullRequest: Schema.optional(ThreadLinkedPullRequest),
   }),
   Schema.Struct({
     type: Schema.Literal("thread.title.regeneration.complete"),
@@ -3146,8 +3061,6 @@ export const OrchestrationV2Command = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("message.dispatch"),
     notification: Schema.optional(OrchestrationV2Notification),
-    /** Sends this pending guest message; the server uses the guest's text, not `text`. */
-    guestMessageId: Schema.optional(GuestMessageId),
     ...OrchestrationV2CreationFields,
     scheduledTaskId: Schema.optional(ScheduledTaskId),
     senderThreadId: Schema.optional(ThreadId),
@@ -3374,54 +3287,12 @@ export type OrchestrationV2Command = typeof OrchestrationV2Command.Type;
 
 // Excluded from dispatchCommand so only the server can send these.
 const OrchestrationV2InternalCommand = Schema.Union([
-  // Guest share commands the server issues after checking T3 Connect and the guest token.
-  Schema.Struct({
-    type: Schema.Literal("thread.guest-share.open"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    shareId: GuestShareId,
-    host: TrimmedNonEmptyString,
-    expiresAt: IsoDateTime,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.guest-share.redeem"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    shareId: GuestShareId,
-    guestName: TrimmedNonEmptyString,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.guest-message.submit"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    shareId: GuestShareId,
-    guestMessageId: GuestMessageId,
-    text: Schema.String,
-    attachments: Schema.optional(Schema.Array(ChatAttachment)),
-  }),
   /** Moves a thread to a project rooted at the folder it already works in, so its cwd never changes. */
   Schema.Struct({
     type: Schema.Literal("thread.project.adopt-folder"),
     commandId: CommandId,
     threadId: ThreadId,
     projectId: ProjectId,
-  }),
-  Schema.Struct({
-    type: Schema.Literal("thread.pull-request-watch.sync"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    ...ThreadPullRequestKey.fields,
-    startedAt: IsoDateTime,
-    watch: Schema.NullOr(ThreadPullRequestWatch),
-    /** With `watch: null`, the state the ended watch keeps instead of its last saved one. */
-    endedWatch: Schema.optional(ThreadPullRequestWatch),
-    wake: Schema.optional(
-      Schema.Struct({
-        messageId: MessageId,
-        text: Schema.String,
-        notification: OrchestrationV2Notification,
-      }),
-    ),
   }),
   /**
    * Records a delegated task that runs in a linked environment: the task, its
@@ -3581,7 +3452,6 @@ export const ORCHESTRATION_V2_WS_METHODS = {
   getArchivedShellSnapshot: "orchestration.getArchivedShellSnapshot",
   getThreadFamily: "orchestration.getThreadFamily",
   getThreadTitles: "orchestration.getThreadTitles",
-  getWorktreeThreadIds: "orchestration.getWorktreeThreadIds",
   getOlderSettledThreads: "orchestration.getOlderSettledThreads",
   getThreadProjection: "orchestration.getThreadProjection",
   getWorkflowScript: "orchestration.getWorkflowScript",
@@ -3711,12 +3581,6 @@ export const OrchestrationV2GetThreadTitlesInput = Schema.Struct({
 /** Titles of the requested threads that exist, archived ones included. Deleted and unknown ids are absent. */
 export const OrchestrationV2ThreadTitles = Schema.Record(ThreadId, Schema.String);
 
-export const OrchestrationV2GetWorktreeThreadIdsInput = Schema.Struct({
-  worktreePath: TrimmedNonEmptyString,
-});
-export type OrchestrationV2GetWorktreeThreadIdsInput =
-  typeof OrchestrationV2GetWorktreeThreadIdsInput.Type;
-
 /**
  * The client's thread search. With `olderSettledBefore`, the result also carries the rows of the
  * best matching threads settled before it, which shells that omit older settled threads leave out:
@@ -3770,12 +3634,6 @@ export const OrchestrationV2OlderSettledThreadsPage = Schema.Struct({
 });
 export type OrchestrationV2OlderSettledThreadsPage =
   typeof OrchestrationV2OlderSettledThreadsPage.Type;
-
-/** Active threads on a worktree path, including subagent children a shell may leave out. */
-export const OrchestrationV2WorktreeThreadIds = Schema.Struct({
-  threadIds: Schema.Array(ThreadId),
-});
-export type OrchestrationV2WorktreeThreadIds = typeof OrchestrationV2WorktreeThreadIds.Type;
 
 export const OrchestrationV2SubscribeThreadInput = Schema.Struct({
   threadId: ThreadId,
@@ -4189,10 +4047,6 @@ export const OrchestrationV2RpcSchemas = {
   getThreadTitles: {
     input: OrchestrationV2GetThreadTitlesInput,
     output: OrchestrationV2ThreadTitles,
-  },
-  getWorktreeThreadIds: {
-    input: OrchestrationV2GetWorktreeThreadIdsInput,
-    output: OrchestrationV2WorktreeThreadIds,
   },
   getOlderSettledThreads: {
     input: OrchestrationV2GetOlderSettledThreadsInput,

@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId, type ThreadPullRequestLink } from "@aprende/contracts";
+import { ProjectId, ThreadId } from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { v2Project, v2ShellSnapshot, v2ThreadShell } from "./orchestrationV2TestFixtures.ts";
@@ -288,54 +288,20 @@ describe("applyShellStreamEvent", () => {
 });
 
 describe("reuseUnchangedThreadShells", () => {
-  const link: ThreadPullRequestLink = {
-    host: "github.com",
-    repository: "BernyMP/aprende",
-    number: 3,
-    url: "https://github.com/BernyMP/aprende/pull/3",
-    source: "agent",
-    linkedAt: "2026-06-20T00:00:00.000Z",
-    snapshot: null,
-    stack: null,
-  };
-  const linked = { ...v2ThreadShell, pullRequests: [link] };
+  const kept = { ...v2ThreadShell, title: "Kept" };
   const other = { ...v2ThreadShell, id: ThreadId.make("thread-other"), title: "Other" };
 
-  it("keeps the previous object for an unchanged row, even without its deferred links", () => {
-    const previous = { ...v2ShellSnapshot, threads: [linked, other] };
-    const { pullRequests: _links, ...withoutLinks } = linked;
+  it("keeps the previous object for an unchanged row", () => {
+    const previous = { ...v2ShellSnapshot, threads: [kept, other] };
     const next = reuseUnchangedThreadShells(previous, {
       ...v2ShellSnapshot,
       snapshotSequence: 5,
-      threads: [withoutLinks, { ...other, title: "Renamed" }],
+      threads: [{ ...kept }, { ...other, title: "Renamed" }],
     });
     expect(next.snapshotSequence).toBe(5);
-    expect(next.threads[0]).toBe(linked);
+    expect(next.threads[0]).toBe(kept);
     expect(next.threads[1]).not.toBe(other);
     expect(next.threads[1]?.title).toBe("Renamed");
-  });
-
-  it("retains deferred links when the only row changes status", () => {
-    const { pullRequests: _links, ...withoutLinks } = linked;
-    const next = reuseUnchangedThreadShells(
-      { ...v2ShellSnapshot, threads: [linked] },
-      {
-        ...v2ShellSnapshot,
-        snapshotSequence: 5,
-        threads: [{ ...withoutLinks, status: "running" }],
-      },
-    );
-    expect(next.snapshotSequence).toBe(5);
-    expect(next.threads[0]?.status).toBe("running");
-    expect(next.threads[0]?.pullRequests).toBe(linked.pullRequests);
-  });
-
-  it("keeps an explicit link removal when metadata also changes", () => {
-    const updated = { ...linked, title: "Renamed", pullRequests: [] };
-    const incoming = { ...v2ShellSnapshot, threads: [updated] };
-    const next = reuseUnchangedThreadShells({ ...v2ShellSnapshot, threads: [linked] }, incoming);
-    expect(next).toBe(incoming);
-    expect(next.threads[0]?.pullRequests).toEqual([]);
   });
 });
 

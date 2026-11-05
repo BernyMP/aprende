@@ -5,7 +5,6 @@ import * as HttpApi from "effect/http-api/HttpApi";
 import * as HttpApiEndpoint from "effect/http-api/HttpApiEndpoint";
 import * as HttpApiGroup from "effect/http-api/HttpApiGroup";
 import * as HttpApiMiddleware from "effect/http-api/HttpApiMiddleware";
-import * as HttpApiSchema from "effect/http-api/HttpApiSchema";
 import * as HttpServerRespondable from "effect/http/HttpServerRespondable";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 
@@ -56,12 +55,6 @@ import {
   OrchestrationV2ThreadTranscript,
 } from "./orchestrationV2.ts";
 import { Project, ProjectMutation, ProjectSnapshot } from "./project.ts";
-import {
-  PullRequestDiffInput,
-  PullRequestDiffResult,
-  PullRequestOperationError,
-  PullRequestUnavailableError,
-} from "./pullRequest.ts";
 
 const OptionalBearerHeaders = Schema.Struct({
   authorization: Schema.optionalKey(Schema.String),
@@ -673,46 +666,9 @@ class EnvironmentProjectsHttpApi extends HttpApiGroup.make("projects")
     }).middleware(EnvironmentAuthenticatedAuth),
   ) {}
 
-class EnvironmentPullRequestsHttpApi extends HttpApiGroup.make("pullRequests").add(
-  HttpApiEndpoint.post("diff", "/api/pull-requests/diff", {
-    headers: OptionalBearerHeaders,
-    payload: PullRequestDiffInput,
-    success: PullRequestDiffResult,
-    error: [
-      PullRequestUnavailableError,
-      PullRequestOperationError,
-      EnvironmentAuthInvalidError,
-      EnvironmentScopeRequiredError,
-      EnvironmentInternalError,
-    ],
-  }).middleware(EnvironmentAuthenticatedAuth),
-) {}
-
-// Path tokens and optional body signatures authenticate webhooks; read raw bytes to verify signatures.
-const WebhookParams = Schema.Struct({
-  hookId: TrimmedNonEmptyString,
-  token: TrimmedNonEmptyString,
-});
-const WebhookAccepted = Schema.Struct({ deliveryId: TrimmedNonEmptyString }).pipe(
-  HttpApiSchema.status(202),
-);
-const webhookEndpoint = {
-  params: WebhookParams,
-  success: WebhookAccepted,
-} as const;
-const WEBHOOK_PATH = "/api/hooks/:hookId/:token";
-
-class EnvironmentWebhooksHttpApi extends HttpApiGroup.make("webhooks")
-  .add(HttpApiEndpoint.post("webhookPost", WEBHOOK_PATH, webhookEndpoint))
-  .add(HttpApiEndpoint.put("webhookPut", WEBHOOK_PATH, webhookEndpoint))
-  .add(HttpApiEndpoint.patch("webhookPatch", WEBHOOK_PATH, webhookEndpoint))
-  .add(HttpApiEndpoint.get("webhookGet", WEBHOOK_PATH, webhookEndpoint)) {}
-
 export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(EnvironmentMetadataHttpApi)
   .add(EnvironmentAuthHttpApi)
   .add(EnvironmentMcpOAuthHttpApi)
   .add(EnvironmentOrchestrationHttpApi)
-  .add(EnvironmentPullRequestsHttpApi)
-  .add(EnvironmentProjectsHttpApi)
-  .add(EnvironmentWebhooksHttpApi) {}
+  .add(EnvironmentProjectsHttpApi) {}

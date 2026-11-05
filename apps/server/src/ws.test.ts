@@ -59,21 +59,15 @@ import * as OtlpEndpointCheck from "./observability/OtlpEndpointCheck.ts";
 import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
 import * as ProcessDiagnostics from "./diagnostics/ProcessDiagnostics.ts";
 import * as ProcessResourceMonitor from "./diagnostics/ProcessResourceMonitor.ts";
-import * as ProjectCloneTracker from "./project/ProjectCloneTracker.ts";
-import * as ProjectSetupScriptRunner from "./project/ProjectSetupScriptRunner.ts";
 import * as ProviderAuthService from "./provider/ProviderAuthService.ts";
 import * as ProviderInstanceRegistry from "./provider/ProviderInstanceRegistry.ts";
 import * as ProviderLatestVersions from "@aprende/provider-core/server/ProviderLatestVersions";
 import * as ProviderMaintenanceRunner from "./provider/providerMaintenanceRunner.ts";
 import * as ProviderRegistry from "./provider/ProviderRegistry.ts";
 import * as ProviderSessionManager from "./orchestration-v2/ProviderSessionManager.ts";
-import * as PullRequestReviewGuideService from "./pullRequest/PullRequestReviewGuideService.ts";
-import * as PullRequestService from "./pullRequest/PullRequestService.ts";
-import * as PullRequestSyncReactor from "./orchestration-v2/PullRequestSyncReactor.ts";
 import * as RemoteOpenTargets from "./environment/RemoteOpenTargets.ts";
 import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolver.ts";
 import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
-import * as ScheduledTasks from "./scheduledTasks/ScheduledTaskService.ts";
 import * as Learning from "./learning/LearningService.ts";
 import * as SecretRequests from "./secrets/SecretRequests.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
@@ -82,9 +76,6 @@ import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
 import * as ServerSelfUpdate from "./service/selfUpdate.ts";
 import * as NpmRelease from "./service/npmRelease.ts";
 import * as SessionStore from "./auth/SessionStore.ts";
-import * as SourceControlDiscovery from "./sourceControl/SourceControlDiscovery.ts";
-import * as SourceControlRepositoryService from "./sourceControl/SourceControlRepositoryService.ts";
-import * as SourceControlSignIn from "./sourceControl/SourceControlSignIn.ts";
 import * as StorageCleanup from "./storageCleanup.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts";
@@ -95,7 +86,6 @@ import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
 import * as VcsStatusBroadcaster from "./vcs/VcsStatusBroadcaster.ts";
 import * as WorkspaceEntries from "./workspace/WorkspaceEntries.ts";
 import * as WorkspaceFileSystem from "./workspace/WorkspaceFileSystem.ts";
-import * as WorktreeSetupTracker from "./project/WorktreeSetupTracker.ts";
 import * as ProjectFaviconResolver from "./project/ProjectFaviconResolver.ts";
 import * as TraceDiagnostics from "./diagnostics/TraceDiagnostics.ts";
 import * as WorkspacePaths from "./workspace/WorkspacePaths.ts";
@@ -667,21 +657,15 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(PairingGrantStore.PairingGrantStore)({}),
   Layer.mock(ProcessDiagnostics.ProcessDiagnostics)({}),
   Layer.mock(ProcessResourceMonitor.ProcessResourceMonitor)({}),
-  Layer.mock(ProjectCloneTracker.ProjectCloneTracker)({}),
   Layer.mock(ProjectService.ProjectService)({}),
-  Layer.mock(ProjectSetupScriptRunner.ProjectSetupScriptRunner)({}),
   Layer.mock(ProjectStore.ProjectStoreV2)({}),
   Layer.mock(ProviderAuthService.ProviderAuthService)({}),
   Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({}),
   Layer.mock(ProviderLatestVersions.ProviderLatestVersions)({}),
   Layer.mock(ProviderMaintenanceRunner.ProviderMaintenanceRunner)({}),
   Layer.mock(ProviderSessionManager.ProviderSessionManagerV2)({}),
-  Layer.mock(PullRequestReviewGuideService.PullRequestReviewGuideService)({}),
-  Layer.mock(PullRequestService.PullRequestService)({}),
-  Layer.mock(PullRequestSyncReactor.PullRequestSyncReactor)({}),
   Layer.mock(RepositoryIdentityResolver.RepositoryIdentityResolver)({}),
   Layer.mock(ResourceTelemetry.ResourceTelemetry)({}),
-  Layer.mock(ScheduledTasks.ScheduledTaskService)({}),
   Layer.mock(Learning.LearningService)({}),
   Layer.mock(SecretRequests.SecretRequests)({}),
   Layer.mock(SecretResolver.SecretResolver)({}),
@@ -690,9 +674,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(ServerSelfUpdate.ServerSelfUpdate)({}),
   Layer.mock(NpmRelease.NpmRelease)({}),
   Layer.mock(SessionStore.SessionStore)({ cookieName: "config-test", legacyCookieName: undefined }),
-  Layer.mock(SourceControlDiscovery.SourceControlDiscovery)({}),
-  Layer.mock(SourceControlRepositoryService.SourceControlRepositoryService)({}),
-  Layer.mock(SourceControlSignIn.SourceControlSignIn)({}),
   Layer.mock(StorageCleanup.StorageCleanup)({}),
   Layer.mock(DatabaseStorage.DatabaseStorage)({}),
   Layer.mock(ThreadLaunchService.ThreadLaunchService)({}),
@@ -703,7 +684,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(VcsStatusBroadcaster.VcsStatusBroadcaster)({}),
   Layer.mock(WorkspaceEntries.WorkspaceEntries)({}),
   Layer.mock(WorkspaceFileSystem.WorkspaceFileSystem)({}),
-  Layer.mock(WorktreeSetupTracker.WorktreeSetupTracker)({}),
 );
 
 const layerConfigSources = Layer.mergeAll(

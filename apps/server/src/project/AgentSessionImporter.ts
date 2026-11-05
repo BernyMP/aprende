@@ -325,8 +325,6 @@ const make = Effect.gen(function* () {
             interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
             branch: null,
             worktreePath: null,
-            linkedPullRequest: null,
-            branchPullRequest: null,
             activeProviderThreadId: providerThreadId,
             historyOrigin: "v1_import",
             lineage: {

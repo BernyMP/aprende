@@ -10,7 +10,6 @@ import { useState, type ComponentProps } from "react";
 import { ThreadDetailsCard } from "./ThreadDetailsCard";
 import { OpenInPicker } from "./OpenInPicker";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
-import { ThreadAutomationsPanel } from "./ThreadAutomationsPanel";
 import { ThreadRelationshipsPanel } from "./ThreadRelationshipsControl";
 import {
   ThreadDetailsContext,
@@ -98,13 +97,6 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                     />
                   </div>
                 </ThreadDetailsSection>
-              ) : null}
-
-              {density === "full" && !props.draftId && visible.automations ? (
-                <ThreadAutomationsPanel
-                  environmentId={props.environmentId}
-                  threadId={props.threadId}
-                />
               ) : null}
 
               {density === "full" && !props.draftId && (visible.lineage || visible.sideChats) ? (

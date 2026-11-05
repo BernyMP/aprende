@@ -1,7 +1,6 @@
 import type { AssetResource } from "@aprende/contracts";
 import {
   AssetAttachmentNotFoundError,
-  AssetSourceControlMediaUrlValidationError,
   AssetPreviewTypeValidationError,
   AssetProjectFaviconInspectionError,
   AssetProjectFaviconNotFoundError,
@@ -13,7 +12,6 @@ import {
   AssetWorkspacePathValidationError,
   AssetWorkspaceResolutionError,
   AssetWorkspaceRootNormalizationError,
-  SOURCE_CONTROL_MEDIA_ASSET,
   ThreadId,
   ToolActivityNativeAppReference,
   TurnItemId,
@@ -58,7 +56,6 @@ import * as ProjectFaviconResolver from "../project/ProjectFaviconResolver.ts";
 import { isWithinRoot } from "../workspace/KnownWorkspaces.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
 import * as NativeAppIconResolver from "./NativeAppIconResolver.ts";
-import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import { extractIcnsPng } from "./icns.ts";
 import { openMediaFile, readMediaFileHeader, type OpenMediaFile } from "./MediaFile.ts";
 import * as HostProcess from "@aprende/shared/HostProcess";
@@ -163,14 +160,6 @@ const AssetClaimsSchema = Schema.Union([
     index: Schema.Number,
     expiresAt: Schema.Number,
   }),
-  Schema.Struct({
-    version: Schema.Literal(1),
-    kind: Schema.Literal(SOURCE_CONTROL_MEDIA_ASSET),
-    /** A host's `fetchUrl`, narrowed at mint time; the signature is what keeps it there. */
-    url: Schema.String,
-    cwd: Schema.String,
-    expiresAt: Schema.Number,
-  }),
 ]);
 type AssetClaims = typeof AssetClaimsSchema.Type;
 
@@ -192,12 +181,6 @@ export type ResolvedAsset =
       readonly kind: "bytes";
       readonly bytes: Uint8Array;
       readonly mimeType: string;
-    }
-  | {
-      readonly kind: "source-control-media";
-      readonly url: string;
-      readonly cwd: string;
-      readonly expiresAt: number;
     };
 
 function decodeClaims(encodedPayload: string): AssetClaims | null {
@@ -531,8 +514,6 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
   readonly resource: AssetResource;
   readonly workspaceRoot?: string;
   readonly projectFaviconPath?: string;
-  /** Where a cloned project's checkout stands, while the clone tracker still knows it. */
-  readonly projectCheckout?: "pending" | "cloned";
 }) {
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -695,23 +676,17 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
         ),
       );
       const faviconResolver = yield* ProjectFaviconResolver.ProjectFaviconResolver;
-      // A lookup in a half-cloned checkout would cache a miss that outlives the clone.
-      // Once it lands, a miss cached before (by enrichment) is stale too.
-      if (input.projectCheckout === "cloned") yield* faviconResolver.invalidate(workspaceRoot);
-      const faviconPath =
-        input.projectCheckout === "pending"
-          ? null
-          : yield* faviconResolver
-              .resolvePath(workspaceRoot, input.projectFaviconPath ?? undefined)
-              .pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new AssetProjectFaviconResolutionError({
-                      resource: input.resource,
-                      cause,
-                    }),
-                ),
-              );
+      const faviconPath = yield* faviconResolver
+        .resolvePath(workspaceRoot, input.projectFaviconPath ?? undefined)
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new AssetProjectFaviconResolutionError({
+                resource: input.resource,
+                cause,
+              }),
+          ),
+        );
       const isExternalOverride =
         faviconPath !== null &&
         input.projectFaviconPath !== undefined &&
@@ -825,21 +800,6 @@ export const issueAssetUrl = Effect.fn("AssetAccess.issueAssetUrl")(function* (i
       fileName = "native-app-icon.png";
       break;
     }
-    case SOURCE_CONTROL_MEDIA_ASSET: {
-      const media = sourceControlDefinitions.mediaUrl(input.resource.url);
-      if (media === null) {
-        return yield* new AssetSourceControlMediaUrlValidationError({});
-      }
-      claims = {
-        version: 1,
-        kind: SOURCE_CONTROL_MEDIA_ASSET,
-        url: media.fetchUrl,
-        cwd: input.resource.cwd,
-        expiresAt,
-      };
-      fileName = media.fileName;
-      break;
-    }
   }
 
   if (claims.kind === "project-favicon" || claims.kind === "project-favicon-external") {
@@ -941,15 +901,6 @@ export const resolveAsset = Effect.fn("AssetAccess.resolveAsset")(function* (
       Effect.orElseSucceed(() => null),
     );
     return faviconPath === claims.filePath ? yield* projectFaviconAsset(faviconPath) : null;
-  }
-
-  if (claims.kind === SOURCE_CONTROL_MEDIA_ASSET) {
-    return {
-      kind: "source-control-media",
-      url: claims.url,
-      cwd: claims.cwd,
-      expiresAt: claims.expiresAt,
-    } satisfies ResolvedAsset;
   }
 
   if (claims.kind === "tool-output-image") {

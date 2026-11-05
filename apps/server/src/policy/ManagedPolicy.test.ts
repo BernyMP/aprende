@@ -43,6 +43,9 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
           settings: {
             "storageCleanup.logsAfterDays": { value: 30, locked: true },
             defaultRuntimeMode: { value: "approval-required", locked: false },
+            // Settings of removed features still load, and have no effect.
+            reviewGuidesEnabled: { value: false, locked: true },
+            "sourceControlWritingStyle.mode": { value: "plain", locked: true },
           },
         }),
       );
@@ -60,12 +63,11 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
         JSON.stringify({
           schemaVersion: 1,
           organization: "Example Corp",
-          limits: { webhookTasks: false, telemetry: true },
+          limits: { webhookTasks: false, telemetry: false },
         }),
       );
-      assert.deepEqual(policy.summary?.limits, { webhookTasks: false, telemetry: true });
-      assert.equal(ManagedPolicy.deniedBy(policy, "webhookTasks"), "Example Corp");
-      assert.isUndefined(ManagedPolicy.deniedBy(policy, "telemetry"));
+      assert.deepEqual(policy.summary?.limits, { telemetry: false });
+      assert.equal(ManagedPolicy.deniedBy(policy, "telemetry"), "Example Corp");
     }),
   );
 

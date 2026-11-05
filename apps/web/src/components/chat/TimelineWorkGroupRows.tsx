@@ -1,6 +1,5 @@
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogButton, WorkLogList, WorkLogRow } from "./WorkLog";
-import type { WorktreeSetupSnapshot } from "@aprende/contracts";
 import { type ToolActivityIcon } from "@aprende/contracts";
 import { liveThoughtLine } from "@aprende/client-runtime/work-log/presentation";
 import { resolveWorkGroupScrollAnchor } from "@aprende/client-runtime/work-log/scroll-anchor";
@@ -12,7 +11,6 @@ import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import { workEntryDisplayIndicatesToolFailure } from "../../session-logic";
 import ChatMarkdown from "../ChatMarkdown";
 import { Minimize2Icon, XIcon } from "lucide-react";
-import { Button } from "../ui/button";
 import { getVirtualizedScrollFadeClassName } from "../ui/scroll-area";
 import {
   liveWorkEntryLabel,
@@ -21,9 +19,6 @@ import {
   workEntryIsVisibleInGroup,
   type MessagesTimelineRow,
 } from "./MessagesTimeline.logic";
-import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
-import { Spinner } from "../ui/spinner";
-import { WorktreeSetupCard } from "./WorktreeSetupCard";
 import { cn } from "~/lib/utils";
 import { type TimestampFormat } from "@aprende/contracts/settings";
 import {
@@ -276,8 +271,7 @@ function ExpandedWorkGroupEntries({
 const workEntryKey = (entry: TimelineWorkEntry) => entry.id;
 
 export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "working" }> }) {
-  const { isCompacting, isPreparingWorktree, backgroundWorktreeSetup } =
-    use(TimelineRowActivityCtx);
+  const { isCompacting, isPreparingWorktree } = use(TimelineRowActivityCtx);
   const compacting = row.compacting === true || isCompacting;
   const shimmer = isPreparingWorktree || compacting;
   const label = isPreparingWorktree ? (
@@ -301,41 +295,8 @@ export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
           {label}
           {shimmer ? <ActivityShimmerOverlay>{label}</ActivityShimmerOverlay> : null}
         </span>
-        {backgroundWorktreeSetup ? (
-          <BackgroundWorktreeSetupChip snapshot={backgroundWorktreeSetup} />
-        ) : null}
       </div>
     </div>
-  );
-}
-
-function BackgroundWorktreeSetupChip({ snapshot }: { snapshot: WorktreeSetupSnapshot }) {
-  const scriptName = snapshot.setupScript?.name ?? "Setup script";
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            variant="ghost-muted"
-            size="micro"
-            className="ml-auto min-w-0 shrink-0"
-            aria-label={`Background setup is still running: ${scriptName}. Show setup progress.`}
-          />
-        }
-      >
-        <Spinner className="size-3 shrink-0" />
-        <span className="truncate">Background setup</span>
-      </PopoverTrigger>
-      <PopoverPopup side="bottom" align="end" width="lg" padding="compact">
-        <WorktreeSetupCard
-          snapshot={snapshot}
-          embedded
-          onCancel={null}
-          onWorkLocally={null}
-          onOpenTerminal={null}
-        />
-      </PopoverPopup>
-    </Popover>
   );
 }
 

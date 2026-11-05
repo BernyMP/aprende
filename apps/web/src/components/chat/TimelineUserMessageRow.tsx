@@ -5,17 +5,9 @@ import {
 import { InlineAudioPreview } from "../files/InlineAudioPreview";
 import { filePreviewKind } from "@aprende/shared/filePreview";
 import { findRevealRef } from "./markdownFindContext";
-import {
-  type EnvironmentId,
-  type MessageId,
-  type ScheduledTaskId,
-  type ServerProviderSkill,
-  ThreadId,
-} from "@aprende/contracts";
+import { type MessageId, type ServerProviderSkill, ThreadId } from "@aprende/contracts";
 import { resolveUserMessagePresentation } from "@aprende/client-runtime/user-message";
 import { useQuietThreadShell } from "../../state/entities";
-import { useEnvironmentQuery } from "../../state/query";
-import { serverEnvironment } from "../../state/server";
 import { replaceComposerContextReferences } from "@aprende/shared/composerContextReferences";
 import { memo, use, useState, type ReactNode } from "react";
 import {
@@ -289,11 +281,8 @@ function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mess
   const ctx = use(TimelineRowCtx);
   const [expanded, setExpanded] = useState(false);
   const revealRef = findRevealRef(() => setExpanded(true));
-  const { text, scheduledTaskId } = resolveUserMessagePresentation(row.message);
-  const summary =
-    useScheduledTaskTitle(ctx.activeThreadEnvironmentId, scheduledTaskId) ??
-    text.trim().split(/\r?\n/, 1)[0] ??
-    "";
+  const { text } = resolveUserMessagePresentation(row.message);
+  const summary = text.trim().split(/\r?\n/, 1)[0] ?? "";
 
   const revertTurnCount = row.revertTurnCount;
   const promptLink = promptLinkFor(text);
@@ -361,16 +350,6 @@ function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mess
       ) : null}
     </div>
   );
-}
-
-export function useScheduledTaskTitle(
-  environmentId: EnvironmentId,
-  scheduledTaskId: ScheduledTaskId | undefined,
-): string | undefined {
-  const tasksQuery = useEnvironmentQuery(
-    scheduledTaskId ? serverEnvironment.scheduledTasksLive({ environmentId, input: {} }) : null,
-  );
-  return tasksQuery.data?.tasks.find((task) => task.id === scheduledTaskId)?.title;
 }
 
 export function FoldedMessageHeader(props: {

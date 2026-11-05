@@ -271,8 +271,8 @@ describe("scoped settings writes", () => {
     it("reports a dropped toggle", async () => {
       expect(
         await outcome(
-          planScopedSettingsPatch(all, environments, { reviewGuidesEnabled: true }),
-          upgradedLaptop({ reviewGuidesEnabled: true }),
+          planScopedSettingsPatch(all, environments, { hideTaggedThreads: true }),
+          upgradedLaptop({ hideTaggedThreads: true }),
         ),
       ).toEqual({ saved: [laptop.label], failed: unsupported });
     });
@@ -280,8 +280,8 @@ describe("scoped settings writes", () => {
     it("reports dropped text but accepts the server trimming it", async () => {
       expect(
         await outcome(
-          planScopedSettingsPatch(all, environments, { reviewGuideInstructions: " Read tests " }),
-          upgradedLaptop({ reviewGuideInstructions: "Read tests" }),
+          planScopedSettingsPatch(all, environments, { threadTitleInstructions: " Read tests " }),
+          upgradedLaptop({ threadTitleInstructions: "Read tests" }),
         ),
       ).toEqual({ saved: [laptop.label], failed: unsupported });
     });
@@ -301,7 +301,7 @@ describe("scoped settings writes", () => {
     it("accepts a write that matches what the environment already had", async () => {
       expect(
         await outcome(
-          planScopedSettingsPatch(all, environments, { reviewGuidesEnabled: false }),
+          planScopedSettingsPatch(all, environments, { hideTaggedThreads: false }),
           upgradedLaptop({}),
         ),
       ).toEqual({ saved: [laptop.label, server.label], failed: [] });
@@ -532,20 +532,6 @@ describe("scoped settings writes", () => {
   });
 });
 
-describe("scoped settings mixed values", () => {
-  it("treats independently decoded equal nested settings as the same value", () => {
-    const style = {
-      ...DEFAULT_SERVER_SETTINGS.sourceControlWritingStyle,
-      mode: "custom" as const,
-      customInstructions: "Use plain language",
-    };
-    const first = environment("First", { settings: { sourceControlWritingStyle: { ...style } } });
-    const second = environment("Second", { settings: { sourceControlWritingStyle: { ...style } } });
-    const targets = resolveScopedSettingsTargets(all, [first, second]);
-    expect(scopedSettingsAreMixed(targets, ["sourceControlWritingStyle"])).toBe(false);
-  });
-});
-
 describe("project overrides at environment scope", () => {
   const laptop = EnvironmentId.make("laptop");
   const fleet = ProjectId.make("fleet");
@@ -637,69 +623,6 @@ describe("null patches at project scope", () => {
   });
 });
 
-describe("partial object patches at project scope", () => {
-  it("completes a writing style field patch from the target's effective value", () => {
-    const environmentId = EnvironmentId.make("laptop");
-    const projectId = ProjectId.make("fleet");
-    const member = {
-      id: projectId,
-      environmentId,
-      physicalProjectKey: "laptop:/repo",
-      environmentLabel: "Laptop",
-      title: "fleet",
-      workspaceRoot: "/repo",
-      defaultModelSelection: null,
-      scripts: [],
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    };
-    const settings = {
-      ...DEFAULT_SERVER_SETTINGS,
-      projectSettingsOverrides: {
-        [projectId]: {
-          sourceControlWritingStyle: {
-            mode: "custom" as const,
-            customInstructions: "Keep it short.",
-            followChangeRequestTemplates: false,
-          },
-        },
-      },
-    };
-    const plan = planScopedSettingsPatch(
-      {
-        kind: "project",
-        group: {} as never,
-        environmentId: null,
-        label: "fleet",
-        members: [member as never],
-        environmentIds: [environmentId],
-      },
-      [
-        {
-          environmentId,
-          label: "Laptop",
-          connection: { phase: "connected" },
-          serverConfig: {
-            settings,
-          },
-        },
-      ],
-      { sourceControlWritingStyle: { customInstructions: "Be terse." } },
-    );
-    expect(plan.serverWrites[0]?.patch).toEqual({
-      projectSettingsOverrides: {
-        [projectId]: {
-          sourceControlWritingStyle: {
-            mode: "custom",
-            customInstructions: "Be terse.",
-            followChangeRequestTemplates: false,
-          },
-        },
-      },
-    });
-  });
-});
-
 it("routes legacy model preference keys exclusively to the selected environment", () => {
   const patch = {
     favorites: [{ provider: ProviderInstanceId.make("codex"), model: "sol" }],
@@ -731,8 +654,6 @@ describe("model selection patches at project scope", () => {
       projectSettingsOverrides: {
         [projectId]: {
           defaultModelSelection: saved,
-          sourceControlWriterModelSelection: saved,
-          reviewGuideModelSelection: saved,
           textGenerationModelSelection: saved,
         },
       },
@@ -743,14 +664,10 @@ describe("model selection patches at project scope", () => {
   it("replaces old options when changing model selections", () => {
     const plan = planScopedSettingsPatch(checkout, [customized], {
       defaultModelSelection: { instanceId: claude, model: "claude-opus-4-8" },
-      sourceControlWriterModelSelection: { instanceId: codex, model: "gpt-5.6-mini" },
-      reviewGuideModelSelection: { instanceId: codex, model: "gpt-5.6-mini" },
       textGenerationModelSelection: { instanceId: claude, model: "claude-sonnet-4-6" },
     });
     expect(plan.serverWrites[0]?.patch.projectSettingsOverrides?.[projectId]).toEqual({
       defaultModelSelection: { instanceId: claude, model: "claude-opus-4-8" },
-      sourceControlWriterModelSelection: { instanceId: codex, model: "gpt-5.6-mini" },
-      reviewGuideModelSelection: { instanceId: codex, model: "gpt-5.6-mini" },
       textGenerationModelSelection: { instanceId: claude, model: "claude-sonnet-4-6" },
     });
   });

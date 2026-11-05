@@ -7,7 +7,6 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   RunId,
-  ScheduledTaskId,
   SECRET_REQUEST_UNSAVED_NOTE,
   ThreadId,
   TurnItemId,
@@ -24,7 +23,6 @@ import { expect, it } from "vite-plus/test";
 import * as ProviderAdapterRegistry from "../orchestration-v2/ProviderAdapterRegistry.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ProjectService from "../project/ProjectService.ts";
-import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as ThreadLaunchService from "../orchestration-v2/ThreadLaunchService.ts";
@@ -177,9 +175,6 @@ it("readThread preserves caller access errors and prefers activity-run status ov
         } satisfies Partial<ProviderRegistry.ProviderRegistry["Service"]>),
         Layer.mock(ProjectService.ProjectService)({}),
         Layer.mock(SecretRequests.SecretRequests)({}),
-        Layer.mock(ScheduledTaskService.ScheduledTaskService)({
-          list: () => Effect.succeed({ tasks: [] }),
-        } satisfies Partial<ScheduledTaskService.ScheduledTaskService["Service"]>),
         Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({
           list: () => Effect.succeed([]),
         } satisfies Partial<ProviderAdapterRegistry.ProviderAdapterRegistryV2["Service"]>),
@@ -262,9 +257,6 @@ it("readThread pages cut-off text without splitting an emoji across pages", asyn
         } satisfies Partial<ProviderRegistry.ProviderRegistry["Service"]>),
         Layer.mock(ProjectService.ProjectService)({}),
         Layer.mock(SecretRequests.SecretRequests)({}),
-        Layer.mock(ScheduledTaskService.ScheduledTaskService)({
-          list: () => Effect.succeed({ tasks: [] }),
-        } satisfies Partial<ScheduledTaskService.ScheduledTaskService["Service"]>),
         Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({
           list: () => Effect.succeed([]),
         } satisfies Partial<ProviderAdapterRegistry.ProviderAdapterRegistryV2["Service"]>),
@@ -394,9 +386,6 @@ it("taskStatus returns task.providerInstanceId rather than the driver kind", asy
         } satisfies Partial<ProviderRegistry.ProviderRegistry["Service"]>),
         Layer.mock(ProjectService.ProjectService)({}),
         Layer.mock(SecretRequests.SecretRequests)({}),
-        Layer.mock(ScheduledTaskService.ScheduledTaskService)({
-          list: () => Effect.succeed({ tasks: [] }),
-        } satisfies Partial<ScheduledTaskService.ScheduledTaskService["Service"]>),
         Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({
           list: () => Effect.succeed([]),
         } satisfies Partial<ProviderAdapterRegistry.ProviderAdapterRegistryV2["Service"]>),
@@ -521,19 +510,6 @@ it("readThread and sendToThread reach threads in other projects", async () => {
         } satisfies Partial<ProviderRegistry.ProviderRegistry["Service"]>),
         Layer.mock(ProjectService.ProjectService)({}),
         Layer.mock(SecretRequests.SecretRequests)({}),
-        Layer.mock(ScheduledTaskService.ScheduledTaskService)({
-          list: () =>
-            Effect.succeed({
-              tasks: [
-                {
-                  id: "task-foreign",
-                  projectId: foreignProjectId,
-                  runtimeMode: "approval-required",
-                  interactionMode: "default",
-                } as never,
-              ],
-            }),
-        } satisfies Partial<ScheduledTaskService.ScheduledTaskService["Service"]>),
         Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({
           list: () => Effect.succeed([]),
         } satisfies Partial<ProviderAdapterRegistry.ProviderAdapterRegistryV2["Service"]>),
@@ -565,26 +541,6 @@ it("readThread and sendToThread reach threads in other projects", async () => {
       .interruptThread(makeScope(), { threadId: foreignThreadId })
       .pipe(Effect.flip);
     expect(staleInterrupt.code).toBe("parent_not_active");
-
-    const staleSchedule = yield* service
-      .scheduleTask(makeScope(), {
-        projectId: foreignProjectId,
-        prompt: "check in later",
-        schedule: { type: "interval", everyMs: 3_600_000 },
-      })
-      .pipe(Effect.flip);
-    expect(staleSchedule.code).toBe("parent_not_active");
-    const staleUpdate = yield* service
-      .updateScheduledTask(makeScope(), {
-        scheduledTaskId: ScheduledTaskId.make("task-foreign"),
-        enabled: false,
-      })
-      .pipe(Effect.flip);
-    expect(staleUpdate.code).toBe("parent_not_active");
-    const staleDelete = yield* service
-      .deleteScheduledTask(makeScope(), { scheduledTaskId: ScheduledTaskId.make("task-foreign") })
-      .pipe(Effect.flip);
-    expect(staleDelete.code).toBe("parent_not_active");
 
     const backgroundTasks = [
       {
@@ -711,7 +667,6 @@ it("requestSecret saves a pasted value to a file without opening a card", async 
               return file;
             }),
         }),
-        Layer.mock(ScheduledTaskService.ScheduledTaskService)({}),
         Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({}),
         NodeCrypto.layer,
       ),
@@ -807,7 +762,6 @@ it("requestSecret returns the unsaved note for a declined, cancelled or timed-ou
           } satisfies Partial<ProviderRegistry.ProviderRegistry["Service"]>),
           Layer.mock(ProjectService.ProjectService)({}),
           Layer.mock(SecretRequests.SecretRequests)({}),
-          Layer.mock(ScheduledTaskService.ScheduledTaskService)({}),
           Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({}),
           NodeCrypto.layer,
         ),

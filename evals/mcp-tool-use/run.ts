@@ -30,19 +30,12 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import { Tool } from "effect/ai";
-import * as McpSchema from "effect/ai/McpSchema";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { taskPrompt } from "../../apps/server/src/mcp/delegatedTaskModes.ts";
-import * as McpInvocationContext from "../../apps/server/src/mcp/McpInvocationContext.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
 import * as Contracts from "@aprende/contracts";
-import {
-  EnvironmentId,
-  ORCHESTRATOR_MCP_RUNNING_TASK_NEXT,
-  PullRequestState,
-  ThreadId,
-} from "@aprende/contracts";
+import { EnvironmentId, ORCHESTRATOR_MCP_RUNNING_TASK_NEXT, ThreadId } from "@aprende/contracts";
 import { projectComposerContextForProvider } from "@aprende/shared/composerContextReferences";
 import { formatThreadLink } from "@aprende/shared/threadLinks";
 import { buildCodexAdditionalContext } from "../../apps/server/src/provider/CodexDeveloperInstructions.ts";
@@ -53,18 +46,12 @@ import { EnvironmentToolkit } from "../../apps/server/src/mcp/toolkits/environme
 import { HtmlToolkit } from "../../apps/server/src/mcp/toolkits/html/tools.ts";
 import { OrchestratorToolkit } from "../../apps/server/src/mcp/toolkits/orchestrator/tools.ts";
 import { ProjectToolkit } from "../../apps/server/src/mcp/toolkits/project/tools.ts";
-import {
-  CHILD_PULL_REQUEST_REPORT_NEXT,
-  PullRequestsToolkit,
-} from "../../apps/server/src/mcp/toolkits/pullRequests/tools.ts";
 import { ThreadToolkit } from "../../apps/server/src/mcp/toolkits/thread/tools.ts";
-import { WorktreeToolkit } from "../../apps/server/src/mcp/toolkits/worktree/tools.ts";
 import {
   CLAUDE_PROVIDER,
   makeClaudeQueryOptions,
 } from "../../apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts";
 import { proxyConfig } from "../shared/proxy.ts";
-import { changeRequestsCreatedBy } from "../../apps/server/src/orchestration-v2/PullRequestSyncReactor.ts";
 import {
   argvForm,
   gradeSecret,
@@ -136,8 +123,6 @@ export type SampleRun = {
   stopReason: string;
   /** The agent's final answer: its last response's text, if it ended its turn. */
   readonly finalText?: string;
-  /** PRs linked to the thread when the sample ends, by the agent or by T3. */
-  readonly linked?: ReadonlyArray<string>;
 };
 
 const Rest = [Schema.Record(Schema.String, Schema.Unknown)] as const;
@@ -190,10 +175,6 @@ const McpToolUseExpect = Schema.Struct({
   textMustNot: Schema.optional(Schema.Array(Schema.String)),
   /** Case-sensitive regexes on the final answer: the last response's text, once the turn ended. */
   finalTextMust: Schema.optional(Schema.Array(Schema.String)),
-  /** Each entry matches a PR URL linked at the end, as `args` values match. */
-  linked: Schema.optional(Schema.Array(Schema.String)),
-  /** The PR numbers linked at the end, exactly. */
-  linkedNumbers: Schema.optional(Schema.Array(Schema.Number)),
   /**
    * Secret checks: chat asks in text and question tools, where fixture values went, and how the
    * files request_secret returned were read. See `SecretExpect` in secret-grading.ts.
@@ -218,12 +199,6 @@ const McpToolUseWorld = Schema.StructWithRest(
         Schema.StructWithRest(Schema.Struct({ sha: Schema.String, subject: Schema.String }), Rest),
       ),
     ),
-    /** PRs already linked to the thread, with the state T3 last saw. */
-    linkedPullRequests: Schema.optional(
-      Schema.Array(
-        Schema.Struct({ number: Schema.Number, state: PullRequestState, title: Schema.String }),
-      ),
-    ),
   }),
   Rest,
 );
@@ -241,8 +216,6 @@ export const McpToolUseCase = Schema.Struct({
     role: Schema.Literals(["top", "delegated-child", "native-subagent"]),
     /** Runs only on this harness, for cases whose right answer depends on it. */
     harness: Schema.optional(Schema.Literals(["claude", "codex"])),
-    /** The Linked environments beta is on, so T3 lists its link tools. */
-    linkedEnvironments: Schema.optional(Schema.Boolean),
     /** delegate_task `role` for a delegated child. T3 builds the child's first message from it. */
     delegateRole: Schema.optional(OrchestratorMcpTaskRole),
     context: Schema.optional(Schema.String),
@@ -383,8 +356,6 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   AttachmentToolkit,
   ProjectToolkit,
   EnvironmentToolkit,
-  WorktreeToolkit,
-  PullRequestsToolkit,
   HtmlToolkit,
 ].flatMap((toolkit): ReadonlyArray<Tool.Any> => Object.values(toolkit.tools));
 // McpHttpServer decodes arguments with each tool's JSON codec, which drops undeclared keys.
@@ -401,14 +372,6 @@ const appTools: ReadonlyArray<ApiTool> = t3SourceTools.map((tool) => ({
   description: Tool.getDescription(tool) ?? "",
   input_schema: advertisedJsonSchema(tool),
 }));
-const enabledWhen = (predicate: () => boolean) =>
-  new Set(
-    t3SourceTools
-      .filter(
-        (tool) => Context.getOrUndefined(tool.annotations, McpSchema.EnabledWhen) === predicate,
-      )
-      .map((tool) => `${T3_PREFIX}${tool.name}`),
-  );
 // Claude Code loads a tool whose `_meta` sets anthropic/alwaysLoad up front instead of deferring it.
 const alwaysLoaded = new Set(
   t3SourceTools
@@ -429,16 +392,6 @@ export const savesPastedSecrets = appTools.some(
 /** A request_secret call that hands T3 a pasted secret, on a ref that takes one. */
 const pastedSecret = (name: string, input: Readonly<Record<string, unknown>>) =>
   savesPastedSecrets && name === "request_secret" && typeof input.value === "string";
-// T3 does not offer these to a delegated child, so its harness never lists them.
-const hiddenFromSubagents = enabledWhen(McpInvocationContext.hiddenFromSubagents);
-// The Linked environments beta starts off, and T3 lists its tools only while it is on.
-const hiddenWhileLinksOff = enabledWhen(McpInvocationContext.hiddenWhileLinksOff);
-const visibleAppTools = (options: { readonly subagent?: boolean; readonly links?: boolean }) =>
-  appTools.filter(
-    (tool) =>
-      (options.links === true || !hiddenWhileLinksOff.has(tool.name)) &&
-      !(options.subagent === true && hiddenFromSubagents.has(tool.name)),
-  );
 
 /** T3's Claude Code options for an eval thread: its system prompt append and its hooks. */
 const claudeQueryOptions = (model: Model) => {
@@ -534,13 +487,11 @@ export const buildBase = (
   options: {
     readonly model: Model;
     readonly keepUserInstructions: boolean;
-    readonly subagent?: boolean;
-    readonly links?: boolean;
     /** A native subagent starts from its task: T3 appends nothing to its system prompt. */
     readonly nativeSubagent?: boolean;
   },
 ) => {
-  const t3 = visibleAppTools(options);
+  const t3 = appTools;
   const firstAssistant = template.messages.findIndex((message) => message.role === "assistant");
   const head = template.messages.slice(0, firstAssistant === -1 ? undefined : firstAssistant);
   const systemTexts = [
@@ -624,11 +575,9 @@ const buildCodexBase = (
     readonly model: Model;
     readonly keepUserInstructions: boolean;
     readonly effort?: string | undefined;
-    readonly subagent?: boolean;
-    readonly links?: boolean;
   },
 ): Base => {
-  const t3 = visibleAppTools(options);
+  const t3 = appTools;
   const contentText = (item: Block) =>
     Array.isArray(item.content)
       ? item.content.map((block: Block) => valueText(block.text)).join("\n")
@@ -738,14 +687,9 @@ const codexMessages = (messages: ReadonlyArray<ApiMessage>): Array<Block> =>
   );
 /** One tool call the shell simulator has answered, or one from the case's prior turns. */
 type ShellEntry = { readonly tool: string; readonly input: unknown; readonly output: string };
-/** PRs T3 links by itself because a shell command created them, as `gh pr create` does. */
-const createdPullRequests = ({ tool, input, output }: ShellEntry) =>
-  tool === "Bash" && isRecord(input) && typeof input.command === "string"
-    ? changeRequestsCreatedBy(input.command, output).map(({ url }) => url)
-    : [];
 /**
  * One sample's state. ToolSearch adds loaded schemas to `tools`, like Claude Code. `shell` is the
- * history the simulator keeps consistent with; `linked`, `nextTask` and `threads` do the same for
+ * history the simulator keeps consistent with; `nextTask` and `threads` do the same for
  * T3 results.
  */
 type Sample = {
@@ -755,7 +699,6 @@ type Sample = {
   readonly repo: string;
   readonly shell: Array<ShellEntry>;
   readonly shellUsage: Usage;
-  readonly linked: Set<string>;
   readonly codeStore: Record<string, unknown>;
   nextTask: number;
   /** Threads the agent launched in this sample, by id, so reading one shows its own brief. */
@@ -770,23 +713,6 @@ const SHELL_TOOLS = new Set(["Bash", "Read", "Edit", "Write", "WebFetch"]);
 export const makeSample = (testCase: McpToolUseCase, base: Base): Sample => {
   const prior = testCase.setup.priorTurns ?? [];
   const priorCalls = prior.flatMap((turn) => turn.toolCalls ?? []);
-  const repo = testCase.setup.world?.repo ?? "acme/app";
-  const urls = [
-    ...(testCase.setup.world?.linkedPullRequests ?? []).map(
-      ({ number }) => pullRequest(repo, { number }).url,
-    ),
-    ...priorCalls.flatMap((call) =>
-      ["link_pull_request", "watch_pull_request"].includes(call.tool) && isRecord(call.input)
-        ? [pullRequest(repo, call.input).url]
-        : call.tool === "link_pull_requests" &&
-            isRecord(call.input) &&
-            Array.isArray(call.input.urls)
-          ? call.input.urls
-              .filter((url) => PULL_REQUEST_URL.test(valueText(url)))
-              .map((url) => pullRequest(repo, { url }).url)
-          : [],
-    ),
-  ];
   const taskNumbers = [...valueText(prior).matchAll(/task-(\d+)/g)].map((match) =>
     Number(match[1]),
   );
@@ -800,7 +726,6 @@ export const makeSample = (testCase: McpToolUseCase, base: Base): Sample => {
     repo: testCase.setup.world?.repo ?? "acme/app",
     shell,
     shellUsage: emptyUsage(),
-    linked: new Set([...urls, ...shell.flatMap(createdPullRequests)]),
     codeStore: {},
     nextTask: Math.max(0, ...taskNumbers) + 1,
     threads: new Map(),
@@ -974,38 +899,12 @@ const DEFAULT_THREAD = {
 const HTML_RENDERED =
   "Shown to the reader above your reply. Don't mention or describe the page; reply with only what it doesn't already say.";
 
-const PULL_REQUEST_URL = /\/pull\/\d+\/?$/;
-
-/** Pull request identity from a `url` or `repository` plus `number` input, like T3's results. */
-const pullRequest = (repo: string, input: Readonly<Record<string, unknown>>) => {
-  const url = typeof input.url === "string" ? input.url : "";
-  const repository =
-    /github\.com\/([^/]+\/[^/]+)\/pull/.exec(url)?.[1] ?? valueText(input.repository ?? repo);
-  const number = Number(/(\d+)\/?$/.exec(url)?.[1] ?? input.number);
-  return {
-    host: "github.com",
-    repository,
-    number,
-    url: url || `https://github.com/${repository}/pull/${number}`,
-  };
-};
-
-/** A linked PR as `list_thread_pull_requests` shows it. Links made in the sample are open. */
-const linkedEntry = (sample: Sample, url: string) => {
-  const pr = pullRequest(sample.repo, { url });
-  const seeded = sample.testCase.setup.world?.linkedPullRequests?.find(
-    ({ number }) => number === pr.number && pr.repository === sample.repo,
-  );
-  return { ...pr, state: seeded?.state ?? "open", title: seeded?.title ?? null };
-};
-
 /** A believable T3 result for a tool the case does not mock. */
 export const t3Default = (
   sample: Sample,
   name: string,
   input: Readonly<Record<string, unknown>>,
 ) => {
-  const pr = () => pullRequest(sample.repo, input);
   const newThread = (request: unknown, brief: unknown) => {
     const n = sample.nextTask++;
     const title =
@@ -1069,32 +968,6 @@ export const t3Default = (
       };
     case "task_cancel":
       return { taskId: input.taskId, status: "cancel_requested" };
-    case "link_pull_request": {
-      const alreadyLinked = sample.linked.has(pr().url);
-      sample.linked.add(pr().url);
-      return { ...pr(), alreadyLinked };
-    }
-    case "link_pull_requests": {
-      const urls = Array.isArray(input.urls) ? input.urls.map(valueText) : [];
-      const invalidUrls = urls.filter((url) => !PULL_REQUEST_URL.test(url));
-      const targets = [...new Set(urls.filter((url) => PULL_REQUEST_URL.test(url)))].map((url) =>
-        pullRequest(sample.repo, { url }),
-      );
-      const fresh = targets.filter(({ url }) => !sample.linked.has(url));
-      for (const { url } of targets) sample.linked.add(url);
-      const byRepository = (prs: ReadonlyArray<ReturnType<typeof pullRequest>>) =>
-        [...Map.groupBy(prs, (pr) => pr.repository).values()].map((group) => ({
-          host: "github.com",
-          repository: group[0]!.repository,
-          numbers: group.map((pr) => pr.number),
-        }));
-      return {
-        linked: byRepository(fresh),
-        alreadyLinked: byRepository(targets.filter((pr) => !fresh.includes(pr))),
-        linkedCount: targets.length,
-        ...(invalidUrls.length > 0 ? { invalidUrls } : {}),
-      };
-    }
     case "request_secret": {
       // T3 names a ref and a file with 32 hex characters, new for each request, in its secrets dir.
       const id = NodeCrypto.createHash("sha256")
@@ -1107,40 +980,6 @@ export const t3Default = (
         ? { status: "saved", file: `${home}/.aprende/userdata/secrets/files/${id}` }
         : { status: "saved", secretRef: `secret-ref:${id}` };
     }
-    case "unlink_pull_request":
-      return { ...pr(), wasLinked: sample.linked.delete(pr().url) };
-    case "unlink_pull_requests": {
-      const states = Array.isArray(input.states) ? input.states : [];
-      const unlinked = [...sample.linked]
-        .map((url) => linkedEntry(sample, url))
-        .filter((entry) => states.includes(entry.state));
-      for (const { url } of unlinked) sample.linked.delete(url);
-      const groups = Map.groupBy(unlinked, (entry) => `${entry.repository}/${entry.state}`);
-      return {
-        unlinked: [...groups.values()].map((entries) => ({
-          host: "github.com",
-          repository: entries[0]!.repository,
-          state: entries[0]!.state,
-          numbers: entries.map((entry) => entry.number),
-        })),
-        unlinkedCount: unlinked.length,
-        remaining: sample.linked.size,
-      };
-    }
-    case "watch_pull_request":
-      sample.linked.add(pr().url);
-      return { ...pr(), watching: true, wasWatching: false };
-    case "unwatch_pull_request":
-      return { ...pr(), watching: false, wasWatching: true };
-    case "list_thread_pull_requests":
-      return {
-        pullRequests: [...sample.linked].map((url) => ({
-          ...linkedEntry(sample, url),
-          source: "agent",
-          watching: false,
-        })),
-        chains: [],
-      };
     case "t3_thread_read": {
       const threadId = valueText(input.threadId);
       const launched = sample.threads.get(threadId);
@@ -1182,7 +1021,7 @@ const unsavedSecretNote = (Contracts as Record<string, unknown>).SECRET_REQUEST_
   | undefined;
 
 /** Fields T3 adds to real thread and task results, applied to mocks and defaults alike. */
-const withProductFields = (name: string, value: unknown, child: boolean): unknown => {
+const withProductFields = (name: string, value: unknown): unknown => {
   if (!isRecord(value)) return value;
   const linked = (thread: unknown, idKey = "threadId") => {
     if (!isRecord(thread) || thread.link !== undefined) return thread;
@@ -1214,16 +1053,12 @@ const withProductFields = (name: string, value: unknown, child: boolean): unknow
       return { ...value, thread: linked(value.thread) };
     case "t3_thread_launch":
     case "t3_thread_send":
-    case "run_scheduled_task_now":
       return linked(value);
     case "t3_thread_list":
     case "create_threads":
       return listed("threads");
     case "t3_thread_search":
       return listed("matches");
-    case "link_pull_request":
-    case "link_pull_requests":
-      return child ? { ...value, next: CHILD_PULL_REQUEST_REPORT_NEXT } : value;
     default:
       return value;
   }
@@ -1260,9 +1095,6 @@ const searchTools = (base: Base, query: string, max: number) => {
   const found = base.deferred.filter((tool) => hits(tool).length > 0);
   return found.toSorted((a, b) => hits(b).length - hits(a).length).slice(0, max);
 };
-
-const SUBAGENT_WATCH_ERROR =
-  "This thread is a subagent, so it cannot watch pull requests. Its parent thread owns the pull request: finish your task and report back instead.";
 
 /** Result for a native tool the case does not mock, other than shell, file, and web tools. */
 const nativeResult = (name: string, input: Readonly<Record<string, unknown>>) => {
@@ -1417,7 +1249,6 @@ const simulate = Effect.fn("evaluateMcpToolUse.simulate")(function* (
   if (call.tool === "Bash" && output === "") output = "(Bash completed with no output)";
   const entry = { ...call, output };
   sample.shell.push(entry);
-  for (const url of createdPullRequests(entry)) sample.linked.add(url);
   return output;
 });
 
@@ -1464,21 +1295,17 @@ export const answerToolCall = Effect.fn("evaluateMcpToolUse.answerToolCall")(fun
       call.id,
       name === "orchestrator_capabilities"
         ? capabilities(sample, mock)
-        : withProductFields(name, mock, testCase.setup.role === "delegated-child"),
+        : withProductFields(name, mock),
     );
   }
   if (isT3Name(call.name)) {
-    // T3 refuses a watch from a delegated child.
-    if (name === "watch_pull_request" && testCase.setup.role === "delegated-child") {
-      return failed(SUBAGENT_WATCH_ERROR);
-    }
     const value = t3Default(sample, name, input);
     if (name === "request_secret") savedSecretFile(sample, value);
     return toolResult(
       call.id,
       name === "orchestrator_capabilities"
         ? capabilities(sample, value)
-        : withProductFields(name, value, testCase.setup.role === "delegated-child"),
+        : withProductFields(name, value),
     );
   }
   if (call.name === "clock__curr_time")
@@ -1577,7 +1404,7 @@ export const gradeSample = (expect: McpToolUseCase["expect"], run: SampleRun, pa
   const add = (check: string, pass: boolean) => checks.push({ check, pass });
   const calls = run.calls.map((call) => ({ ...call, input: withOptionsObject(call.input) }));
   const count = (tool: string) => calls.filter((call) => call.tool === tool).length;
-  // `tool` may list alternatives, as in "link_pull_request|watch_pull_request".
+  // `tool` may list alternatives, as in "delegate_task|t3_thread_launch".
   const found = ({ tool, args = {} }: McpToolUseCall) =>
     calls.some((call) => tool.split("|").includes(call.tool) && matches(args, call.input));
   const label = ({ tool, args }: McpToolUseCall) => (args ? `${tool} ${valueText(args)}` : tool);
@@ -1627,13 +1454,6 @@ export const gradeSample = (expect: McpToolUseCase["expect"], run: SampleRun, pa
   for (const p of expect.textMustNot ?? []) add(`textMustNot /${p}/`, !test(p, run.text));
   for (const p of expect.finalTextMust ?? [])
     add(`finalTextMust /${p}/`, run.stopReason === "end_turn" && test(p, run.finalText ?? ""));
-  const isLinked = (url: string) => (run.linked ?? []).some((at) => matches(url, at));
-  for (const url of expect.linked ?? []) add(`linked ${url}`, isLinked(url));
-  if (expect.linkedNumbers !== undefined) {
-    const numbers = (run.linked ?? []).map((url) => Number(/(\d+)\/?$/.exec(url)?.[1]));
-    const exact = valueText(numbers.toSorted((a, b) => a - b));
-    add("linkedNumbers", exact === valueText(expect.linkedNumbers.toSorted((a, b) => a - b)));
-  }
   checks.push(...gradeSecret(expect.secret, run, pasted));
   return checks;
 };
@@ -1995,7 +1815,6 @@ const runSample = Effect.fn("evaluateMcpToolUse.runSample")(function* (
     text: said.join("\n\n"),
     stopReason,
     finalText,
-    linked: [...sample.linked],
     usage,
     shellUsage: sample.shellUsage,
     transcript: input ? transcript : messages.slice(start),
@@ -2231,7 +2050,6 @@ const main = Effect.gen(function* () {
   const keepUserInstructions = flags["user-instructions"] === "keep";
   const buildFor = (
     role: McpToolUseCase["setup"]["role"],
-    links: boolean,
   ): Effect.Effect<Base, Schema.SchemaError> =>
     codex
       ? decodeCodexCapture(template).pipe(
@@ -2240,8 +2058,6 @@ const main = Effect.gen(function* () {
               model: flags.model,
               keepUserInstructions,
               effort: flags.effort,
-              subagent: role === "delegated-child",
-              links,
             }),
           ),
         )
@@ -2250,9 +2066,7 @@ const main = Effect.gen(function* () {
             const built = buildBase(capture.request.provider_native, {
               model: flags.model,
               keepUserInstructions,
-              subagent: role === "delegated-child",
               nativeSubagent: role === "native-subagent",
-              links,
             });
             return role === "native-subagent"
               ? Effect.promise(() => t3SubagentContext(flags.model)).pipe(
@@ -2263,14 +2077,13 @@ const main = Effect.gen(function* () {
         );
   // Codex has no native subagents; its cases with that role run as top-level threads.
   const baseKey = ({ setup }: McpToolUseCase) =>
-    `${codex && setup.role === "native-subagent" ? "top" : setup.role}:${setup.linkedEnvironments === true}`;
-  const base = yield* buildFor("top", false);
-  const bases = new Map<string, Base>([["top:false", base]]);
+    codex && setup.role === "native-subagent" ? "top" : setup.role;
+  const base = yield* buildFor("top");
+  const bases = new Map<string, Base>([["top", base]]);
   for (const testCase of selected) {
     const key = baseKey(testCase);
     if (bases.has(key)) continue;
-    const [role = "top", links] = key.split(":") as [McpToolUseCase["setup"]["role"], string];
-    bases.set(key, yield* buildFor(role, links === "true"));
+    bases.set(key, yield* buildFor(key));
   }
   const baseFor = (testCase: McpToolUseCase) => bases.get(baseKey(testCase)) ?? base;
   const effort = flags.effort ?? base.codex?.reasoning.effort ?? "high";

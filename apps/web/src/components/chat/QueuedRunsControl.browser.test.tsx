@@ -22,13 +22,6 @@ vi.mock(import("../../state/entities"), async (importOriginal) => ({
     target === null ? null : { title: "Release lead" }) as never,
 }));
 
-vi.mock(import("../../state/query"), async (importOriginal) => ({
-  ...(await importOriginal()),
-  useEnvironmentQuery: (() => ({
-    data: { tasks: [{ id: "task:webhook", title: "PR dispatcher" }] },
-  })) as never,
-}));
-
 vi.mock(import("../../state/use-atom-command"), async (importOriginal) => ({
   ...(await importOriginal()),
   useAtomCommand: (() => async () => undefined) as never,
@@ -159,7 +152,7 @@ it("shows who sent a queued message and folds automation and agent prompts", asy
   const onOpenThread = vi.fn();
   await using _screen = await renderQueue({ onOpenThread });
 
-  const automation = page.getByRole("button", { name: /PR dispatcher/ });
+  const automation = page.getByRole("button", { name: /GitHub labeled a pull request/ });
   await expect.element(automation).toHaveAttribute("aria-expanded", "false");
   await expect.element(page.getByText(/Follow the runbook/)).not.toBeInTheDocument();
   await automation.click();

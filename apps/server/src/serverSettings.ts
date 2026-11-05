@@ -57,10 +57,6 @@ import {
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
 import { secretProviderDefinitions } from "./secrets/secretProviderDefinitions.ts";
-import {
-  readSecretFieldValues,
-  sourceControlHostSecretName,
-} from "./sourceControl/sourceControlHostSecrets.ts";
 
 import {
   mapSettingsSecrets,
@@ -68,11 +64,6 @@ import {
   SECRET_REDACTED,
   type SettingsSecret,
 } from "./settingsSecrets.ts";
-
-export {
-  resolveReviewGuideModelSelection,
-  resolveSourceControlWriterModelSelection,
-} from "@aprende/shared/serverSettings";
 
 const encodeServerSettings = Schema.encodeEffect(ServerSettings);
 const encodeServerSettingsJson = Schema.encodeUnknownEffect(fromJsonStringPretty(ServerSettings));
@@ -388,48 +379,6 @@ const LegacyProviderSettingsJson = fromLenientJson(
 );
 const decodeLegacyProviderSettingsJsonExit = Schema.decodeUnknownExit(LegacyProviderSettingsJson);
 
-const LEGACY_BITBUCKET_SECRET_NAMES: Readonly<Record<string, string>> = {
-  accessToken: "bitbucket-access-token",
-  apiToken: "bitbucket-api-token",
-};
-const legacyGitHubTokenSecretName = (host: string) =>
-  `github-token-${Buffer.from(host.trim().toLowerCase(), "utf8").toString("base64url")}`;
-
-function migrateLegacySourceControlSettings(
-  settings: ServerSettings,
-  legacy: {
-    readonly bitbucket?: Readonly<Record<string, unknown>> | undefined;
-    readonly github?: Readonly<Record<string, unknown>> | undefined;
-  },
-): {
-  readonly settings: ServerSettings;
-  readonly secretMoves: ReadonlyArray<{ readonly from: string; readonly to: string }>;
-} {
-  const sourceControlHosts = { ...settings.sourceControlHosts };
-  const secretMoves: Array<{ readonly from: string; readonly to: string }> = [];
-  if (legacy.bitbucket !== undefined && sourceControlHosts.bitbucket === undefined) {
-    sourceControlHosts.bitbucket = legacy.bitbucket;
-    for (const [field, from] of Object.entries(LEGACY_BITBUCKET_SECRET_NAMES)) {
-      if (legacy.bitbucket[field] !== SECRET_REDACTED) continue;
-      secretMoves.push({
-        from,
-        to: sourceControlHostSecretName({ kind: "bitbucket", field, serverHost: null }),
-      });
-    }
-  }
-  if (legacy.github !== undefined && sourceControlHosts.github === undefined) {
-    sourceControlHosts.github = legacy.github;
-    for (const [serverHost, value] of readSecretFieldValues(legacy.github.tokens)) {
-      if (serverHost === null || value !== SECRET_REDACTED) continue;
-      secretMoves.push({
-        from: legacyGitHubTokenSecretName(serverHost),
-        to: sourceControlHostSecretName({ kind: "github", field: "tokens", serverHost }),
-      });
-    }
-  }
-  return { settings: { ...settings, sourceControlHosts }, secretMoves };
-}
-
 function migrateLegacyProviderSettings(
   settings: ServerSettings,
   legacyProviders: Readonly<Record<string, unknown>>,
@@ -511,11 +460,8 @@ const ATOMIC_SETTINGS_KEYS: ReadonlySet<string> = new Set([
   "backgroundActivity",
   "automaticGitFetchInterval",
   "providerHealthRefreshInterval",
-  "sourceControlWriterModelSelection",
-  "reviewGuideModelSelection",
   "textGenerationModelSelection",
   "fallbackModelSelection",
-  "pullRequestMergeMethod",
   // Empty by default, these hold one whole value, which a managed policy can default.
   ...Object.entries(DEFAULT_SERVER_SETTINGS).flatMap(([key, value]) =>
     value === null ? [key] : [],
@@ -750,7 +696,6 @@ const make = Effect.gen(function* () {
   const loadSettingsFromDisk = Effect.gen(function* () {
     let settings = managed.defaults;
     let legacyProviders: Readonly<Record<string, unknown>> | undefined;
-    let legacySourceControl: Parameters<typeof migrateLegacySourceControlSettings>[1] = {};
     let parseFailure = Option.none<unknown>();
 
     if (yield* readConfigExists) {
@@ -762,10 +707,6 @@ const make = Effect.gen(function* () {
       const legacySettings = decodeLegacyProviderSettingsJsonExit(raw);
       if (legacySettings._tag === "Success") {
         legacyProviders = legacySettings.value.providers;
-        legacySourceControl = {
-          bitbucket: legacySettings.value.bitbucket,
-          github: legacySettings.value.github,
-        };
       }
       if (decoded._tag === "Failure" || legacySettings._tag === "Failure") {
         const failure = decoded._tag === "Failure" ? decoded : legacySettings;
@@ -822,43 +763,9 @@ const make = Effect.gen(function* () {
     const folded = settingsFileTrusted
       ? foldLegacyProjectSettings(loaded, legacyProjectRows)
       : loaded;
-    // Remove retired keys only after copying secrets and writing the new file; failures retry on next load.
-    const legacySecretsCopied = yield* Effect.forEach(
-      settingsFileTrusted
-        ? migrateLegacySourceControlSettings(folded, legacySourceControl).secretMoves
-        : [],
-      (move) =>
-        secretStore.get(move.from).pipe(
-          Effect.flatMap((secret) =>
-            Option.isNone(secret) ? Effect.void : secretStore.set(move.to, secret.value),
-          ),
-          Effect.as(true),
-          Effect.catch(() =>
-            Effect.logWarning("failed to copy a source control secret to its new name", {
-              secretName: move.to,
-            }).pipe(Effect.as(false)),
-          ),
-        ),
-    ).pipe(Effect.map((copied) => copied.every(Boolean)));
-    const hasLegacySourceControl =
-      settingsFileTrusted &&
-      legacySecretsCopied &&
-      (legacySourceControl.bitbucket !== undefined || legacySourceControl.github !== undefined);
-    const sourceControlMigration = hasLegacySourceControl
-      ? migrateLegacySourceControlSettings(folded, legacySourceControl)
-      : { settings: folded, secretMoves: [] };
-    const migrated = settingsFileTrusted
-      ? yield* moveInlineSettingsSecrets(sourceControlMigration.settings)
-      : folded;
-    if (
-      migrated !== loaded ||
-      (settingsFileTrusted && legacyProviders !== undefined) ||
-      hasLegacySourceControl
-    ) {
+    const migrated = settingsFileTrusted ? yield* moveInlineSettingsSecrets(folded) : folded;
+    if (migrated !== loaded || (settingsFileTrusted && legacyProviders !== undefined)) {
       yield* writeSettingsAtomically(migrated);
-      for (const move of sourceControlMigration.secretMoves) {
-        yield* secretStore.remove(move.from).pipe(Effect.ignore);
-      }
     }
     return { settings: migrated, parseFailure };
   });

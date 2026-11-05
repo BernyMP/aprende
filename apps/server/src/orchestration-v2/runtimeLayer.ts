@@ -12,7 +12,6 @@ import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as AgentSessionImporter from "../project/AgentSessionImporter.ts";
 import * as AgentSessionScanner from "../project/AgentSessionScanner.ts";
 import * as ProjectService from "../project/ProjectService.ts";
-import * as ProjectSetupScriptRunner from "../project/ProjectSetupScriptRunner.ts";
 import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
 import * as ScratchThreadPromotion from "../project/ScratchThreadPromotion.ts";
 import * as CheckpointCaptureService from "./CheckpointCaptureService.ts";
@@ -52,7 +51,6 @@ import * as ThreadManagementService from "./ThreadManagementService.ts";
 import * as ThreadLaunchService from "./ThreadLaunchService.ts";
 import * as ThreadForkService from "./ThreadForkService.ts";
 import * as TurnItemPositionStore from "./TurnItemPositionStore.ts";
-import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as LearningService from "../learning/LearningService.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 
@@ -255,7 +253,6 @@ const layerThreadManagementProvided = ThreadManagementService.layerWithLegacyImp
     ),
   ),
 );
-export const layerProjectSetupScriptRunner = ProjectSetupScriptRunner.layer;
 const layerManagedProjectFoldersProvided = ManagedProjectFolders.layer.pipe(
   Layer.provide(layerProjectService),
 );
@@ -263,7 +260,6 @@ const layerThreadLaunchProvided = ThreadLaunchService.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
       layerProjectService,
-      layerProjectSetupScriptRunner,
       layerManagedProjectFoldersProvided,
       layerThreadManagementProvided,
       layerCommandReceiptStoreProvided,
@@ -274,23 +270,12 @@ const layerThreadLaunchProvided = ThreadLaunchService.layer.pipe(
 const layerSecretRequestsProvided = SecretRequests.layer.pipe(
   Layer.provide(layerThreadManagementProvided),
 );
-const layerScheduledTaskProvided = ScheduledTaskService.layer.pipe(
-  Layer.provide(
-    Layer.mergeAll(
-      layerThreadLaunchProvided,
-      layerThreadManagementProvided,
-      layerManagedProjectFoldersProvided,
-      layerSecretRequestsProvided,
-    ),
-  ),
-);
 const layerScratchThreadPromotionProvided = ScratchThreadPromotion.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
       layerProjectService,
       layerManagedProjectFoldersProvided,
       layerThreadManagementProvided,
-      layerScheduledTaskProvided,
     ),
   ),
 );
@@ -366,7 +351,6 @@ export const layerProduction = Layer.mergeAll(
   layerProjectService,
   layerManagedProjectFoldersProvided,
   layerThreadLaunchProvided,
-  layerScheduledTaskProvided,
   LearningService.layer.pipe(
     Layer.provide(Layer.mergeAll(layerThreadManagementProvided, layerProjectService)),
   ),
@@ -385,7 +369,7 @@ export const layerProduction = Layer.mergeAll(
   layerAgentSessionImporterProvided,
   EffectOutbox.layerPruneWorker.pipe(Layer.provide(EffectOutbox.layer)),
 ).pipe(
-  Layer.provide(ResourceCleanupService.layer.pipe(Layer.provide(layerScheduledTaskProvided))),
+  Layer.provide(ResourceCleanupService.layer),
   Layer.provide(Scheduler.layer),
   Layer.provideMerge(layerEventInfrastructure),
 );

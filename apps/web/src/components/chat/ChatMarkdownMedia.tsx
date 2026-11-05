@@ -1,6 +1,6 @@
 import { MISSING_FILE_ACCESS_MESSAGE } from "@aprende/client-runtime/state/assets";
 import { mediaFileReference, mediaUrlReference } from "@aprende/client-runtime/media-reference";
-import type { AssetResource, EnvironmentId, SOURCE_CONTROL_MEDIA_ASSET } from "@aprende/contracts";
+import type { AssetResource, EnvironmentId } from "@aprende/contracts";
 import { TriangleAlertIcon } from "lucide-react";
 import {
   createContext,
@@ -315,12 +315,7 @@ export const ChatMarkdownAssetImage = memo(function ChatMarkdownAssetImage(props
   readonly resource: Extract<
     AssetResource,
     {
-      readonly _tag:
-        | "attachment"
-        | "workspace-file"
-        | "media-file"
-        | typeof SOURCE_CONTROL_MEDIA_ASSET
-        | "tool-output-image";
+      readonly _tag: "attachment" | "workspace-file" | "media-file" | "tool-output-image";
     }
   >;
   readonly kind?: "image" | "video";

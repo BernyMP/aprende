@@ -8,7 +8,6 @@ import {
   ServerSettings,
   ServerSettingsPatch,
   UsageLimitSourceId,
-  type ServerProvider,
 } from "@aprende/contracts";
 import * as Duration from "effect/Duration";
 import * as Schema from "effect/Schema";
@@ -21,9 +20,7 @@ import {
   fallbackTextGenerationModelSelection,
   modelPreferencesMigrationPatch,
   resolveModelPreferences,
-  isModelSelectionProviderEnabled,
   parsePersistedServerObservabilitySettings,
-  resolveSourceControlWriterModelSelection,
 } from "./serverSettings.ts";
 
 const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
@@ -105,38 +102,6 @@ describe("serverSettings helpers", () => {
       browserArtifactsAfterDays: null,
       logsAfterDays: 30,
     });
-  });
-  it("replaces a source control host's patched field so a cleared account pin does not survive", () => {
-    const pinned = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
-      sourceControlHosts: {
-        github: { hosts: { "github.com": { account: "work", enabled: true } }, tokens: {} },
-      },
-    });
-    const unpinned = applyServerSettingsPatch(pinned, {
-      sourceControlHosts: { github: { hosts: { "github.com": { enabled: false } } } },
-    });
-    expect(unpinned.sourceControlHosts.github).toEqual({
-      hosts: { "github.com": { enabled: false } },
-      tokens: {},
-    });
-  });
-
-  it("keeps a source control host's saved tokens when a patch sets another host's token", () => {
-    const reference = { provider: "vault", reference: "github/token" };
-    const saved = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
-      sourceControlHosts: { github: { tokens: { "github.com": reference } } },
-    });
-    const patched = applyServerSettingsPatch(saved, {
-      sourceControlHosts: { github: { tokens: { "ghe.example": "x" } } },
-    });
-    expect(patched.sourceControlHosts.github?.tokens).toEqual({
-      "github.com": reference,
-      "ghe.example": "x",
-    });
-    const recased = applyServerSettingsPatch(saved, {
-      sourceControlHosts: { github: { tokens: { " GitHub.com ": "ghp_new" } } },
-    });
-    expect(recased.sourceControlHosts.github?.tokens).toEqual({ "github.com": "ghp_new" });
   });
 
   it("inherits actions, preserves existing actions, and supports empty overrides and reset", () => {
@@ -327,139 +292,6 @@ describe("serverSettings helpers", () => {
       instanceId: "opencode",
       model: "openai/gpt-5",
     });
-  });
-
-  it("falls back from a disabled source control writer provider without clearing its selection", () => {
-    const instanceId = ProviderInstanceId.make("codex_writer");
-    const sourceControlWriterModelSelection = createModelSelection(instanceId, "gpt-5.4-mini");
-    const settings = {
-      ...DEFAULT_SERVER_SETTINGS,
-      providerInstances: {
-        [instanceId]: {
-          driver: ProviderDriverKind.make("codex"),
-          enabled: false,
-          config: {},
-        },
-      },
-      sourceControlWriterModelSelection,
-    };
-
-    expect(isModelSelectionProviderEnabled(settings, sourceControlWriterModelSelection)).toBe(
-      false,
-    );
-    expect(resolveSourceControlWriterModelSelection(settings, undefined, null)).toBe(
-      settings.textGenerationModelSelection,
-    );
-    expect(settings.sourceControlWriterModelSelection).toBe(sourceControlWriterModelSelection);
-  });
-
-  it("falls back from a writer provider that cannot generate application text", () => {
-    const instanceId = ProviderInstanceId.make("acp_writer");
-    const sourceControlWriterModelSelection = createModelSelection(instanceId, "default");
-    const settings = {
-      ...DEFAULT_SERVER_SETTINGS,
-      providerInstances: {
-        [instanceId]: {
-          driver: ProviderDriverKind.make("acpRegistry"),
-          enabled: true,
-          config: {},
-        },
-      },
-      sourceControlWriterModelSelection,
-    };
-    const incapableProvider = {
-      instanceId,
-      driver: ProviderDriverKind.make("acpRegistry"),
-      supportsTextGeneration: false,
-      enabled: true,
-      installed: true,
-      version: null,
-      status: "ready",
-      auth: { status: "authenticated" },
-      checkedAt: "2026-07-27T00:00:00.000Z",
-      models: [],
-      slashCommands: [],
-      skills: [],
-    } satisfies ServerProvider;
-
-    expect(resolveSourceControlWriterModelSelection(settings, [incapableProvider], null)).toBe(
-      settings.textGenerationModelSelection,
-    );
-    expect(settings.sourceControlWriterModelSelection).toBe(sourceControlWriterModelSelection);
-  });
-
-  it("falls back from a writer provider a project turned off, keeping it for other projects", () => {
-    const instanceId = ProviderInstanceId.make("codex_writer");
-    const projectId = ProjectId.make("project-a");
-    const sourceControlWriterModelSelection = createModelSelection(instanceId, "gpt-5.4-mini");
-    const settings = {
-      ...DEFAULT_SERVER_SETTINGS,
-      providerInstances: {
-        [instanceId]: { driver: ProviderDriverKind.make("codex"), enabled: true, config: {} },
-      },
-      projectSettingsOverrides: {
-        [projectId]: { providerInstances: { [instanceId]: { enabled: false } } },
-      },
-      sourceControlWriterModelSelection,
-    };
-    const provider = {
-      instanceId,
-      driver: ProviderDriverKind.make("codex"),
-      enabled: true,
-      installed: true,
-      version: null,
-      status: "ready",
-      auth: { status: "authenticated" },
-      checkedAt: "2026-07-27T00:00:00.000Z",
-      availability: "available",
-      models: [],
-      slashCommands: [],
-      skills: [],
-    } satisfies ServerProvider;
-
-    expect(resolveSourceControlWriterModelSelection(settings, [provider], projectId)).toBe(
-      settings.textGenerationModelSelection,
-    );
-    expect(resolveSourceControlWriterModelSelection(settings, [provider], null)).toBe(
-      sourceControlWriterModelSelection,
-    );
-  });
-
-  it("keeps a writer on an instance the project turned on while the machine has it off", () => {
-    const instanceId = ProviderInstanceId.make("codex_writer");
-    const projectId = ProjectId.make("project-a");
-    const sourceControlWriterModelSelection = createModelSelection(instanceId, "gpt-5.4-mini");
-    const settings = {
-      ...DEFAULT_SERVER_SETTINGS,
-      providerInstances: {
-        [instanceId]: { driver: ProviderDriverKind.make("codex"), enabled: false, config: {} },
-      },
-      projectSettingsOverrides: {
-        [projectId]: { providerInstances: { [instanceId]: { enabled: true } } },
-      },
-      sourceControlWriterModelSelection,
-    };
-    const provider = {
-      instanceId,
-      driver: ProviderDriverKind.make("codex"),
-      enabled: true,
-      installed: true,
-      version: null,
-      status: "ready",
-      auth: { status: "authenticated" },
-      checkedAt: "2026-07-27T00:00:00.000Z",
-      availability: "available",
-      models: [],
-      slashCommands: [],
-      skills: [],
-    } satisfies ServerProvider;
-
-    expect(resolveSourceControlWriterModelSelection(settings, [provider], projectId)).toBe(
-      sourceControlWriterModelSelection,
-    );
-    expect(resolveSourceControlWriterModelSelection(settings, [provider], null)).toBe(
-      settings.textGenerationModelSelection,
-    );
   });
 
   it("replaces providerInstances maps so omitted instance fields are cleared", () => {
@@ -692,12 +524,7 @@ describe("serverSettings helpers", () => {
       providerHealthRefreshInterval: Duration.minutes(4),
     };
 
-    const next = applyServerSettingsPatch(current, {
-      sourceControlWriterModelSelection: createModelSelection(
-        ProviderInstanceId.make("codex"),
-        "gpt-5.4-mini",
-      ),
-    });
+    const next = applyServerSettingsPatch(current, { threadTitleInstructions: "Short titles." });
 
     expect(next.backgroundActivity).toEqual({
       schemaVersion: 1,

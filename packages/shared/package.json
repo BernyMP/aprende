@@ -3,10 +3,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./changedFileKind": {
-      "types": "./src/changedFileKind.ts",
-      "import": "./src/changedFileKind.ts"
-    },
     "./authScopeOptions": {
       "types": "./src/authScopeOptions.ts",
       "import": "./src/authScopeOptions.ts"
@@ -22,10 +18,6 @@
     "./socketFrameParts": {
       "types": "./src/socketFrameParts.ts",
       "import": "./src/socketFrameParts.ts"
-    },
-    "./composerPullRequestMatches": {
-      "types": "./src/composerPullRequestMatches.ts",
-      "import": "./src/composerPullRequestMatches.ts"
     },
     "./themePalettes": {
       "types": "./src/themePalettes.ts",
@@ -58,10 +50,6 @@
     "./git": {
       "types": "./src/git.ts",
       "import": "./src/git.ts"
-    },
-    "./sourceControl": {
-      "types": "./src/sourceControl.ts",
-      "import": "./src/sourceControl.ts"
     },
     "./logging": {
       "types": "./src/logging.ts",
@@ -242,10 +230,6 @@
     "./paletteSearch": {
       "types": "./src/paletteSearch.ts",
       "import": "./src/paletteSearch.ts"
-    },
-    "./threadPullRequests": {
-      "types": "./src/threadPullRequests.ts",
-      "import": "./src/threadPullRequests.ts"
     },
     "./composerTrigger": {
       "types": "./src/composerTrigger.ts",

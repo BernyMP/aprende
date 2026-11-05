@@ -14,19 +14,12 @@ export function preferences(settings: ServerSettings) {
     newWorktreesStartFromOrigin,
     enableProviderUpdateChecks,
     backgroundActivity,
-    sourceControlWritingStyle,
   } = settings;
-  const characters = Array.from(sourceControlWritingStyle.customInstructions);
   return {
     defaultThreadEnvMode,
     newWorktreesStartFromOrigin,
     enableProviderUpdateChecks,
     backgroundActivity: { profile: backgroundActivity.profile },
-    sourceControlWritingStyle: {
-      ...sourceControlWritingStyle,
-      customInstructions: characters.slice(0, 4000).join(""),
-      truncated: characters.length > 4000,
-    },
   };
 }
 const access = Effect.gen(function* () {

@@ -27,7 +27,6 @@ import {
 export function useComposerMenuItems({
   composerTrigger,
   environmentId,
-  linkedEnvironments,
   gitCwd,
   activeThreadId,
   planModeUiEnabled,
@@ -42,7 +41,6 @@ export function useComposerMenuItems({
 }: {
   readonly composerTrigger: ComposerTrigger | null;
   readonly environmentId: EnvironmentId;
-  readonly linkedEnvironments: ReadonlyMap<EnvironmentId, string>;
   readonly gitCwd: string | null;
   readonly activeThreadId: ThreadId | null;
   readonly planModeUiEnabled: boolean;
@@ -76,7 +74,6 @@ export function useComposerMenuItems({
         ...matchComposerThreadItems({
           shells: environmentThreadShells,
           environmentId,
-          linkedEnvironments,
           excludeThreadId: activeThreadId,
           query: composerTrigger.query,
           now,

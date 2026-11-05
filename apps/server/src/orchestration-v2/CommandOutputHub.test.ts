@@ -77,7 +77,6 @@ const seedThread = Effect.gen(function* () {
     interactionMode: "default",
     branch: null,
     worktreePath: null,
-    branchPullRequest: null,
     activeOrderKey: null,
     activeProviderThreadId: null,
     lineage: { parentThreadId: null, relationshipToParent: null, rootThreadId: threadId },

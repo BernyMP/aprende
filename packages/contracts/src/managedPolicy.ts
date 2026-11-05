@@ -77,6 +77,7 @@ export const ManagedPolicyLimits = Schema.Struct({
   clients: Schema.optionalKey(Schema.NonEmptyArray(ManagedPolicyClient)),
   /** `false` turns T3 Connect off and unlinks this machine. */
   connect: Schema.optionalKey(Schema.Boolean),
+  /** Accepted so older policy files still load; nothing reads it since scheduled tasks are gone. */
   webhookTasks: Schema.optionalKey(Schema.Boolean),
   /** Can only turn relay tracing off, never force it on. */
   telemetry: Schema.optionalKey(Schema.Boolean),
@@ -90,9 +91,6 @@ export type ManagedPolicyLimits = typeof ManagedPolicyLimits.Type;
 export const ManagedPolicySummaryLimits = Schema.Struct({
   maxRuntimeMode: Schema.optionalKey(RuntimeMode),
   clients: Schema.optionalKey(Schema.NonEmptyArray(ManagedPolicyClient)),
-  /** `false` also when `clients` leaves out `remote`, since Connect is remote access. */
-  connect: Schema.optionalKey(Schema.Boolean),
-  webhookTasks: Schema.optionalKey(Schema.Boolean),
   telemetry: Schema.optionalKey(Schema.Boolean),
   browserCookieImport: Schema.optionalKey(Schema.Boolean),
   providers: Schema.optionalKey(
@@ -162,8 +160,8 @@ export function isManagedSettingPath(
   );
 }
 
-/** The one shape users see when policy refuses something: "Example Corp's policy does not allow webhook tasks." */
-export function managedPolicyDeniedMessage(organization: string, capability: string): string {
+/** The one shape users see when policy refuses something: "Example Corp's policy does not allow importing browser cookies." */
+function managedPolicyDeniedMessage(organization: string, capability: string): string {
   return `${organization}'s policy does not allow ${capability}.`;
 }
 
@@ -206,8 +204,6 @@ export function clampManagedRuntimeMode(
 
 const CAPABILITY_LABELS = {
   remoteClients: "connecting from other devices",
-  connect: "T3 Connect",
-  webhookTasks: "webhook tasks",
   browserCookieImport: "importing browser cookies",
 } as const;
 

@@ -276,7 +276,6 @@ import { ComposerControlsBar } from "./ComposerControlsBar";
 import { composerCommandKeyHandler } from "./composerCommandKey";
 
 // Threads can only name threads on their own environment.
-const NO_LINKED_ENVIRONMENTS: ReadonlyMap<EnvironmentId, string> = new Map();
 
 function consumePasteAsTextShortcut(deadline: { current: number }): boolean {
   const armed = Date.now() <= deadline.current;
@@ -1112,7 +1111,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     composerTerminalContexts.length === 0 &&
     composerPreviewAnnotations.length === 0 &&
     composerReviewComments.length === 0;
-  const linkedEnvironments = NO_LINKED_ENVIRONMENTS;
   const {
     items: composerMenuItems,
     isLoading: isComposerMenuLoading,
@@ -1120,7 +1118,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   } = useComposerMenuItems({
     composerTrigger,
     environmentId,
-    linkedEnvironments,
     gitCwd,
     activeThreadId,
     planModeUiEnabled,
@@ -1349,7 +1346,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     importContextFragmentStable,
   } = useComposerContextImport({
     environmentId,
-    linkedEnvironments,
     activeThread,
     activeThreadId,
     composerDraftTarget,
@@ -2615,9 +2611,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
 
   useThreadContextDrop(composerFormRef, environmentId, attachmentTargetKey, (refs, isActive) => {
     const records = refs.flatMap((ref) => {
-      // The agent reads a linked machine's thread itself, like the `@` picker's; any other
-      // machine's comes in as its transcript.
-      if (ref.environmentId !== environmentId && !linkedEnvironments.has(ref.environmentId)) {
+      // The agent reads only its own machine's threads; another machine's comes in as its transcript.
+      if (ref.environmentId !== environmentId) {
         void importDroppedThread(
           ref,
           () => isActive() && attachmentTargetKeyRef.current === attachmentTargetKey,

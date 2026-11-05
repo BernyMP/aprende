@@ -1,16 +1,8 @@
-import type { EnvironmentId, PullRequestLinkedThreadsResult } from "@aprende/contracts";
-
 import { dispatchCommandPalette, isCommandPaletteMounted } from "./commandPaletteStore";
-
-export interface CommandPaletteLinkedThreads {
-  readonly environmentId: EnvironmentId;
-  readonly threads: PullRequestLinkedThreadsResult["threads"];
-}
 
 export interface CommandPaletteOpenDetail {
   readonly open?: "add-project" | "new-thread-in";
   readonly query?: string;
-  readonly linkedThreads?: CommandPaletteLinkedThreads;
 }
 
 export function openCommandPalette(detail: CommandPaletteOpenDetail = {}): void {
@@ -22,11 +14,7 @@ export function openCommandPalette(detail: CommandPaletteOpenDetail = {}): void 
   } else if (detail.open === "add-project") {
     dispatchCommandPalette({ _tag: "OpenAddProject" });
   } else if (detail.query !== undefined) {
-    dispatchCommandPalette({
-      _tag: "OpenSearch",
-      query: detail.query,
-      ...(detail.linkedThreads ? { linkedThreads: detail.linkedThreads } : {}),
-    });
+    dispatchCommandPalette({ _tag: "OpenSearch", query: detail.query });
   } else {
     dispatchCommandPalette({ _tag: "SetOpen", open: true });
   }

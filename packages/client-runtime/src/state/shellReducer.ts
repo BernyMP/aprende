@@ -2,7 +2,6 @@ import {
   OrchestrationProjectShell,
   OrchestrationV2ThreadShell,
   RepositoryIdentity,
-  ThreadPullRequestLink,
   type OrchestrationV2ShellSnapshot,
   type OrchestrationV2ShellStreamItem,
 } from "@aprende/contracts";
@@ -10,22 +9,11 @@ import * as Schema from "effect/Schema";
 
 const sameThreadShell = Schema.toEquivalence(OrchestrationV2ThreadShell);
 const sameProjectShell = Schema.toEquivalence(OrchestrationProjectShell);
-const sameLinks = Schema.toEquivalence(Schema.UndefinedOr(Schema.Array(ThreadPullRequestLink)));
 const sameRepositoryIdentity = Schema.toEquivalence(
   Schema.UndefinedOr(Schema.NullOr(RepositoryIdentity)),
 );
 
-export function sameThreadPullRequests(
-  left: OrchestrationV2ThreadShell["pullRequests"],
-  right: OrchestrationV2ThreadShell["pullRequests"],
-): boolean {
-  return left === right || sameLinks(left, right);
-}
-
-/**
- * Links are compared apart from the rest of the row because a deferred snapshot arrives without
- * them; such a row keeps its links until they fill in.
- */
+/** Keeps a row's object identity when its contents did not change, so views skip rerendering it. */
 export function reuseUnchangedThreadShells(
   previous: OrchestrationV2ShellSnapshot | null,
   next: OrchestrationV2ShellSnapshot,
@@ -36,11 +24,7 @@ export function reuseUnchangedThreadShells(
   const threads = next.threads.map((thread) => {
     const prior = previousById.get(thread.id);
     if (prior === undefined) return thread;
-    const candidate =
-      thread.pullRequests === undefined && prior.pullRequests !== undefined
-        ? { ...thread, pullRequests: prior.pullRequests }
-        : thread;
-    const retained = sameThreadShell(prior, candidate) ? prior : candidate;
+    const retained = sameThreadShell(prior, thread) ? prior : thread;
     if (retained !== thread) changed = true;
     return retained;
   });

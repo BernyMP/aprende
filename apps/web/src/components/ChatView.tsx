@@ -12,7 +12,6 @@ import {
   presentThreadShellFromProjection,
 } from "./ChatView.logic";
 import { useComposerSelection } from "./chat/useComposerSelection";
-import { useProjectCloneBanner } from "./chat/useProjectCloneBanner";
 import { useAttachmentPreviewHandoff } from "./chat/useAttachmentPreviewHandoff";
 import {
   applyOptimisticUserMessagesAction,
@@ -40,7 +39,7 @@ import { isScratchProject } from "@aprende/client-runtime/state/projects";
 import type { UsageLimitSourceSnapshots } from "@aprende/contracts";
 import { feedbackBannerItem } from "./chat/ComposerFeedback";
 import { useUsageLimitsPanel } from "./chat/useUsageLimitsPanel";
-import { useWorktreeSetup } from "./chat/useWorktreeSetup";
+import { useWorkspacePreparationRetry } from "./chat/useWorkspacePreparationRetry";
 import { useChatShortcuts } from "./chat/useChatShortcuts";
 import { ChatBannerLane } from "./chat/ChatBannerLane";
 import * as Schema from "effect/Schema";
@@ -936,8 +935,6 @@ export default function ChatView(props: ChatViewProps) {
     activeProject?.id ?? null,
     activeProject ?? undefined,
   );
-  const { projectCloneBannerItem, projectCloneSendBlockReason } =
-    useProjectCloneBanner(activeProjectRef);
   const activeProjectDefaultModelSelection =
     !isServerThread && draftFallback
       ? draftFallback.selection
@@ -1365,26 +1362,12 @@ export default function ChatView(props: ChatViewProps) {
   const displayedTimelineKey = activeThreadKey ?? routeThreadKey;
   const displayedThreadRef = parseScopedThreadKey(displayedTimelineKey);
   const {
-    worktreeSetup,
-    isPreparingWorktree,
-    blocksSend: worktreeSetupBlocksSend,
     retryableRunIds: retryableWorkspacePreparationRunIds,
-    begin: beginWorktreeSetup,
-    cancel: cancelWorktreeSetup,
     retryPreparation: onRetryWorkspacePreparationStable,
-  } = useWorktreeSetup({
-    routeThreadRef,
-    ownerKey: draftId ?? routeThreadKey,
-    activeThread,
-    threadRef: activeThreadRef,
-    serverProjection,
-    activityRun: activeActivityRun,
-    localPreparing: isLocallyPreparingWorktree,
-    sendQueuesBehindSetup,
-    // Include optimistic sends to retire the row before the server echo.
-    followUpSent: timelineMessages.filter((message) => message.role === "user").length > 1,
-  });
-  const onCancelWorktreeSetupStable = useStableCallback(() => void cancelWorktreeSetup());
+  } = useWorkspacePreparationRetry({ threadRef: activeThreadRef, serverProjection });
+  const isPreparingWorktree =
+    isLocallyPreparingWorktree || activeActivityRun?.status === "preparing";
+  const worktreeSetupBlocksSend = !sendQueuesBehindSetup && isPreparingWorktree;
   const [dockedDraftHeroThreadKey, setDockedDraftHeroThreadKey] = useState<string | null>(null);
   const draftHeroDockRequested =
     activeThreadKey !== null && dockedDraftHeroThreadKey === activeThreadKey;
@@ -1394,7 +1377,6 @@ export default function ChatView(props: ChatViewProps) {
     isWorking,
     draftHeroDockRequested,
     backgroundSubmissionPending,
-    hasWorktreeSetupCard: worktreeSetup !== null,
   });
   const {
     transitionGroupRef: draftHeroTransitionGroupRef,
@@ -2098,13 +2080,11 @@ export default function ChatView(props: ChatViewProps) {
         : [];
     const limitRecoveryItems = limitRecoveryBanner === null ? [] : [limitRecoveryBanner];
     const usageLimitsItems = usageLimitsBanner === null ? [] : [usageLimitsBanner];
-    const projectCloneItems = projectCloneBannerItem === null ? [] : [projectCloneBannerItem];
     return [
       ...feedbackBannerItems,
       ...fallbackItems,
       ...limitRecoveryItems,
       ...usageLimitsItems,
-      ...projectCloneItems,
       ...systemComposerBannerItems,
     ];
   })() as ComposerBannerStackItem[];
@@ -2321,16 +2301,11 @@ export default function ChatView(props: ChatViewProps) {
     activeProject,
     activeProjectDefaultModelSelection,
     activeProposedPlan,
-    activeMessageCount,
     isServerThread,
     isLocalDraftThread,
-    isGitRepo: false,
     phase,
     runtimeMode,
-    sendEnvMode,
-    startFromOrigin: false,
     logicalProjectEnvironments,
-    providerInstanceEntries,
     composerRef,
     composerDraftTarget,
     promptRef,
@@ -2364,7 +2339,6 @@ export default function ChatView(props: ChatViewProps) {
     onRespondToApproval: onRespondToApprovalStable,
     beginLocalDispatch,
     resetLocalDispatch,
-    beginWorktreeSetup,
     captureDraftHeroComposerRect,
     setDockedDraftHeroThreadKey,
     setSetupQueueSendThreadKey,
@@ -2386,15 +2360,6 @@ export default function ChatView(props: ChatViewProps) {
   });
   const onImplementPlanInNewThreadStable = useStableCallback(onImplementPlanInNewThread);
 
-  const onWorktreeSetupWorkLocally = () => {
-    if (!worktreeSetup || worktreeSetup.phase !== "running" || !draftId) {
-      return;
-    }
-    void cancelWorktreeSetup().then((cancelled) => {
-      if (cancelled) setWorkLocallyResendDraftId(draftId);
-    });
-  };
-  const onWorktreeSetupWorkLocallyStable = useStableCallback(onWorktreeSetupWorkLocally);
   const onComposerSendStable = useStableCallback(onSend);
   const onComposerResumeStable = useStableCallback(onResume);
   const onComposerCompactContextStable = useStableCallback(onCompactContext);
@@ -2749,13 +2714,8 @@ export default function ChatView(props: ChatViewProps) {
                     activePendingApproval?.requestId ?? activePendingUserInput?.requestId ?? null
                   }
                   activeTurnStartedAt={activeWorkStartedAt}
-                  worktreeSetup={worktreeSetup}
-                  onCancelWorktreeSetup={onCancelWorktreeSetupStable}
                   retryableWorkspacePreparationRunIds={retryableWorkspacePreparationRunIds}
                   onRetryWorkspacePreparation={onRetryWorkspacePreparationStable}
-                  {...(draftId
-                    ? { onWorktreeSetupWorkLocally: onWorktreeSetupWorkLocallyStable }
-                    : {})}
                   isPreparingWorktree={isPreparingWorktree}
                   footer={timelineFooter}
                   listRef={legendListRef}
@@ -2941,7 +2901,7 @@ export default function ChatView(props: ChatViewProps) {
                                           ? "Messages loading"
                                           : worktreeSetupBlocksSend
                                             ? "Preparing worktree"
-                                            : projectCloneSendBlockReason
+                                            : null
                               }
                               isPreparingWorktree={isPreparingWorktree && !sendQueuesBehindSetup}
                               bannerItems={

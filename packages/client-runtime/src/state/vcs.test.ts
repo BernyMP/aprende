@@ -6,7 +6,6 @@ import {
   VcsProcessExitError,
   type VcsListRefsInput,
   type VcsListRefsResult,
-  type VcsStatusResult,
 } from "@aprende/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -34,13 +33,11 @@ import * as Persistence from "../platform/persistence.ts";
 import { EnvironmentRpcUnavailableError } from "../rpc/client.ts";
 import type { WsRpcProtocolClient } from "../rpc/protocol.ts";
 import type { RpcSession } from "../rpc/session.ts";
-import { createGitEnvironmentAtoms } from "./git.ts";
 
 import {
   commitVcsRefsRefresh,
   createVcsEnvironmentAtoms,
   makeCachedVcsRefsChanges,
-  resolveQuickAction,
 } from "./vcs.ts";
 import {
   invalidateCachedVcsRefs,
@@ -317,8 +314,6 @@ describe("cached VCS refs", () => {
         const client = {
           [WS_METHODS.vcsPull]: () => Effect.fail(expectedError),
           [WS_METHODS.vcsRefreshStatus]: () => Effect.void,
-          [WS_METHODS.gitPreparePullRequestThread]: () =>
-            Effect.succeed({ branch: "feature/pr", worktreePath: null }),
         } as unknown as WsRpcProtocolClient;
         const supervisor = EnvironmentSupervisor.EnvironmentSupervisor.of({
           target: TARGET,
@@ -374,17 +369,6 @@ describe("cached VCS refs", () => {
         expect(AsyncResult.isSuccess(refreshResult)).toBe(true);
         expect(yield* Ref.get(clears)).toBe(2);
         expect(registry.get(vcsRefsCacheStateAtom(TARGET)).revision).toBe(2);
-
-        const prepareResult = yield* Effect.promise(() =>
-          createGitEnvironmentAtoms(runtime).preparePullRequestThread.run(registry, {
-            environmentId: TARGET.environmentId,
-            input: { cwd: "/repo", reference: "42", mode: "local" },
-          }),
-        );
-
-        expect(AsyncResult.isSuccess(prepareResult)).toBe(true);
-        expect(yield* Ref.get(clears)).toBe(3);
-        expect(registry.get(vcsRefsCacheStateAtom(TARGET)).revision).toBe(3);
       }),
     ),
   );
@@ -727,47 +711,3 @@ const grantedSessions = Atom.family((_id: EnvironmentId) =>
     }),
   ),
 );
-
-function status(overrides: Partial<VcsStatusResult> = {}): VcsStatusResult {
-  return {
-    isRepo: true,
-    hasPrimaryRemote: true,
-    isDefaultRef: false,
-    refName: "feature/test",
-    hasWorkingTreeChanges: false,
-    workingTree: {
-      files: [],
-      insertions: 0,
-      deletions: 0,
-    },
-    hasUpstream: true,
-    aheadCount: 0,
-    behindCount: 0,
-    pr: null,
-    ...overrides,
-  };
-}
-
-describe("resolveQuickAction", () => {
-  it("commits local changes without pushing when the branch is behind upstream", () => {
-    const behind = status({ hasWorkingTreeChanges: true, behindCount: 2 });
-    const commit = { label: "Commit", disabled: false, kind: "run_action", action: "commit" };
-    expect(resolveQuickAction(behind, false)).toEqual(commit);
-    expect(
-      resolveQuickAction(
-        {
-          ...behind,
-          pr: {
-            number: 13,
-            title: "Open PR",
-            url: "https://example.com/pr/13",
-            baseRef: "main",
-            headRef: "feature/test",
-            state: "open",
-          },
-        },
-        false,
-      ),
-    ).toEqual(commit);
-  });
-});

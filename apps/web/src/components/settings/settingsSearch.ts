@@ -234,7 +234,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Thread details",
     to: "/settings/appearance",
     searchTerms: [
-      "customize show hide panel card environment editor scripts branch pull request git changes servers automations lineage usage limits 5 hour weekly quota tokens context window",
+      "customize show hide panel card environment editor scripts branch git changes servers lineage usage limits 5 hour weekly quota tokens context window",
     ],
   },
   {
@@ -360,13 +360,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["beta boring sidebar folder rows multiline branch pull request details"],
   },
   {
-    id: "linked-environments-beta",
-    title: "Linked environments",
-    to: "/settings/labs",
-    scope: "environment",
-    searchTerms: ["beta link another machine vps peer agents work there delegate"],
-  },
-  {
     id: "auto-settle-inactive-threads",
     title: "Auto-settle inactive threads",
     to: "/settings/threads",
@@ -380,23 +373,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/providers",
     scope: "environment-defaults",
     searchTerms: ["claude context compaction idle cache tokens usage summary resume"],
-  },
-  {
-    id: "auto-settle-merged-threads",
-    title: "Auto-settle merged threads",
-    to: "/settings/threads",
-    searchTerms: ["pull request merge closed automatically sidebar"],
-    requiresThreadAutoSettlement: true,
-    scope: "project-defaults",
-  },
-  {
-    id: "keep-threads-with-pull-requests",
-    title: "Keep threads with a PR",
-    to: "/settings/threads",
-    targetId: "auto-settle-inactive-threads",
-    searchTerms: ["pull request inactivity auto-settle merge close sidebar"],
-    requiresThreadAutoSettlement: true,
-    scope: "project-defaults",
   },
   {
     id: "days-before-auto-settle",
@@ -494,13 +470,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/threads",
     scope: "environment-defaults",
     searchTerms: ["base directory folder browser path home"],
-  },
-  {
-    id: "ghq-clone-layout",
-    title: "Clone into host folders",
-    to: "/settings/threads",
-    scope: "environment-defaults",
-    searchTerms: ["ghq clone destination host owner repository root layout"],
   },
   {
     id: "unpin-confirmation",

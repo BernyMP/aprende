@@ -1,7 +1,5 @@
 import { backgroundWorkHoldsCompletion } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
-import { threadPullRequestsOf } from "../threadPullRequests.ts";
 import type {
-  ThreadLinkedPullRequest,
   EnvironmentId,
   MessageId,
   OrchestrationProjectShell,
@@ -160,7 +158,6 @@ export interface EnvironmentThreadShell {
   readonly hasPendingUserInput: boolean;
   readonly pendingSubagentRequest?: PendingSubagentRequest | null;
   /** Guest messages waiting for the owner to send or dismiss. */
-  readonly pendingGuestMessageCount?: number;
   readonly hasActionableProposedPlan: boolean;
   readonly pendingBackgroundTasks: ReadonlyArray<
     NonNullable<OrchestrationV2ThreadShell["pendingBackgroundTasks"]>[number]
@@ -182,9 +179,6 @@ export interface EnvironmentThreadShell {
   readonly autoSettleDisabledAt?: string | null;
   readonly pinOrderKey: string | null;
   readonly activeOrderKey: string | null;
-  readonly pullRequests: ReadonlyArray<import("@aprende/contracts").ThreadPullRequestLink>;
-  readonly linkedPullRequest?: ThreadLinkedPullRequest | null;
-  readonly branchPullRequest?: ThreadLinkedPullRequest | null;
   /**
    * Server-tracked visited watermark. `undefined` means the environment's
    * server predates visited tracking and clients should fall back to any
@@ -291,9 +285,6 @@ export function presentThreadShell(
     interactionMode: thread.interactionMode,
     branch: thread.branch,
     worktreePath: thread.worktreePath,
-    pullRequests: threadPullRequestsOf(thread),
-    linkedPullRequest: thread.linkedPullRequest ?? null,
-    branchPullRequest: thread.branchPullRequest ?? null,
     lineage: thread.lineage,
     forkedFrom: thread.forkedFrom,
     linkOrigin: thread.linkOrigin ?? null,
@@ -313,7 +304,6 @@ export function presentThreadShell(
     // Async questions count too, so a thread with any open question leaves Working.
     hasPendingUserInput: thread.pendingRuntimeRequest?.kind === "user_input",
     pendingSubagentRequest,
-    pendingGuestMessageCount: thread.pendingGuestMessageCount ?? 0,
     hasActionableProposedPlan: thread.hasActionableProposedPlan,
     pendingBackgroundTasks: thread.pendingBackgroundTasks ?? [],
     providerInstanceHistory: thread.providerInstanceHistory ?? [],

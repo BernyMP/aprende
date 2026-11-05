@@ -199,7 +199,6 @@ function threadCreatedEvent(
       interactionMode: "default",
       branch: null,
       worktreePath: null,
-      branchPullRequest: null,
       activeOrderKey: null,
       activeProviderThreadId: providerThreadId,
       lineage: {
@@ -252,11 +251,7 @@ it.effect("refreshes the failing instance snapshot after a committed usage_limit
         displayName: undefined,
         orchestrationAdapter: adapter,
         textGeneration: {
-          generateBranchName: () => Effect.die("unused"),
-          generateCommitMessage: () => Effect.die("unused"),
-          generatePrContent: () => Effect.die("unused"),
           generateThreadTitle: () => Effect.die("unused"),
-          generateReviewGuide: () => Effect.die("unused"),
         },
         snapshot: {
           refreshUsage: Deferred.succeed(refreshed, undefined).pipe(Effect.asVoid),

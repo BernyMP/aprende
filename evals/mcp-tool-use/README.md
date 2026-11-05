@@ -1,6 +1,6 @@
 # MCP tool use
 
-Replays small fake threads on Claude and Codex models and checks how they use T3's MCP tools: delegation, PR linking, previews, scheduling, and more. Each case reproduces a real mistake an agent made in aprende.
+Replays small fake threads on Claude and Codex models and checks how they use T3's MCP tools: delegation, previews, secrets, and more. Each case reproduces a real mistake an agent made in aprende.
 
 The model sees what it sees in aprende. A trimmed capture of a real harness turn supplies the harness prompt and native tools. T3's instructions, tool descriptions, and schemas come from this checkout. A cheap model plays the shell, so nothing runs on your machine.
 
@@ -86,7 +86,7 @@ pnpm mcp-tool-use --cases mcp-tool-use/cases/secrets.ndjson --model claude-sonne
 
 A secrets case is a line in `cases/secrets.ndjson`: cite its finding in `source.finding`, set `expect.secret.chatAsk`, and give consume cases their `consumers` and controls `noCardDemand`. A Sonnet arm of the 5 failing cases at 6 samples and the rest at 3 costs about $3.30 with a GPT shell; GPT models go through the CLIProxyAPI provider and aren't priced here.
 
-The two older secret cases in `cases/pull-requests.ndjson` (`secret-webhook-how-to-send`, `secret-shell-token-how-to-send`) keep their own checks.
+The older secret case in `cases/secret-routing.ndjson` (`secret-shell-token-how-to-send`) keeps its own checks.
 
 `expect.secret` holds the secret checks. They are plain logic in `secret-grading.ts`, tested in `secret-grading.test.ts`:
 

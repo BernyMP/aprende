@@ -1,6 +1,5 @@
 import { remapComposerContextAttachments } from "@aprende/shared/composerContextReferences";
 import {
-  type ThreadLinkedPullRequest,
   CommandId,
   CheckpointId,
   CheckpointScopeId,
@@ -26,10 +25,8 @@ import {
   type ThreadId,
   type ThreadEnvMode,
   type UploadChatAttachment,
-  type GuestMessageId,
 } from "@aprende/contracts";
 import { derivePendingBackgroundWork } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
-import { visibleThreadPullRequests } from "@aprende/shared/threadPullRequests";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 
@@ -133,7 +130,6 @@ export interface UpdateThreadMetadataInput extends ThreadCommandInput {
   readonly branch?: string | null;
   readonly worktreePath?: string | null;
   readonly regenerateTitle?: boolean;
-  readonly linkedPullRequest?: ThreadLinkedPullRequest | null;
   readonly expectedEmpty?: boolean;
 }
 
@@ -413,13 +409,7 @@ export const createThread = Effect.fn("EnvironmentCommands.createThread")(functi
 });
 
 function simpleThreadCommand(
-  type:
-    | "thread.archive"
-    | "thread.unarchive"
-    | "thread.settle"
-    | "thread.pin"
-    | "thread.unpin"
-    | "thread.guest-share.close",
+  type: "thread.archive" | "thread.unarchive" | "thread.settle" | "thread.pin" | "thread.unpin",
   input: ThreadCommandInput,
 ) {
   return allocateCommandId(input).pipe(
@@ -435,45 +425,6 @@ export const deleteThread = Effect.fn("EnvironmentCommands.deleteThread")(functi
     commandId: yield* allocateCommandId(input),
     threadId: input.threadId,
     ...(input.onlyIfUnused === undefined ? {} : { onlyIfUnused: input.onlyIfUnused }),
-  });
-});
-
-export type CloseGuestShareInput = ThreadCommandInput;
-export const closeGuestShare = Effect.fn("EnvironmentCommands.closeGuestShare")(function* (
-  input: CloseGuestShareInput,
-) {
-  return yield* simpleThreadCommand("thread.guest-share.close", input);
-});
-
-export interface ResolveGuestMessageInput extends ThreadCommandInput {
-  readonly guestMessageId: GuestMessageId;
-  readonly decision: "send" | "dismiss";
-  readonly creationSource?: "web" | "mobile";
-}
-/** Send runs the guest's text as a normal turn; the server supplies the text, not the client. */
-export const resolveGuestMessage = Effect.fn("EnvironmentCommands.resolveGuestMessage")(function* (
-  input: ResolveGuestMessageInput,
-) {
-  const commandId = yield* allocateCommandId(input);
-  if (input.decision === "dismiss") {
-    return yield* dispatch({
-      type: "thread.guest-message.dismiss",
-      commandId,
-      threadId: input.threadId,
-      guestMessageId: input.guestMessageId,
-    });
-  }
-  return yield* dispatch({
-    type: "message.dispatch",
-    commandId,
-    threadId: input.threadId,
-    messageId: MessageId.make(commandId),
-    guestMessageId: input.guestMessageId,
-    text: "",
-    attachments: [],
-    dispatchMode: { type: "queue_after_active" },
-    createdBy: "user",
-    creationSource: input.creationSource ?? "web",
   });
 });
 
@@ -615,7 +566,6 @@ export const updateThreadMetadata = Effect.fn("EnvironmentCommands.updateThreadM
       input.branch !== undefined ||
       input.worktreePath !== undefined ||
       input.regenerateTitle !== undefined ||
-      input.linkedPullRequest !== undefined ||
       input.limitRecovery !== undefined
     ) {
       result = yield* dispatch({
@@ -628,9 +578,6 @@ export const updateThreadMetadata = Effect.fn("EnvironmentCommands.updateThreadM
         ...(input.worktreePath === undefined ? {} : { worktreePath: input.worktreePath }),
         ...(input.expectedEmpty === true ? { expectedEmpty: true } : {}),
         ...(input.regenerateTitle === undefined ? {} : { regenerateTitle: input.regenerateTitle }),
-        ...(input.linkedPullRequest === undefined
-          ? {}
-          : { linkedPullRequest: input.linkedPullRequest }),
       });
     }
     if (input.modelSelection !== undefined) {
@@ -848,22 +795,6 @@ export const interruptThreadTurn = Effect.fn("EnvironmentCommands.interruptThrea
       ) {
         runId = latestRun?.id;
       }
-    }
-    if (runId === undefined) {
-      let result = { sequence: 0 };
-      for (const link of visibleThreadPullRequests(projection.thread.pullRequests ?? [])) {
-        if (link.watch === undefined) continue;
-        result = yield* dispatch({
-          type: "thread.pull-request.watch",
-          commandId: yield* allocateCommandId(result.sequence === 0 ? input : {}),
-          threadId,
-          host: link.host,
-          repository: link.repository,
-          number: link.number,
-          watching: false,
-        });
-      }
-      return result;
     }
   }
   if (runId === undefined) return { sequence: 0 };
@@ -1093,46 +1024,3 @@ export const editQueuedRun = Effect.fn("EnvironmentCommands.editQueuedRun")(func
       : {}),
   });
 });
-
-export type LinkThreadPullRequestInput = Omit<
-  Extract<OrchestrationV2Command, { type: "thread.pull-request.link" }>,
-  "type" | "commandId"
-> &
-  CommandMetadata;
-export type UnlinkThreadPullRequestInput = Omit<
-  Extract<OrchestrationV2Command, { type: "thread.pull-request.unlink" }>,
-  "type" | "commandId"
-> &
-  CommandMetadata;
-export const linkThreadPullRequest = Effect.fn("EnvironmentCommands.linkThreadPullRequest")(
-  function* (input: LinkThreadPullRequestInput) {
-    return yield* dispatch({
-      ...input,
-      type: "thread.pull-request.link",
-      commandId: yield* allocateCommandId(input),
-    });
-  },
-);
-export type WatchThreadPullRequestInput = Omit<
-  Extract<OrchestrationV2Command, { type: "thread.pull-request.watch" }>,
-  "type" | "commandId"
-> &
-  CommandMetadata;
-export const watchThreadPullRequest = Effect.fn("EnvironmentCommands.watchThreadPullRequest")(
-  function* (input: WatchThreadPullRequestInput) {
-    return yield* dispatch({
-      ...input,
-      type: "thread.pull-request.watch",
-      commandId: yield* allocateCommandId(input),
-    });
-  },
-);
-export const unlinkThreadPullRequest = Effect.fn("EnvironmentCommands.unlinkThreadPullRequest")(
-  function* (input: UnlinkThreadPullRequestInput) {
-    return yield* dispatch({
-      ...input,
-      type: "thread.pull-request.unlink",
-      commandId: yield* allocateCommandId(input),
-    });
-  },
-);

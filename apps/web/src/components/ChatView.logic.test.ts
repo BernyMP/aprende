@@ -26,7 +26,6 @@ import {
   RunId,
   TurnItemId,
   type OrchestrationV2ProjectedTurnItem,
-  type WorktreeSetupSnapshot,
 } from "@aprende/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
@@ -39,7 +38,6 @@ import type { Thread } from "../types";
 import { makeThreadFixture, makeThreadProjectionFixture } from "../test-fixtures";
 import {
   resolveComposerProviderSelection,
-  resolveWorktreeSetupProgress,
   peekRememberedThreadTimeline,
   rememberReadyThreadTimeline,
   resetHeldThreadTimeline,
@@ -637,56 +635,6 @@ describe("checkout Git memory", () => {
   });
 });
 
-describe("worktree setup visibility", () => {
-  const stage = (
-    id: "fetch" | "checkout" | "submodules" | "setup-script" | "agent",
-    status: "done" | "running" | "failed" | "pending",
-  ) => ({
-    id,
-    status,
-    startedAt: now,
-    endedAt: status === "running" || status === "pending" ? null : now,
-    percent: null,
-    detail: null,
-    tail: [],
-  });
-  const base = {
-    threadId,
-    phase: "running" as const,
-    startedAt: now,
-    endedAt: null,
-    branch: "feature",
-    baseRef: "main",
-    worktreePath: null,
-    setupScript: null,
-    stages: [stage("checkout", "running"), stage("agent", "pending")],
-    error: null,
-    sequence: 1,
-  };
-  const settledDone = {
-    ...base,
-    phase: "done" as const,
-    endedAt: now,
-    stages: [stage("checkout", "done"), stage("setup-script", "done"), stage("agent", "done")],
-  };
-
-  it("uses streamed setup progress immediately without reverting to an older held snapshot", () => {
-    const newest = { ...settledDone, sequence: 9 };
-    const resolve = (latest: WorktreeSetupSnapshot | null, held: WorktreeSetupSnapshot | null) =>
-      resolveWorktreeSetupProgress({
-        threadId,
-        localPreparing: false,
-        runStatus: "running",
-        latest,
-        held,
-      });
-    expect(resolve(newest, base)).toEqual({ snapshot: newest, isPreparingWorktree: false });
-    expect(resolve(base, newest)).toEqual({ snapshot: newest, isPreparingWorktree: false });
-    const other = { ...base, threadId: ThreadId.make("another-thread") };
-    expect(resolve(other, other)).toEqual({ snapshot: null, isPreparingWorktree: false });
-  });
-});
-
 describe("waitForRevertedMessage", () => {
   const threadRef = { environmentId: EnvironmentId.make("env-1"), threadId: ThreadId.make("t") };
   const messageId = MessageId.make("message-2");
@@ -1028,31 +976,11 @@ describe("planComposerTurn", () => {
   const base = {
     messageText: "hello",
     sendQueuesBehindSetup: false,
-    isServerThread: false,
-    activeMessageCount: 0,
-    sendEnvMode: "worktree" as const,
-    worktreePath: null,
-    activeThreadBranch: "main",
     resumeCompactionTokens: null,
     keepFullHistory: false,
     phase: "ready" as const,
     dispatchMode: "auto" as const,
   };
-
-  it("prepares a worktree from the selected branch on a new thread", () => {
-    expect(planComposerTurn(base)).toMatchObject({
-      missingWorktreeBaseBranch: false,
-      baseBranchForWorktree: "main",
-      shouldQueueBehindActiveRun: false,
-    });
-  });
-
-  it("refuses a new worktree without a base branch", () => {
-    expect(planComposerTurn({ ...base, activeThreadBranch: null })).toMatchObject({
-      missingWorktreeBaseBranch: true,
-      baseBranchForWorktree: null,
-    });
-  });
 
   it("queues behind a compaction of a stale session, except for /compact itself", () => {
     const stale = { ...base, resumeCompactionTokens: 120_000 };
@@ -1073,18 +1001,12 @@ describe("planComposerTurn", () => {
   });
 
   it("queues behind a running turn only when asked to", () => {
-    const running = {
-      ...base,
-      isServerThread: true,
-      activeMessageCount: 3,
-      phase: "running" as const,
-    };
+    const running = { ...base, phase: "running" as const };
     expect(planComposerTurn({ ...running, dispatchMode: "queue" }).shouldQueueBehindActiveRun).toBe(
       true,
     );
     expect(planComposerTurn({ ...running, dispatchMode: "steer" })).toMatchObject({
       shouldQueueBehindActiveRun: false,
-      baseBranchForWorktree: null,
     });
   });
 });

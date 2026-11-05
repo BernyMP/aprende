@@ -1,8 +1,7 @@
-import { requestGuarded, runStreamGuarded } from "../rpc/client.ts";
+import { requestGuarded } from "../rpc/client.ts";
 import { EnvironmentSupervisor } from "../connection/supervisor.ts";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as Option from "effect/Option";
-import * as Stream from "effect/Stream";
 import type { RpcSession } from "../rpc/session.ts";
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vite-plus/test";
@@ -11,10 +10,10 @@ import {
   AuthOrchestrationReadScope,
   AuthSettingsWriteScope,
   AuthSourceControlWriteScope,
-  ThreadId,
   EnvironmentId,
   ORCHESTRATION_V2_WS_METHODS,
-  ScheduledTaskId,
+  ProjectId,
+  ThreadId,
   WS_METHODS,
   type AuthSessionState,
 } from "@aprende/contracts";
@@ -51,7 +50,7 @@ const runtime = Atom.runtime(
     run: (_id: EnvironmentId, effect: Effect.Effect<unknown>) => effect,
   } as unknown as EnvironmentRegistry["Service"]),
 );
-const permissions = createCommandPermissions(runtime, WS_METHODS.scheduledTasksDelete);
+const permissions = createCommandPermissions(runtime, WS_METHODS.projectsCreateFromThread);
 const setup = Effect.gen(function* () {
   const registry = AtomRegistry.make();
   registry.mount(sessions(env));
@@ -141,7 +140,7 @@ describe("command permissions", () => {
     ),
   );
 
-  it.effect.each([WS_METHODS.scheduledTasksDelete, ORCHESTRATION_V2_WS_METHODS.stopWorkflow])(
+  it.effect.each([WS_METHODS.projectsCreateFromThread, ORCHESTRATION_V2_WS_METHODS.stopWorkflow])(
     "uses the target grant for both availability and execution of %s",
     (method) =>
       Effect.scoped(
@@ -207,17 +206,17 @@ describe("command permissions", () => {
     let calls = 0;
     const command = createEnvironmentRpcCommand(runtime, {
       label: "test.delete",
-      tag: WS_METHODS.scheduledTasksDelete,
+      tag: WS_METHODS.projectsCreateFromThread,
       concurrency: { mode: "serial", key: () => "target" },
       execute: () =>
         Effect.promise(async () => {
           calls++;
           started();
           await gate;
-          return { id: ScheduledTaskId.make("task") };
+          return { projectId: ProjectId.make("project") };
         }),
     });
-    const target = { environmentId: env, input: { id: ScheduledTaskId.make("task") } };
+    const target = { environmentId: env, input: { threadId: ThreadId.make("thread") } };
     try {
       const first = command.run(registry, target);
       await entered;
@@ -233,92 +232,6 @@ describe("command permissions", () => {
     }
   });
 });
-
-it.effect(
-  "requires source control alone for git, and both grants when attaching a worktree to a thread",
-  () =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const registry = yield* setup;
-        registry.set(sessions(env), AsyncResult.success(grant(true)));
-        const git = createCommandPermissions(runtime, WS_METHODS.vcsInit);
-        expect((yield* git.authorize(registry, env).pipe(Effect.flip)).requiredPermission).toBe(
-          AuthSourceControlWriteScope,
-        );
-        registry.set(
-          sessions(env),
-          AsyncResult.success({
-            ...grant(false),
-            scopes: [AuthSourceControlWriteScope],
-            permissions: [AuthSourceControlWriteScope],
-          }),
-        );
-        yield* git.authorize(registry, env);
-        const prepare = createCommandPermissions(runtime, WS_METHODS.gitPreparePullRequestThread);
-        const input = {
-          cwd: "/repo",
-          reference: "123",
-          mode: "worktree",
-          threadId: ThreadId.make("thread"),
-        };
-        expect(registry.get(prepare.permissionAtom(env, input))).toBe(false);
-        expect(
-          (yield* prepare.authorize(registry, env, input).pipe(Effect.flip)).requiredScope,
-        ).toBe(AuthOrchestrationOperateScope);
-        yield* prepare.authorize(registry, env, { ...input, threadId: undefined });
-        registry.set(
-          sessions(env),
-          AsyncResult.success({
-            ...grant(true),
-            scopes: [AuthSourceControlWriteScope, AuthOrchestrationOperateScope],
-            permissions: [AuthSourceControlWriteScope, AuthOrchestrationOperateScope],
-          }),
-        );
-        expect(registry.get(prepare.permissionAtom(env, input))).toBe(true);
-        yield* prepare.authorize(registry, env, input);
-      }),
-    ),
-);
-
-it.effect.each(["commit", "push", "commit_push", "create_pr", "commit_push_pr"] as const)(
-  "%s needs thread read permission only when generating a PR from a thread",
-  (action) =>
-    Effect.scoped(
-      Effect.gen(function* () {
-        const registry = yield* setup;
-        const command = createCommandPermissions(runtime, WS_METHODS.gitRunStackedAction);
-        const input = { actionId: "action", cwd: "/repo", action };
-        const withThread = { ...input, threadId: ThreadId.make("thread") };
-        const session = {
-          ...grant(false),
-          scopes: [AuthSourceControlWriteScope],
-          permissions: [AuthSourceControlWriteScope],
-        };
-        registry.set(sessions(env), AsyncResult.success(session));
-        expect(registry.get(command.permissionAtom(env, input))).toBe(true);
-        yield* command.authorize(registry, env, input);
-        const readsThread = action === "create_pr" || action === "commit_push_pr";
-        expect(registry.get(command.permissionAtom(env, withThread))).toBe(!readsThread);
-        if (readsThread) {
-          expect(
-            yield* command.authorize(registry, env, withThread).pipe(Effect.flip),
-          ).toMatchObject({ requiredPermission: AuthOrchestrationReadScope });
-        } else {
-          yield* command.authorize(registry, env, withThread);
-        }
-        registry.set(
-          sessions(env),
-          AsyncResult.success({
-            ...session,
-            scopes: [AuthSourceControlWriteScope, AuthOrchestrationReadScope],
-            permissions: [AuthSourceControlWriteScope, AuthOrchestrationReadScope],
-          }),
-        );
-        expect(registry.get(command.permissionAtom(env, withThread))).toBe(true);
-        yield* command.authorize(registry, env, withThread);
-      }),
-    ),
-);
 
 it.effect("honors exact empty permissions and preserves legacy parent grants", () =>
   Effect.scoped(
@@ -340,38 +253,26 @@ it.effect("honors exact empty permissions and preserves legacy parent grants", (
   ),
 );
 
-it.effect("rejects protected unary and streamed RPCs outside a guarded command", () =>
+it.effect("rejects protected RPCs outside a guarded command", () =>
   Effect.gen(function* () {
     let writes = 0;
     const session = {
       client: {
-        [WS_METHODS.scheduledTasksDelete]: () =>
+        [WS_METHODS.projectsCreateFromThread]: () =>
           Effect.sync(() => {
             writes++;
-            return { id: ScheduledTaskId.make("task") };
+            return { projectId: ProjectId.make("project") };
           }),
-        [WS_METHODS.gitRunStackedAction]: () =>
-          Stream.fromEffect(
-            Effect.sync(() => {
-              writes++;
-            }),
-          ),
       },
     } as unknown as RpcSession;
     const supervisor = {
       target: { environmentId: env, label: "target" },
       session: yield* SubscriptionRef.make(Option.some(session)),
     } as unknown as EnvironmentSupervisor["Service"];
-    const unary = yield* requestGuarded(WS_METHODS.scheduledTasksDelete, {
-      id: ScheduledTaskId.make("task"),
+    const unary = yield* requestGuarded(WS_METHODS.projectsCreateFromThread, {
+      threadId: ThreadId.make("thread"),
     }).pipe(Effect.provideService(EnvironmentSupervisor, supervisor), Effect.flip);
     expect(unary._tag).toBe("EnvironmentAuthorizationError");
-    const streamed = yield* runStreamGuarded(WS_METHODS.gitRunStackedAction, {
-      actionId: "test-action",
-      cwd: "/repo",
-      action: "commit",
-    }).pipe(Stream.runDrain, Effect.provideService(EnvironmentSupervisor, supervisor), Effect.flip);
-    expect(streamed._tag).toBe("EnvironmentAuthorizationError");
     expect(writes).toBe(0);
   }),
 );

@@ -215,9 +215,6 @@ export class VcsStatusBroadcaster extends Context.Service<
       cwd: string,
       options?: { readonly localOnly?: boolean },
     ) => Effect.Effect<VcsStatusResult, GitManagerServiceError>;
-    readonly refreshPullRequestStatus: (
-      cwd: string,
-    ) => Effect.Effect<VcsStatusRemoteResult | null, GitManagerServiceError>;
     readonly streamStatus: (
       input: VcsStatusSubscriptionInput,
     ) => Stream.Stream<VcsStatusStreamEvent, GitManagerServiceError>;
@@ -532,32 +529,6 @@ export const make = Effect.gen(function* () {
     );
   });
 
-  const refreshPullRequestStatus: VcsStatusBroadcaster["Service"]["refreshPullRequestStatus"] =
-    Effect.fn("VcsStatusBroadcaster.refreshPullRequestStatus")(function* (rawCwd) {
-      const cwd = yield* withFileSystem(normalizeCwd(rawCwd));
-      return yield* withRemoteWriteLock(
-        cwd,
-        Effect.gen(function* () {
-          const cached = yield* getCachedStatus(cwd);
-          if (!cached?.local || cached.remote?.value === null) return null;
-          const poller = (yield* SynchronizedRef.get(pollersRef)).get(cwd);
-          const demandCwds = poller ? [...(yield* Ref.get(poller.demandCwds)).keys()] : [rawCwd];
-          const shouldRefresh = (yield* Effect.forEach(
-            demandCwds,
-            (demandCwd) =>
-              backgroundPolicy.shouldRunScopeWork({ type: "vcs-status", cwd: demandCwd }),
-            { concurrency: "unbounded" },
-          )).some(Boolean);
-          if (!shouldRefresh) return null;
-          const remoteRead = yield* readRemoteStatus(cwd, {
-            refreshUpstream: false,
-            refreshMissingPullRequest: true,
-          });
-          return yield* updateCachedRemoteStatus(cwd, remoteRead, { publish: true });
-        }),
-      );
-    });
-
   // A subscription owns this loop; keep each poll's spans out of a never-ending parent span.
   const makeRemoteRefreshLoop = Effect.fnUntraced(function* (
     cwd: string,
@@ -763,7 +734,6 @@ export const make = Effect.gen(function* () {
     getStatus,
     refreshLocalStatus,
     refreshStatus,
-    refreshPullRequestStatus,
     streamStatus,
   });
 });

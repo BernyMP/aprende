@@ -1309,18 +1309,6 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:process-resource-history",
       tag: WS_METHODS.serverGetProcessResourceHistory,
     }),
-    scheduledTaskWebhookDeliveries: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:scheduled-task:webhook-deliveries",
-      tag: WS_METHODS.scheduledTasksListWebhookDeliveries,
-    }),
-    scheduledTaskWebhookDelivery: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:scheduled-task:webhook-delivery",
-      tag: WS_METHODS.scheduledTasksGetWebhookDelivery,
-    }),
-    scheduledTasksLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
-      label: "environment-data:server:scheduled-tasks:live",
-      tag: WS_METHODS.scheduledTasksSubscribe,
-    }),
     learningThreadLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:learning:thread:live",
       tag: WS_METHODS.learningSubscribeThread,
@@ -1566,37 +1554,6 @@ export function createServerEnvironmentAtoms<R, E>(
     setTutorPrompt: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:learning:set-tutor-prompt",
       tag: WS_METHODS.learningSetTutorPrompt,
-      scheduler: configScheduler,
-      concurrency: configConcurrency,
-    }),
-    upsertScheduledTask: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:scheduled-task:upsert",
-      tag: WS_METHODS.scheduledTasksUpsert,
-      scheduler: configScheduler,
-      concurrency: configConcurrency,
-    }),
-    setScheduledTaskEnabled: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:scheduled-task:set-enabled",
-      tag: WS_METHODS.scheduledTasksSetEnabled,
-      scheduler: configScheduler,
-      concurrency: configConcurrency,
-    }),
-    deleteScheduledTask: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:scheduled-task:delete",
-      tag: WS_METHODS.scheduledTasksDelete,
-      scheduler: configScheduler,
-      concurrency: configConcurrency,
-    }),
-    // Deliberately not on the config lane: run-now blocks until the run is
-    // dispatched, and a slow run must not stall settings/keybinding/provider
-    // mutations (or other scheduled-task edits) queued behind it.
-    runScheduledTaskNow: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:scheduled-task:run-now",
-      tag: WS_METHODS.scheduledTasksRunNow,
-    }),
-    rotateScheduledTaskWebhookToken: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:scheduled-task:rotate-webhook-token",
-      tag: WS_METHODS.scheduledTasksRotateWebhookToken,
       scheduler: configScheduler,
       concurrency: configConcurrency,
     }),

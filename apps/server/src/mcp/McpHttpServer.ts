@@ -30,16 +30,11 @@ import * as ThreadMetadataMcpService from "./ThreadMetadataMcpService.ts";
 import * as McpSessionRegistry from "./McpSessionRegistry.ts";
 import * as OrchestratorHandlers from "./toolkits/orchestrator/handlers.ts";
 import { OrchestratorToolkit } from "./toolkits/orchestrator/tools.ts";
-import * as PullRequestsHandlers from "./toolkits/pullRequests/handlers.ts";
-import { PullRequestsToolkit } from "./toolkits/pullRequests/tools.ts";
 import * as HtmlHandlers from "./toolkits/html/handlers.ts";
 import { HtmlPreviewTool, HtmlPreviewToolkit, HtmlRenderToolkit } from "./toolkits/html/tools.ts";
 import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
 import { EnvironmentToolkit } from "./toolkits/environment/tools.ts";
 import * as EnvironmentHandlers from "./toolkits/environment/handlers.ts";
-import * as WorktreeHandlers from "./toolkits/worktree/handlers.ts";
-import { WorktreeToolkit } from "./toolkits/worktree/tools.ts";
-import * as WorktreeMcpService from "./WorktreeMcpService.ts";
 import * as LearnHandlers from "./toolkits/learn/handlers.ts";
 import { LearnToolkit } from "./toolkits/learn/tools.ts";
 import { requestUrl } from "../requestUrl.ts";
@@ -149,24 +144,11 @@ const withModeLimit = (
     : { ...invocation, client: { ...invocation.client, narrowedTo: limit.value } };
 };
 
-// The Linked environments beta is off here: links wait until it is on again.
-const linkedEnvironmentsOff = HttpServerResponse.jsonUnsafe(
-  {
-    error: "linked_environments_off",
-    message: "Linked environments is off on this machine. Turn it on in its Settings → Labs.",
-  },
-  { status: 403, headers: { "cache-control": "no-store" } },
-);
-
 const makeMcpAuthMiddleware = Effect.gen(function* () {
   const registry = yield* McpSessionRegistry.McpSessionRegistry;
   const clients = yield* Effect.serviceOption(McpClientAuthenticator);
   const serverSettings = yield* ServerSettings.ServerSettingsService;
   const runtimeModeCeiling = serverSettings.managedPolicy?.limits?.maxRuntimeMode;
-  const linksEnabled = serverSettings.getSettings.pipe(
-    Effect.map((settings) => settings.linkedEnvironmentsEnabled),
-    Effect.orElseSucceed(() => false),
-  );
   return Effect.fn("McpHttpServer.authenticateRequest")(function* (httpEffect) {
     const request = yield* HttpServerRequest.HttpServerRequest;
     const authorization = request.headers.authorization;
@@ -196,13 +178,8 @@ const makeMcpAuthMiddleware = Effect.gen(function* () {
     const asked = withModeLimit(invocation, request);
     if (asked === undefined) return invalidModeLimit;
     const limited = McpInvocationContext.withRuntimeModeCeiling(asked, runtimeModeCeiling);
-    const linkedEnvironments = yield* linksEnabled;
-    if (limited.client?.linked === true && !linkedEnvironments) return linkedEnvironmentsOff;
     return yield* httpEffect.pipe(
-      Effect.provideService(McpInvocationContext.McpInvocationContext, {
-        ...limited,
-        linkedEnvironments,
-      }),
+      Effect.provideService(McpInvocationContext.McpInvocationContext, limited),
       Effect.map(normalizeMcpHttpResponse),
     );
   }) satisfies McpAuthMiddleware;
@@ -469,26 +446,16 @@ export const layerOrchestratorToolkit = toolkitRegistration(
 
 export const layerThreadToolkit = toolkitRegistration(ThreadToolkit, ThreadHandlers.layer);
 
-const layerWorktreeToolkitRegistration = toolkitRegistration(
-  WorktreeToolkit,
-  WorktreeHandlers.layer,
-).pipe(Layer.provide(WorktreeMcpService.layer));
-
 const layerEnvironmentToolkit = toolkitRegistration(
   EnvironmentToolkit,
   EnvironmentHandlers.layer,
 ).pipe(Layer.provide(ThreadCommandExecutor.layer));
 
-export const layerProjectRegistration = toolkitRegistration(ProjectToolkit, ProjectHandlers.layer);
+const layerProjectRegistration = toolkitRegistration(ProjectToolkit, ProjectHandlers.layer);
 
 export const layerAttachmentToolkit = toolkitRegistration(
   AttachmentToolkit,
   AttachmentHandlers.layer,
-);
-
-export const layerPullRequestsToolkit = toolkitRegistration(
-  PullRequestsToolkit,
-  PullRequestsHandlers.layer,
 );
 
 /**
@@ -532,8 +499,6 @@ export const layerTools = Layer.mergeAll(
   layerAttachmentToolkit,
   layerProjectRegistration,
   layerEnvironmentToolkit,
-  layerWorktreeToolkitRegistration,
-  layerPullRequestsToolkit,
   layerHtmlToolkit,
   layerLearnToolkit,
 );

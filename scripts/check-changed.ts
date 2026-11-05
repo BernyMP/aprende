@@ -433,10 +433,6 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
     }),
   ).pipe(Effect.catch((error) => Effect.succeed({ ok: false, output: error.message })));
 
-  // CI's Lint job checks that generated GraphQL operations match their sources.
-  const graphql = ["packages/source-control-github"].filter((dir) =>
-    files.some((file) => file.startsWith(`${dir}/`)),
-  );
   const filters = (names: ReadonlyArray<string>) => names.flatMap((name) => ["--filter", name]);
   const typecheckWorkers = Math.min(concurrency, affected.length);
   const command = (name: string, args: ReadonlyArray<string>) => ({ name, run: vp(args) });
@@ -453,9 +449,6 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
     ...(runKnip
       ? knipPasses.map((args, index) => command(`knip ${index + 1}/${knipPasses.length}`, args))
       : []),
-    ...graphql.map((dir) =>
-      command(`graphql (${dir})`, ["run", "--filter", `./${dir}`, "generate", "--check"]),
-    ),
     ...(affected.length > 0
       ? [
           {

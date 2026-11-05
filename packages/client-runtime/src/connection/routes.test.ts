@@ -7,10 +7,10 @@ import {
   type ConnectionCatalogEntry,
   type ConnectionRoute,
 } from "./catalog.ts";
-import { pullRequestRoutingConnectionKey } from "./pullRequestRoutingPermissions.ts";
 import { BearerConnectionTarget, RelayConnectionTarget } from "./model.ts";
 import {
   connectionRouteId,
+  connectionAddressesKey,
   connectionRouteKind,
   connectionRouteLabel,
   credentialConnectionId,
@@ -367,7 +367,7 @@ describe("learned routes", () => {
     expect(removedWithRelay(entryWithRoutes(relayOnly, [LAN, RELAY]))).toBe(false);
   });
 
-  it("keeps pull request routing trust when a route is learned", () => {
+  it("keeps the addresses key when a route is learned", () => {
     const learned = mergeLearnedRoutes({
       entry: relayOnly,
       activeRoute: RELAY,
@@ -380,9 +380,7 @@ describe("learned routes", () => {
       profile: learned[0]!.profile,
       alternateRoutes: learned.slice(1),
     };
-    expect(pullRequestRoutingConnectionKey(withLearned)).toBe(
-      pullRequestRoutingConnectionKey(relayOnly),
-    );
+    expect(connectionAddressesKey(withLearned)).toBe(connectionAddressesKey(relayOnly));
   });
 
   it("keeps the T3 Connect credential when learning over a learned T3 Connect route", () => {

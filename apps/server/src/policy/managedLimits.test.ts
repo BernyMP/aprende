@@ -116,17 +116,12 @@ it.effect("allows the clients the policy lists", () =>
   }),
 );
 
-it.effect("tells clients Connect is off when the policy leaves out remote clients", () =>
+it.effect("summarizes the clients a policy allows", () =>
   Effect.gen(function* () {
     const managed = yield* ManagedPolicy.fromDocument("/test/policy.json", {
       ...desktopAndLocal.document,
     });
-    assert.deepEqual(managed.summary?.limits, {
-      clients: ["desktop", "local-browser"],
-      connect: false,
-    });
-    assert.isTrue(ManagedLimits.allowsConnect(policy({ clients: ["remote"] })));
-    assert.isFalse(ManagedLimits.allowsConnect(policy({ connect: false })));
+    assert.deepEqual(managed.summary?.limits, { clients: ["desktop", "local-browser"] });
   }),
 );
 

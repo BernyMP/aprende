@@ -2,40 +2,26 @@ import {
   CommandId,
   type EnvironmentId,
   type ModelSelection,
-  type ProviderInteractionMode,
   type ScopedThreadRef,
   type ThreadId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
 } from "@aprende/contracts";
-import {
-  wasBootstrapThreadDeleted,
-  wasBootstrapThreadNotCreated,
-} from "@aprende/client-runtime/errors";
 import { Atom } from "effect/reactivity";
 import {
   squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@aprende/client-runtime/state/runtime";
-import { readLocalApi } from "../../localApi";
 import { getUploadedAttachments } from "../../lib/attachmentUploadQueue";
 import { findRevertCheckpoint } from "../../session-logic";
 import { type ChatMessage } from "../../types";
 import { randomUUID } from "~/lib/utils";
-import { stackedThreadToast, toastManager } from "../ui/toast";
-import { newThreadId } from "~/lib/utils";
 import {
   type ComposerFileAttachment,
   type ComposerImageAttachment,
   useComposerDraftStore,
   DraftId,
 } from "../../composerDraftStore";
-import { ATTACHMENT_ONLY_BOOTSTRAP_PROMPT } from "@aprende/shared/composerContextReferences";
-import { createModelSelection } from "@aprende/shared/model";
-import type { ProviderInstanceEntry } from "../../providerInstances";
-import { getComposerPromptInjectionState, getComposerProviderState } from "./composerProviderState";
 import {
-  formatOutgoingPrompt,
-  resolveComposerInteractionMode,
   cloneComposerImageForRetry,
   type ComposerSendSnapshot,
   readFileAsDataUrl,
@@ -64,87 +50,6 @@ export function draftSendState(routeKey: string) {
     draftSendStateByRouteKey.set(routeKey, state);
   }
   return state;
-}
-
-/**
- * Starts one thread of a multiple-model send. A request that may have
- * reached the server before failing is remembered by `retryKey`, so sending
- * again cannot silently create a duplicate thread; its failure toast offers
- * to open that thread or to allow the retry.
- */
-export async function startFanoutThread(input: {
-  readonly retryKey: string;
-  readonly model: string;
-  readonly uncertainSubmissions: Map<string, ThreadId>;
-  readonly start: (threadId: ThreadId) => Promise<AtomCommandResult<unknown, unknown>>;
-  readonly openThread: (threadId: ThreadId) => void;
-}): Promise<boolean> {
-  const { retryKey, uncertainSubmissions } = input;
-  const uncertainThreadId = uncertainSubmissions.get(retryKey);
-  const targetThreadId = uncertainThreadId ?? newThreadId();
-  let requestMayHaveStarted = false;
-  try {
-    if (uncertainThreadId) {
-      throw new Error(
-        "The previous request may have started. Open its thread to check before sending again.",
-      );
-    }
-    requestMayHaveStarted = true;
-    const result = await input.start(targetThreadId);
-    if (result._tag === "Failure") {
-      const error = squashAtomCommandFailure(result);
-      if (wasBootstrapThreadDeleted(error) || wasBootstrapThreadNotCreated(error)) {
-        requestMayHaveStarted = false;
-      }
-      throw error;
-    }
-    return true;
-  } catch (error) {
-    if (requestMayHaveStarted && !uncertainSubmissions.has(retryKey)) {
-      uncertainSubmissions.set(retryKey, targetThreadId);
-    }
-    const retainedThreadId = uncertainSubmissions.get(retryKey);
-    const failureToastId = toastManager.add(
-      stackedThreadToast({
-        type: "error",
-        title: `Could not start ${input.model}`,
-        description: error instanceof Error ? error.message : "Failed to send message.",
-        ...(retainedThreadId
-          ? {
-              timeout: 0,
-              data: {
-                secondaryActionProps: {
-                  children: "Allow retry",
-                  onClick: () => {
-                    void readLocalApi()
-                      ?.dialogs.confirm(
-                        "The previous request may already be running. Check its thread first. Allow another send that could create a duplicate thread?",
-                      )
-                      .then(
-                        (confirmed) => {
-                          if (
-                            confirmed &&
-                            uncertainSubmissions.get(retryKey) === retainedThreadId
-                          ) {
-                            uncertainSubmissions.delete(retryKey);
-                            toastManager.close(failureToastId);
-                          }
-                        },
-                        () => undefined,
-                      );
-                  },
-                },
-              },
-              actionProps: {
-                children: "Open thread",
-                onClick: () => input.openThread(retainedThreadId),
-              },
-            }
-          : {}),
-      }),
-    );
-    return false;
-  }
 }
 
 /**
@@ -270,61 +175,6 @@ export function restoreComposerDraft(
   store.setThreadContexts(draftTarget, snapshot.threadContexts);
   store.setEnvironmentContexts(draftTarget, snapshot.environmentContexts);
   return images;
-}
-
-export interface MultipleModelTarget {
-  readonly selection: ModelSelection;
-  readonly text: string;
-  readonly interactionMode: ProviderInteractionMode;
-}
-
-/**
- * The thread each selected model starts for a multiple-model send, in
- * selection order, or why that model cannot take the message.
- */
-export function resolveMultipleModelTargets(input: {
-  readonly selections: ReadonlyArray<ModelSelection>;
-  readonly providerInstanceEntries: ReadonlyArray<ProviderInstanceEntry>;
-  readonly messageText: string;
-  readonly planModeEnabled: boolean;
-  readonly interactionMode: ProviderInteractionMode;
-}): Array<MultipleModelTarget | { readonly error: string }> {
-  const { messageText, planModeEnabled } = input;
-  return input.selections.map((selection) => {
-    const provider = input.providerInstanceEntries.find(
-      (entry) => entry.instanceId === selection.instanceId,
-    );
-    if (!provider?.enabled || !provider.isAvailable || provider.status !== "ready") {
-      return { error: `Provider for ${selection.model} is unavailable.` };
-    }
-    const providerState = getComposerProviderState({
-      provider: provider.driverKind,
-      model: selection.model,
-      models: provider.models,
-      modelOptions: selection.options,
-      promptInjectionState: getComposerPromptInjectionState(messageText),
-      planModeEnabled,
-    });
-    return {
-      selection: createModelSelection(
-        selection.instanceId,
-        selection.model,
-        providerState.modelOptionsForDispatch,
-      ),
-      text: formatOutgoingPrompt({
-        provider: provider.driverKind,
-        model: selection.model,
-        models: provider.models,
-        effort: providerState.promptEffort,
-        text: messageText || ATTACHMENT_ONLY_BOOTSTRAP_PROMPT,
-      }),
-      interactionMode: resolveComposerInteractionMode({
-        planModeEnabled,
-        provider: provider.snapshot,
-        interactionMode: input.interactionMode,
-      }).interactionMode,
-    };
-  });
 }
 
 /**

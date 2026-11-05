@@ -1,5 +1,5 @@
-import type { RepositoryIdentity, SourceControlProviderError } from "@aprende/contracts";
-import { repositoryPathFromRemoteUrl } from "@aprende/source-control-core/server/SourceControlProvider";
+import type { RepositoryIdentity } from "@aprende/contracts";
+import { normalizeGitRemoteUrl } from "@aprende/shared/git";
 import * as Cache from "effect/Cache";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
@@ -11,7 +11,6 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 
 import * as ProcessRunner from "../processRunner.ts";
-import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import { explicitBareRepositoryEnv } from "../vcs/VcsProcess.ts";
 import * as HostProcess from "@aprende/shared/HostProcess";
 
@@ -22,9 +21,6 @@ const DEFAULT_NEGATIVE_CACHE_TTL = Duration.minutes(1);
 
 export interface RepositoryIdentityResolverOptions {
   readonly cacheCapacity?: number;
-  readonly refine?: (
-    identity: RepositoryIdentity,
-  ) => Effect.Effect<RepositoryIdentity, SourceControlProviderError>;
 }
 
 export class RepositoryIdentityResolver extends Context.Service<
@@ -85,6 +81,21 @@ function pickPrimaryRemote(
   return remoteName && remoteUrl ? { remoteName, remoteUrl } : null;
 }
 
+/** The `owner/repo` path a remote URL names, as written, or null for a URL with no path. */
+export function repositoryPathFromRemoteUrl(url: string | null): string | null {
+  const trimmed = url?.trim() ?? "";
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  const match =
+    /^(?:[^@/\s]+@[^:/\s]+:|[^@:/\\\s]{2,}:(?!:)|(?:ssh|https?|git):\/\/[^/]+\/)((?:[^/\s]+\/)+[^/\s]+?)(?:\.git)?\/?$/iu.exec(
+      trimmed,
+    );
+  const path = match?.[1]?.trim() ?? "";
+  return path.length > 0 ? path : null;
+}
+
 function repositoryPathOf(canonicalKey: string, remoteUrl: string): string {
   const canonicalPath = canonicalKey.split("/").slice(1).join("/");
   const displayPath = repositoryPathFromRemoteUrl(remoteUrl);
@@ -96,7 +107,7 @@ function buildRepositoryOrigin(
   canonicalKey: string,
 ): RepositoryIdentity["origin"] {
   if (!originUrl) return undefined;
-  const originKey = sourceControlDefinitions.repositoryKeyFromRemote(originUrl);
+  const originKey = normalizeGitRemoteUrl(originUrl);
   if (originKey === canonicalKey) return undefined;
   const displayName = repositoryPathOf(originKey, originUrl);
   return { canonicalKey: originKey, remoteUrl: originUrl, ...(displayName ? { displayName } : {}) };
@@ -108,8 +119,7 @@ function buildRepositoryIdentity(input: {
   readonly originUrl: string | undefined;
   readonly rootPath: string;
 }): RepositoryIdentity {
-  const canonicalKey = sourceControlDefinitions.repositoryKeyFromRemote(input.remoteUrl);
-  const sourceControlProvider = sourceControlDefinitions.recognizeRemote(input.remoteUrl);
+  const canonicalKey = normalizeGitRemoteUrl(input.remoteUrl);
   const repositoryPath = repositoryPathOf(canonicalKey, input.remoteUrl);
   const repositoryPathSegments = repositoryPath.split("/").filter((segment) => segment.length > 0);
   const [owner] = repositoryPathSegments;
@@ -125,7 +135,6 @@ function buildRepositoryIdentity(input: {
     },
     rootPath: input.rootPath,
     ...(repositoryPath ? { displayName: repositoryPath } : {}),
-    ...(sourceControlProvider ? { provider: sourceControlProvider.kind } : {}),
     ...(owner ? { owner } : {}),
     ...(repositoryName ? { name: repositoryName } : {}),
     ...(origin ? { origin } : {}),
@@ -257,7 +266,6 @@ export const make = Effect.fn("RepositoryIdentityResolver.make")(function* (
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const cacheCapacity = options.cacheCapacity ?? DEFAULT_REPOSITORY_IDENTITY_CACHE_CAPACITY;
-  const refine = options.refine ?? Effect.succeed;
   const timeToLive = (exit: Exit.Exit<unknown>) =>
     Exit.match(exit, {
       onSuccess: (value) =>
@@ -282,10 +290,6 @@ export const make = Effect.fn("RepositoryIdentityResolver.make")(function* (
     (cacheKey) =>
       resolveRepositoryIdentityFromCacheKey(cacheKey).pipe(
         Effect.provideService(ProcessRunner.ProcessRunner, processRunner),
-        Effect.filterOrElse(
-          (identity): identity is null => identity === null,
-          (identity) => refine(identity).pipe(Effect.orElseSucceed(() => identity)),
-        ),
       ),
     { capacity: cacheCapacity, timeToLive },
   );

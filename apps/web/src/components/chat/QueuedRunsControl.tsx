@@ -36,7 +36,7 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { TimestampFormat } from "@aprende/contracts/settings";
 import { GuestMessageName } from "./guestMessageStyle";
 import { TimelineRowTimestamp } from "./TimelineRowParts";
-import { FoldedMessageHeader, useScheduledTaskTitle } from "./TimelineUserMessageRow";
+import { FoldedMessageHeader } from "./TimelineUserMessageRow";
 
 export interface EditQueuedRunRequest {
   readonly runId: RunId;
@@ -406,10 +406,8 @@ function QueuedMessage(props: {
 }) {
   const presentation = props.message ? resolveUserMessagePresentation(props.message) : null;
   const attribution = presentation?.attribution ?? null;
-  const scheduledTaskId = presentation?.scheduledTaskId;
   const senderThreadId = props.message?.senderThreadId;
   const [expanded, setExpanded] = useState(false);
-  const taskTitle = useScheduledTaskTitle(props.environmentId, scheduledTaskId);
   const senderShell = useQuietThreadShell(
     attribution === "agent" && senderThreadId
       ? { environmentId: props.environmentId, threadId: senderThreadId }
@@ -420,7 +418,7 @@ function QueuedMessage(props: {
       ? {
           icon: CalendarClockIcon,
           label: "Automation",
-          summary: taskTitle ?? props.previewText.split(/\r?\n/, 1)[0] ?? "",
+          summary: props.previewText.split(/\r?\n/, 1)[0] ?? "",
         }
       : attribution === "agent"
         ? {

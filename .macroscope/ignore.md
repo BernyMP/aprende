@@ -256,12 +256,9 @@ ENV/**
 # there belong upstream.
 .repos/**
 
-# Generated code. Review its source (the script, GraphQL document, schema
-# definition, or theme) instead; review agents can still read these on demand.
+# Generated code. Review its source (the script, schema definition, or theme)
+# instead; review agents can still read these on demand.
 **/*.generated.ts
-**/*.graphql.ts
-apps/server/schema/expo.graphql
-packages/source-control-github/schema/github.graphql
 apps/mobile/generated-uniwind-*
 apps/mobile/clerk-theme.json
 apps/server/src/testUtils/shardWeights.json

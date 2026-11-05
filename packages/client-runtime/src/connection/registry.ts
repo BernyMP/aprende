@@ -39,11 +39,8 @@ import * as EnvironmentSupervisor from "./supervisor.ts";
 import * as ConnectionDriver from "./driver.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
 import {
-  PullRequestRoutingPermissions,
-  pullRequestRoutingConnectionKey,
-} from "./pullRequestRoutingPermissions.ts";
-import {
   RELAY_ROUTE_ID,
+  connectionAddressesKey,
   connectionRouteId,
   connectionRoutes,
   credentialConnectionId,
@@ -215,7 +212,6 @@ export const make = Effect.gen(function* () {
   const ownedDataCleanup = yield* Persistence.EnvironmentOwnedDataCleanup;
   const profiles = yield* ConnectionProfileStore.ConnectionProfileStore;
   const credentials = yield* ConnectionCredentialStore.ConnectionCredentialStore;
-  const pullRequestRoutingPermissions = yield* PullRequestRoutingPermissions;
   const connectivity = yield* Connectivity.Connectivity;
   const driver = yield* ConnectionDriver.ConnectionDriver;
   const wakeups = yield* ConnectionWakeups.ConnectionWakeups;
@@ -511,30 +507,16 @@ export const make = Effect.gen(function* () {
     yield* createServiceScope(entry);
   });
 
-  const forgetRoutingTrust = (
-    environmentId: EnvironmentId,
-    operation: "register-connection" | "set-connection-routes",
-  ) =>
-    pullRequestRoutingPermissions.forget(environmentId).pipe(
-      Effect.mapError(
-        (error) =>
-          new Persistence.ConnectionPersistenceError({
-            operation,
-            message: error.message,
-          }),
-      ),
-    );
-
   const persistedRoutes = (entry: ConnectionCatalogEntry) =>
     connectionRoutes(entry).map((route) => route.target as PersistedConnectionTarget);
 
   /**
-   * Pull request routing trust and an unsupported verdict both belong to the saved addresses: a changed set may
-   * reach a different server, so both are dropped and the next connection decides.
+   * An unsupported verdict belongs to the saved addresses: a changed set may reach a different
+   * server, so it is dropped and the next connection decides.
    */
   const withRoutes = (previous: ConnectionCatalogEntry, routes: ReadonlyArray<ConnectionRoute>) => {
     const next = entryWithRoutes(previous, routes);
-    if (pullRequestRoutingConnectionKey(previous) === pullRequestRoutingConnectionKey(next)) {
+    if (connectionAddressesKey(previous) === connectionAddressesKey(next)) {
       return { entry: next, addressesChanged: false };
     }
     const { unsupportedReason: _reason, serverUpdateRequired: _update, ...rest } = next;
@@ -585,9 +567,6 @@ export const make = Effect.gen(function* () {
               connectionRouteId(existing.target) === connectionRouteId(route.target),
           );
           const next = withRoutes(previous, upsertRoute(routes, route));
-          if (next.addressesChanged) {
-            yield* forgetRoutingTrust(environmentId, "register-connection");
-          }
           entry = next.entry;
         }
         yield* registrations.register(registration, persistedRoutes(entry));
@@ -606,9 +585,6 @@ export const make = Effect.gen(function* () {
   ) {
     const environmentId = previous.target.environmentId;
     const next = withRoutes(previous, routes);
-    if (next.addressesChanged) {
-      yield* forgetRoutingTrust(environmentId, "set-connection-routes");
-    }
     yield* registrations.setRoutes(environmentId, persistedRoutes(next.entry));
     yield* installEntryLocked(next.entry);
   });
@@ -633,30 +609,10 @@ export const make = Effect.gen(function* () {
           const previous = (yield* SubscriptionRef.get(entries)).get(target.environmentId);
           const entry: ConnectionCatalogEntry =
             previous?.unsupportedReason !== undefined &&
-            pullRequestRoutingConnectionKey(previous) ===
-              pullRequestRoutingConnectionKey(registered)
+            connectionAddressesKey(previous) === connectionAddressesKey(registered)
               ? { ...registered, ...unsupportedState(previous) }
               : registered;
           const persisted = (yield* Ref.get(persistedEnvironmentIds)).has(target.environmentId);
-          if (
-            persisted ||
-            (previous !== undefined &&
-              pullRequestRoutingConnectionKey(previous) !== pullRequestRoutingConnectionKey(entry))
-          ) {
-            const revoked = yield* pullRequestRoutingPermissions.forget(target.environmentId).pipe(
-              Effect.tapError((error) =>
-                Effect.logWarning(
-                  "Could not clear pull request routing permission for a platform environment.",
-                  {
-                    environmentId: target.environmentId,
-                    error,
-                  },
-                ),
-              ),
-              Effect.exit,
-            );
-            if (Exit.isFailure(revoked)) return false;
-          }
           yield* Ref.update(platformEnvironmentIds, (current) => {
             const next = new Set(current);
             next.add(target.environmentId);
@@ -764,19 +720,6 @@ export const make = Effect.gen(function* () {
         environmentId,
         Effect.gen(function* () {
           const entry = (yield* SubscriptionRef.get(entries)).get(environmentId);
-          const revoked = yield* pullRequestRoutingPermissions.forget(environmentId).pipe(
-            Effect.tapError((error) =>
-              Effect.logWarning(
-                "Could not clear pull request routing permission after platform removal.",
-                {
-                  environmentId,
-                  error,
-                },
-              ),
-            ),
-            Effect.exit,
-          );
-          if (Exit.isFailure(revoked)) return false;
           yield* Ref.update(platformEnvironmentIds, (current) => {
             const next = new Set(current);
             next.delete(environmentId);
@@ -860,7 +803,6 @@ export const make = Effect.gen(function* () {
     }
     const entry = yield* getEntry(environmentId);
 
-    yield* pullRequestRoutingPermissions.forget(environmentId);
     yield* registrations.remove(environmentId);
     yield* Ref.update(persistedEnvironmentIds, (current) => {
       const next = new Set(current);
