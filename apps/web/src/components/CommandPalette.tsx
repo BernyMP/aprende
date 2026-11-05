@@ -73,7 +73,6 @@ import {
   PinOffIcon,
   SquarePenIcon,
   TextSearchIcon,
-  UserPlusIcon,
 } from "lucide-react";
 import { openThreadFind } from "./chat/threadFindStore";
 import {
@@ -238,8 +237,6 @@ import {
 import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
 import { Checkbox } from "./ui/checkbox";
 import { ProjectFilePicker } from "./files/ProjectFilePicker";
-import { canShareWithGuestAtom } from "./chat/guestShareAvailability";
-import { openGuestShareDialog } from "./chat/guestShareDialogState";
 import { ProjectContentSearchDialog } from "./search/ProjectContentSearchDialog";
 import { settingsForThisPlatform, SETTINGS_SECTION_LABELS } from "./settings/settingsSearch";
 import { primaryServerKeybindingsAtom } from "../state/server";
@@ -459,9 +456,6 @@ function OpenCommandPaletteDialog(props: {
   const referenceThreadRef = activeThread
     ? scopeThreadRef(activeThread.environmentId, activeThread.id)
     : null;
-  const canShareActiveThreadWithGuest = useAtomValue(
-    canShareWithGuestAtom(activeThread?.environmentId ?? ("" as EnvironmentId)),
-  );
   const activeThreadReferenceCopyTarget =
     referenceThreadRef === null
       ? null
@@ -1319,20 +1313,6 @@ function OpenCommandPaletteDialog(props: {
       icon: <LinkIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "thread.copyReference",
       run: copyActiveThreadReference,
-    });
-  }
-
-  if (activeThread !== null && canShareActiveThreadWithGuest) {
-    const threadRef = scopeThreadRef(activeThread.environmentId, activeThread.id);
-    actionItems.push({
-      kind: "action",
-      value: "action:share-thread-with-guest",
-      searchTerms: ["share", "guest", "invite", "link", "teammate"],
-      title: "Share with guest",
-      icon: <UserPlusIcon className={ITEM_ICON_CLASS} />,
-      run: async () => {
-        openGuestShareDialog(threadRef);
-      },
     });
   }
 

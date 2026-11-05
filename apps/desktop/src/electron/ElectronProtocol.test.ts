@@ -41,7 +41,6 @@ describe("ElectronProtocol", () => {
       yield* protocol.registerDesktopProtocol({
         scheme: "aprende",
         assetDirectory: directory,
-        clerkFrontendApiHostname: undefined,
       });
       const request = (pathname: string, init?: RequestInit) =>
         Effect.promise(() => handler!(new Request(`aprende://app${pathname}`, init)));
@@ -80,7 +79,6 @@ describe("ElectronProtocol", () => {
           yield* protocol.registerDesktopProtocol({
             scheme: "aprende-dev",
             targetOrigin: new URL("http://127.0.0.1:3773/"),
-            clerkFrontendApiHostname: "clerk.aprende.invalid",
           });
           assert.isDefined(handler);
 
@@ -99,7 +97,7 @@ describe("ElectronProtocol", () => {
           assert.equal(yield* Effect.promise(() => response.text()), "ok");
           assert.include(
             response.headers.get("content-security-policy") ?? "",
-            "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://clerk.aprende.invalid https://challenges.cloudflare.com",
+            "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval';",
           );
           assert.include(
             response.headers.get("content-security-policy") ?? "",
@@ -144,7 +142,6 @@ describe("ElectronProtocol", () => {
           yield* protocol.registerDesktopProtocol({
             scheme: "aprende-dev",
             targetOrigin: new URL("http://127.0.0.1:5733/"),
-            clerkFrontendApiHostname: undefined,
           });
           yield* Effect.promise(() =>
             handler!(new Request("aprende-dev://app//example.com/src/main.tsx?t=1")),
@@ -176,7 +173,6 @@ describe("ElectronProtocol", () => {
           yield* protocol.registerDesktopProtocol({
             scheme: "aprende",
             targetOrigin: new URL("http://127.0.0.1:3773/"),
-            clerkFrontendApiHostname: undefined,
           });
           return yield* Effect.promise(() => handler!(new Request("aprende://other/")));
         }),

@@ -1,8 +1,21 @@
 import { AuthMcpClientAccess } from "@aprende/contracts";
+import { EyeIcon, type LucideIcon } from "lucide-react";
 import { useId } from "react";
 
-import { accessConfig } from "../auth/ConnectAgentSurface";
+import { runtimeModeConfig } from "../chat/runtimeModeConfig";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+
+export const accessConfig: Record<
+  AuthMcpClientAccess,
+  { readonly label: string; readonly description: string; readonly icon: LucideIcon }
+> = {
+  "read-only": {
+    label: "Read only",
+    description: "Read projects and threads. Cannot start, message or change anything.",
+    icon: EyeIcon,
+  },
+  ...runtimeModeConfig,
+};
 
 /** What agents here may do in an environment being linked, with what that does not allow. */
 export function LinkAccessPicker({
