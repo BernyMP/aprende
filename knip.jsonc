@@ -98,10 +98,6 @@
       // reports an entire component module when nothing imports it.
       "ignoreIssues": { "src/components/ui/*.tsx": ["exports", "nsExports", "duplicates"] },
     },
-    "apps/marketing": {
-      // `astro check` runs from the typecheck task in vite.config.ts, which knip does not read.
-      "ignoreDependencies": ["@astrojs/check"],
-    },
     "infra/task-cache": {
       "ignore": ["vendor/**"],
       // The bootstrap and Vite+ hook are loaded by shell/package configuration.
