@@ -2757,7 +2757,9 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     afterPack: (yield* Path.Path).join(yield* RepoRoot, "scripts/prepare-server-compile-cache.cjs"),
     appId: DESKTOP_APP_ID,
     productName: resolveDesktopProductName(version),
-    artifactName: "T3-Code-${version}-${arch}.${ext}",
+    copyright:
+      "Copyright (c) 2026 Berny Peralta. A fork of T3 Code, copyright (c) 2026 T3 Tools Inc.",
+    artifactName: "aprende-${version}-${arch}.${ext}",
     electronLanguages: [...DESKTOP_ELECTRON_LANGUAGES],
     files: [
       ...DESKTOP_FILE_EXCLUSIONS,
@@ -2805,7 +2807,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     buildConfig.mac = {
       target: target === "dmg" ? [target, "zip"] : [target],
       icon: "icon.icns",
-      category: "public.app-category.developer-tools",
+      category: "public.app-category.education",
       extendInfo: {
         // macOS 26 offers Messages/Mail codes in every text field unless opted out.
         NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac: true,
@@ -2878,9 +2880,9 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       target: target === "AppImage" ? [target, "deb"] : [target],
       executableName: "aprende",
       icon: "icons",
-      category: "Development",
-      synopsis: "Desktop GUI for coding agents",
-      maintainer: "T3 Tools <hello@aprende.invalid>",
+      category: "Education",
+      synopsis: "Learn difficult things with a tutor on your own Claude or Codex",
+      maintainer: "Berny Peralta <BernyMP@users.noreply.github.com>",
       protocols: [
         {
           name: "aprende",
@@ -3846,10 +3848,10 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
     private: true,
     packageManager: rootPackageJson.packageManager,
     description:
-      "aprende is an open-source desktop app for coding agents. Work with your existing agent subscriptions, review code changes, and run commands in your projects. Connect from desktop, web, or mobile to continue working remotely.",
+      "aprende is an open-source desktop app for learning difficult things, with a tutor that runs on your own Claude or Codex. A fork of T3 Code.",
     license: "MIT",
     homepage: "https://github.com/BernyMP/aprende",
-    author: "T3 Tools",
+    author: "Berny Peralta",
     main: "apps/desktop/dist-electron/boot.cjs",
     build: yield* createBuildConfig(
       options.platform,

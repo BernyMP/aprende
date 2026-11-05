@@ -101,6 +101,10 @@ export const make = Effect.gen(function* () {
       applicationName: environment.displayName,
       applicationVersion: environment.appVersion,
       version: Option.getOrElse(commitHash, () => "unknown"),
+      copyright: "Copyright (c) 2026 Berny Peralta. MIT License.",
+      credits:
+        "aprende is a fork of T3 Code (github.com/pingdotgg/t3code), copyright (c) 2026 T3 Tools Inc., MIT License. aprende is not affiliated with T3 Tools Inc.",
+      website: "https://github.com/BernyMP/aprende",
     });
 
     if (environment.platform === "win32") {

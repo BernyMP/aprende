@@ -714,12 +714,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     desktopOnly: true,
   },
   {
-    id: "mobile-app",
-    title: "Mobile app",
-    to: "/settings/about",
-    searchTerms: ["phone tablet iPhone iPad iOS Android App Store Google Play QR"],
-  },
-  {
     id: "privacy-policy",
     title: "Privacy policy",
     to: "/settings/about",
@@ -738,6 +732,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Diagnostics",
     to: "/settings/maintenance",
     searchTerms: ["logs traces processes resource history failures spans cpu memory"],
+  },
+  {
+    id: "credits",
+    title: "Credits",
+    to: "/settings/about",
+    searchTerms: ["t3 code fork upstream attribution"],
   },
   {
     id: "open-source-licenses",

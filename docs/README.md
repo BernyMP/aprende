@@ -1,8 +1,12 @@
 # aprende docs
 
+aprende is a fork of [T3 Code](https://github.com/pingdotgg/t3code) (MIT), and is not affiliated
+with T3 Tools Inc. Many internal notes below describe architecture inherited from T3 Code.
+
 ## Using aprende
 
 - [Install aprende](./user/install.md)
+- [FAQ](./user/faq.md)
 - [Learning sessions](./user/learning.md)
 - [Messages and context](./user/composer.md)
 - [Working with threads](./user/thread-sidebar.md)
