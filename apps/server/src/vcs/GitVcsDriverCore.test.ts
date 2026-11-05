@@ -4275,19 +4275,19 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         const cwd = yield* makeTmpDir();
         yield* initRepoWithCommit(cwd);
         const driver = yield* GitVcsDriver.GitVcsDriver;
-        // A local `t3` branch is why launches start on the flat `t3-<hex>` temporary branch.
-        yield* git(cwd, ["branch", "t3"]);
-        yield* git(cwd, ["checkout", "-b", "t3-abcd1234"]);
-        yield* git(cwd, ["branch", "t3-fix-login"]);
+        // A local `aprende` branch is why launches start on the flat `aprende-<hex>` temporary branch.
+        yield* git(cwd, ["branch", "aprende"]);
+        yield* git(cwd, ["checkout", "-b", "aprende-abcd1234"]);
+        yield* git(cwd, ["branch", "aprende-fix-login"]);
 
         const renamed = yield* driver.renameBranch({
           cwd,
-          oldBranch: "t3-abcd1234",
+          oldBranch: "aprende-abcd1234",
           newBranch: "aprende/fix-login",
         });
 
-        assert.equal(renamed.branch, "t3-fix-login-1");
-        assert.equal(yield* git(cwd, ["branch", "--show-current"]), "t3-fix-login-1");
+        assert.equal(renamed.branch, "aprende-fix-login-1");
+        assert.equal(yield* git(cwd, ["branch", "--show-current"]), "aprende-fix-login-1");
       }),
     );
 
@@ -4296,18 +4296,18 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         const cwd = yield* makeTmpDir();
         yield* initRepoWithCommit(cwd);
         const driver = yield* GitVcsDriver.GitVcsDriver;
-        yield* git(cwd, ["branch", "t3"]);
-        yield* git(cwd, ["checkout", "-b", "t3-abcd1234"]);
-        yield* git(cwd, ["branch", "t3-fix-login/child"]);
+        yield* git(cwd, ["branch", "aprende"]);
+        yield* git(cwd, ["checkout", "-b", "aprende-abcd1234"]);
+        yield* git(cwd, ["branch", "aprende-fix-login/child"]);
 
         const renamed = yield* driver.renameBranch({
           cwd,
-          oldBranch: "t3-abcd1234",
+          oldBranch: "aprende-abcd1234",
           newBranch: "aprende/fix-login",
         });
 
-        assert.equal(renamed.branch, "t3-fix-login-1");
-        assert.equal(yield* git(cwd, ["branch", "--show-current"]), "t3-fix-login-1");
+        assert.equal(renamed.branch, "aprende-fix-login-1");
+        assert.equal(yield* git(cwd, ["branch", "--show-current"]), "aprende-fix-login-1");
       }),
     );
 

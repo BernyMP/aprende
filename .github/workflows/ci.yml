@@ -66,6 +66,10 @@ jobs:
       - name: Install dependencies
         run: vp install --frozen-lockfile
 
+      # The desktop app's keyring helper builds against libsecret.
+      - name: Install libsecret
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-dev
+
       # The server's html_render tests drive a headless Chromium.
       - name: Install Chromium
         run: node apps/server/node_modules/playwright-core/cli.js install --with-deps --only-shell chromium

@@ -162,21 +162,12 @@ describe("isTemporaryWorktreeBranch", () => {
     );
   });
 
-  it("matches legacy aprende temporary worktree refs", () => {
-    expect(isTemporaryWorktreeBranch("aprende/deadbeef")).toBe(true);
-    expect(isTemporaryWorktreeBranch("aprende-deadbeef")).toBe(true);
-    expect(isTemporaryWorktreeBranch("aprende/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(true);
-    expect(
-      isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12`),
-    ).toBe(false);
-  });
-
   it("rejects UUID-shaped refs that are not RFC 4122 v4", () => {
     expect(isTemporaryWorktreeBranch("aprende/f4ae4e0e-f971-1d48-b4f2-9cf0aa54ab12")).toBe(false);
     expect(isTemporaryWorktreeBranch("aprende/f4ae4e0e-f971-4d48-c4f2-9cf0aa54ab12")).toBe(false);
   });
 
-  it("matches the flat fallback used when a plain t3 branch exists", () => {
+  it("matches the flat fallback used when a plain aprende branch exists", () => {
     const flat = flattenTemporaryWorktreeBranchName(`${WORKTREE_BRANCH_PREFIX}/deadbeef`);
     expect(flat).toBe(`${WORKTREE_BRANCH_PREFIX}-deadbeef`);
     expect(isTemporaryWorktreeBranch(flat)).toBe(true);
