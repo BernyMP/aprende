@@ -1,10 +1,21 @@
-import type { LearningProblemView, ScopedThreadRef } from "@aprende/contracts";
+import {
+  LEARNING_CHECK_TIMEOUT_SECONDS,
+  type LearningCheckOutcome,
+  type LearningCheckRun,
+  type LearningProblemView,
+  type LearningProblemWorkspace,
+  type ScopedThreadRef,
+} from "@aprende/contracts";
+import { useAtomValue } from "@effect/atom-react";
+import { FolderOpenIcon, PlayIcon } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "~/lib/utils";
+import { useRightPanelStore } from "~/rightPanelStore";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import ChatMarkdown from "../ChatMarkdown";
+import { flushFileSaveFolder } from "../files/fileSaveSessions";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
@@ -30,6 +41,8 @@ interface WorkDraft {
 
 // The timeline unmounts rows scrolled out of view; keep unsent work until it is submitted.
 const workDrafts = new Map<string, WorkDraft>();
+// And keep the last check run of each problem, for the same reason.
+const lastRuns = new Map<string, LearningCheckRun>();
 
 export function ProblemCard(props: {
   readonly problem: LearningProblemView;
@@ -61,6 +74,14 @@ export function ProblemCard(props: {
       <p className="mt-1.5 text-muted-foreground text-xs">
         Practices {problem.targets.map((target) => target.name).join(" · ")}
       </p>
+      {problem.workspace !== null ? (
+        <Workspace
+          problem={problem}
+          workspace={problem.workspace}
+          threadRef={props.threadRef}
+          cwd={props.markdownCwd}
+        />
+      ) : null}
       {problem.status === "open" ? (
         <OpenProblem
           problem={problem}
@@ -104,6 +125,122 @@ function HintList(props: {
   );
 }
 
+const checkLabel = (check: LearningCheckOutcome) =>
+  check.timedOut
+    ? { label: `Stopped after ${LEARNING_CHECK_TIMEOUT_SECONDS} s`, variant: "warning" as const }
+    : check.exitCode === null
+      ? { label: "Could not run", variant: "error" as const }
+      : check.exitCode === 0
+        ? { label: "Passed", variant: "success" as const }
+        : { label: `Failed with exit code ${check.exitCode}`, variant: "error" as const };
+
+/** Saves open edits in the practice folder, so a run or a submit sees what the learner sees. */
+const saveWorkspace = (
+  threadRef: ScopedThreadRef,
+  cwd: string | undefined,
+  workspace: LearningProblemWorkspace | null,
+) =>
+  cwd === undefined || workspace === null
+    ? Promise.resolve()
+    : flushFileSaveFolder({
+        environmentId: threadRef.environmentId,
+        cwd,
+        folder: workspace.folder,
+      });
+
+function Workspace(props: {
+  readonly problem: LearningProblemView;
+  readonly workspace: LearningProblemWorkspace;
+  readonly threadRef: ScopedThreadRef;
+  readonly cwd: string | undefined;
+}) {
+  const { problem, workspace, threadRef } = props;
+  const [run, setRun] = useState(() => lastRuns.get(problem.id) ?? null);
+  const [running, setRunning] = useState(false);
+  const canRun = useAtomValue(
+    serverEnvironment.runLearningCheck.permissionAtom(threadRef.environmentId),
+  );
+  const runCheck = useAtomCommand(serverEnvironment.runLearningCheck, { label: "run the check" });
+  const first = workspace.files[0];
+
+  const runIt = async () => {
+    if (running) return;
+    setRunning(true);
+    await saveWorkspace(threadRef, props.cwd, workspace);
+    const result = await runCheck({
+      environmentId: threadRef.environmentId,
+      input: { threadId: threadRef.threadId, problemId: problem.id },
+    });
+    setRunning(false);
+    if (result._tag !== "Success") return;
+    lastRuns.set(problem.id, result.value);
+    setRun(result.value);
+  };
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            useRightPanelStore
+              .getState()
+              .openFile(
+                threadRef,
+                first === undefined ? workspace.folder : `${workspace.folder}/${first}`,
+              )
+          }
+        >
+          <FolderOpenIcon />
+          Open {workspace.folder}
+        </Button>
+        {workspace.checkCommand !== null ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={running || canRun === false}
+            onClick={() => void runIt()}
+          >
+            <PlayIcon />
+            {running ? "Running…" : "Run check"}
+          </Button>
+        ) : null}
+      </div>
+      {workspace.checkCommand !== null ? (
+        <p className="text-muted-foreground text-xs">
+          The check runs <code>{workspace.checkCommand}</code> on your computer, as your own
+          terminal would.
+        </p>
+      ) : null}
+      {run !== null ? <CheckOutput run={run} /> : null}
+    </div>
+  );
+}
+
+function CheckOutput(props: { readonly run: LearningCheckRun }) {
+  const { run } = props;
+  const status = checkLabel(run);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <Badge size="sm" variant={status.variant}>
+          {status.label}
+        </Badge>
+        {run.truncated ? (
+          <span className="text-muted-foreground text-xs">Output cut to fit.</span>
+        ) : null}
+      </div>
+      <pre
+        aria-label="Check output"
+        className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border bg-muted/40 px-3 py-2 font-mono text-xs"
+      >
+        {run.output.length > 0 ? run.output : "No output."}
+      </pre>
+    </div>
+  );
+}
+
 function OpenProblem(props: {
   readonly problem: LearningProblemView;
   readonly threadRef: ScopedThreadRef;
@@ -135,9 +272,11 @@ function OpenProblem(props: {
     setRevealing(false);
   };
 
+  const coding = problem.workspace !== null;
   const submit = async (gaveUp: boolean) => {
     if (pending) return;
     setPending(true);
+    await saveWorkspace(props.threadRef, props.markdownCwd, problem.workspace);
     const result = await submitSolution({
       environmentId: props.threadRef.environmentId,
       input: {
@@ -163,13 +302,15 @@ function OpenProblem(props: {
       }}
     >
       <HintList hints={problem.hints} markdownCwd={props.markdownCwd} />
-      <Textarea
-        aria-label="Your work"
-        size="lg"
-        placeholder="Work it through here"
-        value={draft.text}
-        onChange={(event) => setDraft({ text: event.target.value })}
-      />
+      {coding ? null : (
+        <Textarea
+          aria-label="Your work"
+          size="lg"
+          placeholder="Work it through here"
+          value={draft.text}
+          onChange={(event) => setDraft({ text: event.target.value })}
+        />
+      )}
       <ConfidenceField
         value={draft.confidence}
         onChange={(confidence) => setDraft({ confidence })}
@@ -182,8 +323,14 @@ function OpenProblem(props: {
         onChange={(event) => setDraft({ thinking: event.target.value })}
       />
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" type="submit" disabled={draft.text.trim().length === 0 || pending}>
-          Submit
+        <Button
+          size="sm"
+          type="submit"
+          disabled={(!coding && draft.text.trim().length === 0) || pending}
+        >
+          {pending && (problem.workspace?.checkCommand ?? null) !== null
+            ? "Running the check…"
+            : "Submit"}
         </Button>
         <Button
           size="sm"
@@ -221,6 +368,9 @@ function SubmittedWork(props: { readonly problem: LearningProblemView }) {
       <p className="text-muted-foreground">
         {[
           attempt.gaveUp ? "You gave up on this one." : null,
+          attempt.check === undefined
+            ? null
+            : `Check on submit: ${checkLabel(attempt.check).label}.`,
           attempt.confidence === undefined ? null : `You were ${attempt.confidence}% sure.`,
           props.problem.hintCount === 0
             ? null

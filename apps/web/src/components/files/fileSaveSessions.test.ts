@@ -62,6 +62,18 @@ describe("file save sessions", () => {
     expect(h.onPendingChange).toHaveBeenLastCalledWith("file.txt", false);
   });
 
+  it("writes a folder's pending edits at once and resolves when they are saved", async () => {
+    using h = setup();
+    const other = { ...target, relativePath: "practice-other/file.txt" };
+    const inFolder = { ...target, relativePath: "practice/main.py" };
+    h.sessions.acquire(inFolder, h.onPendingChange);
+    h.sessions.acquire(other, h.onPendingChange);
+    h.sessions.change(inFolder, "print(1)");
+    h.sessions.change(other, "elsewhere");
+    await h.sessions.flushFolder({ ...target, folder: "practice" });
+    expect(h.writes()).toEqual([[inFolder, "print(1)"]]);
+  });
+
   it("flushes on the last release and drops edits from retired editors", async () => {
     using h = setup();
     const releaseFirst = h.sessions.acquire(target, h.onPendingChange);

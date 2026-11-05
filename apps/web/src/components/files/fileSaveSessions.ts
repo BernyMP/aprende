@@ -124,6 +124,17 @@ export function createFileSaveSessions(deps: FileSaveSessionDeps) {
   return {
     /** Holds the file's session open until the returned release runs. */
     acquire,
+    /** Writes pending edits to files under `folder` now, and resolves once they settle. */
+    async flushFolder(
+      target: Omit<FileSaveTarget, "relativePath"> & { readonly folder: string },
+    ): Promise<void> {
+      const prefix = fileSaveKey({ ...target, relativePath: `${target.folder}/` });
+      await Promise.all(
+        [...sessions]
+          .filter(([key]) => key.startsWith(prefix))
+          .map(([, session]) => session.coordinator.flushed()),
+      );
+    },
     /** Edits for a file nobody holds open are dropped, so retired editors stay inert. */
     change(target: FileSaveTarget, contents: string): void {
       const session = sessions.get(fileSaveKey(target));
@@ -176,3 +187,6 @@ export function useFileSaveSession(
 export function changeFileSaveSession(target: FileSaveTarget, contents: string): void {
   fileSaveSessions.change(target, contents);
 }
+
+/** Saves the open editors' pending edits under `folder` before something reads the files. */
+export const flushFileSaveFolder = fileSaveSessions.flushFolder;

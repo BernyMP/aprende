@@ -42,6 +42,13 @@ teaching a step and near the end of a session. To start whenever you like, ask f
 Problems you missed, or got right while unsure, come back as a **Retest** in a new form before the
 practice ends.
 
+When your goal involves programming, problems come with code. The tutor's starter files go in a new
+folder under `practice/` in the subject's folder, and **Open** shows them in the files panel, where
+you edit them. **Run check** runs the tutor's test command in that folder and shows its output,
+stopping it after 30 seconds. It runs on your computer with your permissions, as your own terminal
+would, so read the command before you run it. **Submit** runs the check once more and sends your code
+to the tutor. The folder stays after the problem ends.
+
 ## Files
 
 Mention files with `@` or by path, such as a PDF of lecture notes or a photo of a worked problem.

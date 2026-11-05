@@ -20,6 +20,7 @@ export class FileSaveCoordinator<A = unknown, E = unknown> {
   private saving = false;
   private disposed = false;
   private flushing = false;
+  private settledWaiters: Array<() => void> = [];
 
   constructor(private readonly options: FileSaveCoordinatorOptions<A, E>) {}
 
@@ -42,6 +43,14 @@ export class FileSaveCoordinator<A = unknown, E = unknown> {
     this.clearTimer();
     this.flushing = true;
     void this.persistLatest();
+  }
+
+  /** Flushes, and resolves once nothing is left to write, whether or not the writes succeeded. */
+  flushed(): Promise<void> {
+    return new Promise((resolve) => {
+      this.settledWaiters.push(resolve);
+      this.flush();
+    });
   }
 
   dispose(): void {
@@ -103,5 +112,8 @@ export class FileSaveCoordinator<A = unknown, E = unknown> {
   private settle(): void {
     this.flushing = false;
     this.options.onSettled?.();
+    const waiters = this.settledWaiters;
+    this.settledWaiters = [];
+    for (const resolve of waiters) resolve();
   }
 }
