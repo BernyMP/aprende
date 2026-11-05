@@ -1,6 +1,21 @@
 {
   "customNotices": [
     {
+      "name": "T3 Code",
+      "bundles": ["desktop", "web"],
+      "license": "MIT",
+      "sourceUrl": "https://github.com/pingdotgg/t3code",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "preamble": [
+            "aprende is a fork of T3 Code. It keeps T3 Code's server, provider runtime, desktop shell and web client. aprende is not affiliated with T3 Tools Inc."
+          ],
+          "copyrights": ["Copyright (c) 2026 T3 Tools Inc."]
+        }
+      ]
+    },
+    {
       "name": "opencode Office viewers",
       "bundles": ["web"],
       "license": "MIT",

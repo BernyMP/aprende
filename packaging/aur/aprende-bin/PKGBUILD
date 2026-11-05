@@ -43,7 +43,7 @@ provides=("aprende=$pkgver")
 conflicts=('aprende')
 options=('!debug' '!strip')
 
-_appimage="T3-Code-${pkgver}-x86_64.AppImage"
+_appimage="aprende-${pkgver}-x86_64.AppImage"
 source=(
   "$_appimage::https://github.com/BernyMP/aprende/releases/download/v${pkgver}/$_appimage"
   "${pkgname}-${pkgver}-LICENSE::https://raw.githubusercontent.com/BernyMP/aprende/v${pkgver}/LICENSE"

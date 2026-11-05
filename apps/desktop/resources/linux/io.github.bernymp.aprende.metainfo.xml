@@ -4,18 +4,19 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>aprende</name>
-  <summary>Desktop GUI for coding agents</summary>
+  <summary>Learn difficult things with a tutor that runs on your own Claude or Codex</summary>
   <developer id="io.github.bernymp">
-    <name>T3 Tools Inc.</name>
+    <name>Berny Peralta</name>
   </developer>
   <description>
     <p>
-      aprende is an open-source desktop app for coding agents. Work with your
-      existing agent subscriptions, review code changes, and run commands in
-      your projects.
+      aprende is an open-source desktop app for learning difficult things. A tutor finds where
+      your understanding ends, maps a path to your goal, and teaches one reasoning step at a time.
+      It runs the claude or codex CLI you already have, with your own login.
     </p>
     <p>
-      Connect from desktop, web, or mobile to continue working remotely.
+      aprende is a fork of T3 Code (https://github.com/pingdotgg/t3code, MIT) and is not
+      affiliated with T3 Tools Inc.
     </p>
   </description>
   <launchable type="desktop-id">aprende.desktop</launchable>
@@ -24,7 +25,7 @@
     <binary>aprende</binary>
   </provides>
   <categories>
-    <category>Development</category>
+    <category>Education</category>
   </categories>
   <url type="homepage">https://github.com/BernyMP/aprende</url>
   <url type="bugtracker">https://github.com/BernyMP/aprende/issues</url>

@@ -31,7 +31,6 @@ import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
-import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
 import {
   canCheckForUpdate,
   getDesktopUpdateButtonTooltip,
@@ -2064,10 +2063,28 @@ export function AboutSettingsPanel() {
             />
           </>
         )}
-        <MobileAppSettingsRow />
       </SettingsSection>
 
       <SettingsSection id="legal" title="Legal">
+        <SettingsRow
+          {...searchableSetting("credits")}
+          description="aprende is a fork of T3 Code (MIT) by T3 Tools Inc. aprende is not affiliated with T3 Tools Inc."
+          control={
+            <Button
+              render={
+                <a
+                  href="https://github.com/pingdotgg/t3code"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                />
+              }
+              size="sm"
+              variant="outline"
+            >
+              View T3 Code
+            </Button>
+          }
+        />
         <SettingsRow
           {...searchableSetting("privacy-policy")}
           description="How we handle your data."

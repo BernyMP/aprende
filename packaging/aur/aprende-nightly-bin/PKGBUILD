@@ -44,7 +44,7 @@ conflicts=('aprende-nightly' 'aprende')
 options=('!debug' '!strip')
 
 _upstream_version="${pkgver/_nightly./-nightly.}"
-_appimage="T3-Code-${_upstream_version}-x86_64.AppImage"
+_appimage="aprende-${_upstream_version}-x86_64.AppImage"
 source=(
   "$_appimage::https://github.com/BernyMP/aprende/releases/download/v${_upstream_version}/$_appimage"
   "${pkgname}-${pkgver}-LICENSE::https://raw.githubusercontent.com/BernyMP/aprende/v${_upstream_version}/LICENSE"

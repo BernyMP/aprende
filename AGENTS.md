@@ -2,7 +2,7 @@
 
 aprende is an open-source desktop app for learning difficult things. A tutor finds where the learner's understanding ends, plans a path to their goal as a dependency map, and teaches one reasoning step at a time: predict, explain, check, repair. Learning sessions persist into a knowledge graph that later sessions build on.
 
-aprende is a hard fork of [aprende](https://github.com/BernyMP/aprende) (MIT). It keeps aprende's runtime: a Node WebSocket server that runs the learner's own `claude` (Claude Code) or `codex` (Codex CLI) as subprocesses, an event-sourced orchestrator, an Electron shell and a React web client. The tutor talks to the app through aprende's own MCP server.
+aprende is a hard fork of [T3 Code](https://github.com/pingdotgg/t3code) (MIT, by T3 Tools Inc.), and is not affiliated with T3 Tools Inc. It keeps T3 Code's runtime: a Node WebSocket server that runs the learner's own `claude` (Claude Code) or `codex` (Codex CLI) as subprocesses, an event-sourced orchestrator, an Electron shell and a React web client. The tutor talks to the app through aprende's own MCP server. Upstream fixes are ported by hand from the `upstream` remote. Credit T3 Code by name and link only: no T3 logos, icons, branding or endpoints.
 
 ## What we never compromise on
 
