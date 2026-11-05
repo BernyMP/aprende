@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   capitalizeTerm,
   sourceControlClients,
-} from "@t3tools/client-runtime/source-control-clients";
+} from "@aprende/client-runtime/source-control-clients";
 import { useAtomCommand } from "~/state/use-atom-command";
 import type {
   EnvironmentId,
@@ -11,7 +11,7 @@ import type {
   PullRequestRef,
   PullRequestReviewThread,
   ScopedThreadRef,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   ArrowDownUpIcon,
   ChevronDownIcon,
@@ -78,8 +78,8 @@ import {
   settleDescriptionSave,
   startDescriptionSave,
   type DescriptionDraft,
-} from "@t3tools/client-runtime/pull-request-editing";
-import { setMarkdownTaskChecked } from "@t3tools/shared/markdownTaskList";
+} from "@aprende/client-runtime/pull-request-editing";
+import { setMarkdownTaskChecked } from "@aprende/shared/markdownTaskList";
 import { PullRequestMarkdown } from "./PullRequestMarkdown";
 import { PullRequestCommentBody } from "./PullRequestCommentBody";
 import { PullRequestMoreReplies } from "./PullRequestMoreReplies";
@@ -378,7 +378,7 @@ function Section({
 
 const COMMENT_PAGE = 10;
 
-const COMMENT_FILTER_STORAGE_KEY = "t3code:pull-request-comment-filter:v1";
+const COMMENT_FILTER_STORAGE_KEY = "aprende:pull-request-comment-filter:v1";
 const CommentFilterSchema = Schema.Struct({ bots: Schema.Boolean, resolved: Schema.Boolean });
 const DEFAULT_COMMENT_FILTER: typeof CommentFilterSchema.Type = { bots: false, resolved: false };
 

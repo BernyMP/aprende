@@ -11,7 +11,7 @@ import {
   type UsageSource,
   type UsageSummary,
   type UsageSummaryInput,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -59,9 +59,9 @@ const PRICING = { status: "unavailable" as const, source: "test", fetchedAt: nul
 
 const cursorSource = (refreshing: boolean): UsageSource => ({
   fingerprint: {
-    hostId: "cursor.com",
-    provider: "cursor",
-    resolvedHomePath: "cursor-account:abc",
+    hostId: "host",
+    provider: "claude",
+    resolvedHomePath: "/home/.claude/projects",
     volumeId: "abc",
   },
   status: "ok",

@@ -13,7 +13,7 @@ import {
   ProviderDriverKind,
   type ProviderInstanceId,
   type SidebarProjectGroupingMode,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   DEFAULT_UNIFIED_SETTINGS,
   type DiffLayout,
@@ -22,10 +22,10 @@ import {
   type ResponseStreamingMode,
   type QuitConfirmationMode,
   SidebarProjectSortOrder,
-} from "@t3tools/contracts/settings";
-import { desktopUpdateChannelOf } from "@t3tools/shared/cliRelease";
-import { createModelSelection } from "@t3tools/shared/model";
-import { resolvePastedPath } from "@t3tools/shared/path";
+} from "@aprende/contracts/settings";
+import { desktopUpdateChannelOf } from "@aprende/shared/cliRelease";
+import { createModelSelection } from "@aprende/shared/model";
+import { resolvePastedPath } from "@aprende/shared/path";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
@@ -62,7 +62,7 @@ import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { ThreadTitleInstructionsSettings } from "./ThreadTitleInstructionsSettings";
 import { SnoozePresetsRow } from "./SnoozePresetsSettings";
 import { useDesktopUpdateState } from "../../state/desktopUpdate";
-import { managedTelemetryOffMessage, usePrimaryManagedPolicy } from "../../state/managedPolicy";
+import { usePrimaryManagedPolicy } from "../../state/managedPolicy";
 import {
   getCustomModelOptionsByInstance,
   resolveAppModelSelectionState,
@@ -1541,8 +1541,6 @@ export function ThreadsSettingsPanel() {
   const textGenerationModelOptionsByInstance = getCustomModelOptionsByInstance(
     settings,
     textGenerationProviders,
-    textGenInstanceId,
-    textGenModel,
   );
   const isTextGenerationModelDirty = !Equal.equals(
     settings.textGenerationModelSelection ?? null,
@@ -2033,7 +2031,6 @@ export function MaintenanceSettingsPanel() {
 
 export function AboutSettingsPanel() {
   const primaryPolicy = usePrimaryManagedPolicy();
-  const telemetryOff = managedTelemetryOffMessage(primaryPolicy);
   return (
     <SettingsPageContainer>
       <SettingsSection id="about" title="App">
@@ -2073,11 +2070,7 @@ export function AboutSettingsPanel() {
       <SettingsSection id="legal" title="Legal">
         <SettingsRow
           {...searchableSetting("privacy-policy")}
-          description={
-            telemetryOff === undefined
-              ? "How we handle your data, including the anonymous usage data T3 Code collects."
-              : `How we handle your data. ${telemetryOff}`
-          }
+          description="How we handle your data."
           control={
             <Button
               render={<a href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer noopener" />}
@@ -2090,7 +2083,7 @@ export function AboutSettingsPanel() {
         />
         <SettingsRow
           {...searchableSetting("open-source-licenses")}
-          description="Notices for dependencies, assets, and optional tools used by T3 Code."
+          description="Notices for dependencies, assets, and optional tools used by aprende."
           control={
             <Button
               render={<Link to="/settings/open-source-licenses" />}

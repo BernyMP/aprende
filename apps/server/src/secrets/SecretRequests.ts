@@ -9,7 +9,7 @@ import {
   type ProjectId,
   type SecretRequestAnswerInput,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -67,7 +67,7 @@ export class SecretRequests extends Context.Service<
       readonly value: string;
     }) => Effect.Effect<string, SecretRequestError>;
   }
->()("t3/secrets/SecretRequests") {}
+>()("aprende/secrets/SecretRequests") {}
 
 const make = Effect.gen(function* () {
   const store = yield* ServerSecretStore.ServerSecretStore;

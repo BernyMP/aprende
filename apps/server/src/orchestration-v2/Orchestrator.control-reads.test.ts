@@ -17,7 +17,7 @@ import {
   RuntimeRequestId,
   ThreadId,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -39,7 +39,7 @@ import * as Orchestrator from "./Orchestrator.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import * as ProviderReplayHarness from "./testkit/ProviderReplayHarness.ts";
-import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import type * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
 
 const instanceId = ProviderInstanceId.make("codex");
 const modelSelection = { instanceId, model: "gpt-5.1-codex" };
@@ -961,9 +961,9 @@ it.effect("keeps delegated child pull-request links independent of the parent", 
     const projectId = ProjectId.make("project:parent-pr");
     const parentPullRequest = {
       projectId,
-      repository: "pingdotgg/t3code",
+      repository: "BernyMP/aprende",
       number: 123,
-      url: "https://github.com/pingdotgg/t3code/pull/123",
+      url: "https://github.com/BernyMP/aprende/pull/123",
     };
     yield* orchestrator.dispatch({
       type: "thread.create",
@@ -1023,7 +1023,7 @@ it.effect("keeps delegated child pull-request links independent of the parent", 
     const childPullRequest = {
       ...parentPullRequest,
       number: 456,
-      url: "https://github.com/pingdotgg/t3code/pull/456",
+      url: "https://github.com/BernyMP/aprende/pull/456",
     };
     yield* orchestrator.dispatch({
       type: "thread.metadata.update",
@@ -1453,7 +1453,7 @@ it.effect("replays a thread.create receipt without changing the thread", () =>
     const before = yield* projections.getThread(threadId);
     const replayed = yield* orchestrator.dispatch(create);
     assert.equal(replayed.sequence, original.sequence);
-    // Marked so client analytics do not count the retry again.
+    // Marked so a launch retry reports itself as resumed.
     assert.deepEqual(replayed, { ...original, replayed: true });
     assert.deepEqual(yield* projections.getThread(threadId), before);
     assert.equal(yield* orchestrator.getThreadEventSequence(threadId), original.sequence);

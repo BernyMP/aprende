@@ -6,16 +6,16 @@ import {
   type ScopedThreadRef,
   type ThreadId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   wasBootstrapThreadDeleted,
   wasBootstrapThreadNotCreated,
-} from "@t3tools/client-runtime/errors";
+} from "@aprende/client-runtime/errors";
 import { Atom } from "effect/reactivity";
 import {
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import { readLocalApi } from "../../localApi";
 import { getUploadedAttachments } from "../../lib/attachmentUploadQueue";
 import { findRevertCheckpoint } from "../../session-logic";
@@ -29,13 +29,12 @@ import {
   useComposerDraftStore,
   DraftId,
 } from "../../composerDraftStore";
-import { ATTACHMENT_ONLY_BOOTSTRAP_PROMPT } from "@t3tools/shared/composerContextReferences";
-import { createModelSelection } from "@t3tools/shared/model";
+import { ATTACHMENT_ONLY_BOOTSTRAP_PROMPT } from "@aprende/shared/composerContextReferences";
+import { createModelSelection } from "@aprende/shared/model";
 import type { ProviderInstanceEntry } from "../../providerInstances";
 import { getComposerPromptInjectionState, getComposerProviderState } from "./composerProviderState";
 import {
   formatOutgoingPrompt,
-  getAntigravitySendBlockReason,
   resolveComposerInteractionMode,
   cloneComposerImageForRetry,
   type ComposerSendSnapshot,
@@ -298,8 +297,6 @@ export function resolveMultipleModelTargets(input: {
     if (!provider?.enabled || !provider.isAvailable || provider.status !== "ready") {
       return { error: `Provider for ${selection.model} is unavailable.` };
     }
-    const providerBlockReason = getAntigravitySendBlockReason(provider.snapshot, selection.model);
-    if (providerBlockReason) return { error: providerBlockReason };
     const providerState = getComposerProviderState({
       provider: provider.driverKind,
       model: selection.model,

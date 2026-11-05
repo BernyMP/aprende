@@ -1,10 +1,10 @@
-import { threadChipCopyTarget } from "@t3tools/client-runtime/thread-reference";
-import { type ComposerContextClipboardFragment, EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { threadChipCopyTarget } from "@aprende/client-runtime/thread-reference";
+import { type ComposerContextClipboardFragment, EnvironmentId, ThreadId } from "@aprende/contracts";
 import {
   COMPOSER_CONTEXT_CLIPBOARD_MIME,
   encodeComposerContextFragment,
-} from "@t3tools/shared/composerContextClipboard";
-import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
+} from "@aprende/shared/composerContextClipboard";
+import { threadContextRecord } from "@aprende/shared/composerContextReferences";
 import { describe, expect, it } from "vite-plus/test";
 
 import { importPastedComposerText } from "./composerInlineTokenPaste";
@@ -51,7 +51,7 @@ describe("importPastedComposerText", () => {
   });
 
   it("keeps the link when the composer cannot take the thread", () => {
-    const pasted = "https://app.t3.codes/threads/env-1/thread-1";
+    const pasted = "https://app.aprende.invalid/threads/env-1/thread-1";
     expect(importPastedComposerText(clipboard({ "text/plain": pasted }), () => new Map())).toBe(
       pasted,
     );

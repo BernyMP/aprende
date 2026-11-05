@@ -53,7 +53,7 @@ const user = (login: string, fields: Record<string, unknown> = {}) => ({
 const row = (fields: Record<string, unknown>) => ({
   number: 1,
   title: "Add the pull requests page",
-  url: "https://github.com/pingdotgg/t3code/pull/1",
+  url: "https://github.com/BernyMP/aprende/pull/1",
   author: null,
   headRefName: "feat/page",
   baseRefName: "main",
@@ -65,7 +65,7 @@ const row = (fields: Record<string, unknown>) => ({
   createdAt: "2026-07-01T00:00:00Z",
   updatedAt: "2026-07-02T00:00:00Z",
   mergedAt: null,
-  repository: { nameWithOwner: "pingdotgg/t3code" },
+  repository: { nameWithOwner: "BernyMP/aprende" },
   reviewRequests: { nodes: [] },
   labels: { nodes: [] },
   commits: { nodes: [] },
@@ -344,7 +344,7 @@ describe("pull request detail decoding", () => {
           pullRequest: {
             number: 7,
             title: "Detail",
-            url: "https://github.com/pingdotgg/t3code/pull/7",
+            url: "https://github.com/BernyMP/aprende/pull/7",
             body: "Body",
             state: "OPEN",
             isDraft: false,
@@ -410,7 +410,7 @@ describe("pull request detail decoding", () => {
         isCrossRepository: true,
         viewerDidAuthor: true,
         headRepositoryOwner: { __typename: "User", login: "octocat" },
-        headRepository: { nameWithOwner: "octocat/t3code", viewerPermission: "ADMIN" },
+        headRepository: { nameWithOwner: "octocat/aprende", viewerPermission: "ADMIN" },
         headRef: { id: "REF_7" },
         ...overrides,
       });
@@ -749,7 +749,7 @@ describe("review thread decoding", () => {
         reviewJson({
           requested: [
             {
-              combinedSlug: "pingdotgg/ping-devs",
+              combinedSlug: "BernyMP/ping-devs",
               teamName: "Ping Devs",
               teamAvatarUrl: "https://avatars.githubusercontent.com/t/6692390?s=400&v=4",
             },
@@ -763,7 +763,7 @@ describe("review thread decoding", () => {
 
     expect(result.reviewers).toEqual([
       {
-        login: "pingdotgg/ping-devs",
+        login: "BernyMP/ping-devs",
         name: "Ping Devs",
         avatarUrl: "https://avatars.githubusercontent.com/t/6692390?s=400&v=4",
       },

@@ -14,7 +14,7 @@ import { macPasskeyBackend } from "./PasskeyBackendMac.ts";
 import type { PasskeyCeremonyResult } from "./PasskeyBridge.ts";
 
 const PasskeyPackageMetadata = Schema.Struct({
-  t3codeWebAuthn: Schema.optional(
+  aprendeWebAuthn: Schema.optional(
     Schema.Struct({
       touchIdKeychainAccessGroup: Schema.optional(Schema.String),
       browserPasskeys: Schema.optional(Schema.Boolean),
@@ -46,7 +46,7 @@ export class PreviewPasskeys extends Context.Service<
     readonly installSessionHandlers: (session: Session) => void;
     readonly attachGuest: (guest: WebContents) => () => void;
   }
->()("@t3tools/desktop/preview/Passkeys/PreviewPasskeys") {}
+>()("@aprende/desktop/preview/Passkeys/PreviewPasskeys") {}
 
 const notAllowed: PasskeyCeremonyResult = { success: false, error: "NotAllowedError" };
 
@@ -123,7 +123,7 @@ const make = Effect.gen(function* () {
           .readFileString(environment.path.join(environment.appRoot, "package.json"))
           .pipe(
             Effect.flatMap(decodePasskeyPackageMetadata),
-            Effect.map((parsed) => parsed.t3codeWebAuthn),
+            Effect.map((parsed) => parsed.aprendeWebAuthn),
             Effect.orElseSucceed(() => undefined),
           )
       : undefined;

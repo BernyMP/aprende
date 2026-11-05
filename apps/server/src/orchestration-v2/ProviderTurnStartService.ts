@@ -1,5 +1,5 @@
-import { modelSelectionsEqual } from "@t3tools/shared/model";
-import { projectComposerContextForProvider } from "@t3tools/shared/composerContextReferences";
+import { modelSelectionsEqual } from "@aprende/shared/model";
+import { projectComposerContextForProvider } from "@aprende/shared/composerContextReferences";
 import {
   CommandId,
   latestProviderTurnForAttempt,
@@ -14,7 +14,7 @@ import {
   parseGoalCommand,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -33,7 +33,6 @@ import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { makeIsManagedWorktreePath } from "../worktreesDirectory.ts";
 import * as EventSink from "./EventSink.ts";
-import * as ProviderUsageAnalytics from "../telemetry/ProviderUsageAnalytics.ts";
 import * as ContextHandoffService from "./ContextHandoffService.ts";
 import { isActiveRun } from "./CommandPolicy.ts";
 import {
@@ -44,17 +43,17 @@ import {
   contextUsageForHandoff,
   historicalMessage,
   latestNativeContextUsage,
-} from "@t3tools/provider-core/server/handoffBudget";
+} from "@aprende/provider-core/server/handoffBudget";
 import { deliverContextHandoffs, withInlineContext } from "./ContextHandoffDelivery.ts";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProviderSessionManager from "./ProviderSessionManager.ts";
 import {
   ContextHandoffBackgroundWorkError,
   knownProviderFailureMessage,
   makeProviderFailure,
-} from "@t3tools/provider-core/server/failure";
+} from "@aprende/provider-core/server/failure";
 import * as RunExecutionService from "./RunExecutionService.ts";
 import * as RuntimePolicy from "./RuntimePolicy.ts";
 import {
@@ -126,7 +125,7 @@ export interface ProviderTurnStartServiceV2Shape {
 export class ProviderTurnStartServiceV2 extends Context.Service<
   ProviderTurnStartServiceV2,
   ProviderTurnStartServiceV2Shape
->()("t3/orchestration-v2/ProviderTurnStartService/ProviderTurnStartServiceV2") {}
+>()("aprende/orchestration-v2/ProviderTurnStartService/ProviderTurnStartServiceV2") {}
 
 export const layer: Layer.Layer<
   ProviderTurnStartServiceV2,
@@ -149,7 +148,6 @@ export const layer: Layer.Layer<
   ProviderTurnStartServiceV2,
   Effect.gen(function* () {
     const eventSink = yield* EventSink.EventSinkV2;
-    const turnAnalytics = yield* ProviderUsageAnalytics.ProviderTurnAnalytics;
     const contextHandoffService = yield* ContextHandoffService.ContextHandoffServiceV2;
     const idAllocator = yield* IdAllocator.IdAllocatorV2;
     const fileSystem = yield* FileSystem.FileSystem;
@@ -497,22 +495,13 @@ export const layer: Layer.Layer<
               } satisfies OrchestrationV2DomainEvent;
             }),
           );
-          const written = yield* eventSink.writeIfRunCurrent({
+          yield* eventSink.writeIfRunCurrent({
             threadId: projection.thread.id,
             runId,
             activeAttemptId: attempt.id,
             expectedStatus: "starting",
             events,
           });
-          // A steering restart that cannot start still ends a run whose earlier turns counted.
-          if (written.committed) {
-            yield* turnAnalytics.runSettled({
-              runId,
-              status,
-              completedAt: now,
-              childrenRunning: false,
-            });
-          }
         },
       );
       const settleStartFailure = Effect.fn("ProviderTurnStartService.settleStartFailure")(

@@ -17,7 +17,7 @@ import {
   type OrchestrationV2ThreadStreamItem,
   OrchestrationV2TurnItem,
   OrchestrationV2TurnItemJson,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
@@ -30,7 +30,7 @@ import {
   projectDomainEventForWire,
 } from "./WireProjection.ts";
 import { threadShellFromProjection } from "./ProjectionStore.ts";
-import { MAX_TOOL_OUTPUT_IMAGES, toolOutputImages } from "@t3tools/shared/toolOutput";
+import { MAX_TOOL_OUTPUT_IMAGES, toolOutputImages } from "@aprende/shared/toolOutput";
 
 const decodeTurnItem = Schema.decodeUnknownSync(OrchestrationV2TurnItem);
 const encodeTurnItemJson = Schema.encodeSync(OrchestrationV2TurnItemJson);
@@ -162,6 +162,19 @@ describe("orchestration V2 wire projection", () => {
     expect(item.output).toEqual({ ok: true });
   });
 
+  it("never sends a question's committed answer to clients", () => {
+    const item = {
+      ...base,
+      toolName: "mcp__aprende__ask_question",
+      input: { question: "Which?", options: ["A", "B"], correctOptions: [1] },
+      output: { questionId: "q-1" },
+    } satisfies OrchestrationV2TurnItem;
+    for (const projected of [projectTurnItemForWire(item), projectTurnItemForDetail(item)]) {
+      expect(projected.type === "dynamic_tool" ? projected.input : "unexpected").toBeNull();
+    }
+    expect(item.input.correctOptions).toEqual([1]);
+  });
+
   it("uses encoded JSON bytes for strings near the dynamic-value limit", () => {
     const small = '"'.repeat(8_191);
     const large = '"'.repeat(8_192);
@@ -206,7 +219,7 @@ describe("orchestration V2 wire projection", () => {
     const item = {
       ...base,
       type: "dynamic_tool" as const,
-      toolName: "mcp__t3-code__device_screenshot",
+      toolName: "mcp__aprende__device_screenshot",
       input: { deviceId: "phone" },
       output: {
         content: [{ type: "image", source: { type: "base64", media_type: "image/png", data } }],

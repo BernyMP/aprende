@@ -7,9 +7,9 @@ import {
   ServerProviderResetCredits,
   ServerProviderUsageWindow,
   UsageProviderKind,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { useAtomValue } from "@effect/atom-react";
-import { normalizeProviderAccentColor } from "@t3tools/client-runtime/state/provider-instance-display";
+import { normalizeProviderAccentColor } from "@aprende/client-runtime/state/provider-instance-display";
 import {
   formatDuration,
   formatResetsIn,
@@ -17,9 +17,9 @@ import {
   paceOf,
   paceRemainingPercent,
   remainingPercent,
-} from "@t3tools/shared/usageLimits";
+} from "@aprende/shared/usageLimits";
 import { GaugeIcon, TrendingDownIcon, TrendingUpIcon } from "lucide-react";
-import { Fragment, type ReactNode, useLayoutEffect, useState } from "react";
+import { Fragment, useLayoutEffect, useState } from "react";
 
 import { usePrimarySettings } from "../../hooks/useSettings";
 import { observeResize } from "../../lib/observeResize";
@@ -103,7 +103,7 @@ function paceMarkStyles(timeLeft: number | null) {
 export function usePaceMark(timeLeft: number | null) {
   const [bar, setBar] = useState<HTMLElement | null>(null);
   const [roomy, setRoomy] = useState(false);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- measures the bar DOM width before paint and remeasures through a ResizeObserver
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- measures the bar DOM width before paint and remeasures through a ResizeObserver
   useLayoutEffect(() => {
     if (!bar) return;
     const measure = () => setRoomy(bar.getBoundingClientRect().width >= 6);
@@ -365,12 +365,10 @@ export function UsageLimitsSection({
   selectedEnvironmentIds,
   hiddenProviders,
   now,
-  cursorPrompt,
 }: {
   readonly selectedEnvironmentIds: ReadonlySet<EnvironmentId> | null;
   readonly hiddenProviders: ReadonlySet<UsageProviderKind>;
   readonly now: number;
-  readonly cursorPrompt?: ReactNode;
 }) {
   const presentations = useAtomValue(environmentPresentations.presentationsWithProvidersAtom);
   const hiddenDrivers = new Set<ServerProvider["driver"]>(
@@ -402,5 +400,5 @@ export function UsageLimitsSection({
       ];
     }),
   );
-  return <UsageLimitsPooled presentations={selected} now={now} cursorPrompt={cursorPrompt} />;
+  return <UsageLimitsPooled presentations={selected} now={now} />;
 }

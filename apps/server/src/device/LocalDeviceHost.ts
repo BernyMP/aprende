@@ -1,5 +1,5 @@
 import { pruneLocalDeviceTools } from "./deviceToolMaintenance.ts";
-import { deviceToolInstallMessage } from "@t3tools/contracts";
+import { deviceToolInstallMessage } from "@aprende/contracts";
 // The hub runs at origin root; T3 strips its prefix and the Device panel derives stream URLs from it.
 import {
   type DeviceHostSummary,
@@ -7,15 +7,15 @@ import {
   type DevicePlatformAvailability,
   LOCAL_DEVICE_HOST_ID,
   LOCAL_DEVICE_HOST_LABEL,
-} from "@t3tools/contracts";
-import { waitForHttpReady } from "@t3tools/shared/httpReadiness";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+} from "@aprende/contracts";
+import { waitForHttpReady } from "@aprende/shared/httpReadiness";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import {
   resolveNodeExecutable,
   type NodeRuntimeUnavailableError,
-} from "@t3tools/shared/nodeRuntime";
-import * as NetService from "@t3tools/shared/Net";
-import { isCommandAvailable } from "@t3tools/shared/shell";
+} from "@aprende/shared/nodeRuntime";
+import * as NetService from "@aprende/shared/Net";
+import { isCommandAvailable } from "@aprende/shared/shell";
 import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -33,7 +33,7 @@ import { HttpClient } from "effect/http";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
+import { writeFileStringAtomically } from "@aprende/shared/atomicWrite";
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import { releaseAgentDeviceSession } from "./AgentDeviceTarget.ts";

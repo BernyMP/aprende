@@ -5,8 +5,8 @@ import * as NodePath from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, expect, it } from "@effect/vitest";
-import { AgentScope } from "@t3tools/shared/AgentScope";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import { AgentScope } from "@aprende/shared/AgentScope";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -290,7 +290,7 @@ describe("AgentScope service", () => {
             "--user",
             "set-property",
             "--runtime",
-            "app-t3code-agents.slice",
+            "app-aprende-agents.slice",
             expect.stringMatching(/^MemoryHigh=\d+$/),
             expect.stringMatching(/^MemoryMax=\d+$/),
           ],
@@ -298,7 +298,7 @@ describe("AgentScope service", () => {
             "--user",
             "set-property",
             "--runtime",
-            "app-t3code.slice",
+            "app-aprende.slice",
             "CPUWeight=10",
             "IOWeight=10",
             "TasksMax=25%",
@@ -323,7 +323,7 @@ describe("AgentScope service", () => {
           name: "terminal",
           survivesRestart: true,
         });
-        expect(sliceOf(terminal)).toBe("app-t3code-agents.slice");
+        expect(sliceOf(terminal)).toBe("app-aprende-agents.slice");
         expect(calls.filter(([, verb]) => verb === "stop")).toHaveLength(1);
       }),
     ),

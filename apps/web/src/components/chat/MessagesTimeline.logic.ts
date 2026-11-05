@@ -1,24 +1,24 @@
-import { worktreeSetupAgentStarted } from "@t3tools/client-runtime/worktree-setup";
-import { resolveUserMessagePresentation } from "@t3tools/client-runtime/user-message";
-import { isLiveSubagentTurnItem } from "@t3tools/client-runtime/state/subagentRuntime";
+import { worktreeSetupAgentStarted } from "@aprende/client-runtime/worktree-setup";
+import { resolveUserMessagePresentation } from "@aprende/client-runtime/user-message";
+import { isLiveSubagentTurnItem } from "@aprende/client-runtime/state/subagentRuntime";
 import * as DateTime from "effect/DateTime";
 import * as Equal from "effect/Equal";
 import {
   assistantCitationLabel,
   collectAssistantCitations,
-} from "@t3tools/shared/assistantCitations";
+} from "@aprende/shared/assistantCitations";
 import { shallow } from "zustand/vanilla/shallow";
-import { claudeResumeCompactionAge } from "@t3tools/shared/claudeCompaction";
+import { claudeResumeCompactionAge } from "@aprende/shared/claudeCompaction";
 import {
   IDLE_COMPACTING_LABELS,
   IDLE_COMPACTION_TITLES,
-} from "@t3tools/client-runtime/user-message";
-import type { HandoffTimelineRun } from "@t3tools/client-runtime/handoff";
-import { renderCodexDirectivesForCopy } from "@t3tools/shared/codexMarkdownDirectives";
+} from "@aprende/client-runtime/user-message";
+import type { HandoffTimelineRun } from "@aprende/client-runtime/handoff";
+import { renderCodexDirectivesForCopy } from "@aprende/shared/codexMarkdownDirectives";
 import {
   commandDisplayText,
   commandProgramName,
-} from "@t3tools/client-runtime/work-log/command-label";
+} from "@aprende/client-runtime/work-log/command-label";
 import {
   liveActivityToolStatus,
   normalizeCompactToolLabel,
@@ -28,7 +28,7 @@ import {
   toolGroupSummaryKind,
   contextCompactionTokenCounts,
   type ToolGroupSummaryKind,
-} from "@t3tools/client-runtime/work-log/presentation";
+} from "@aprende/client-runtime/work-log/presentation";
 import {
   deriveRevertTurnCountByUserMessageId,
   formatDuration,
@@ -60,20 +60,20 @@ import {
   RunId,
   type ThreadId,
   type TurnItemId,
-} from "@t3tools/contracts";
-import type { ThreadRunSummary } from "@t3tools/client-runtime/state/shell";
-import { resolveT3McpToolDefinition } from "@t3tools/shared/t3McpToolPresentation";
-import { compactDynamicToolOutput } from "@t3tools/shared/toolOutput";
-import { htmlRenderReferencesEqual, type HtmlRenderReference } from "@t3tools/shared/htmlRender";
-import { mcpAppReferencesEqual, type McpAppReference } from "@t3tools/shared/mcpApp";
-import { dynamicToolTitle } from "@t3tools/shared/toolActivity";
+} from "@aprende/contracts";
+import type { ThreadRunSummary } from "@aprende/client-runtime/state/shell";
+import { resolveT3McpToolDefinition } from "@aprende/shared/t3McpToolPresentation";
+import { compactDynamicToolOutput } from "@aprende/shared/toolOutput";
+import { htmlRenderReferencesEqual, type HtmlRenderReference } from "@aprende/shared/htmlRender";
+import { mcpAppReferencesEqual, type McpAppReference } from "@aprende/shared/mcpApp";
+import { dynamicToolTitle } from "@aprende/shared/toolActivity";
 import { formatWorkspaceRelativePath } from "../../filePathDisplay";
 import {
   collectToolFilePaths,
   formatReadToolLabel,
   formatSearchToolLabel,
-} from "@t3tools/shared/toolActivity";
-import { isWindowsAbsolutePath } from "@t3tools/shared/path";
+} from "@aprende/shared/toolActivity";
+import { isWindowsAbsolutePath } from "@aprende/shared/path";
 
 function timelineEntryRunId(entry: TimelineEntry): RunId | null {
   if (entry.kind === "message") {
@@ -82,7 +82,8 @@ function timelineEntryRunId(entry: TimelineEntry): RunId | null {
   if (entry.kind === "proposed-plan") {
     return entry.proposedPlan.runId;
   }
-  if (entry.kind === "html-render" || entry.kind === "mcp-app") return entry.runId;
+  if (entry.kind === "html-render" || entry.kind === "mcp-app" || entry.kind === "learning")
+    return entry.runId;
   return entry.kind === "work" ? (entry.entry.runId ?? null) : null;
 }
 
@@ -578,7 +579,7 @@ type MessagesTimelineRowContent =
       label: string;
       tokenCounts: ReturnType<typeof contextCompactionTokenCounts>;
       active: boolean;
-      /** Replaces "Context compacted" when T3 Code compacted without being asked. */
+      /** Replaces "Context compacted" when aprende compacted without being asked. */
       title?: string;
       failed?: true;
       /** The provider's reason, when a failed compaction gave one. */
@@ -630,6 +631,14 @@ type MessagesTimelineRowContent =
       id: string;
       createdAt: string;
       htmlRender: HtmlRenderReference;
+    }
+  | {
+      kind: "learning";
+      id: string;
+      createdAt: string;
+      tool: "ask_question" | "finish_measuring" | "set_plan";
+      questionId: string | null;
+      latest: boolean;
     }
   | {
       kind: "mcp-app";
@@ -795,6 +804,7 @@ function deriveSupersededAttemptFolds(
       (entry.kind === "event" && entry.projectedItem.item.type === "handoff") ||
       entry.kind === "html-render" ||
       entry.kind === "mcp-app" ||
+      entry.kind === "learning" ||
       timelineEntryIsPersistentResourceCard(entry) ||
       liveSubagentEntryIds.has(entry.id) ||
       (entry.kind === "work" && entry.entry.itemType === "system_notice")
@@ -1949,6 +1959,18 @@ export function deriveMessagesTimelineRows(input: {
       continue;
     }
 
+    if (timelineEntry.kind === "learning") {
+      nextRows.push({
+        kind: "learning",
+        id: timelineEntry.id,
+        createdAt: timelineEntry.createdAt,
+        tool: timelineEntry.tool,
+        questionId: timelineEntry.questionId,
+        latest: timelineEntry.latest,
+      });
+      continue;
+    }
+
     if (timelineEntry.kind === "html-render") {
       nextRows.push({
         kind: "html-render",
@@ -2438,6 +2460,16 @@ function isRowUnchanged(a: MessagesTimelineRow, b: MessagesTimelineRow): boolean
 
     case "proposed-plan":
       return a.proposedPlan === (b as typeof a).proposedPlan;
+
+    case "learning": {
+      const bl = b as typeof a;
+      return (
+        a.createdAt === bl.createdAt &&
+        a.tool === bl.tool &&
+        a.questionId === bl.questionId &&
+        a.latest === bl.latest
+      );
+    }
 
     case "html-render": {
       // Tool updates rebuild entries; preserve frames for unchanged pages.

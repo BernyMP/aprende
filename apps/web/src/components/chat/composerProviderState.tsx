@@ -6,14 +6,13 @@ import {
   type ProviderOptionSelection,
   type ScopedThreadRef,
   type ServerProviderModel,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   buildExplicitProviderOptionSelectionsFromDescriptors,
   getProviderOptionCurrentValue,
   getProviderOptionDescriptors,
   isClaudeUltrathinkPrompt,
-  normalizeModelSlug,
-} from "@t3tools/shared/model";
+} from "@aprende/shared/model";
 
 import type { DraftId } from "../../composerDraftStore";
 import { getProviderModelCapabilities } from "../../providerModels";
@@ -61,7 +60,7 @@ export function getComposerPromptInjectionState(prompt: string): ComposerPromptI
   return isClaudeUltrathinkPrompt(prompt) ? "ultrathink" : "none";
 }
 
-/** Cursor ACP can default Fast to true; T3 requires a user selection. */
+/** Providers can default Fast to true; T3 requires a user selection. */
 export function withImplicitFastModeDefault(
   caps: ModelCapabilities,
   modelOptions: ReadonlyArray<ProviderOptionSelection> | null | undefined,
@@ -102,21 +101,6 @@ export function getComposerProviderState(input: ComposerProviderStateInput): Com
     promptInjectionState = "none",
     planModeEnabled,
   } = input;
-  if (provider === "opencode") {
-    const normalizedModel = normalizeModelSlug(model, provider);
-    const modelIsInCatalog = models.some((candidate) => candidate.slug === normalizedModel);
-    if (!modelIsInCatalog) {
-      const preservedOptions = modelOptions?.filter(
-        (option) => planModeEnabled || option.id !== "agent" || option.value !== "plan",
-      );
-      return {
-        provider,
-        promptEffort: null,
-        modelOptionsForDispatch:
-          preservedOptions && preservedOptions.length > 0 ? preservedOptions : undefined,
-      };
-    }
-  }
   const { caps, selections } = resolveComposerOptionSelections(
     models,
     model,

@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import type { ManagedPolicyDocument } from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import type { ManagedPolicyDocument } from "@aprende/contracts";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -195,7 +195,7 @@ it.layer(NodeServices.layer)("server self update", (it) => {
       for (const harness of [service, desktop]) {
         expect(
           (yield* harness.selfUpdate.update({ targetVersion: "1.1.0" }).pipe(Effect.flip)).reason,
-        ).toBe("Example Corp manages T3 Code updates.");
+        ).toBe("Example Corp manages aprende updates.");
       }
       expect([...service.order, ...desktop.order]).toEqual([]);
     }),
@@ -211,7 +211,7 @@ it.layer(NodeServices.layer)("server self update", (it) => {
             updates: {
               mode: "auto",
               allowNightly: false,
-              feedUrl: "https://updates.example.com/t3code/",
+              feedUrl: "https://updates.example.com/aprende/",
             },
           },
         },
@@ -219,17 +219,17 @@ it.layer(NodeServices.layer)("server self update", (it) => {
       expect(
         (yield* selfUpdate.update({ targetVersion: "1.2.0-nightly.20261028.1" }).pipe(Effect.flip))
           .reason,
-      ).toBe("Example Corp manages T3 Code updates. Only stable releases can be installed.");
+      ).toBe("Example Corp manages aprende updates. Only stable releases can be installed.");
       expect(order).toEqual([]);
       // The mirror lists only 1.1.0's archive.
       expect((yield* selfUpdate.update({ targetVersion: "1.2.0" }).pipe(Effect.flip)).reason).toBe(
-        "Example Corp's update mirror has no t3@1.2.0 for this machine.",
+        "Example Corp's update mirror has no aprende@1.2.0 for this machine.",
       );
       expect((yield* selfUpdate.update({ targetVersion: "1.1.0" })).updateId).toBe("launcher-id");
       // The release comes from the policy's mirror, not GitHub.
       expect(urls.length).toBeGreaterThan(0);
       for (const url of urls)
-        expect(url).toMatch(/^https:\/\/updates\.example\.com\/t3code\/v1\.[12]\.0\//);
+        expect(url).toMatch(/^https:\/\/updates\.example\.com\/aprende\/v1\.[12]\.0\//);
     }),
   );
 
@@ -393,7 +393,7 @@ it.layer(NodeServices.layer)("pruning runtimes on start", (it) => {
     return { removed, remaining: (yield* fs.readDirectory(versionsDir)).toSorted() };
   });
 
-  // The SSH launcher runs `t3 serve` straight from the pinned runtime, with no boot service.
+  // The SSH launcher runs `aprende serve` straight from the pinned runtime, with no boot service.
   it.effect("prunes for a server started from its home's pinned runtime", () =>
     Effect.gen(function* () {
       const { removed, remaining } = yield* pruneOnStart({ executable: "own runtime" });
@@ -402,7 +402,7 @@ it.layer(NodeServices.layer)("pruning runtimes on start", (it) => {
     }),
   );
 
-  it.effect("recognizes its runtime through a symlinked T3 home", () =>
+  it.effect("recognizes its runtime through a symlinked aprende home", () =>
     Effect.gen(function* () {
       const { removed } = yield* pruneOnStart({ executable: "own runtime", symlinkedHome: true });
       expect(removed).toEqual([staleVersion]);

@@ -1,13 +1,13 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import type { OrchestrationV2DomainEvent, ProviderReplayTranscript } from "@t3tools/contracts";
+import type { OrchestrationV2DomainEvent, ProviderReplayTranscript } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import { checkpointWorkspace } from "@t3tools/provider-testing/replayWorkspace";
-import { readProviderReplayTranscript } from "@t3tools/provider-testing/replayTranscript";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
+import { checkpointWorkspace } from "@aprende/provider-testing/replayWorkspace";
+import { readProviderReplayTranscript } from "@aprende/provider-testing/replayTranscript";
 import { provideDeterministicTestRuntime } from "./DeterministicRuntime.ts";
 import { ORCHESTRATOR_REPLAY_FIXTURES } from "./fixtures/index.ts";
 import {
@@ -25,18 +25,7 @@ import { materializeReplayTranscriptRuntimeInstructions } from "./ReplayRuntimeI
 // Each driver's fixtures run from its own <Provider>ReplayFixtures.integration.test.ts,
 // so a focused run loads one adapter. A fixture for a driver missing here would
 // silently never run, so loading this module fails instead.
-const DRIVERS_WITH_REPLAY_FIXTURE_FILES = new Set([
-  "acpRegistry",
-  "claudeAgent",
-  "codex",
-  "cursor",
-  "fx",
-  "grok",
-  "kiro",
-  "muse",
-  "opencode",
-  "pi",
-]);
+const DRIVERS_WITH_REPLAY_FIXTURE_FILES = new Set(["acpRegistry", "claudeAgent", "codex"]);
 for (const fixture of ORCHESTRATOR_REPLAY_FIXTURES) {
   for (const provider of fixture.providers) {
     if (!DRIVERS_WITH_REPLAY_FIXTURE_FILES.has(provider.driver)) {

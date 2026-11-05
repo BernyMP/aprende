@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import * as NetService from "@t3tools/shared/Net";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import * as NetService from "@aprende/shared/Net";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -20,8 +20,8 @@ const status = {
   supported: true,
   installed: true,
   current: true,
-  unitPath: "/home/me/.config/systemd/user/t3code.service",
-  logPath: "/home/me/.t3/userdata/logs/boot-service.log",
+  unitPath: "/home/me/.config/systemd/user/aprende.service",
+  logPath: "/home/me/.aprende/userdata/logs/boot-service.log",
 } as const;
 
 const newerServiceStatus = { ...status, current: false, installedVersion: "999.0.0" };
@@ -90,14 +90,14 @@ it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("service commands
   );
 
   it.effect.each([
-    { label: "a new service", installed: false, env: "", expected: "T3CODE_LAN=false\n" },
-    // Services installed before T3CODE_LAN existed keep listening on the local network.
+    { label: "a new service", installed: false, env: "", expected: "APRENDE_LAN=false\n" },
+    // Services installed before APRENDE_LAN existed keep listening on the local network.
     { label: "an older service", installed: true, env: "", expected: "" },
     {
       label: "a set host",
       installed: false,
-      env: "T3CODE_HOST=::\n",
-      expected: "T3CODE_HOST=::\n",
+      env: "APRENDE_HOST=::\n",
+      expected: "APRENDE_HOST=::\n",
     },
   ])("install keeps $label off the local network only when it is new", (input) =>
     Effect.gen(function* () {
@@ -193,7 +193,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("service commands
             ),
           ),
         );
-        expect(output).toContain(`t3@${packageJson.version}`);
+        expect(output).toContain(`aprende@${packageJson.version}`);
         expect(output).toContain(script);
         expect(installOptions).toEqual([]);
       }),
@@ -209,7 +209,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("service commands
       const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-service-cli-test-" });
       const { service, uninstalls } = makeTestService({
         ...status,
-        installedBaseDir: input.otherHome ? "/home/me/.t3" : baseDir,
+        installedBaseDir: input.otherHome ? "/home/me/.aprende" : baseDir,
       });
       vi.spyOn(BootService, "layer").mockReturnValue(
         Layer.succeed(
@@ -239,7 +239,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("service commands
         ),
       );
       expect(uninstalls).toEqual(input.removed);
-      expect(output).toContain(input.otherHome ? "another T3 home" : "Removed");
+      expect(output).toContain(input.otherHome ? "another aprende home" : "Removed");
     }),
   );
 });

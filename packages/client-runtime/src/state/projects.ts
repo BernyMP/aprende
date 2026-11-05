@@ -5,11 +5,11 @@ import {
   isWindowsDrivePath,
   normalizeProjectPathForComparison,
   normalizeProjectPathForDispatch,
-} from "@t3tools/shared/path";
+} from "@aprende/shared/path";
 
 export { normalizeProjectPathForComparison };
 
-export const isWindowsPlatform = (platform: string): boolean => {
+const isWindowsPlatform = (platform: string): boolean => {
   return /^win(dows)?/i.test(platform);
 };
 

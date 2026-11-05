@@ -5,8 +5,8 @@ import {
   type EnvironmentId,
   type ScopedProjectRef,
   type SidebarProjectGroupingMode,
-} from "@t3tools/contracts";
-import type { ClientSettings } from "@t3tools/contracts/settings";
+} from "@aprende/contracts";
+import type { ClientSettings } from "@aprende/contracts/settings";
 
 import type { EnvironmentProject } from "./models.ts";
 import { normalizeProjectPathForComparison } from "./projects.ts";
@@ -198,7 +198,7 @@ export function resolveScratchProjectScopeKey(
     : key;
 }
 
-export function deriveProjectGroupLabel(input: {
+function deriveProjectGroupLabel(input: {
   readonly representative: Pick<EnvironmentProject, "title" | "repositoryIdentity">;
   readonly members: ReadonlyArray<Pick<EnvironmentProject, "title" | "repositoryIdentity">>;
 }): string {

@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
+import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@aprende/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
@@ -11,27 +11,21 @@ import * as Stream from "effect/Stream";
 import * as ServerConfig from "../config.ts";
 import * as ModelManifest from "./ModelManifest.ts";
 import * as ProviderRegistry from "./ProviderRegistry.ts";
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
+import * as ProviderLatestVersions from "@aprende/provider-core/server/ProviderLatestVersions";
 import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
 import * as ProviderInstanceRegistryMutator from "./ProviderInstanceRegistryMutator.ts";
-import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
-import { makeManualOnlyProviderMaintenanceCapabilities } from "@t3tools/provider-core/server/maintenanceResolver";
+import type { ProviderInstance } from "@aprende/provider-core/server/driver";
+import { makeManualOnlyProviderMaintenanceCapabilities } from "@aprende/provider-core/server/maintenanceResolver";
 import * as Schema from "effect/Schema";
 import {
   applyProviderCompatibility,
   ProviderCompatibilityPolicy,
   resolveProviderCompatibility,
 } from "./providerCompatibility.ts";
-import { resolveAntigravityReleaseAsset } from "./antigravityRelease.ts";
-import bundledManifest from "./model-manifest.json" with { type: "json" };
-
-const decodeCompatibilityPolicies = Schema.decodeUnknownSync(
-  Schema.Array(ProviderCompatibilityPolicy),
-);
 const driver = ProviderDriverKind.make("codex");
 const policy: ProviderCompatibilityPolicy = {
   driver,
-  t3CodeRange: ">=0.0.0",
+  appRange: ">=0.0.0",
   recommendedVersion: "2.0.0",
   recommendedRange: ">=2.0.0 <3.0.0",
   ranges: [
@@ -57,101 +51,6 @@ const provider: ServerProvider = {
 };
 
 describe("provider compatibility", () => {
-  it("keeps releases before V2 on the OpenCode 1 policy they shipped with", () => {
-    // Older builds fetch main's manifest; their V1 orchestrator cannot drive OpenCode 2.
-    const opencode = ProviderDriverKind.make("opencode");
-    for (const [version, expected] of [
-      ["1.14.19", "supported"],
-      ["2.0.18", "broken"],
-      ["1.14.18", "broken"],
-    ] as const) {
-      const advisory = resolveProviderCompatibility(
-        ModelManifest.BUNDLED_MODEL_MANIFEST.compatibility,
-        opencode,
-        version,
-        "0.0.45",
-      );
-      assert.strictEqual(advisory?.status, expected, `OpenCode ${version} on 0.0.45`);
-      assert.strictEqual(advisory?.recommendedVersion, "1.14.19");
-    }
-    assert.isUndefined(
-      resolveProviderCompatibility(
-        ModelManifest.BUNDLED_MODEL_MANIFEST.compatibility,
-        ProviderDriverKind.make("pi"),
-        "1.0.0",
-        "0.0.45",
-      ),
-    );
-  });
-
-  it("compares Cursor build dates without treating semver prereleases as stable", () => {
-    const cursor = ProviderDriverKind.make("cursor");
-    const cursorPolicy: ProviderCompatibilityPolicy = {
-      driver: cursor,
-      t3CodeRange: policy.t3CodeRange,
-      ranges: [
-        { range: "<2026.05.09", status: "unsupported" },
-        { range: ">=2026.05.09", status: "supported" },
-      ],
-    };
-    for (const [version, expected] of [
-      ["2026.05.08-a1b2c3d", "unsupported"],
-      ["2026.05.09-a1b2c3d", "supported"],
-      ["2026.09.22-f2b0fcd", "supported"],
-      ["2026.05.09", "supported"],
-      ["2026.05.09-beta.1", "unknown"],
-    ] as const) {
-      assert.strictEqual(
-        resolveProviderCompatibility([cursorPolicy], cursor, version)?.status,
-        expected,
-      );
-    }
-    assert.strictEqual(
-      resolveProviderCompatibility([policy], driver, "2.0.0-a1b2c3d")?.status,
-      "unknown",
-    );
-  });
-
-  it("recognizes Antigravity semver release tags while keeping dated candidates unknown", () => {
-    const antigravity = ProviderDriverKind.make("antigravity");
-    const taggedPolicy = {
-      ...policy,
-      driver: antigravity,
-      ranges: [{ range: "=2.0.0", status: "supported" as const }],
-    };
-    for (const [version, expected] of [
-      ["agy_acp_server_2.0.0", "supported"],
-      ["2.0.0", "supported"],
-      ["agy_acp_server_2.0.1", "unknown"],
-      ["agy_acp_server_2.0.0-beta.1", "unknown"],
-      ["agy_acp_server_20260818_01_RC01", "unknown"],
-    ] as const) {
-      assert.strictEqual(
-        resolveProviderCompatibility([taggedPolicy], antigravity, version)?.status,
-        expected,
-      );
-    }
-  });
-
-  it.each([
-    ["darwin", "arm64"],
-    ["win32", "x64"],
-  ] as const)(
-    "supports the managed Antigravity runtime for %s-%s in the bundled manifest",
-    (platform, arch) => {
-      const policies = decodeCompatibilityPolicies(bundledManifest.compatibility);
-      const release = resolveAntigravityReleaseAsset(platform, arch);
-      assert.strictEqual(
-        resolveProviderCompatibility(
-          policies,
-          ProviderDriverKind.make("antigravity"),
-          `agy_acp_server_${release?.version}`,
-        )?.status,
-        "supported",
-      );
-    },
-  );
-
   it("classifies boundaries and treats unlisted versions and release tags as unknown", () => {
     for (const [version, expected] of [
       ["0.9.9", "broken"],
@@ -168,8 +67,8 @@ describe("provider compatibility", () => {
     }
   });
 
-  it("applies policies only within their T3 Code version range", () => {
-    const scopedPolicy = { ...policy, t3CodeRange: ">=0.0.42 <0.1.0" };
+  it("applies policies only within their aprende version range", () => {
+    const scopedPolicy = { ...policy, appRange: ">=0.0.42 <0.1.0" };
     for (const version of ["0.0.42", "0.0.45"]) {
       assert.strictEqual(
         resolveProviderCompatibility([scopedPolicy], driver, "0.9.0", version)?.status,
@@ -190,7 +89,7 @@ describe("provider compatibility", () => {
     assert.strictEqual(supported.status, "error");
     assert.strictEqual(supported.message, "Authentication failed");
     assert.strictEqual(
-      applyProviderCompatibility(supported, [{ ...policy, t3CodeRange: "<0.0.0" }], [policy])
+      applyProviderCompatibility(supported, [{ ...policy, appRange: "<0.0.0" }], [policy])
         .compatibilityAdvisory?.status,
       "broken",
     );
@@ -212,7 +111,7 @@ describe("provider compatibility", () => {
     assert.doesNotThrow(() => decode(policy));
     const prefixed = decode({
       ...policy,
-      t3CodeRange: ">=v0.0.42 <v0.1",
+      appRange: ">=v0.0.42 <v0.1",
       recommendedRange: "^v2",
       ranges: [{ range: ">=v2.0 <v3", status: "supported" }],
     });
@@ -225,7 +124,7 @@ describe("provider compatibility", () => {
       "unknown",
     );
     for (const invalid of [
-      { ...policy, t3CodeRange: "*" },
+      { ...policy, appRange: "*" },
       { ...policy, recommendedVersion: "3.0.0" },
       { ...policy, ranges: [{ range: ">=2.0.0 garbage", status: "supported" }] },
       { ...policy, recommendedVersion: "2.0.0; echo unsafe" },

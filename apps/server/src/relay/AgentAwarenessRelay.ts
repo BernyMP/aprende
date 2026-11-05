@@ -6,17 +6,17 @@ import {
   type OrchestrationV2TurnItem,
   type Project,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   RelayApi,
   type RelayAgentActivityPublishProofPayload,
   type RelayAgentActivityState,
-} from "@t3tools/contracts/relay";
-import { projectThreadAwarenessV2 } from "@t3tools/shared/agentAwareness";
-import { turnItemUpdateCanEndBackgroundWork } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
-import { makeDrainableWorker } from "@t3tools/shared/DrainableWorker";
-import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
-import { normalizeRelayIssuer, RELAY_ACTIVITY_PUBLISH_TYP } from "@t3tools/shared/relayJwt";
+} from "@aprende/contracts/relay";
+import { projectThreadAwarenessV2 } from "@aprende/shared/agentAwareness";
+import { turnItemUpdateCanEndBackgroundWork } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
+import { makeDrainableWorker } from "@aprende/shared/DrainableWorker";
+import { withRelayClientTracing } from "@aprende/shared/relayTracing";
+import { normalizeRelayIssuer, RELAY_ACTIVITY_PUBLISH_TYP } from "@aprende/shared/relayJwt";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
@@ -56,7 +56,7 @@ export class AgentAwarenessRelay extends Context.Service<
     readonly requestCatchUp: () => Effect.Effect<void>;
     readonly start: () => Effect.Effect<void, never, Scope.Scope>;
   }
->()("t3/relay/AgentAwarenessRelay") {}
+>()("aprende/relay/AgentAwarenessRelay") {}
 
 function eventThreadId(event: OrchestrationV2DomainEvent): ThreadId {
   return event.threadId;
@@ -739,7 +739,7 @@ export const make = Effect.gen(function* () {
   });
 
   // Many environments never link, so while unlinked the retry backs off from 5
-  // s to 60 s. A linked environment keeps the 5 s retry, because `t3 connect
+  // s to 60 s. A linked environment keeps the 5 s retry, because `aprende connect
   // publish` can turn publishing on from another process. Keep this untraced:
   // an unlinked environment can retry for the lifetime of the process.
   const publishActiveThreadsWhenConfigured = Effect.fnUntraced(function* (

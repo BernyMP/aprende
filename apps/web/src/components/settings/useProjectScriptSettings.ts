@@ -1,20 +1,20 @@
-import { AuthSettingsWriteScope, EnvironmentAuthorizationError } from "@t3tools/contracts";
+import { AuthSettingsWriteScope, EnvironmentAuthorizationError } from "@aprende/contracts";
 import { readEnvironmentScope } from "../../state/session";
 import {
   isAtomCommandInterrupted,
   mapAtomCommandResult,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import {
   type EnvironmentId,
   type ProjectId,
   type ProjectScript,
   type ResolvedKeybindingsConfig,
   type ServerSettings,
-} from "@t3tools/contracts";
-import { resolveProjectScripts } from "@t3tools/shared/projectScripts";
-import { clearProjectSettingsOverrides } from "@t3tools/shared/projectSettings";
+} from "@aprende/contracts";
+import { resolveProjectScripts } from "@aprende/shared/projectScripts";
+import { clearProjectSettingsOverrides } from "@aprende/shared/projectSettings";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 import { useRef, useState } from "react";

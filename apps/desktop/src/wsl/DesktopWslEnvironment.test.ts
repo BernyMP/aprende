@@ -7,7 +7,7 @@ import * as Path from "effect/Path";
 import { afterAll, expect } from "vite-plus/test";
 import * as NodeChildProcess from "node:child_process";
 
-import { ManagedPolicyFileError } from "@t3tools/shared/managedPolicyFile";
+import { ManagedPolicyFileError } from "@aprende/shared/managedPolicyFile";
 
 import * as DesktopManagedPolicy from "../app/DesktopManagedPolicy.ts";
 import {
@@ -80,7 +80,7 @@ const readField = (stdout: string, field: string) => {
   return line.slice(field.length + 1).trim();
 };
 
-const SERVER_ENTRY_SOURCE = '#!/bin/sh\necho "t3code wsl runtime test server 0.0.0"\n';
+const SERVER_ENTRY_SOURCE = '#!/bin/sh\necho "aprende wsl runtime test server 0.0.0"\n';
 
 describe("WSL runtime cache", () => {
   it.each([
@@ -140,9 +140,9 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
       archivePath,
       archiveSha,
       runtimeId,
-      runtimeParent: `${work}/home/.t3/wsl-runtime`,
-      runtimeRoot: `${work}/home/.t3/wsl-runtime/${runtimeId}`,
-      serverEntry: `${work}/home/.t3/wsl-runtime/${runtimeId}/t3`,
+      runtimeParent: `${work}/home/.aprende/wsl-runtime`,
+      runtimeRoot: `${work}/home/.aprende/wsl-runtime/${runtimeId}`,
+      serverEntry: `${work}/home/.aprende/wsl-runtime/${runtimeId}/t3`,
       installScript,
       install: (archive?: string, sha?: string) => runShell(installScript(archive, sha)),
     };
@@ -250,7 +250,7 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
         "set -eu",
         `printf '%s' ${sh(brokenEntry)} > ${sh(fixture.serverEntry)}`,
         `chmod +x ${sh(fixture.serverEntry)}`,
-        `sha256sum ${sh(fixture.serverEntry)} | cut -d ' ' -f 1 > ${sh(`${fixture.runtimeRoot}/.t3code-wsl-runtime-ready`)}`,
+        `sha256sum ${sh(fixture.serverEntry)} | cut -d ' ' -f 1 > ${sh(`${fixture.runtimeRoot}/.aprende-wsl-runtime-ready`)}`,
       ].join("\n"),
     );
     expect(corrupt.status, corrupt.stderr).toBe(0);
@@ -288,9 +288,9 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
         ': > "$work/tar-calls"',
         'PATH="$work/bin:$PATH"',
         "export PATH",
-        `cat > "$work/install.sh" <<'T3CODE_INSTALL_SCRIPT'`,
+        `cat > "$work/install.sh" <<'APRENDE_INSTALL_SCRIPT'`,
         fixture.installScript(),
-        "T3CODE_INSTALL_SCRIPT",
+        "APRENDE_INSTALL_SCRIPT",
         // Keep runtime roots out of both racers' argv so their /proc scans cannot match themselves.
         'sh "$work/install.sh" > "$work/first.out" 2>&1 &',
         "first=$!",
@@ -362,13 +362,13 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
         "set -eu",
         `runtime_parent=${sh(fixture.runtimeParent)}`,
         'mkdir -p "$runtime_parent/sha256-current" "$runtime_parent/sha256-previous"',
-        'printf ready > "$runtime_parent/sha256-current/.t3code-wsl-runtime-ready"',
-        'printf ready > "$runtime_parent/sha256-previous/.t3code-wsl-runtime-ready"',
+        'printf ready > "$runtime_parent/sha256-current/.aprende-wsl-runtime-ready"',
+        'printf ready > "$runtime_parent/sha256-previous/.aprende-wsl-runtime-ready"',
         `touch -d "10 minutes ago" ${sh(fixture.runtimeRoot)}`,
         'touch -d "1 minute ago" "$runtime_parent/sha256-previous"',
-        `cat > ${sh(`${fixture.work}/select.sh`)} <<'T3CODE_SELECT_SCRIPT'`,
+        `cat > ${sh(`${fixture.work}/select.sh`)} <<'APRENDE_SELECT_SCRIPT'`,
         fixture.installScript(),
-        "T3CODE_SELECT_SCRIPT",
+        "APRENDE_SELECT_SCRIPT",
         `sh ${sh(`${fixture.work}/select.sh`)}`,
         `HOME=${sh(`${fixture.work}/home`)}`,
         "export HOME",
@@ -386,9 +386,9 @@ describe.skipIf(posixShellRunner === null)("WSL runtime install script (executed
         "set -eu",
         "work=$(mktemp -d)",
         'home="$work/home"',
-        'runtime_parent="$home/.t3/wsl-runtime"',
+        'runtime_parent="$home/.aprende/wsl-runtime"',
         'mkdir -p "$runtime_parent"',
-        'make_ready() { mkdir -p "$runtime_parent/$1"; printf ready > "$runtime_parent/$1/.t3code-wsl-runtime-ready"; }',
+        'make_ready() { mkdir -p "$runtime_parent/$1"; printf ready > "$runtime_parent/$1/.aprende-wsl-runtime-ready"; }',
         "make_ready sha256-current",
         "make_ready sha256-previous",
         "make_ready sha256-active",

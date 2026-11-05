@@ -9,7 +9,7 @@ import {
   ServerSettingsPatch,
   UsageLimitSourceId,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Duration from "effect/Duration";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vite-plus/test";
@@ -32,12 +32,6 @@ const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const FOLDED_SERVER_SETTINGS = { ...DEFAULT_SERVER_SETTINGS, projectSettingsFolded: true };
 
 describe("fallbackTextGenerationModelSelection", () => {
-  it("uses Big Pickle when only OpenCode is enabled", () => {
-    expect(
-      fallbackTextGenerationModelSelection({}, (instanceId) => instanceId === "opencode"),
-    ).toEqual({ instanceId: "opencode", model: "opencode/big-pickle" });
-  });
-
   it("replaces and clears the fallback without carrying model options", () => {
     const fallbackModelSelection = { instanceId: ProviderInstanceId.make("codex"), model: "new" };
     const settings = applyServerSettingsPatch(

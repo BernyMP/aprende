@@ -106,7 +106,7 @@ Unlinking on the linking side only forgets the token.
 
 **Work a link paired below full access starts stays within that link.** The
 receiving environment knows a session is a peer link because the linking side
-registers its OAuth client with the `t3code-peer-link` software id, and the
+registers its OAuth client with the `aprende-peer-link` software id, and the
 marker is signed into the session. Threads that session launches carry it, with
 the access it was paired with, as an immutable `linkOrigin`, and so do the
 subagents, forks and `create_threads` they derive. The rules live in
@@ -181,6 +181,6 @@ no local state is deleted. On the next start the main process skips port selecti
 and the primary and WSL backends, and opens the window right away. The renderer sees this through
 `desktopBridge.getLocalEnvironmentEnabled()`: `readPrimaryEnvironmentTarget` returns null, so primary
 auth and platform-managed discovery are skipped and only saved environments (pairing, relay, SSH)
-connect. This is possible because the desktop renderer is not served by the backend: the `t3code://`
+connect. This is possible because the desktop renderer is not served by the backend: the `aprende://`
 scheme serves the bundled client from disk (Vite in development) and API traffic always goes to the
 environment's own URL.

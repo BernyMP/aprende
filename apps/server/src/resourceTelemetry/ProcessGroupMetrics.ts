@@ -1,4 +1,4 @@
-import type { ResourceTelemetryProcess } from "@t3tools/contracts";
+import type { ResourceTelemetryProcess } from "@aprende/contracts";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -29,10 +29,6 @@ const processCount = Metric.gauge("t3_process_group_count", {
 const PROVIDER_GROUPS: ReadonlyArray<readonly [RegExp, string]> = [
   [/codex/, "codex"],
   [/claude/, "claude"],
-  [/cursor/, "cursor"],
-  [/opencode/, "opencode"],
-  [/grok/, "grok"],
-  [/antigravity|gemini/, "antigravity"],
 ];
 const OTHER_GROUPS: ReadonlyArray<readonly [RegExp, string]> = [
   [/chrom/, "browser"],

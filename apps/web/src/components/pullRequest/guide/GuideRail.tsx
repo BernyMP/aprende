@@ -1,10 +1,10 @@
-import type { PullRequestReviewGuideStop } from "@t3tools/contracts";
+import type { PullRequestReviewGuideStop } from "@aprende/contracts";
 import { CheckIcon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
 
 import { Badge } from "../../ui/badge";
-import { stopSubline } from "@t3tools/client-runtime/review-guide-tour";
+import { stopSubline } from "@aprende/client-runtime/review-guide-tour";
 
 export function GuideRail({
   stops,

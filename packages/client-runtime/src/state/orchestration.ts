@@ -3,7 +3,7 @@ import {
   type EnvironmentId,
   type ThreadId,
   type OrchestrationGetTurnDiffResult,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
@@ -125,13 +125,6 @@ export function createOrchestrationEnvironmentAtoms<R, E>(
       tag: ORCHESTRATION_V2_WS_METHODS.getWorkflowScript,
       staleTimeMs: 300_000,
       idleTtlMs: 300_000,
-    }),
-    // Mounted only while a subagent inspector is open; running children change between opens.
-    nativeChildWork: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:orchestration:native-child-work",
-      tag: ORCHESTRATION_V2_WS_METHODS.getNativeChildWork,
-      staleTimeMs: 0,
-      idleTtlMs: 0,
     }),
     stopWorkflow: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:orchestration:stop-workflow",

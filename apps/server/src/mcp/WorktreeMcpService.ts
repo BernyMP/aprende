@@ -11,8 +11,8 @@ import {
   type WorktreeMcpStatusResult,
   type VcsListRefsInput,
   type VcsListRefsResult,
-} from "@t3tools/contracts";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+} from "@aprende/contracts";
+import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
@@ -47,7 +47,7 @@ export class WorktreeMcpService extends Context.Service<
       },
     ) => Effect.Effect<VcsListRefsResult, GitCommandError | PlatformError.PlatformError>;
   }
->()("t3/mcp/WorktreeMcpService") {}
+>()("aprende/mcp/WorktreeMcpService") {}
 
 function failure(code: WorktreeMcpFailure["code"], message: string): WorktreeMcpFailure {
   return new WorktreeMcpFailure({ code, message });
@@ -84,7 +84,7 @@ const make = Effect.gen(function* () {
       ? Effect.fail(
           failure(
             "thread_credential_required",
-            "Worktree handoff and status act as the calling T3 thread, so they need an agent running inside T3 Code.",
+            "Worktree handoff and status act as the calling T3 thread, so they need an agent running inside aprende.",
           ),
         )
       : Effect.succeed(scope as McpThreadInvocationScope);

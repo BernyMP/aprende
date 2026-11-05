@@ -6,9 +6,9 @@ import { useState } from "react";
 import {
   deriveAvailableInstanceId,
   deriveInstanceId,
-} from "@t3tools/client-runtime/provider-instance-ids";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import type { ProviderClientDefinition } from "@t3tools/provider-core/client";
+} from "@aprende/client-runtime/provider-instance-ids";
+import { squashAtomCommandFailure } from "@aprende/client-runtime/state/runtime";
+import type { ProviderClientDefinition } from "@aprende/provider-core/client";
 import {
   type AcpRegistrySearchAgent,
   AuthProvidersManageScope,
@@ -18,7 +18,7 @@ import {
   type ProviderInstanceConfig,
   type ProviderInstanceEnvironmentVariable,
   isManagedDriverAllowed,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
 import {
   useEnvironmentSettings,

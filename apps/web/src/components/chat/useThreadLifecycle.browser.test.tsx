@@ -1,6 +1,6 @@
 import * as Cause from "effect/Cause";
-import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { scopedThreadKey, scopeThreadRef } from "@aprende/client-runtime/environment";
+import { EnvironmentId, ThreadId } from "@aprende/contracts";
 import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 

@@ -2,14 +2,14 @@ import {
   type ProviderInstanceId,
   type ServerProvider,
   ServerProvider as ServerProviderSchema,
-} from "@t3tools/contracts";
-import { causeErrorTag } from "@t3tools/shared/observability";
+} from "@aprende/contracts";
+import { causeErrorTag } from "@aprende/shared/observability";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
+import { writeFileStringAtomically } from "@aprende/shared/atomicWrite";
 
 const decodeProviderStatusCache = Schema.decodeUnknownEffect(
   Schema.fromJsonString(ServerProviderSchema),
@@ -27,16 +27,7 @@ const mergeProviderModels = (
   ];
 };
 
-const BUILT_IN_DRIVER_ORDER: ReadonlyArray<string> = [
-  "codex",
-  "claudeAgent",
-  "cursor",
-  "grok",
-  "opencode",
-  "antigravity",
-  "fx",
-  "kiro",
-];
+const BUILT_IN_DRIVER_ORDER: ReadonlyArray<string> = ["codex", "claudeAgent"];
 
 const driverRank = (driver: string): number => {
   const index = BUILT_IN_DRIVER_ORDER.indexOf(driver);

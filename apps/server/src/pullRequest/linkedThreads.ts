@@ -6,9 +6,9 @@ import {
   PullRequestLinkedThreadsResult,
   PullRequestOperationError,
   type ThreadPullRequestKey,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Effect from "effect/Effect";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+import * as NodeSqliteClient from "@aprende/shared/nodeSqliteClient";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 

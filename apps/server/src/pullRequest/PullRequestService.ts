@@ -1,5 +1,5 @@
-import { isSshRemoteUrl } from "@t3tools/shared/sourceControl";
-import { parseDiffFilePaths } from "@t3tools/source-control-core/server/diffFileRevisions";
+import { isSshRemoteUrl } from "@aprende/shared/sourceControl";
+import { parseDiffFilePaths } from "@aprende/source-control-core/server/diffFileRevisions";
 import * as Cache from "effect/Cache";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
@@ -73,8 +73,8 @@ import {
   type SourceControlProviderInfo,
   SourceControlProviderKind,
   type ThreadPullRequestKey,
-} from "@t3tools/contracts";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+} from "@aprende/contracts";
+import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 
 import * as ProjectService from "../project/ProjectService.ts";
@@ -82,8 +82,8 @@ import * as ServerSettings from "../serverSettings.ts";
 import * as PullRequestFilesViewed from "../persistence/PullRequestFilesViewed.ts";
 import * as RepositoryIdentityResolver from "../project/RepositoryIdentityResolver.ts";
 import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
-import type { SourceControlProviderContext } from "@t3tools/source-control-core/server/SourceControlProvider";
-import * as SourceControlRateLimit from "@t3tools/source-control-core/server/SourceControlRateLimit";
+import type { SourceControlProviderContext } from "@aprende/source-control-core/server/SourceControlProvider";
+import * as SourceControlRateLimit from "@aprende/source-control-core/server/SourceControlRateLimit";
 import {
   type ProviderChangeRequest,
   type ProviderDiffFilePaths,
@@ -92,7 +92,7 @@ import {
   type ProviderChangeRequestWatchFingerprint,
   type PullRequestProviderApi,
   PullRequestProviderError,
-} from "@t3tools/source-control-core/server/PullRequestProvider";
+} from "@aprende/source-control-core/server/PullRequestProvider";
 import * as PullRequestReadCache from "./PullRequestReadCache.ts";
 import * as PullRequestProviderRegistry from "./PullRequestProviderRegistry.ts";
 import * as ViewedFiles from "./pullRequestViewedFiles.ts";
@@ -166,7 +166,7 @@ export type PullRequestError = PullRequestUnavailableError | PullRequestOperatio
 const routingCredential = Context.Reference<{
   readonly credentialFingerprint: string;
   readonly viewer: string;
-} | null>("t3/PullRequestService/routingCredential", { defaultValue: () => null });
+} | null>("aprende/PullRequestService/routingCredential", { defaultValue: () => null });
 const credentialNamespace = Symbol("pullRequestCredentialNamespace");
 type CredentialRef = PullRequestRef & { readonly [credentialNamespace]?: string };
 
@@ -285,7 +285,7 @@ export class PullRequestService extends Context.Service<
       options?: { readonly notifyReaders?: boolean },
     ) => Effect.Effect<void>;
   }
->()("t3/pullRequest/PullRequestService") {}
+>()("aprende/pullRequest/PullRequestService") {}
 
 const VERDICT_LABELS: Record<PullRequestReviewVerdict, string> = {
   comment: "review",
@@ -342,7 +342,7 @@ interface WorkspaceProjects {
 const sharedProjectReads = Context.Reference<{
   open: boolean;
   readonly reads: Map<string, Effect.Effect<WorkspaceProjects, PullRequestError>>;
-} | null>("t3/PullRequestService/sharedProjectReads", { defaultValue: () => null });
+} | null>("aprende/PullRequestService/sharedProjectReads", { defaultValue: () => null });
 
 interface RepositoryBatch {
   readonly key: string;

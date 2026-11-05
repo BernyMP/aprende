@@ -2,7 +2,7 @@ import {
   GitCommandError,
   OrchestrationV2AppThreadJson,
   OrchestrationV2ProviderSessionJson,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 import type {
@@ -15,9 +15,9 @@ import type {
   StorageCleanupReport,
   StorageCleanupReportEntry,
   ThreadId,
-} from "@t3tools/contracts";
-import { resolveWorktreeCleanup } from "@t3tools/shared/projectSettings";
-import { makeDrainableWorker } from "@t3tools/shared/DrainableWorker";
+} from "@aprende/contracts";
+import { resolveWorktreeCleanup } from "@aprende/shared/projectSettings";
+import { makeDrainableWorker } from "@aprende/shared/DrainableWorker";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Layer from "effect/Layer";
@@ -47,11 +47,12 @@ import * as Settings from "./serverSettings.ts";
 import * as TerminalManager from "./terminal/Manager.ts";
 import { isFilesystemRoot, managedWorktreesDirectories } from "./worktreesDirectory.ts";
 import * as GitVcsDriver from "./vcs/GitVcsDriver.ts";
+import { isNonRepositoryGitStderr } from "./vcs/GitVcsDriverCore.ts";
 import { removeLinkedWorktree } from "./vcs/worktreeRemoval.ts";
 import { withWorkspaceLease } from "./workspace/workspaceLease.ts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
-import { isNetworkPath } from "@t3tools/shared/path";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import * as NodeSqliteClient from "@aprende/shared/nodeSqliteClient";
+import { isNetworkPath } from "@aprende/shared/path";
 
 const decodeCleanupThread = Schema.decodeUnknownEffect(
   Schema.fromJsonString(OrchestrationV2AppThreadJson),
@@ -290,7 +291,7 @@ export class StorageCleanup extends Context.Service<
     readonly reports: Stream.Stream<StorageCleanupReport | null>;
     readonly drain: Effect.Effect<void>;
   }
->()("t3/storageCleanup") {}
+>()("aprende/storageCleanup") {}
 
 const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;
@@ -597,7 +598,7 @@ const make = Effect.gen(function* () {
         );
       if (result === null) return null;
       if (result.exitCode === 0 || result.exitCode === allowedExitCode) return result;
-      if (result.stderr.toLowerCase().includes("not a git repository")) return null;
+      if (isNonRepositoryGitStderr(result.stderr)) return null;
       return yield* failure(
         result.stderr.trim().split(/\r?\n/)[0]?.slice(0, 1000) || "command failed",
       );
@@ -1223,7 +1224,7 @@ const make = Effect.gen(function* () {
     removed: { files: number; bytes: number },
   ) {
     if (days === null || !(yield* fs.exists(root))) return removed;
-    // A symlinked parent (a linked T3 home) is fine; a symlinked folder is not.
+    // A symlinked parent (a linked aprende home) is fine; a symlinked folder is not.
     const realRoot = yield* fs.realPath(root);
     const realParent = yield* fs.realPath(path.dirname(root));
     if (realRoot !== path.join(realParent, path.basename(root))) return removed;

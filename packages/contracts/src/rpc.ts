@@ -221,7 +221,6 @@ import {
 import {
   ORCHESTRATION_V2_WS_METHODS,
   OrchestrationGetWorkflowScriptError,
-  OrchestrationV2GetNativeChildWorkError,
   OrchestrationV2StopWorkflowError,
   OrchestrationV2ForceStopThreadError,
   OrchestrationV2DispatchCommandError,
@@ -376,6 +375,16 @@ import {
   ScheduledTaskUpsertInput,
   ScheduledTaskMutationResult,
 } from "./scheduledTask.ts";
+import {
+  LearningAnswerInput,
+  LearningAnswerResult,
+  LearningError,
+  LearningKnowledge,
+  LearningSetTutorPromptInput,
+  LearningSubscribeThreadInput,
+  LearningThreadState,
+  LearningTutorPrompt,
+} from "./learning.ts";
 import { SecretRequestAnswerInput, SecretRequestError } from "./secretRequest.ts";
 import {
   ProjectCloneActionInput,
@@ -537,6 +546,12 @@ export const WS_METHODS = {
   serverReportClientActivity: "server.reportClientActivity",
   serverGetUsageSummary: "server.getUsageSummary",
   serverRefreshUsageRates: "server.refreshUsageRates",
+
+  learningSubscribeThread: "learning.subscribeThread",
+  learningAnswer: "learning.answer",
+  learningGetTutorPrompt: "learning.getTutorPrompt",
+  learningSetTutorPrompt: "learning.setTutorPrompt",
+  learningGetKnowledge: "learning.getKnowledge",
 
   scheduledTasksSubscribe: "scheduledTasks.subscribe",
   scheduledTasksUpsert: "scheduledTasks.upsert",
@@ -1831,15 +1846,6 @@ const WsOrchestrationV2GetWorkflowScriptRpc = Rpc.make(
   },
 );
 
-const WsOrchestrationV2GetNativeChildWorkRpc = Rpc.make(
-  ORCHESTRATION_V2_WS_METHODS.getNativeChildWork,
-  {
-    payload: OrchestrationV2RpcSchemas.getNativeChildWork.input,
-    success: OrchestrationV2RpcSchemas.getNativeChildWork.output,
-    error: Schema.Union([OrchestrationV2GetNativeChildWorkError, EnvironmentAuthorizationError]),
-  },
-);
-
 const WsOrchestrationV2GetTurnItemRpc = Rpc.make(ORCHESTRATION_V2_WS_METHODS.getTurnItem, {
   payload: OrchestrationV2RpcSchemas.getTurnItem.input,
   success: OrchestrationV2RpcSchemas.getTurnItem.output,
@@ -1903,6 +1909,39 @@ const WsSubscribeServerLifecycleRpc = Rpc.make(WS_METHODS.subscribeServerLifecyc
   success: ServerLifecycleStreamEvent,
   error: EnvironmentAuthorizationError,
   stream: true,
+});
+
+const LearningRpcError = Schema.Union([LearningError, EnvironmentAuthorizationError]);
+
+const WsLearningSubscribeThreadRpc = Rpc.make(WS_METHODS.learningSubscribeThread, {
+  payload: LearningSubscribeThreadInput,
+  success: LearningThreadState,
+  error: LearningRpcError,
+  stream: true,
+});
+
+const WsLearningAnswerRpc = Rpc.make(WS_METHODS.learningAnswer, {
+  payload: LearningAnswerInput,
+  success: LearningAnswerResult,
+  error: LearningRpcError,
+});
+
+const WsLearningGetTutorPromptRpc = Rpc.make(WS_METHODS.learningGetTutorPrompt, {
+  payload: Schema.Struct({}),
+  success: LearningTutorPrompt,
+  error: LearningRpcError,
+});
+
+const WsLearningSetTutorPromptRpc = Rpc.make(WS_METHODS.learningSetTutorPrompt, {
+  payload: LearningSetTutorPromptInput,
+  success: LearningTutorPrompt,
+  error: LearningRpcError,
+});
+
+const WsLearningGetKnowledgeRpc = Rpc.make(WS_METHODS.learningGetKnowledge, {
+  payload: Schema.Struct({}),
+  success: LearningKnowledge,
+  error: LearningRpcError,
 });
 
 const WsScheduledTasksSubscribeRpc = Rpc.make(WS_METHODS.scheduledTasksSubscribe, {
@@ -1989,7 +2028,7 @@ const WsSubscribeResourceTelemetryRpc = Rpc.make(WS_METHODS.subscribeResourceTel
 });
 
 export class RpcScopeAuthorization extends RpcMiddleware.Service<RpcScopeAuthorization>()(
-  "t3/contracts/RpcScopeAuthorization",
+  "aprende/contracts/RpcScopeAuthorization",
   { error: EnvironmentAuthorizationError },
 ) {}
 
@@ -2050,6 +2089,11 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
   WsServerSignalProcessRpc,
+  WsLearningSubscribeThreadRpc,
+  WsLearningAnswerRpc,
+  WsLearningGetTutorPromptRpc,
+  WsLearningSetTutorPromptRpc,
+  WsLearningGetKnowledgeRpc,
   WsScheduledTasksSubscribeRpc,
   WsScheduledTasksUpsertRpc,
   WsScheduledTasksSetEnabledRpc,
@@ -2186,7 +2230,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsSubscribeResourceTelemetryRpc,
   WsOrchestrationV2DispatchCommandRpc,
   WsOrchestrationV2GetWorkflowScriptRpc,
-  WsOrchestrationV2GetNativeChildWorkRpc,
   WsOrchestrationV2StopWorkflowRpc,
   WsOrchestrationV2ForceStopThreadRpc,
   WsOrchestrationV2GetTurnItemRpc,

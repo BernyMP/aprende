@@ -1,4 +1,4 @@
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Config from "effect/Config";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Console from "effect/Console";
@@ -39,10 +39,10 @@ interface Setup {
   readonly service: BootService.BootServiceStatus;
   /** Null in builds without T3 Connect. Off when T3 Connect revoked the link. */
   readonly connect: boolean | null;
-  /** T3 Connect revoked the link; `t3 connect` links again. */
+  /** T3 Connect revoked the link; `aprende connect` links again. */
   readonly connectRevoked: boolean;
   readonly lan: boolean;
-  /** An installed service with no T3CODE_LAN keeps the old default: on. */
+  /** An installed service with no APRENDE_LAN keeps the old default: on. */
   readonly lanFromOldDefault: boolean;
   readonly host: string | undefined;
 }
@@ -65,7 +65,7 @@ const readSetup = Effect.fn("cli.up.read_setup")(function* () {
   const service = yield* (yield* BootService.BootService).status;
   const { entries } = yield* CliService.readServiceEnv(baseDir);
   // Parsed as the server parses it.
-  const lan = yield* Config.Boolean("T3CODE_LAN")
+  const lan = yield* Config.Boolean("APRENDE_LAN")
     .pipe(Config.option)
     .parse(ConfigProvider.fromEnv({ env: entries }));
   const secrets = yield* ServerSecretStore.ServerSecretStore;
@@ -85,12 +85,12 @@ const readSetup = Effect.fn("cli.up.read_setup")(function* () {
     connectRevoked,
     lan: Option.getOrElse(lan, () => service.installed),
     lanFromOldDefault: Option.isNone(lan) && service.installed,
-    host: entries.T3CODE_HOST,
+    host: entries.APRENDE_HOST,
   } satisfies Setup;
 });
 
 /**
- * The routes `t3 up` starts from. With no route flag it asks about every
+ * The routes `aprende up` starts from. With no route flag it asks about every
  * route, starting a machine with no service from T3 Connect. Any route flag
  * means it asks nothing and keeps the routes not named as they are.
  */
@@ -114,7 +114,7 @@ export const planRoutes = (
   };
 };
 
-/** A running service reads T3CODE_LAN and its T3 Connect link only when it starts. */
+/** A running service reads APRENDE_LAN and its T3 Connect link only when it starts. */
 const needsRestart = (before: Routes, after: Routes) =>
   after.lan !== before.lan || (after.connect && !before.connect);
 
@@ -131,7 +131,7 @@ const formatSetup = (setup: Setup) => {
       !service.supported
         ? "unavailable"
         : service.installed
-          ? `installed · t3@${service.installedVersion ?? packageJson.version}`
+          ? `installed · aprende@${service.installedVersion ?? packageJson.version}`
           : "not installed",
     ],
     ...(setup.connect === null
@@ -142,14 +142,14 @@ const formatSetup = (setup: Setup) => {
             setup.connect
               ? "on · your T3 account"
               : setup.connectRevoked
-                ? "off · link revoked. Run `t3 connect`."
+                ? "off · link revoked. Run `aprende connect`."
                 : "off",
           ] as const,
         ]),
     [
       "Local network",
       setup.host !== undefined
-        ? `overridden · T3CODE_HOST=${setup.host}`
+        ? `overridden · APRENDE_HOST=${setup.host}`
         : setup.lanFromOldDefault
           ? "on · kept from an older install"
           : setup.lan
@@ -162,7 +162,7 @@ const formatSetup = (setup: Setup) => {
       ? ["Anyone on your LAN or tailnet can reach the port. A pairing code is the only lock."]
       : []),
     ...(setup.lanFromOldDefault
-      ? ["Older installs keep LAN access on. Turn it off: `t3 up --no-lan`."]
+      ? ["Older installs keep LAN access on. Turn it off: `aprende up --no-lan`."]
       : []),
   ];
   return [
@@ -181,8 +181,8 @@ const formatNextSteps = (routes: Routes, serviceInstalled: boolean, pairCommand:
       ? []
       : [
           serviceInstalled
-            ? "Remote access is off. T3 Code still runs here in the background."
-            : "Remote access is off. Run `t3` to use T3 Code here.",
+            ? "Remote access is off. aprende still runs here in the background."
+            : "Remote access is off. Run `aprende` to use aprende here.",
         ]),
   ].join("\n");
 
@@ -241,7 +241,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
       cause: "routes",
       userMessage: `No terminal. Choose access with ${
         before.connect === null ? "--lan" : "--connect or --lan"
-      }, or use --yes for the default. See \`t3 up --help\`.`,
+      }, or use --yes for the default. See \`aprende up --help\`.`,
     });
   }
   if (routes.connect && !current.connect) yield* requireConnectAllowed;
@@ -256,7 +256,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
     if (current.connect || before.connectRevoked) {
       yield* disconnectCloud({ clearAuthorization: false });
     }
-    if (current.lan) yield* CliService.writeServiceEnv(baseDir, { T3CODE_LAN: "false" });
+    if (current.lan) yield* CliService.writeServiceEnv(baseDir, { APRENDE_LAN: "false" });
     return yield* Console.log(formatNextSteps(routes, false, pairCommand));
   }
   const { installedVersion } = before.service;
@@ -278,7 +278,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
     const confirmed = yield* Prompt.run(
       Prompt.Confirm({
         message: update
-          ? "Update and restart T3 Code? Running agent turns will stop."
+          ? "Update and restart aprende? Running agent turns will stop."
           : "Apply changes and restart? Running agent turns will stop.",
         initial: true,
       }),
@@ -301,15 +301,15 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
     !routes.connect && (current.connect || before.connectRevoked)
       ? (yield* disconnectCloud({ clearAuthorization: false })).status === "failed"
       : false;
-  const previousLan = (yield* CliService.readServiceEnv(baseDir)).entries.T3CODE_LAN;
-  // Also with no service manager: the file records the choice that `t3 status` shows.
-  yield* CliService.writeServiceEnv(baseDir, { T3CODE_LAN: String(routes.lan) });
+  const previousLan = (yield* CliService.readServiceEnv(baseDir)).entries.APRENDE_LAN;
+  // Also with no service manager: the file records the choice that `aprende status` shows.
+  yield* CliService.writeServiceEnv(baseDir, { APRENDE_LAN: String(routes.lan) });
   // When the service step fails, an installed service still runs with the old
   // value, so the file goes back to match it.
   // A new T3 Connect link is undone too, with any tunnel the failed start saved, so a
   // rerun sees it as a change and restarts. The sign-in stays.
   const restoreServiceEnv = before.service.installed
-    ? CliService.writeServiceEnv(baseDir, { T3CODE_LAN: previousLan }).pipe(
+    ? CliService.writeServiceEnv(baseDir, { APRENDE_LAN: previousLan }).pipe(
         Effect.andThen(
           !routes.connect || current.connect
             ? Effect.void
@@ -326,22 +326,22 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
     : Effect.void;
   if (before.host !== undefined) {
     yield* Console.warn(
-      `T3CODE_HOST=${before.host} in service.env overrides the network choice. Remove it to apply it.`,
+      `APRENDE_HOST=${before.host} in service.env overrides the network choice. Remove it to apply it.`,
     );
   }
 
   const printServeCommand = Effect.fn(function* (reason: string) {
     const { command } = yield* resolveHostCliCommand("serve", [
       ...baseDirArgs,
-      // Explicit either way, so a T3CODE_LAN in the shell cannot override the choice.
+      // Explicit either way, so a APRENDE_LAN in the shell cannot override the choice.
       routes.lan ? "--lan" : "--no-lan",
     ]);
     yield* Console.log(`${reason} Keep this command running:\n  ${command}`);
     // A host wins over --lan and --no-lan, as it does in service.env.
-    const shellHost = (yield* HostProcess.Environment).T3CODE_HOST;
+    const shellHost = (yield* HostProcess.Environment).APRENDE_HOST;
     if (shellHost !== undefined) {
       yield* Console.warn(
-        `T3CODE_HOST=${shellHost} in this shell overrides that choice. Unset it before you run the command.`,
+        `APRENDE_HOST=${shellHost} in this shell overrides that choice. Unset it before you run the command.`,
       );
     }
   });
@@ -350,10 +350,10 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
     yield* printServeCommand("Background service unavailable.");
   } else {
     if (newer) {
-      yield* Console.log(`Keeping installed service version t3@${installedVersion}.`);
+      yield* Console.log(`Keeping installed service version aprende@${installedVersion}.`);
     }
     if (update && !interactive) {
-      yield* Console.log("Updating T3 Code. Running agent turns will stop.");
+      yield* Console.log("Updating aprende. Running agent turns will stop.");
     }
     const result = newer
       ? ({ changed: false } as const)
@@ -368,7 +368,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
       // The old service still runs, so a foreground server would clash with it.
       yield* restoreServiceEnv;
       yield* Console.log(
-        `Service setup failed: ${result.failed} Fix that, then run \`t3 up\` again.`,
+        `Service setup failed: ${result.failed} Fix that, then run \`aprende up\` again.`,
       );
     } else if ("failed" in result) {
       yield* printServeCommand(`Service setup failed: ${result.failed}`);
@@ -387,10 +387,10 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
           }),
         ).pipe(Effect.catchTags({ QuitError: () => Effect.succeed(false) })));
       if (!confirmed) {
-        yield* Console.log("Run `t3 service restart` to turn T3 Connect off.");
+        yield* Console.log("Run `aprende service restart` to turn T3 Connect off.");
       } else {
         if (!interactive && !stopped) {
-          yield* Console.log("Restarting T3 Code. Running agent turns will stop.");
+          yield* Console.log("Restarting aprende. Running agent turns will stop.");
         }
         const outcome = yield* service.restart.pipe(Effect.tapError(() => rollBack));
         if (outcome === "queued") {
@@ -398,7 +398,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
         }
         if (outcome === "skipped") {
           yield* Console.log(
-            "The installed service runs another T3 home, so it was not restarted. Pass its --base-dir.",
+            "The installed service runs another aprende home, so it was not restarted. Pass its --base-dir.",
           );
         }
         started = outcome === "restarted";
@@ -440,9 +440,9 @@ export const upCommand = Command.make("up", {
   ),
   headless: headlessFlag,
 }).pipe(
-  Command.withShortDescription("Set up remote access and the T3 Code background service."),
+  Command.withShortDescription("Set up remote access and the aprende background service."),
   Command.withDescription(
-    "Set up remote access and the T3 Code background service. Access flags skip the question, and routes not named keep their settings. Without a terminal, a needed restart runs without asking and stops running agent turns.",
+    "Set up remote access and the aprende background service. Access flags skip the question, and routes not named keep their settings. Without a terminal, a needed restart runs without asking and stops running agent turns.",
   ),
   Command.withExamples([
     { command: "t3 up", description: "Choose remote access." },
@@ -459,7 +459,7 @@ export const connectCommand = Command.make("connect", {
   ...projectLocationFlags,
   headless: headlessFlag,
 }).pipe(
-  Command.withDescription("Set up T3 Connect for this machine. Same as `t3 up --connect`."),
+  Command.withDescription("Set up T3 Connect for this machine. Same as `aprende up --connect`."),
   Command.withHandler((flags) =>
     runCloudCommand(
       flags,
@@ -470,7 +470,7 @@ export const connectCommand = Command.make("connect", {
   Command.withSubcommands(connectSubcommands),
 );
 
-/** `t3 status --json`, for scripts and agents. */
+/** `aprende status --json`, for scripts and agents. */
 const setupJson = (setup: Setup) =>
   JSON.stringify(
     {
@@ -519,7 +519,7 @@ export const statusCommand = Command.make("status", {
       yield* Console.log(
         flags.json
           ? setupJson(setup)
-          : `This machine\n${formatSetup(setup)}\n\nChange access: \`t3 up\`.`,
+          : `This machine\n${formatSetup(setup)}\n\nChange access: \`aprende up\`.`,
       );
     }),
   ),

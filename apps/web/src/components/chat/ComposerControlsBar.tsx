@@ -18,8 +18,8 @@ import {
   type ProviderInteractionMode,
   type RuntimeMode,
   type ServerProvider,
-} from "@t3tools/contracts";
-import type { EffortDisplay } from "@t3tools/contracts/settings";
+} from "@aprende/contracts";
+import type { EffortDisplay } from "@aprende/contracts/settings";
 import { cn } from "~/lib/utils";
 import { resolveComposerTraitsInput } from "./composerProviderState";
 import {

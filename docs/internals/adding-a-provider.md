@@ -26,8 +26,7 @@ capabilities, never the driver kind.
   falls back, for example to portable context handoff for forks. A capability left on that fails
   at runtime is a bug.
 - **Permission modes.** Offer only modes the provider enforces natively, through
-  `supportedRuntimeModes` in the provider presentation ([Grok](../../packages/provider-grok/src/server/status.ts)
-  and [Pi](../../packages/provider-pi/src/server/status.ts) are examples). Do not imitate a missing
+  `supportedRuntimeModes` in the provider presentation. Do not imitate a missing
   mode by answering approvals in T3: T3's check is weaker than the agent's own enforcement. The
   server runs an unoffered stored mode as Supervised
   ([`RuntimePolicy.ts`](../../apps/server/src/orchestration-v2/RuntimePolicy.ts)).
@@ -104,7 +103,7 @@ produce catches them.
 ## Where a driver plugs in
 
 A provider lives in its own `packages/provider-<name>` package, with
-[Pi](../../packages/provider-pi) as the reference. Drivers not moved yet still live in
+[ACP Registry](../../packages/provider-acp-registry) as the reference. Drivers not moved yet still live in
 [`provider/Drivers`](../../apps/server/src/provider/Drivers).
 
 - **Package exports.** `./settings` holds the instance settings schema, built with
@@ -113,9 +112,9 @@ A provider lives in its own `packages/provider-<name>` package, with
   `./server` exports the `ProviderDriver` and its adapter driver. `./testing` exposes internals
   the server's replay testkits drive; testkits that need the orchestrator stay in the server.
   Settings live in `providerInstances`; new providers are off by default.
-- **Package boundaries.** Server code imports only `@t3tools/provider-core/server/*`, contracts,
+- **Package boundaries.** Server code imports only `@aprende/provider-core/server/*`, contracts,
   and shared. It reaches the server through `ProviderHost` (paths, settings, background demand,
-  attachments, stored credentials), never through `apps/server`. Tests use `@t3tools/provider-testing`.
+  attachments, stored credentials), never through `apps/server`. Tests use `@aprende/provider-testing`.
 - **Server registration:** the driver's entry in
   [`builtInDrivers.ts`](../../apps/server/src/provider/builtInDrivers.ts). The driver carries its
   adapter driver. Also its position in the [status order](../../apps/server/src/provider/providerStatusCache.ts), a

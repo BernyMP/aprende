@@ -1,5 +1,5 @@
 {
-  "name": "@t3tools/client-runtime",
+  "name": "@aprende/client-runtime",
   "private": true,
   "type": "module",
   "exports": {
@@ -131,13 +131,9 @@
       "types": "./src/providerUpdateRequiredModels.ts",
       "default": "./src/providerUpdateRequiredModels.ts"
     },
-    "./voice-input": {
-      "types": "./src/voice-input/index.ts",
-      "default": "./src/voice-input/index.ts"
-    },
-    "./t3ToolSummary": {
-      "types": "./src/t3ToolSummary.ts",
-      "default": "./src/t3ToolSummary.ts"
+    "./appToolSummary": {
+      "types": "./src/appToolSummary.ts",
+      "default": "./src/appToolSummary.ts"
     },
     "./relay": {
       "types": "./src/relay/index.ts",
@@ -537,20 +533,13 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@aprende/contracts": "workspace:*",
+    "@aprende/provider-acp-registry": "workspace:*",
+    "@aprende/provider-core": "workspace:*",
+    "@aprende/shared": "workspace:*",
+    "@aprende/source-control-core": "workspace:*",
+    "@aprende/source-control-definitions": "workspace:*",
     "@pierre/diffs": "catalog:",
-    "@t3tools/contracts": "workspace:*",
-    "@t3tools/provider-acp-registry": "workspace:*",
-    "@t3tools/provider-core": "workspace:*",
-    "@t3tools/provider-cursor": "workspace:*",
-    "@t3tools/provider-fx": "workspace:*",
-    "@t3tools/provider-grok": "workspace:*",
-    "@t3tools/provider-kiro": "workspace:*",
-    "@t3tools/provider-muse": "workspace:*",
-    "@t3tools/provider-opencode": "workspace:*",
-    "@t3tools/provider-pi": "workspace:*",
-    "@t3tools/shared": "workspace:*",
-    "@t3tools/source-control-core": "workspace:*",
-    "@t3tools/source-control-definitions": "workspace:*",
     "effect": "catalog:",
     "jszip": "3.10.1",
     "three": "0.180.0"

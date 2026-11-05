@@ -99,7 +99,7 @@ describe("readHtmlRenderImageRequest", () => {
   it("accepts http(s) and inline image URLs in an open-image notification", () => {
     const image = (params: unknown) => ({
       jsonrpc: "2.0",
-      method: "t3/notifications/open-image",
+      method: "aprende/notifications/open-image",
       params,
     });
     expect(
@@ -123,9 +123,9 @@ describe("htmlRenderFromToolItem", () => {
 
   it("reads the reference from each provider's result envelope", () => {
     for (const [toolName, output] of [
-      ["mcp__t3-code__html_render", [{ type: "text", text: JSON.stringify(result) }]],
-      ["t3-code.html_render", { structuredContent: result, content: [] }],
-      ["t3-code-thread_1_html_render", JSON.stringify(result)],
+      ["mcp__aprende__html_render", [{ type: "text", text: JSON.stringify(result) }]],
+      ["aprende.html_render", { structuredContent: result, content: [] }],
+      ["aprende-thread_1_html_render", JSON.stringify(result)],
       ["html_render", result],
     ] as const) {
       expect(htmlRenderFromToolItem({ toolName, output })).toEqual(reference);

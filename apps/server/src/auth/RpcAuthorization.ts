@@ -29,7 +29,7 @@ import {
   RpcScopeAuthorization,
   WS_METHODS,
   WsRpcGroup,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Layer from "effect/Layer";
@@ -41,7 +41,6 @@ export const RPC_REQUIRED_SCOPES = {
   ...CLIENT_GUARDED_RPC_SCOPES,
   [ORCHESTRATION_V2_WS_METHODS.dispatchCommand]: AuthOrchestrationOperateScope,
   [ORCHESTRATION_V2_WS_METHODS.getWorkflowScript]: AuthOrchestrationReadScope,
-  [ORCHESTRATION_V2_WS_METHODS.getNativeChildWork]: AuthOrchestrationReadScope,
   [ORCHESTRATION_V2_WS_METHODS.stopWorkflow]: AuthOrchestrationOperateScope,
   [ORCHESTRATION_V2_WS_METHODS.forceStopThread]: AuthOrchestrationOperateScope,
   [ORCHESTRATION_V2_WS_METHODS.getTurnDiff]: AuthOrchestrationReadScope,
@@ -113,6 +112,9 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.serverSignalProcess]: AuthEnvironmentMaintainScope,
   [WS_METHODS.serverReportClientActivity]: AuthOrchestrationReadScope,
   [WS_METHODS.scheduledTasksSubscribe]: AuthOrchestrationReadScope,
+  [WS_METHODS.learningSubscribeThread]: AuthOrchestrationReadScope,
+  [WS_METHODS.learningGetTutorPrompt]: AuthOrchestrationReadScope,
+  [WS_METHODS.learningGetKnowledge]: AuthOrchestrationReadScope,
   [WS_METHODS.secretsAnswerRequest]: AuthOrchestrationOperateScope,
   // Delivery logs hold request bodies, so they need the same scope as the URL.
   [WS_METHODS.scheduledTasksListWebhookDeliveries]: AuthOrchestrationOperateScope,
@@ -274,22 +276,12 @@ const requiredScopesForRpcCall = (
   return [requiredScopeForRpcMethod(method)];
 };
 
-/**
- * `onAuthorized` runs once after an authorized request succeeds; for a stream
- * RPC, that is when the stream completes. Every RPC passes through here, so it
- * is the one place to observe requests without wrapping each handler.
- */
-export const layer = (
-  scopes: ReadonlyArray<AuthEnvironmentScope>,
-  onAuthorized?: (method: string, payload: unknown) => Effect.Effect<void>,
-) =>
+export const layer = (scopes: ReadonlyArray<AuthEnvironmentScope>) =>
   Layer.succeed(RpcScopeAuthorization)((effect, { rpc, payload }) => {
     const requiredScopes = requiredScopesForRpcCall(rpc._tag, payload);
     const requiredScope = requiredScopes.find((scope) => !scopes.includes(scope));
     if (requiredScope !== undefined) return Effect.fail(rpcAuthorizationError(requiredScope));
-    return onAuthorized === undefined
-      ? effect
-      : Effect.tap(effect, () => onAuthorized(rpc._tag, payload));
+    return effect;
   });
 
 /** Retrying can install or restart tools even though ordinary listing is readable. */

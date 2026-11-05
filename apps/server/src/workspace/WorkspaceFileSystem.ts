@@ -10,10 +10,10 @@ import type {
   ProjectReadFileResult,
   ProjectWriteFileInput,
   ProjectWriteFileResult,
-} from "@t3tools/contracts";
-import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { isNetworkPath } from "@t3tools/shared/path";
+} from "@aprende/contracts";
+import { expandHomePath } from "@aprende/provider-core/server/pathExpansion";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { isNetworkPath } from "@aprende/shared/path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -131,7 +131,7 @@ export class WorkspaceFileSystem extends Context.Service<
       | KnownWorkspaces.UnknownWorkspaceError
     >;
   }
->()("t3/workspace/WorkspaceFileSystem") {}
+>()("aprende/workspace/WorkspaceFileSystem") {}
 
 /** @public */
 export const make = Effect.gen(function* () {

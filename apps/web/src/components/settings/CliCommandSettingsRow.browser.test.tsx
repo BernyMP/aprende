@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react";
-import type { DesktopCliCommandState } from "@t3tools/contracts";
+import type { DesktopCliCommandState } from "@aprende/contracts";
 import { AtomRegistry } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -12,7 +12,7 @@ it("blocks installation behind another t3 without blocking removal of our instal
     supported: true,
     installedPath: null,
     onPath: false,
-    launcherPath: "/home/test/.t3/bin/t3",
+    launcherPath: "/home/test/.aprende/bin/t3",
   };
   const getState = vi.fn(async (): Promise<DesktopCliCommandState> => ({
     ...state,

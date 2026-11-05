@@ -9,7 +9,7 @@ import {
   deriveAvailableRevertTurnCounts,
 } from "./ChatView.logic";
 import { recallCheckoutIsRepo, rememberCheckoutIsRepo } from "./ChatView.logic";
-import { ProviderDriverKind, type ServerProvider } from "@t3tools/contracts";
+import { ProviderDriverKind, type ServerProvider } from "@aprende/contracts";
 import { deriveProviderInstanceEntries } from "../providerInstances";
 import { ensureInlineContextReferences } from "../lib/composerContextReferences";
 import { terminalContextReference } from "../lib/composerContextRecords";
@@ -27,7 +27,7 @@ import {
   TurnItemId,
   type OrchestrationV2ProjectedTurnItem,
   type WorktreeSetupSnapshot,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -38,7 +38,6 @@ import { environmentThreadDetails } from "../state/threads";
 import type { Thread } from "../types";
 import { makeThreadFixture, makeThreadProjectionFixture } from "../test-fixtures";
 import {
-  getAntigravitySendBlockReason,
   resolveComposerProviderSelection,
   resolveWorktreeSetupProgress,
   peekRememberedThreadTimeline,
@@ -597,7 +596,7 @@ describe("resolveComposerProviderSelection", () => {
   );
 
   it("keeps a signed-out selection instead of silently switching providers", () => {
-    const signedOutEntry = entry("antigravity", "google_work", {
+    const signedOutEntry = entry("claudeAgent", "claude_work", {
       status: "error",
       auth: { status: "unauthenticated" },
       models: catalogModels,
@@ -610,59 +609,20 @@ describe("resolveComposerProviderSelection", () => {
     });
 
     expect(selection.selectedProviderEntry?.instanceId).toBe(signedOutEntry.instanceId);
-    expect(
-      getAntigravitySendBlockReason(selection.selectedProviderEntry?.snapshot, "gemini-pro"),
-    ).toBe("Sign in to Antigravity in provider settings before sending.");
-  });
-
-  it("blocks a saved model that a ready catalog no longer lists", () => {
-    const provider = entry("antigravity", "google_work", {
-      status: "ready",
-      models: catalogModels,
-    }).snapshot;
-
-    expect(getAntigravitySendBlockReason(provider, "saved-model-not-in-current-catalog")).toBe(
-      "That Antigravity model is no longer available. Choose another model.",
-    );
-    expect(getAntigravitySendBlockReason(provider, "gemini-pro")).toBeNull();
-  });
-
-  it("allows a saved native model to retry after a provider error without changing it", () => {
-    const provider = entry("antigravity", "google_work", {
-      status: "error",
-      models: catalogModels,
-    }).snapshot;
-
-    expect(
-      getAntigravitySendBlockReason(provider, "saved-model-not-in-current-catalog"),
-    ).toBeNull();
-  });
-
-  it("does not continue an existing Antigravity thread in another profile after deletion", () => {
-    const missingInstanceId = ProviderInstanceId.make("google_work");
-    const selection = resolveComposerProviderSelection({
-      entries: [entry("antigravity")],
-      candidateInstanceIds: [missingInstanceId],
-      lockedProvider: ProviderDriverKind.make("antigravity"),
-      lockedInstanceId: missingInstanceId,
-    });
-
-    expect(selection.selectedProviderEntry).toBeUndefined();
-    expect(selection.unavailableProviderInstanceId).toBe(missingInstanceId);
   });
 
   it("keeps the session's continuation group when another instance was selected", () => {
-    const sessionEntry = entry("antigravity", "google_work", {
+    const sessionEntry = entry("claudeAgent", "claude_work", {
       enabled: false,
       continuation: { groupKey: "work-profile" },
     });
-    const anotherEntry = entry("antigravity", "google_personal", {
+    const anotherEntry = entry("claudeAgent", "claude_personal", {
       continuation: { groupKey: "personal-profile" },
     });
     const selection = resolveComposerProviderSelection({
       entries: [sessionEntry, anotherEntry],
       candidateInstanceIds: [anotherEntry.instanceId, sessionEntry.instanceId],
-      lockedProvider: ProviderDriverKind.make("antigravity"),
+      lockedProvider: ProviderDriverKind.make("claudeAgent"),
       lockedInstanceId: sessionEntry.instanceId,
     });
 

@@ -3,7 +3,7 @@ import {
   AuthRelayReadScope,
   type EnvironmentCloudLinkStateResult,
   type EnvironmentId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult, Atom } from "effect/reactivity";
 

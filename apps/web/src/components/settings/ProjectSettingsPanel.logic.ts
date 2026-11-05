@@ -1,4 +1,4 @@
-import type { ProjectIconOverride } from "@t3tools/contracts";
+import type { ProjectIconOverride } from "@aprende/contracts";
 
 import type { Project } from "../../types";
 

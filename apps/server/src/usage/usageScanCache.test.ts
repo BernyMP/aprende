@@ -6,7 +6,7 @@ import {
   type CachedFile,
   type ScanCache,
 } from "./usageScanCache.ts";
-import type { UsageRecord } from "@t3tools/provider-core/server/usage";
+import type { UsageRecord } from "@aprende/provider-core/server/usage";
 
 import { TEST_FORMAT_MAP } from "./usageTestFormats.ts";
 import { initialCodexScanState, parseCodexLine } from "../provider/Drivers/codexUsage.ts";
@@ -87,12 +87,12 @@ describe("scan cache round trip", () => {
       size: 40,
       malformedRecords: 2,
       mtimeMs: 300,
-      provider: "grok",
+      provider: "codex",
       records: [
-        record({ provider: "grok", model: "grok-4.5-build", dedupeKey: "s:p:grok-4.5-build" }),
-        record({ provider: "grok", model: "<synthetic>", dedupeKey: "s:p:<synthetic>" }),
+        record({ provider: "codex", model: "grok-4.5-build", dedupeKey: "s:p:grok-4.5-build" }),
+        record({ provider: "codex", model: "<synthetic>", dedupeKey: "s:p:<synthetic>" }),
       ],
-      tailRecords: [record({ provider: "grok", model: "<synthetic>", dedupeKey: null })],
+      tailRecords: [record({ provider: "codex", model: "<synthetic>", dedupeKey: null })],
       position: position({ resumeOffset: 30, guardLength: 30, guardHash: 123 }),
     });
     const state = initialCodexScanState();
@@ -183,14 +183,6 @@ describe("scan cache round trip", () => {
           },
         }),
       });
-      original.set("/gone-pi.jsonl", {
-        ...original.get("/gone.jsonl")!,
-        size: 256,
-        provider: "pi",
-        records: [record({ provider: "pi", model: "anthropic/claude-fable-5" })],
-        malformedRecords: 3,
-        position: position({ state: { sessionId: "session-a" } }),
-      });
       const cleanCodex = {
         ...original.get("/gone-codex.jsonl")!,
         malformedRecords: 0,
@@ -237,15 +229,6 @@ describe("scan cache round trip", () => {
         size: version >= 8 ? cleanCodex.size : -1,
         position: { resumeOffset: 0, guardLength: 0, guardHash: 0, state: null },
       });
-      expect(restored.get("/gone-pi.jsonl")).toEqual(
-        version >= 6
-          ? original.get("/gone-pi.jsonl")
-          : {
-              ...original.get("/gone-pi.jsonl"),
-              size: -1,
-              position: { resumeOffset: 0, guardLength: 0, guardHash: 0, state: null },
-            },
-      );
     },
   );
 

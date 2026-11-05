@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@aprende/contracts";
 import { ContextChipLabel } from "../ContextChip";
 import { WorkspaceEntryIcon } from "./WorkspaceEntryIcon";
 

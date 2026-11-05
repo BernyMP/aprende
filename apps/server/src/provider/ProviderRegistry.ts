@@ -5,7 +5,7 @@ import {
   type ProviderInstanceId,
   type ServerProvider,
   type ServerProviderUpdateState,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -23,7 +23,7 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as Semaphore from "effect/Semaphore";
 
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
+import * as ProviderLatestVersions from "@aprende/provider-core/server/ProviderLatestVersions";
 import * as ModelManifest from "./ModelManifest.ts";
 import { applyProviderCompatibility } from "./providerCompatibility.ts";
 import * as ServerConfig from "../config.ts";
@@ -40,12 +40,12 @@ import {
 import type {
   ProviderInstance,
   ProviderWorkspaceSnapshot,
-} from "@t3tools/provider-core/server/driver";
+} from "@aprende/provider-core/server/driver";
 import {
   makeManualOnlyProviderMaintenanceCapabilities,
   type ProviderMaintenanceCapabilities,
   latestProviderVersionCacheKeys,
-} from "@t3tools/provider-core/server/maintenanceResolver";
+} from "@aprende/provider-core/server/maintenanceResolver";
 import type { ProviderSnapshotSource } from "./builtInProviderCatalog.ts";
 
 export type ProviderMaintenanceActionKind = "update";
@@ -106,7 +106,7 @@ export class ProviderRegistry extends Context.Service<
 
     readonly streamChanges: Stream.Stream<ReadonlyArray<ServerProvider>>;
   }
->()("t3/provider/ProviderRegistry") {}
+>()("aprende/provider/ProviderRegistry") {}
 
 const loadProviders = (
   providerSources: ReadonlyArray<ProviderSnapshotSource>,
@@ -169,15 +169,6 @@ export function upsertProviderWorkspaceSnapshot(
 }
 
 const shouldRetainMissingProviderModels = (provider: ServerProvider): boolean => {
-  if (provider.driver === ProviderDriverKind.make("pi")) {
-    // Pi auth becomes known only after inventory discovery: empty means unauthenticated; failed/interactive discovery preserves unknown auth and cached models.
-    return !(
-      provider.installed &&
-      (provider.status === "ready" || provider.status === "warning") &&
-      provider.auth.status !== "unknown"
-    );
-  }
-
   if (provider.driver === ProviderDriverKind.make("acpRegistry")) {
     // Only completed ACP discovery provides nativeSessions and inventory; placeholder probes cannot establish auth for agents without sign-in.
     return !(
@@ -187,39 +178,15 @@ const shouldRetainMissingProviderModels = (provider: ServerProvider): boolean =>
     );
   }
 
-  if (provider.driver === ProviderDriverKind.make("grok")) {
-    // Grok reports ready only after it discovers a model list; the pending,
-    // ACP-failed, empty-inventory, and logged-out probes are warning/error.
-    return !(provider.installed && provider.status === "ready");
-  }
+  if (provider.driver !== ProviderDriverKind.make("codex")) return true;
+  if (!provider.enabled || provider.auth.status === "unauthenticated") return false;
 
-  const isAntigravity = provider.driver === ProviderDriverKind.make("antigravity");
-  const isCodex = provider.driver === ProviderDriverKind.make("codex");
-  if (!isAntigravity && !isCodex && provider.driver !== ProviderDriverKind.make("opencode")) {
-    return true;
-  }
-
-  if (
-    (isAntigravity || isCodex) &&
-    (!provider.enabled || provider.auth.status === "unauthenticated")
-  ) {
-    return false;
-  }
-
-  // Antigravity's local health check does not authenticate or discover models.
-  const isPendingAntigravityAuthentication =
-    isAntigravity && provider.status === "warning" && provider.auth.status === "unknown";
   const isPendingInitialProbe =
     provider.enabled && !provider.installed && provider.status === "warning";
   const isIncompleteInstalledProbe =
-    provider.installed &&
-    (provider.status === "error" || (isCodex && provider.status === "warning"));
-  return isPendingAntigravityAuthentication || isPendingInitialProbe || isIncompleteInstalledProbe;
+    provider.installed && (provider.status === "error" || provider.status === "warning");
+  return isPendingInitialProbe || isIncompleteInstalledProbe;
 };
-
-const shouldRetainMissingOpenCodeMetadata = (provider: ServerProvider): boolean =>
-  provider.driver === ProviderDriverKind.make("opencode") &&
-  shouldRetainMissingProviderModels(provider);
 
 const mergeProviderModels = (
   provider: ServerProvider,
@@ -253,29 +220,6 @@ const mergeProviderModels = (
     : mergedModels;
 };
 
-/** Antigravity health checks only initialize; preserve previously verified Google auth across restarts. */
-const carrySavedAntigravityAccount = (
-  previousProvider: ServerProvider,
-  nextProvider: ServerProvider,
-): Pick<ServerProvider, "auth" | "status"> | undefined => {
-  const antigravity = ProviderDriverKind.make("antigravity");
-  if (
-    nextProvider.driver !== antigravity ||
-    previousProvider.driver !== antigravity ||
-    !nextProvider.enabled ||
-    nextProvider.auth.status !== "unknown" ||
-    previousProvider.auth.status !== "authenticated" ||
-    (nextProvider.auth.type !== undefined &&
-      nextProvider.auth.type !== previousProvider.auth.type) ||
-    (!nextProvider.installed && nextProvider.status !== "warning")
-  ) {
-    return undefined;
-  }
-  const status =
-    nextProvider.installed && nextProvider.status === "warning" ? "ready" : nextProvider.status;
-  return { auth: previousProvider.auth, status };
-};
-
 export const mergeProviderSnapshot = (
   previousProvider: ServerProvider | undefined,
   nextProvider: ServerProvider,
@@ -283,26 +227,14 @@ export const mergeProviderSnapshot = (
   if (!previousProvider) {
     return nextProvider;
   }
-  const savedAccount = carrySavedAntigravityAccount(previousProvider, nextProvider);
-  const { message: _uncheckedMessage, ...nextWithoutMessage } = nextProvider;
   return {
-    ...(savedAccount?.status === "ready" ? nextWithoutMessage : nextProvider),
-    ...savedAccount,
+    ...nextProvider,
     models: mergeProviderModels(nextProvider, previousProvider.models, nextProvider.models),
     ...(nextProvider.workspaceSnapshots !== undefined
       ? { workspaceSnapshots: nextProvider.workspaceSnapshots }
       : previousProvider.workspaceSnapshots !== undefined
         ? { workspaceSnapshots: previousProvider.workspaceSnapshots }
         : {}),
-    ...(shouldRetainMissingOpenCodeMetadata(nextProvider)
-      ? {
-          slashCommands:
-            nextProvider.slashCommands.length === 0
-              ? previousProvider.slashCommands
-              : nextProvider.slashCommands,
-          skills: nextProvider.skills.length === 0 ? previousProvider.skills : nextProvider.skills,
-        }
-      : {}),
   };
 };
 

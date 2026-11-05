@@ -19,9 +19,9 @@ import {
   cliReleaseAssetUrl,
   type CliArchivePlatformKey,
   parseChecksums,
-} from "@t3tools/shared/cliRelease";
+} from "@aprende/shared/cliRelease";
 
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 
 import * as ProcessRunner from "../processRunner.ts";
 import { isExactServiceVersion, parseServiceState, SERVICE_STATE_FILE } from "./serviceProtocol.ts";
@@ -400,8 +400,8 @@ const PINNED_RUNTIME_PRUNED_PREFIX = ".pruned-";
  */
 const PINNED_RUNTIME_PRUNE_GRACE = Duration.hours(1);
 /**
- * One `t3` launcher path per line, appended by the install scripts and by any prune that finds a
- * launcher on PATH. A service does not see the installer's `T3CODE_INSTALL_BIN_DIR` or the
+ * One `aprende` launcher path per line, appended by the install scripts and by any prune that finds a
+ * launcher on PATH. A service does not see the installer's `APRENDE_INSTALL_BIN_DIR` or the
  * interactive PATH, so this is how it finds a custom one, including installs that predate the file.
  */
 const PINNED_RUNTIME_LAUNCHERS_FILE = "launchers";
@@ -423,7 +423,7 @@ export function launcherOwnsVersionsDir(
 }
 
 /**
- * `t3 update` repoints the launcher it was started through, which may be on neither PATH nor the
+ * `aprende update` repoints the launcher it was started through, which may be on neither PATH nor the
  * default bin dir. Unrecorded, the next prune would remove the runtime it now points at.
  */
 export const recordPinnedRuntimeLauncher = Effect.fn("cloud.pinned_runtime.record_launcher")(
@@ -443,10 +443,10 @@ export const recordPinnedRuntimeLauncher = Effect.fn("cloud.pinned_runtime.recor
   },
 );
 
-/** The executable a `t3.cmd` shim written by the install script or `t3 update` runs. */
+/** The executable a `t3.cmd` shim written by the install script or `aprende update` runs. */
 export const windowsShimTarget = (contents: string) => /^"([^"]+)"/m.exec(contents)?.[1];
 
-/** Where the `t3` launchers written by the install scripts and `t3 update` point. */
+/** Where the `aprende` launchers written by the install scripts and `aprende update` point. */
 const shellLauncherTargets = Effect.fn("cloud.pinned_runtime.shell_launcher_targets")(function* (
   baseDir: string,
 ) {
@@ -461,7 +461,7 @@ const shellLauncherTargets = Effect.fn("cloud.pinned_runtime.shell_launcher_targ
     .split(/\r?\n/)
     .filter((launcher) => launcher.trim().length > 0);
   const found = [
-    environment["T3CODE_INSTALL_BIN_DIR"] || path.join(home, ".local", "bin"),
+    environment["APRENDE_INSTALL_BIN_DIR"] || path.join(home, ".local", "bin"),
     ...(environment["PATH"] ?? environment["Path"] ?? "").split(platform === "win32" ? ";" : ":"),
   ]
     .filter((directory) => path.isAbsolute(directory))
@@ -479,7 +479,7 @@ const shellLauncherTargets = Effect.fn("cloud.pinned_runtime.shell_launcher_targ
             Effect.map(windowsShimTarget),
             Effect.orElseSucceed(() => undefined),
           )
-        : // Fully resolved, through chained links and a symlinked T3 home alike.
+        : // Fully resolved, through chained links and a symlinked aprende home alike.
           yield* fs.realPath(launcher).pipe(Effect.orElseSucceed(() => undefined));
     if (target === undefined) continue;
     targets.push(target);
@@ -501,8 +501,8 @@ const shellLauncherTargets = Effect.fn("cloud.pinned_runtime.shell_launcher_targ
 });
 
 /**
- * Resolved executables rather than command lines: a server started through the `t3` symlink
- * shows up as `t3 serve`, possibly from another T3 home that runs this home's runtimes. Windows
+ * Resolved executables rather than command lines: a server started through the `aprende` symlink
+ * shows up as `aprende serve`, possibly from another aprende home that runs this home's runtimes. Windows
  * has no symlink launcher, and its `t3.cmd` shim runs the absolute path, so command lines do there.
  */
 const runningExecutables = Effect.fn("cloud.pinned_runtime.running_executables")(function* () {
@@ -616,7 +616,7 @@ const selectUnusedRuntimes = Effect.fn("cloud.pinned_runtime.select_unused")(fun
     ...(yield* shellLauncherTargets(input.baseDir)),
     ...input.references,
   ].map(foldCase);
-  // Process executables are resolved, so they name the real path of a symlinked T3 home.
+  // Process executables are resolved, so they name the real path of a symlinked aprende home.
   const realVersionsDir = yield* fs
     .realPath(versionsDir)
     .pipe(Effect.orElseSucceed(() => versionsDir));

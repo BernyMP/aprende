@@ -4,7 +4,7 @@ import {
   type AuthCreatePairingCredentialInput,
   type AuthSessionState,
   type DesktopBridge,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { createBrowserHistory } from "@tanstack/react-router";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -71,7 +71,7 @@ function installTestBrowser(url: string) {
   };
 
   vi.stubGlobal("window", testWindow);
-  vi.stubGlobal("document", { title: "T3 Code" });
+  vi.stubGlobal("document", { title: "aprende" });
 
   return testWindow;
 }

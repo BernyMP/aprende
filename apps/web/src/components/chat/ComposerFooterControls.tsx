@@ -3,12 +3,12 @@ import type {
   ProviderInstanceId,
   ProviderInteractionMode,
   RuntimeMode,
-} from "@t3tools/contracts";
-import { createModelSelection } from "@t3tools/shared/model";
+} from "@aprende/contracts";
+import { createModelSelection } from "@aprende/shared/model";
 import { BotIcon, PencilRulerIcon } from "lucide-react";
 import { type ComponentProps, memo, useId, useRef, useState } from "react";
 
-import type { ContextWindowSnapshot } from "@t3tools/client-runtime/state/context-window";
+import type { ContextWindowSnapshot } from "@aprende/client-runtime/state/context-window";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
@@ -358,14 +358,12 @@ export function ComposerModelPicker({
     options?: { focusComposer?: boolean },
   ) => void;
 }) {
-  const { instanceEntries, modelOptionsByInstance } = pickerProps;
+  const { modelOptionsByInstance } = pickerProps;
   const toggleModel = (instanceId: ProviderInstanceId, model: string) => {
     const current = multipleModelSelections ?? [selectedModelSelection];
     const matchesModel = (selection: ModelSelection) => {
       if (selection.instanceId !== instanceId) return false;
-      const entry = instanceEntries.find((entry) => entry.instanceId === selection.instanceId);
       const resolvedModel = resolveModelPickerSelectedModel({
-        driverKind: entry?.driverKind,
         model: selection.model,
         options: modelOptionsByInstance?.get(selection.instanceId) ?? [],
       });

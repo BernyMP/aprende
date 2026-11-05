@@ -4,7 +4,7 @@ import {
   type EnvironmentId,
   type ServerConfig,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 
@@ -201,7 +201,7 @@ export interface EnvironmentConnectionSummary {
   readonly connectionErrorTraceId: string | null;
 }
 
-export function projectEnvironmentConnectionSummary(
+function projectEnvironmentConnectionSummary(
   environmentId: EnvironmentId,
   environment: EnvironmentPresentation,
 ): EnvironmentConnectionSummary {

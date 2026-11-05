@@ -1,6 +1,6 @@
-import { ModelSelection } from "@t3tools/contracts";
-import type { UsageSpeed } from "@t3tools/provider-core/server/usage";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+import { ModelSelection } from "@aprende/contracts";
+import type { UsageSpeed } from "@aprende/provider-core/server/usage";
+import * as NodeSqliteClient from "@aprende/shared/nodeSqliteClient";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -38,7 +38,7 @@ export class CodexUsageHistory extends Context.Service<
       CodexUsageHistoryReadError
     >;
   }
->()("t3/usage/CodexUsageHistory") {}
+>()("aprende/usage/CodexUsageHistory") {}
 
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;

@@ -1,12 +1,12 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { EnvironmentId } from "@t3tools/contracts";
+import { scopeThreadRef } from "@aprende/client-runtime/environment";
+import type { EnvironmentId } from "@aprende/contracts";
 import {
   formatHostedThreadLink,
   guessThreadLinkRef,
   percentDecodedThreadLinkId,
   type ThreadLink,
   unknownThreadLinkLabel,
-} from "@t3tools/shared/threadLinks";
+} from "@aprende/shared/threadLinks";
 
 import { configuredHostedAppUrl } from "../../hostedPairing";
 import { useThreadRefs, useThreadShell } from "../../state/entities";

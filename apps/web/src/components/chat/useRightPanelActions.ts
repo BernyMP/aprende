@@ -1,17 +1,17 @@
 import type { ToolCallDiffTarget } from "../../diffPanelStore";
-import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
+import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 import type { ThreadPreviewState } from "../../previewStateStore";
-import { formatFilePathForClipboard } from "@t3tools/client-runtime/media-actions";
-import { resolvePathLinkTarget } from "@t3tools/shared/fileLinks";
+import { formatFilePathForClipboard } from "@aprende/client-runtime/media-actions";
+import { resolvePathLinkTarget } from "@aprende/shared/fileLinks";
 import { resolveExplicitDiffOpenOnActivate } from "../ChatView.logic";
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { type ScopedThreadRef, type RunId } from "@t3tools/contracts";
-import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { type ScopedThreadRef, type RunId } from "@aprende/contracts";
+import { scopedThreadKey } from "@aprende/client-runtime/environment";
 import { useEffect } from "react";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import { useDiffPanelStore } from "../../diffPanelStore";
 import { type ThreadPanelPresentation } from "../../rightPanelLayout";
 import {
@@ -316,7 +316,7 @@ export function useRightPanelActions(input: RightPanelActionsInput) {
     onDiffPanelOpen?.();
   });
   const onOpenTurnDiffStable = useStableCallback(onOpenTurnDiff);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to the preview action bus to toggle the preview panel
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- subscribes to the preview action bus to toggle the preview panel
   useEffect(
     () =>
       embedded

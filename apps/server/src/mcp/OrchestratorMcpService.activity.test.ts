@@ -11,7 +11,7 @@ import {
   SECRET_REQUEST_UNSAVED_NOTE,
   ThreadId,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -682,7 +682,7 @@ it("requestSecret saves a pasted value to a file without opening a card", async 
     readonly requestKey: string;
     readonly value: string;
   }> = [];
-  const file = "/home/user/.t3/userdata/secrets/files/0123456789abcdef0123456789abcdef";
+  const file = "/home/user/.aprende/userdata/secrets/files/0123456789abcdef0123456789abcdef";
 
   const layer = layerOrchestratorService.pipe(
     Layer.provide(

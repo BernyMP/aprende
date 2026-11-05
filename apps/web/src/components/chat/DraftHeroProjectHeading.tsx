@@ -13,7 +13,7 @@ export function DraftHeroProjectHeading({
   const inlineRef = useRef<HTMLSpanElement>(null);
   const [fitsInline, setFitsInline] = useState(false);
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- measures the heading against its container via ResizeObserver to choose inline or stacked layout
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- measures the heading against its container via ResizeObserver to choose inline or stacked layout
   useLayoutEffect(() => {
     const container = containerRef.current;
     const inline = inlineRef.current;
@@ -39,7 +39,7 @@ export function DraftHeroProjectHeading({
           ref={inlineRef}
           className="flex w-max items-baseline gap-2 whitespace-nowrap font-normal text-3xl tracking-tight"
         >
-          <span>What should we build in</span>
+          <span>What do you want to learn in</span>
           <span>
             <span className="font-medium">{projectName}</span>?
           </span>
@@ -47,7 +47,7 @@ export function DraftHeroProjectHeading({
       </span>
       <h1 className="flex w-full flex-col items-center justify-center gap-2 text-center font-normal text-2xl text-foreground tracking-tight sm:text-3xl lg:group-data-[inline=true]/draft-hero:flex-row">
         <span className="max-w-full lg:group-data-[inline=true]/draft-hero:shrink-0">
-          What should we build
+          What do you want to learn
           <span className="lg:group-data-[inline=true]/draft-hero:hidden">?</span>
           <span className="hidden lg:group-data-[inline=true]/draft-hero:inline"> in</span>
         </span>

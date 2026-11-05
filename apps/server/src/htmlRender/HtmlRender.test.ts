@@ -1,9 +1,9 @@
 // @effect-diagnostics nodeBuiltinImport:off - plain local servers stand in for LAN services.
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, expect, it } from "@effect/vitest";
-import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import { EnvironmentId, ProviderInstanceId, ThreadId } from "@aprende/contracts";
+import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -24,7 +24,7 @@ import { HtmlRenderBrowserError } from "./headlessChrome.ts";
 import * as PreviewBrowser from "../preview/PreviewBrowser.ts";
 import * as PreviewBrowserHost from "../preview/PreviewBrowserHost.ts";
 
-const TEST_BROWSER_ENV = "T3CODE_TEST_HEADLESS_SHELL";
+const TEST_BROWSER_ENV = "APRENDE_TEST_HEADLESS_SHELL";
 
 const layerHtmlRender = (
   executable?: string,

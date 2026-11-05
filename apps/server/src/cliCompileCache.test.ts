@@ -27,7 +27,7 @@ it.live("enables CLI caching while respecting overrides and unavailable storage"
           {
             env: {
               XDG_CACHE_HOME: `${root}/cache`,
-              T3CODE_HOME: `${root}/home`,
+              APRENDE_HOME: `${root}/home`,
               NODE_COMPILE_CACHE: undefined,
               NODE_DISABLE_COMPILE_CACHE: undefined,
               APPIMAGE: "",
@@ -48,9 +48,9 @@ it.live("enables CLI caching while respecting overrides and unavailable storage"
     const normal = yield* run({});
     expect(normal.exitCode).toBe(0);
     expect(normal.stderr.replaceAll("\\", "/")).toContain(
-      `CACHE=${root}/cache/t3code/compile-cache`.replaceAll("\\", "/"),
+      `CACHE=${root}/cache/aprende/compile-cache`.replaceAll("\\", "/"),
     );
-    const appImage = yield* run({ APPIMAGE: `${root}/T3Code.AppImage` });
+    const appImage = yield* run({ APPIMAGE: `${root}/Aprende.AppImage` });
     expect(appImage.exitCode).toBe(0);
     expect(appImage.stderr).toContain("CACHE=disabled");
     const existing = yield* run({ NODE_COMPILE_CACHE: `${root}/explicit` });

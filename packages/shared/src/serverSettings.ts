@@ -1,4 +1,4 @@
-import type { ModelPreferences } from "@t3tools/contracts/settings";
+import type { ModelPreferences } from "@aprende/contracts/settings";
 import {
   DEFAULT_MODEL_BY_PROVIDER,
   DEFAULT_TEXT_GENERATION_MODEL,
@@ -21,7 +21,7 @@ import {
   ServerSettings,
   type ServerSettingsPatch,
   withIdleCompaction,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
@@ -55,16 +55,9 @@ export function isModelSelectionProviderEnabled(
   return isUnconfiguredDefaultInstanceEnabled(selection.instanceId);
 }
 
-const TEXT_GENERATION_FALLBACK_DRIVERS = [
-  "codex",
-  "claudeAgent",
-  "cursor",
-  "grok",
-  "muse",
-  "pi",
-  "opencode",
-  "antigravity",
-].map((driver) => ProviderDriverKind.make(driver));
+const TEXT_GENERATION_FALLBACK_DRIVERS = ["codex", "claudeAgent"].map((driver) =>
+  ProviderDriverKind.make(driver),
+);
 
 /** Only project-scoped callers may include configured instances when falling back; machine-level callers leave it unset. */
 export function fallbackTextGenerationModelSelection(
@@ -101,7 +94,7 @@ export function fallbackTextGenerationModelSelection(
   return { instanceId, model: defaultTextGenerationModel(driver) };
 }
 
-export function defaultTextGenerationModel(driver: ProviderDriverKind): string {
+function defaultTextGenerationModel(driver: ProviderDriverKind): string {
   return (
     DEFAULT_TEXT_GENERATION_MODEL_BY_PROVIDER[driver] ??
     DEFAULT_MODEL_BY_PROVIDER[driver] ??

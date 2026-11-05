@@ -1,14 +1,14 @@
-import { changeRequestReferenceAutolinker } from "@t3tools/client-runtime/pull-request-markdown";
+import { changeRequestReferenceAutolinker } from "@aprende/client-runtime/pull-request-markdown";
 import {
   sourceControlClients,
   type ReferenceAutolink,
-} from "@t3tools/client-runtime/source-control-clients";
+} from "@aprende/client-runtime/source-control-clients";
 import type { PluggableList } from "unified";
 
 export {
   splitPullRequestBody,
   type PullRequestBodySegment,
-} from "@t3tools/client-runtime/pull-request-markdown";
+} from "@aprende/client-runtime/pull-request-markdown";
 
 type MarkdownNode = {
   type: string;

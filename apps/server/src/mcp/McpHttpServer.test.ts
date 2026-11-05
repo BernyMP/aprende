@@ -16,7 +16,7 @@ import {
   ProviderInteractionMode,
   RuntimeMode,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -453,7 +453,7 @@ it.effect("refuses preview tools to a client outside a thread before they run", 
       );
     expect(click.isError).toBe(true);
     expect(click.content).toEqual([
-      { type: "text", text: expect.stringContaining("needs an agent running inside T3 Code") },
+      { type: "text", text: expect.stringContaining("needs an agent running inside aprende") },
     ]);
   }).pipe(Effect.provide(layerTest)),
 );
@@ -1281,7 +1281,7 @@ it.effect(
           environmentId,
           requestNamespace: "client:linked",
           thread: undefined,
-          client: { sessionId: "linked", label: "T3 Code · laptop", access: "auto" },
+          client: { sessionId: "linked", label: "aprende · laptop", access: "auto" },
           capabilities: new Set(["orchestration"]),
           issuedAt: 1,
         };

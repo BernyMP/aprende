@@ -1,19 +1,19 @@
 import { useAtomValue } from "@effect/atom-react";
 import { useAuth } from "@clerk/react";
-import { findErrorTraceId } from "@t3tools/client-runtime/errors";
+import { findErrorTraceId } from "@aprende/client-runtime/errors";
 import {
   AuthRelayReadScope,
   AuthRelayWriteScope,
   type EnvironmentCloudLinkStateResult,
   type EnvironmentId,
-} from "@t3tools/contracts";
-import { ManagedRelay } from "@t3tools/client-runtime/relay";
-import type { RelayManagedEndpointProviderKind } from "@t3tools/contracts/relay";
+} from "@aprende/contracts";
+import { ManagedRelay } from "@aprende/client-runtime/relay";
+import type { RelayManagedEndpointProviderKind } from "@aprende/contracts/relay";
 import {
   isAtomCommandInterrupted,
   settlePromise,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import * as Schema from "effect/Schema";
 import { useState } from "react";
 

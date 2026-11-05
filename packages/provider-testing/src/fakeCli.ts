@@ -2,7 +2,7 @@
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 
 export interface FakeCliOptions {
   readonly directory: string;
@@ -49,21 +49,4 @@ export function writeFakeCli(options: FakeCliOptions): string {
   );
   NodeFS.chmodSync(launcherPath, 0o755);
   return launcherPath;
-}
-
-export function execScriptSource(options: {
-  readonly scriptPath: string;
-  readonly expectedArgs?: ReadonlyArray<string>;
-}): string {
-  return [
-    'import { pathToFileURL } from "node:url";',
-    "const args = process.argv.slice(2);",
-    `const expected = ${JSON.stringify(options.expectedArgs ?? [])};`,
-    "if (expected.some((value, index) => args[index] !== value)) {",
-    '  process.stderr.write(`unexpected args: ${args.join(" ")}\\n`);',
-    "  process.exit(11);",
-    "}",
-    `await import(pathToFileURL(${JSON.stringify(options.scriptPath)}).href);`,
-    "",
-  ].join("\n");
 }

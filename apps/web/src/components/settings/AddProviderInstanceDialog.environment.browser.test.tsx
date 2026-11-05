@@ -1,4 +1,4 @@
-import { EnvironmentId, ProviderDriverKind, type AcpRegistrySearchAgent } from "@t3tools/contracts";
+import { EnvironmentId, ProviderDriverKind, type AcpRegistrySearchAgent } from "@aprende/contracts";
 import { userEvent } from "vite-plus/test/browser";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -28,7 +28,7 @@ const preparedAgent = vi.hoisted((): AcpRegistrySearchAgent => ({
   integrity: "sha256",
 }));
 
-vi.mock(import("@t3tools/client-runtime/state/runtime"), async (original) => ({
+vi.mock(import("@aprende/client-runtime/state/runtime"), async (original) => ({
   ...(await original()),
   squashAtomCommandFailure: () => new Error("The settings update failed."),
 }));
@@ -190,24 +190,14 @@ describe("AddProviderInstanceDialog environment routing", () => {
     });
   });
 
-  it("keeps fx and the ACP Registry under Show more", async () => {
+  it("keeps the ACP Registry under Show more", async () => {
     setup();
     await using _screen = await render(dialog());
     expect(radio("Codex")).toBeDefined();
-    expect(radio("fx")).toBeUndefined();
     expect(document.body.textContent).not.toContain("Use Kilo Code");
 
     await click("Show more");
     button("Use Kilo Code");
-    await act(async () => radio("fx")!.click());
-    await click("Next");
-    await click("Next");
-    await click("Add instance");
-    expect(settingsHooks.mutate).toHaveBeenCalledWith({
-      operation: "create",
-      instanceId: "fx",
-      instance: { driver: "fx", enabled: true, displayName: "fx" },
-    });
   });
 
   it("awaits an atomic create before closing and retains prepared ACP metadata", async () => {

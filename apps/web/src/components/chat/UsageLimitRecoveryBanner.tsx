@@ -2,13 +2,13 @@ import {
   type OrchestrationV2LimitRecovery,
   type OrchestrationV2LimitRecoveryUpdate,
   type RunId,
-} from "@t3tools/contracts";
-import { type TimestampFormat } from "@t3tools/contracts/settings";
-import { deadlineStore } from "@t3tools/client-runtime/clock";
+} from "@aprende/contracts";
+import { type TimestampFormat } from "@aprende/contracts/settings";
+import { deadlineStore } from "@aprende/client-runtime/clock";
 import {
   CHATGPT_USAGE_LIMIT_CODE,
   CHATGPT_WORKSPACE_USAGE_LIMIT_CODE,
-} from "@t3tools/shared/usageLimits";
+} from "@aprende/shared/usageLimits";
 import { GaugeIcon } from "lucide-react";
 import { useState } from "react";
 import { useDeadlinePassed } from "../../hooks/useDeadline";

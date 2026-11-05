@@ -14,7 +14,7 @@ import {
   withMessageContext,
   makeThreadErrorSetter,
 } from "../ChatView.logic";
-import { isUsageLimitsCommand } from "@t3tools/shared/usageLimits";
+import { isUsageLimitsCommand } from "@aprende/shared/usageLimits";
 import {
   AuthOrchestrationOperateScope,
   DEFAULT_MODEL,
@@ -24,24 +24,24 @@ import {
   type ThreadId,
   ProviderInteractionMode,
   RuntimeMode,
-} from "@t3tools/contracts";
-import { deriveThreadTitleSeed } from "@t3tools/client-runtime/operations";
-import { wasBootstrapThreadDeleted } from "@t3tools/client-runtime/errors";
+} from "@aprende/contracts";
+import { deriveThreadTitleSeed } from "@aprende/client-runtime/operations";
+import { wasBootstrapThreadDeleted } from "@aprende/client-runtime/errors";
 import {
   declinePendingApprovals,
   sendApprovalFeedback,
-} from "@t3tools/client-runtime/state/thread-requests";
+} from "@aprende/client-runtime/state/thread-requests";
 import {
   parseCodexFeedbackCommand,
   submitCodexFeedback,
   type CodexFeedbackSubmission,
-} from "@t3tools/client-runtime/state/threads";
+} from "@aprende/client-runtime/state/threads";
 import {
   scopedThreadKey,
   scopeProjectRef,
   scopeThreadRef,
-} from "@t3tools/client-runtime/environment";
-import { createModelSelection } from "@t3tools/shared/model";
+} from "@aprende/client-runtime/environment";
+import { createModelSelection } from "@aprende/shared/model";
 import { type SetStateAction, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate } from "@tanstack/react-router";
@@ -50,7 +50,7 @@ import {
   settlePromise,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import {
   type ComposerSubmissionIntent,
   collapseExpandedComposerCursor,
@@ -99,7 +99,7 @@ import {
 } from "./composerSend.logic";
 import { usePlanFollowUpSend } from "./useProposedPlanSend";
 import { useMultipleModelSend } from "./useMultipleModelSend";
-import { type ComposerDispatchMode } from "@t3tools/client-runtime/state/composer-dispatch";
+import { type ComposerDispatchMode } from "@aprende/client-runtime/state/composer-dispatch";
 import {
   awaitAttachmentUploads,
   getUploadedAttachments,
@@ -116,7 +116,7 @@ import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import {
   ATTACHMENT_ONLY_BOOTSTRAP_PROMPT,
   threadContextsOutsideEnvironment,
-} from "@t3tools/shared/composerContextReferences";
+} from "@aprende/shared/composerContextReferences";
 import {
   draftSendState,
   type MultipleModelTarget,
@@ -127,8 +127,8 @@ import {
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
-} from "@t3tools/client-runtime/state/shell";
-import type { UnifiedSettings } from "@t3tools/contracts";
+} from "@aprende/client-runtime/state/shell";
+import type { UnifiedSettings } from "@aprende/contracts";
 import type { Dispatch } from "react";
 import type { ComposerThreadTarget } from "../../composerDraftStore";
 import type { ProviderInstanceEntry } from "../../providerInstances";
@@ -396,7 +396,7 @@ export function useComposerSend(input: ComposerSendInput) {
   // A send awaits uploads before it declines, so it reads the approvals pending by then.
   const pendingApprovalsRef = useRef(pendingApprovals);
   const respondingRequestIdsRef = useRef(respondingRequestIds);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- mirrors approvals into refs that an async send reads after awaiting uploads
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- mirrors approvals into refs that an async send reads after awaiting uploads
   useLayoutEffect(() => {
     pendingApprovalsRef.current = pendingApprovals;
     respondingRequestIdsRef.current = respondingRequestIds;

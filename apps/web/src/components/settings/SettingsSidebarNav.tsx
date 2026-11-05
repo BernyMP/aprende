@@ -26,6 +26,7 @@ import {
   PaletteIcon,
   SearchIcon,
   ServerIcon,
+  GraduationCapIcon,
   Settings2Icon,
   ShieldCheckIcon,
   SmartphoneIcon,
@@ -56,7 +57,6 @@ import {
   type SettingsSearchItem,
 } from "./settingsSearch";
 import { useAvailableSettingsSearchItems } from "./useAvailableSettingsSearchItems";
-import { validateSettingsScopeSearch } from "./settingsScope";
 import { useSettingsSectionNavigation } from "./useSettingsSectionNavigation";
 import { workspaceAreaProps } from "../../lib/workspaceFocus";
 
@@ -86,6 +86,7 @@ const T3ConnectSidebarAvatar = lazy(() =>
 const SETTINGS_SECTION_ICONS: Readonly<
   Record<SettingsPath, ComponentType<{ className?: string }>>
 > = {
+  "/settings/tutor": GraduationCapIcon,
   "/settings/general": Settings2Icon,
   "/settings/diagnostics": WrenchIcon,
   "/settings/appearance": PaletteIcon,
@@ -130,8 +131,6 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
   const navArea = workspaceAreaProps("settings-nav", 0, "Settings sections");
   const navigate = useNavigate();
   const currentHash = useLocation({ select: (location) => location.hash });
-  const currentSearch = useLocation({ select: (location) => location.search });
-  const scopeSearch = validateSettingsScopeSearch(currentSearch);
   const activePath = SETTINGS_DETAIL_PAGE_PARENTS[pathname] ?? pathname;
   const navPaths = SETTINGS_NAV_GROUPS.flatMap((group) => group.paths);
   const sectionNavigation = useSettingsSectionNavigation(
@@ -144,7 +143,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
   // Below md the nav is an icon rail; searching expands it over the page.
   const [compactSearchOpen, setCompactSearchOpen] = useState(false);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
-  const searchableItems = useAvailableSettingsSearchItems(scopeSearch);
+  const searchableItems = useAvailableSettingsSearchItems();
   const results = searchSettings(query, searchableItems);
   const isSearching = query.trim().length > 0;
   const hasResults = results.length > 0;
@@ -154,7 +153,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
     setActiveResultIndex(maxResultIndex);
   }
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- window keydown listener for the find and slash search shortcuts
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- window keydown listener for the find and slash search shortcuts
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing) return;
@@ -190,7 +189,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- focuses the search input DOM node after the compact search opens
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- focuses the search input DOM node after the compact search opens
   useEffect(() => {
     if (compactSearchOpen) searchInputRef.current?.focus();
   }, [compactSearchOpen]);

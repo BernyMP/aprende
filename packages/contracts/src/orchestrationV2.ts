@@ -575,7 +575,7 @@ export function parseGoalCommand(message: {
   }
 }
 
-/** Why T3 Code sent this `/compact` on its own, or undefined for one someone asked for. */
+/** Why aprende sent this `/compact` on its own, or undefined for one someone asked for. */
 export function idleCompactionOf(
   message: CompactionMessageFields,
 ): OrchestrationV2IdleCompaction | undefined {
@@ -850,7 +850,7 @@ export type OrchestrationV2SubagentWorkflow = typeof OrchestrationV2SubagentWork
 /**
  * Wire-only, for clients that opted in with `acceptDedupedBodies` or `dedupeBodies=1`: the field
  * was blanked because an earlier record on the same response or stream holds the same value.
- * Restore with `@t3tools/shared/orchestrationV2DedupedBodies`; never store or forward a marked
+ * Restore with `@aprende/shared/orchestrationV2DedupedBodies`; never store or forward a marked
  * value. Clients restore only these fields, so blanking another field needs a new opt-in.
  */
 const DedupedBodyMarker = Schema.optionalKey(Schema.Literal(true));
@@ -1281,7 +1281,7 @@ export const OrchestrationV2Notification = Schema.Struct({
 });
 export type OrchestrationV2Notification = typeof OrchestrationV2Notification.Type;
 
-/** Why T3 Code compacted a thread on its own, on the `/compact` it sent. */
+/** Why aprende compacted a thread on its own, on the `/compact` it sent. */
 export const OrchestrationV2IdleCompaction = Schema.Literals(["beforeCacheExpires", "onReturn"]);
 export type OrchestrationV2IdleCompaction = typeof OrchestrationV2IdleCompaction.Type;
 
@@ -3585,7 +3585,6 @@ export const ORCHESTRATION_V2_WS_METHODS = {
   getOlderSettledThreads: "orchestration.getOlderSettledThreads",
   getThreadProjection: "orchestration.getThreadProjection",
   getWorkflowScript: "orchestration.getWorkflowScript",
-  getNativeChildWork: "orchestration.getNativeChildWork",
   stopWorkflow: "orchestration.stopWorkflow",
   forceStopThread: "orchestration.forceStopThread",
   getTurnItem: "orchestration.getTurnItem",
@@ -3603,7 +3602,7 @@ export type OrchestrationV2SubscribeCommandOutputInput =
   typeof OrchestrationV2SubscribeCommandOutputInput.Type;
 
 /** Unpersisted stream for expanded rows: replace resets the bounded tail, append extends it, and running:false ends it.
- * Feed both through @t3tools/shared/terminalOutput appendTerminalOutput to preserve cursor and style escapes. */
+ * Feed both through @aprende/shared/terminalOutput appendTerminalOutput to preserve cursor and style escapes. */
 export const OrchestrationV2CommandOutputFrame = Schema.Struct({
   kind: Schema.Literals(["replace", "append"]),
   text: Schema.String,
@@ -4032,53 +4031,6 @@ export const OrchestrationV2GetWorkflowScriptResult = Schema.Struct({
 export type OrchestrationV2GetWorkflowScriptResult =
   typeof OrchestrationV2GetWorkflowScriptResult.Type;
 
-/** Names a provider-native subagent's child thread. */
-export const OrchestrationV2GetNativeChildWorkInput = Schema.Struct({
-  threadId: ThreadId,
-});
-export type OrchestrationV2GetNativeChildWorkInput =
-  typeof OrchestrationV2GetNativeChildWorkInput.Type;
-
-export const OrchestrationV2NativeChildStep = Schema.Struct({
-  index: NonNegativeInt,
-  type: Schema.String,
-  status: Schema.NullOr(Schema.String),
-  text: Schema.NullOr(Schema.String),
-  toolCalls: Schema.Array(Schema.Struct({ name: Schema.String, input: Schema.String })),
-});
-export type OrchestrationV2NativeChildStep = typeof OrchestrationV2NativeChildStep.Type;
-
-/** Read-only: native children cannot take messages. */
-export const OrchestrationV2NativeChildWork = Schema.Struct({
-  conversationId: TrimmedNonEmptyString,
-  role: Schema.String,
-  prompt: Schema.String,
-  /** Null when the provider has no readable transcript for this child. */
-  steps: Schema.NullOr(Schema.Array(OrchestrationV2NativeChildStep)),
-  /** Earlier steps were left out to keep the read bounded. */
-  truncated: Schema.Boolean,
-});
-export type OrchestrationV2NativeChildWork = typeof OrchestrationV2NativeChildWork.Type;
-
-/** Empty when the provider's records do not prove which children the subagent launched. */
-export const OrchestrationV2GetNativeChildWorkResult = Schema.Struct({
-  children: Schema.Array(OrchestrationV2NativeChildWork),
-});
-export type OrchestrationV2GetNativeChildWorkResult =
-  typeof OrchestrationV2GetNativeChildWorkResult.Type;
-
-export class OrchestrationV2GetNativeChildWorkError extends Schema.TaggedError<OrchestrationV2GetNativeChildWorkError>()(
-  "OrchestrationV2GetNativeChildWorkError",
-  {
-    threadId: ThreadId,
-    cause: Schema.optional(Schema.Defect()),
-  },
-) {
-  override get message(): string {
-    return "Failed to read the subagent's work.";
-  }
-}
-
 const WORKFLOW_FILE_ERROR_MESSAGES = {
   "invalid-path": "Workflow files must be absolute paths with the expected extension.",
   "root-unavailable": "Workflow file root unavailable.",
@@ -4261,10 +4213,6 @@ export const OrchestrationV2RpcSchemas = {
   getWorkflowScript: {
     input: OrchestrationV2GetWorkflowScriptInput,
     output: OrchestrationV2GetWorkflowScriptResult,
-  },
-  getNativeChildWork: {
-    input: OrchestrationV2GetNativeChildWorkInput,
-    output: OrchestrationV2GetNativeChildWorkResult,
   },
   getTurnItem: {
     input: OrchestrationV2GetTurnItemInput,

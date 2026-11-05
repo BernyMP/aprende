@@ -1,10 +1,10 @@
-import { AuthOrchestrationOperateScope, type ProjectIconOverride } from "@t3tools/contracts";
+import { AuthOrchestrationOperateScope, type ProjectIconOverride } from "@aprende/contracts";
 import {
   isAtomCommandInterrupted,
   mapAtomCommandResult,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import { AsyncResult } from "effect/reactivity";
 import * as Cause from "effect/Cause";
 

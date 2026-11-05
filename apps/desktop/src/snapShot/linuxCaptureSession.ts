@@ -1,7 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off -- Reads portal-owned screenshot files at the native boundary.
 import * as NodeFSP from "node:fs/promises";
 import * as NodeURL from "node:url";
-import type { SnapShotKeyChord } from "@t3tools/contracts";
+import type { SnapShotKeyChord } from "@aprende/contracts";
 import { nativeImage } from "electron";
 
 // Keep dbus-next out of desktop detection and PNG reads in the main process.
@@ -13,8 +13,8 @@ export class CaptureSetupRequiredError extends Error {
     super(`${state} Open Settings → SnapShots to continue setup.`, options);
   }
 }
-export const NIRI_CAPTURE_PATH = "/com/t3tools/SnapShot";
-export const NIRI_CAPTURE_INTERFACE = "com.t3tools.SnapShot";
+export const NIRI_CAPTURE_PATH = "/com/aprende/SnapShot";
+export const NIRI_CAPTURE_INTERFACE = "io.github.bernymp.SnapShot";
 
 function isDesktopSession(env: NodeJS.ProcessEnv, desktop: string): boolean {
   return (

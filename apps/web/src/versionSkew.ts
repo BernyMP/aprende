@@ -3,9 +3,9 @@ import type {
   ServerConfig,
   ServerInstallation,
   ServerSelfUpdateCapability,
-} from "@t3tools/contracts";
-import type { ServerUpdateState } from "@t3tools/client-runtime/state/server";
-import { compareSemverVersions, parseSemver } from "@t3tools/shared/semver";
+} from "@aprende/contracts";
+import type { ServerUpdateState } from "@aprende/client-runtime/state/server";
+import { compareSemverVersions, parseSemver } from "@aprende/shared/semver";
 import * as Schema from "effect/Schema";
 
 import { APP_VERSION } from "./branding";
@@ -17,7 +17,7 @@ export interface VersionMismatch {
   readonly hint: string;
 }
 
-const VERSION_MISMATCH_DISMISSALS_STORAGE_KEY = "t3code:version-mismatch-dismissals:v1";
+const VERSION_MISMATCH_DISMISSALS_STORAGE_KEY = "aprende:version-mismatch-dismissals:v1";
 
 const dismissedServerUpdateFailures = new WeakSet<ServerUpdateState>();
 
@@ -73,7 +73,7 @@ export function resolveVersionMismatch(
   return {
     clientVersion: normalizedClientVersion,
     serverVersion: normalizedServerVersion,
-    hint: "Version mismatch. Try syncing the client and server to the same T3 Code version.",
+    hint: "Version mismatch. Try syncing the client and server to the same aprende version.",
   };
 }
 

@@ -1,7 +1,7 @@
-import type { ChatAttachment } from "@t3tools/contracts";
-import { assistantCitationsToPlainText } from "@t3tools/shared/assistantCitations";
-import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
-import { truncate } from "@t3tools/shared/String";
+import type { ChatAttachment } from "@aprende/contracts";
+import { assistantCitationsToPlainText } from "@aprende/shared/assistantCitations";
+import { replaceComposerContextReferences } from "@aprende/shared/composerContextReferences";
+import { truncate } from "@aprende/shared/String";
 
 export interface ThreadTitleSeedInput {
   readonly text: string;
@@ -13,7 +13,7 @@ function normalizeTitleSeed(value: string): string {
   return assistantCitationsToPlainText(value).trim().replace(/\s+/gu, " ");
 }
 
-export function threadTitleTextFromPrompt(value: string): string {
+function threadTitleTextFromPrompt(value: string): string {
   const imageIds = new Set<string>();
   const prose = replaceComposerContextReferences(value, (reference) => {
     if (reference.kind === "image") {

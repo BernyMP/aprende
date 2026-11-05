@@ -5,7 +5,7 @@ import type {
   UsageReadError,
   UsageSource,
   UsageTokenTotals,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import type * as Effect from "effect/Effect";
 import type * as Schema from "effect/Schema";
 
@@ -89,7 +89,6 @@ export interface ProviderUsageScan {
   readonly hostId?: string;
   readonly status?: UsageSource["status"];
   readonly message?: string;
-  readonly action?: UsageSource["action"];
   readonly files:
     | readonly { readonly path: string; readonly records: readonly UsageRecord[] }[]
     | null;

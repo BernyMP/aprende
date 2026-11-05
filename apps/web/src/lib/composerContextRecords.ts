@@ -1,12 +1,12 @@
 import {
   capitalizeTerm,
   sourceControlClients,
-} from "@t3tools/client-runtime/source-control-clients";
+} from "@aprende/client-runtime/source-control-clients";
 import {
   COMPOSER_CONTEXT_REVIEW_DIFF_MAX_CHARS,
   COMPOSER_CONTEXT_REVIEW_TEXT_MAX_CHARS,
   COMPOSER_CONTEXT_TERMINAL_TEXT_MAX_CHARS,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import type {
   ComposerContextId,
   ComposerContextRecord,
@@ -23,14 +23,14 @@ import type {
   TerminalContextRecord,
   ThreadContextRecord,
   ThreadId,
-} from "@t3tools/contracts";
-import { upgradeLegacyContextMessage } from "@t3tools/shared/composerContextLegacy";
-import { encodeComposerContextFragment } from "@t3tools/shared/composerContextClipboard";
+} from "@aprende/contracts";
+import { upgradeLegacyContextMessage } from "@aprende/shared/composerContextLegacy";
+import { encodeComposerContextFragment } from "@aprende/shared/composerContextClipboard";
 import {
   collectComposerContextReferences,
   sanitizeComposerContextLabel,
   toKindScopedComposerContextId,
-} from "@t3tools/shared/composerContextReferences";
+} from "@aprende/shared/composerContextReferences";
 
 import {
   type ComposerContextReference,

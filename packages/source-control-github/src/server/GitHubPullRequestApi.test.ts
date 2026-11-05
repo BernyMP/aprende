@@ -17,8 +17,8 @@ import * as GitHubRest from "./GitHubRest.ts";
 import * as GitHubRequestPolicy from "./GitHubRequestPolicy.ts";
 import * as GitHubCredentials from "./GitHubCredentials.ts";
 import * as GitHubQuota from "./GitHubQuota.ts";
-import * as SourceControlRateLimit from "@t3tools/source-control-core/server/SourceControlRateLimit";
-import * as TestSourceControlHost from "@t3tools/source-control-testing/TestSourceControlHost";
+import * as SourceControlRateLimit from "@aprende/source-control-core/server/SourceControlRateLimit";
+import * as TestSourceControlHost from "@aprende/source-control-testing/TestSourceControlHost";
 import * as GitHubPullRequestApi from "./GitHubPullRequestApi.ts";
 import * as GitHubPullRequestProvider from "./GitHubPullRequestProvider.ts";
 import { KnownWorkflowRuns } from "./gitHubConditionalChecks.ts";
@@ -1399,7 +1399,7 @@ layer("GitHubPullRequestApi.layer", (it) => {
       yield* cli.searchPullRequests({
         cwd: "/w",
         host: "github.com",
-        repositories: ["acme/web", "pingdotgg/t3code"],
+        repositories: ["acme/web", "BernyMP/aprende"],
         state: "closed",
         involvement: "reviewing",
         viewer: "bilal",
@@ -1412,7 +1412,7 @@ layer("GitHubPullRequestApi.layer", (it) => {
       assert.strictEqual(
         searchQueryOfCall(0),
         'is:pr is:closed is:unmerged review-requested:bilal "pull requests page" ' +
-          "updated:<=2026-07-02T00:00:00Z sort:updated-desc repo:acme/web repo:pingdotgg/t3code",
+          "updated:<=2026-07-02T00:00:00Z sort:updated-desc repo:acme/web repo:BernyMP/aprende",
       );
     }),
   );
@@ -1467,7 +1467,7 @@ layer("GitHubPullRequestApi.layer", (it) => {
         Effect.succeed(
           searchPage([
             searchItem(7, "acme/web", "2026-07-03T00:00:00Z"),
-            searchItem(9, "pingdotgg/t3code", "2026-07-02T00:00:00Z"),
+            searchItem(9, "BernyMP/aprende", "2026-07-02T00:00:00Z"),
             {},
           ]),
         ),
@@ -1477,7 +1477,7 @@ layer("GitHubPullRequestApi.layer", (it) => {
       const batch = yield* cli.searchPullRequests({
         cwd: "/w",
         host: "github.com",
-        repositories: ["acme/web", "pingdotgg/t3code"],
+        repositories: ["acme/web", "BernyMP/aprende"],
         state: "open",
         involvement: "all",
         viewer: "bilal",
@@ -1488,7 +1488,7 @@ layer("GitHubPullRequestApi.layer", (it) => {
         batch.items.map((item) => [item.repository, item.number, item.author?.avatarUrl]),
         [
           ["acme/web", 7, "https://avatars/octocat"],
-          ["pingdotgg/t3code", 9, "https://avatars/octocat"],
+          ["BernyMP/aprende", 9, "https://avatars/octocat"],
         ],
       );
       assert.deepStrictEqual(

@@ -1,6 +1,6 @@
 # Outside agents
 
-Agents that T3 Code did not start can work with an environment through its MCP
+Agents that aprende did not start can work with an environment through its MCP
 server. They can read projects and threads, start and message threads, and
 check which providers and models are available. This covers Claude Code or
 Codex in your own terminal, ChatGPT, and bots that support MCP. Each agent signs
@@ -41,7 +41,7 @@ The page names the agent and where its access goes:
   Anyone who runs that service gets the access.
 
 Only approve a sign-in you just started. To approve, enter a pairing code from
-**Settings → Sharing & access** or from `t3 auth pairing create` on the host. A
+**Settings → Sharing & access** or from `aprende auth pairing create` on the host. A
 browser already signed in to the environment with permission to manage access
 can approve without a code.
 
@@ -62,7 +62,7 @@ claude mcp login t3
 
 `claude mcp login` opens the sign-in page in your browser. On a machine
 without a browser, add `--no-browser`, open the printed URL elsewhere, and
-paste the final URL back when asked. `claude mcp list` shows `t3` as connected
+paste the final URL back when asked. `claude mcp list` shows `aprende` as connected
 once you approve.
 
 ## Codex
@@ -73,7 +73,7 @@ codex mcp login t3
 ```
 
 `codex mcp login --no-browser` prints the sign-in URL instead of opening it.
-`codex mcp list` shows `t3` with OAuth once you approve.
+`codex mcp list` shows `aprende` with OAuth once you approve.
 
 ## ChatGPT
 
@@ -94,7 +94,7 @@ Agents without OAuth support cannot connect.
 
 ## Scripts on the host
 
-On the machine that runs the environment, `t3 thread` uses the same tools
+On the machine that runs the environment, `aprende thread` uses the same tools
 without a sign-in:
 
 ```sh

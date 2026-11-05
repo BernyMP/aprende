@@ -4,7 +4,7 @@ import * as NodeOS from "node:os";
 import * as NodeURL from "node:url";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import { assert, it, describe } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
@@ -32,8 +32,8 @@ import {
   type ReviewDiffFileContentsInput,
   type ReviewDiffPreviewResult,
   type WorktreeSubmodules,
-} from "@t3tools/contracts";
-import { symlinksSupported } from "@t3tools/shared/testing/symlinks";
+} from "@aprende/contracts";
+import { symlinksSupported } from "@aprende/shared/testing/symlinks";
 import * as ServerConfig from "../config.ts";
 import {
   makeGitVcsDriverCore,
@@ -1590,7 +1590,12 @@ it.effect("lets a worktree checkout that is still working run past five minutes"
     const worktreePath = path.join(cwd, "worktree");
 
     const creation = yield* driver
-      .createWorktree({ cwd, refName: "main", newRefName: "t3/slow-checkout", path: worktreePath })
+      .createWorktree({
+        cwd,
+        refName: "main",
+        newRefName: "aprende/slow-checkout",
+        path: worktreePath,
+      })
       .pipe(Effect.forkChild);
     yield* Deferred.await(checkoutStarted);
     yield* TestClock.adjust("6 minutes");
@@ -1598,7 +1603,7 @@ it.effect("lets a worktree checkout that is still working run past five minutes"
 
     const result = yield* Fiber.join(creation);
     assert.equal(result.worktree.path, worktreePath);
-    assert.equal(result.worktree.refName, "t3/slow-checkout");
+    assert.equal(result.worktree.refName, "aprende/slow-checkout");
   }).pipe(
     Effect.provide(
       layerServerConfig.pipe(
@@ -1916,7 +1921,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
                   .createWorktree({
                     cwd,
                     refName,
-                    ...(action === "worktree add -b" ? { newRefName: "t3/new-thread" } : {}),
+                    ...(action === "worktree add -b" ? { newRefName: "aprende/new-thread" } : {}),
                     path: path.join(cwd, "worktree"),
                   })
                   .pipe(Effect.flip);
@@ -3322,7 +3327,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         yield* git(cwd, ["push", "upstream", "main"]);
         yield* git(cwd, ["fetch", "origin"]);
         yield* git(cwd, ["fetch", "upstream"]);
-        yield* git(cwd, ["checkout", "-b", "t3/temporary"]);
+        yield* git(cwd, ["checkout", "-b", "aprende/temporary"]);
         yield* git(cwd, ["config", "branch.t3/temporary.t3-merge-base", "main"]);
         yield* git(cwd, [
           "config",
@@ -3341,7 +3346,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           Effect.gen(function* () {
             if (ChildProcess.isStandardCommand(command) && command.args[0] === "config") {
               if (!(yield* Ref.getAndSet(renameClaimed, true))) {
-                yield* git(cwd, ["branch", "-m", "t3/temporary", "feature/named"]).pipe(
+                yield* git(cwd, ["branch", "-m", "aprende/temporary", "feature/named"]).pipe(
                   Effect.provideService(GitVcsDriver.GitVcsDriver, outer),
                   Effect.orDie,
                 );
@@ -3359,7 +3364,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
 
         const status = yield* driver.statusDetailsLocal(cwd, { includeBranchChanges: true });
 
-        assert.strictEqual(status.branch, "t3/temporary");
+        assert.strictEqual(status.branch, "aprende/temporary");
         assert.deepStrictEqual(status.branchChanges, {
           baseRef: null,
           insertions: 1,
@@ -4270,19 +4275,19 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         const cwd = yield* makeTmpDir();
         yield* initRepoWithCommit(cwd);
         const driver = yield* GitVcsDriver.GitVcsDriver;
-        // A local `t3` branch is why launches start on the flat `t3-<hex>` temporary branch.
-        yield* git(cwd, ["branch", "t3"]);
-        yield* git(cwd, ["checkout", "-b", "t3-abcd1234"]);
-        yield* git(cwd, ["branch", "t3-fix-login"]);
+        // A local `aprende` branch is why launches start on the flat `aprende-<hex>` temporary branch.
+        yield* git(cwd, ["branch", "aprende"]);
+        yield* git(cwd, ["checkout", "-b", "aprende-abcd1234"]);
+        yield* git(cwd, ["branch", "aprende-fix-login"]);
 
         const renamed = yield* driver.renameBranch({
           cwd,
-          oldBranch: "t3-abcd1234",
-          newBranch: "t3/fix-login",
+          oldBranch: "aprende-abcd1234",
+          newBranch: "aprende/fix-login",
         });
 
-        assert.equal(renamed.branch, "t3-fix-login-1");
-        assert.equal(yield* git(cwd, ["branch", "--show-current"]), "t3-fix-login-1");
+        assert.equal(renamed.branch, "aprende-fix-login-1");
+        assert.equal(yield* git(cwd, ["branch", "--show-current"]), "aprende-fix-login-1");
       }),
     );
 
@@ -4291,18 +4296,18 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         const cwd = yield* makeTmpDir();
         yield* initRepoWithCommit(cwd);
         const driver = yield* GitVcsDriver.GitVcsDriver;
-        yield* git(cwd, ["branch", "t3"]);
-        yield* git(cwd, ["checkout", "-b", "t3-abcd1234"]);
-        yield* git(cwd, ["branch", "t3-fix-login/child"]);
+        yield* git(cwd, ["branch", "aprende"]);
+        yield* git(cwd, ["checkout", "-b", "aprende-abcd1234"]);
+        yield* git(cwd, ["branch", "aprende-fix-login/child"]);
 
         const renamed = yield* driver.renameBranch({
           cwd,
-          oldBranch: "t3-abcd1234",
-          newBranch: "t3/fix-login",
+          oldBranch: "aprende-abcd1234",
+          newBranch: "aprende/fix-login",
         });
 
-        assert.equal(renamed.branch, "t3-fix-login-1");
-        assert.equal(yield* git(cwd, ["branch", "--show-current"]), "t3-fix-login-1");
+        assert.equal(renamed.branch, "aprende-fix-login-1");
+        assert.equal(yield* git(cwd, ["branch", "--show-current"]), "aprende-fix-login-1");
       }),
     );
 
@@ -4549,20 +4554,20 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
             cwd,
             path: occupiedPath,
             refName: initialBranch,
-            newRefName: "t3/collide",
+            newRefName: "aprende/collide",
           })
           .pipe(Effect.result);
 
         assert.isTrue(Result.isFailure(failed));
-        assert.equal(yield* git(cwd, ["branch", "--list", "t3/collide"]), "");
+        assert.equal(yield* git(cwd, ["branch", "--list", "aprende/collide"]), "");
         const worktreePath = path.join(yield* makeTmpDir("git-worktrees-"), "retry");
         yield* driver.createWorktree({
           cwd,
           path: worktreePath,
           refName: initialBranch,
-          newRefName: "t3/collide",
+          newRefName: "aprende/collide",
         });
-        assert.equal(yield* git(worktreePath, ["branch", "--show-current"]), "t3/collide");
+        assert.equal(yield* git(worktreePath, ["branch", "--show-current"]), "aprende/collide");
       }),
     );
 
@@ -5290,7 +5295,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
       Effect.gen(function* () {
         const cwd = yield* makeTmpDir();
         yield* git(cwd, ["init"]);
-        yield* git(cwd, ["remote", "add", "origin", "https://github.com/pingdotgg/t3code.git"]);
+        yield* git(cwd, ["remote", "add", "origin", "https://github.com/BernyMP/aprende.git"]);
         yield* git(cwd, ["config", "remote.origin.promisor", "true"]);
         yield* git(cwd, ["config", "remote.origin.partialclonefilter", "blob:none"]);
         const driver = yield* GitVcsDriver.GitVcsDriver;
@@ -5298,13 +5303,13 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         const reused = yield* driver.ensureRemote({
           cwd,
           preferredName: "origin",
-          url: "git@github.com:pingdotgg/t3code.git",
+          url: "git@github.com:BernyMP/aprende.git",
         });
         assert.equal(reused, "origin");
         const added = yield* driver.ensureRemote({
           cwd,
           preferredName: "origin",
-          url: "https://github.com/another-owner/t3code.git",
+          url: "https://github.com/another-owner/aprende.git",
         });
         assert.equal(added, "origin-1");
       }),
@@ -5333,7 +5338,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
           Effect.provide(layerServerConfig),
         );
-        const input = { cwd, preferredName: "fork", url: "https://github.com/fork/t3code.git" };
+        const input = { cwd, preferredName: "fork", url: "https://github.com/fork/aprende.git" };
 
         const names = yield* Effect.all([driver.ensureRemote(input), driver.ensureRemote(input)], {
           concurrency: "unbounded",
@@ -5488,47 +5493,47 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
         yield* initRepoWithCommit(cwd);
         const driver = yield* GitVcsDriver.GitVcsDriver;
 
-        yield* git(cwd, ["remote", "add", "origin", "https://github.com/pingdotgg/t3code.git"]);
+        yield* git(cwd, ["remote", "add", "origin", "https://github.com/BernyMP/aprende.git"]);
 
         const reusedForSsh = yield* driver.ensureRemote({
           cwd,
-          preferredName: "pingdotgg",
-          url: "git@github.com:pingdotgg/t3code.git",
+          preferredName: "BernyMP",
+          url: "git@github.com:BernyMP/aprende.git",
         });
         assert.equal(reusedForSsh, "origin");
 
         const reusedForSshScheme = yield* driver.ensureRemote({
           cwd,
-          preferredName: "pingdotgg",
-          url: "ssh://git@github.com/pingdotgg/t3code",
+          preferredName: "BernyMP",
+          url: "ssh://git@github.com/BernyMP/aprende",
         });
         assert.equal(reusedForSshScheme, "origin");
 
         const reusedForBareSshScheme = yield* driver.ensureRemote({
           cwd,
-          preferredName: "pingdotgg",
-          url: "ssh://github.com/pingdotgg/t3code",
+          preferredName: "BernyMP",
+          url: "ssh://github.com/BernyMP/aprende",
         });
         assert.equal(reusedForBareSshScheme, "origin");
 
         const reusedForSshPort = yield* driver.ensureRemote({
           cwd,
-          preferredName: "pingdotgg",
-          url: "ssh://git@github.com:22/pingdotgg/t3code",
+          preferredName: "BernyMP",
+          url: "ssh://git@github.com:22/BernyMP/aprende",
         });
         assert.equal(reusedForSshPort, "origin");
 
         const reusedForSshWithPort = yield* driver.ensureRemote({
           cwd,
-          preferredName: "pingdotgg",
-          url: "ssh://git@github.com:22/pingdotgg/t3code.git",
+          preferredName: "BernyMP",
+          url: "ssh://git@github.com:22/BernyMP/aprende.git",
         });
         assert.equal(reusedForSshWithPort, "origin");
 
         const addedForFork = yield* driver.ensureRemote({
           cwd,
           preferredName: "octocat",
-          url: "git@github.com:octocat/t3code.git",
+          url: "git@github.com:octocat/aprende.git",
         });
         assert.equal(addedForFork, "octocat");
         assert.equal(yield* git(cwd, ["remote"]), "octocat\norigin");
@@ -5992,7 +5997,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           cwd,
           path: worktreePath,
           refName: resolvedBase.commitSha,
-          newRefName: "t3code/fetched-origin",
+          newRefName: "aprende/fetched-origin",
           baseRefName: resolvedBase.remoteRefName,
         });
 
@@ -6006,7 +6011,7 @@ it.layer(layerTest)("GitVcsDriver core integration", (it) => {
           remoteHead,
         );
         assert.equal(
-          yield* driver.readConfigValue(worktreePath, "branch.t3code/fetched-origin.remote"),
+          yield* driver.readConfigValue(worktreePath, "branch.aprende/fetched-origin.remote"),
           null,
         );
         const status = yield* driver.statusDetails(worktreePath);

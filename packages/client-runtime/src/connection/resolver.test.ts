@@ -2,7 +2,7 @@ import {
   EnvironmentId,
   ORCHESTRATION_PROTOCOL_VERSION,
   type DesktopSshEnvironmentTarget,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -182,7 +182,7 @@ describe("ConnectionResolver", () => {
       const error = yield* Effect.flip(broker.prepare(catalogEntry(target)));
 
       expect(error).toMatchObject({ reason: "unsupported" });
-      expect(error.message).toContain("Update T3 Code on Compatible environment");
+      expect(error.message).toContain("Update aprende on Compatible environment");
     }),
   );
 
@@ -202,7 +202,7 @@ describe("ConnectionResolver", () => {
         label: "Primary",
         httpBaseUrl: "http://127.0.0.1:3777",
         socketUrl:
-          "ws://127.0.0.1:3777/ws?clientSurface=web&clientDeviceType=desktop&connectionMethod=direct&orchestrationProtocol=2&clientCapabilities=settingsSecretReferences",
+          "ws://127.0.0.1:3777/ws?orchestrationProtocol=2&clientCapabilities=settingsSecretReferences",
         httpAuthorization: null,
         target,
       });

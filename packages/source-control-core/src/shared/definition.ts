@@ -8,9 +8,9 @@ import {
   type SourceControlProviderInfo,
   TrimmedNonEmptyString,
   TrimmedString,
-} from "@t3tools/contracts";
-import { normalizeGitRemoteUrl, parseGitRemoteRepository } from "@t3tools/shared/git";
-import { userlessScpRemoteHost } from "@t3tools/shared/sourceControl";
+} from "@aprende/contracts";
+import { normalizeGitRemoteUrl, parseGitRemoteRepository } from "@aprende/shared/git";
+import { userlessScpRemoteHost } from "@aprende/shared/sourceControl";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
@@ -154,15 +154,6 @@ export interface SourceControlIconPath {
   readonly fillOpacity?: number;
   readonly stroke?: string;
   readonly strokeWidth?: number;
-}
-
-/** Whether the mark is drawn in the text colour alone, so a client may tint it. */
-export function isMonochromeSourceControlIcon(icon: SourceControlIcon): boolean {
-  return icon.paths.every(
-    (path) =>
-      (path.fill === undefined || path.fill === "currentColor") &&
-      (path.stroke === undefined || path.stroke === "currentColor"),
-  );
 }
 
 /**

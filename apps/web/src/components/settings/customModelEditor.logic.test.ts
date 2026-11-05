@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { ProviderDriverKind, type ModelCapabilities } from "@t3tools/contracts";
+import { ProviderDriverKind, type ModelCapabilities } from "@aprende/contracts";
 
 import {
   DESCRIPTOR_PRESETS_BY_KIND,
@@ -141,8 +141,8 @@ describe("customModelEditor.logic", () => {
     expect(
       presets.capabilities?.optionDescriptors?.some((option) => option.id === "contextWindow"),
     ).toBe(false);
-    const cursorCopy = descriptorsFromCapabilities(capabilities, ProviderDriverKind.make("cursor"));
-    expect(cursorCopy.map((option) => option.id)).toEqual(["contextWindow", "thinking"]);
+    const codexCopy = descriptorsFromCapabilities(capabilities, ProviderDriverKind.make("codex"));
+    expect(codexCopy.map((option) => option.id)).toEqual(["contextWindow", "thinking"]);
     const authored = { slug: "custom", name: "Custom", capabilities };
     expect(
       definitionFromDraft(draftFromDefinition(authored)).capabilities?.optionDescriptors?.[0],

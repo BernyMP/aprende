@@ -1,7 +1,7 @@
 import type {
   OrchestrationV2SearchThreadInput,
   OrchestrationV2SearchThreadResult,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import type {
   ProjectionRecordField,
   ProjectionRecordFilter,
@@ -40,10 +40,10 @@ import {
   type ScheduledTaskId,
   ThreadId,
   type TurnItemId,
-} from "@t3tools/contracts";
-import { delegatedTaskProgress } from "@t3tools/provider-core/server/subagentProjection";
-import { threadTranscriptHeader } from "@t3tools/shared/threadTranscript";
-import { AgentScope } from "@t3tools/shared/AgentScope";
+} from "@aprende/contracts";
+import { delegatedTaskProgress } from "@aprende/provider-core/server/subagentProjection";
+import { threadTranscriptHeader } from "@aprende/shared/threadTranscript";
+import { AgentScope } from "@aprende/shared/AgentScope";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -410,7 +410,6 @@ export interface ThreadManagementServiceShape {
     >,
   ) => Effect.Effect<OrchestrationV2ThreadShellSnapshot, Orchestrator.OrchestratorV2Error>;
   readonly listActiveSubagentThreadIds: Orchestrator.OrchestratorV2["Service"]["listActiveSubagentThreadIds"];
-  readonly countThreads: Orchestrator.OrchestratorV2["Service"]["countThreads"];
   readonly listActiveShellIndex: Orchestrator.OrchestratorV2["Service"]["listActiveShellIndex"];
   readonly listOlderSettledThreads: Orchestrator.OrchestratorV2["Service"]["listOlderSettledThreads"];
   readonly readShellSnapshot: (
@@ -499,7 +498,7 @@ export interface ThreadManagementServiceShape {
 export class ThreadManagementService extends Context.Service<
   ThreadManagementService,
   ThreadManagementServiceShape
->()("t3/orchestration-v2/ThreadManagementService") {}
+>()("aprende/orchestration-v2/ThreadManagementService") {}
 
 export function isActiveRun(run: OrchestrationV2Run): boolean {
   return (
@@ -1525,7 +1524,6 @@ const make = Effect.gen(function* () {
     getAgentAwarenessSnapshot: orchestrator.getAgentAwarenessSnapshot,
     getShellSnapshot: orchestrator.getShellSnapshot,
     listActiveSubagentThreadIds: orchestrator.listActiveSubagentThreadIds,
-    countThreads: orchestrator.countThreads,
     listActiveShellIndex: orchestrator.listActiveShellIndex,
     listOlderSettledThreads: orchestrator.listOlderSettledThreads,
     readShellSnapshot: orchestrator.readShellSnapshot,

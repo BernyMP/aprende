@@ -16,7 +16,7 @@ import {
   RunAttemptId,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -24,20 +24,16 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as SqlError from "effect/sql/SqlError";
 
-import { AgentScope } from "@t3tools/shared/AgentScope";
-import { isTemporaryWorktreeBranch } from "@t3tools/shared/git";
-import { modelSelectionsEqual } from "@t3tools/shared/model";
-import {
-  ProviderTurnAnalytics,
-  type ProviderTurnAnalyticsContext,
-} from "../telemetry/ProviderUsageAnalytics.ts";
+import { AgentScope } from "@aprende/shared/AgentScope";
+import { isTemporaryWorktreeBranch } from "@aprende/shared/git";
+import { modelSelectionsEqual } from "@aprende/shared/model";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
-import { makeProviderFailureTurnItem } from "@t3tools/provider-core/server/failure";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
+import { makeProviderFailureTurnItem } from "@aprende/provider-core/server/failure";
 import * as ThreadCommandExecutor from "./ThreadCommandExecutor.ts";
 import { stripUnservedToolOutputImageBytes } from "./toolOutputImageBytes.ts";
 import { boundFileChangeForStorage } from "./WireProjection.ts";
@@ -200,7 +196,6 @@ export interface ProviderEventIngestInput {
   readonly nodeId?: NodeId;
   readonly rawEventId?: RawEventId;
   readonly event: ProviderAdapter.ProviderAdapterV2Event;
-  readonly analyticsContext?: ProviderTurnAnalyticsContext;
 }
 
 export interface ProviderEventIngestorV2Shape {
@@ -227,7 +222,7 @@ export interface ProviderEventIngestorV2Shape {
 export class ProviderEventIngestorV2 extends Context.Service<
   ProviderEventIngestorV2,
   ProviderEventIngestorV2Shape
->()("t3/orchestration-v2/ProviderEventIngestor/ProviderEventIngestorV2") {}
+>()("aprende/orchestration-v2/ProviderEventIngestor/ProviderEventIngestorV2") {}
 
 function compactUndefined<T extends Record<string, unknown>>(record: T): T {
   return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)) as T;
@@ -252,11 +247,9 @@ export const layer: Layer.Layer<
     const projections = yield* ProjectionStore.ProjectionStoreV2;
     const idAllocator = yield* IdAllocator.IdAllocatorV2;
     const threadCommands = yield* ThreadCommandExecutor.ThreadCommandExecutor;
-    const analytics = yield* ProviderTurnAnalytics;
     const agentScope = yield* AgentScope;
     const instances = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
     const scope = yield* Effect.scope;
-    const completedTurnAnalytics = new Set<string>();
 
     const makeDomainEvent =
       /* This helper runs for individual orchestration events; the enclosing operation owns the span. */
@@ -787,34 +780,6 @@ export const layer: Layer.Layer<
                           }),
                       ),
                     ),
-              ),
-              Effect.tap((storedEvents) =>
-                Effect.gen(function* () {
-                  if (storedEvents.length === 0 || input.event.type !== "provider_turn.updated")
-                    return;
-                  const providerTurn = input.event.providerTurn;
-                  if (
-                    providerTurn.status !== "completed" &&
-                    providerTurn.status !== "failed" &&
-                    providerTurn.status !== "interrupted" &&
-                    providerTurn.status !== "cancelled"
-                  )
-                    return;
-                  const key = `${input.providerInstanceId}:${providerTurn.id}`;
-                  if (completedTurnAnalytics.has(key)) return;
-                  completedTurnAnalytics.add(key);
-                  if (completedTurnAnalytics.size > 4096) {
-                    const oldest = completedTurnAnalytics.values().next().value;
-                    if (oldest !== undefined) completedTurnAnalytics.delete(oldest);
-                  }
-                  yield* analytics.turnCompleted({
-                    driver: input.event.driver,
-                    providerTurn,
-                    ...(input.analyticsContext === undefined
-                      ? {}
-                      : { context: input.analyticsContext }),
-                  });
-                }),
               ),
               (effect) =>
                 input.event.type === "app_thread.created"

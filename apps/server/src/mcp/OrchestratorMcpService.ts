@@ -64,10 +64,10 @@ import {
   isOrchestrationV2WorkActive,
   resolveProjectProviderInstanceEnabled,
   SECRET_REQUEST_UNSAVED_NOTE,
-} from "@t3tools/contracts";
-import { getProviderOptionCurrentValue } from "@t3tools/shared/model";
-import { runRanAfter } from "@t3tools/shared/orchestrationV2ThreadError";
-import { formatThreadLink } from "@t3tools/shared/threadLinks";
+} from "@aprende/contracts";
+import { getProviderOptionCurrentValue } from "@aprende/shared/model";
+import { runRanAfter } from "@aprende/shared/orchestrationV2ThreadError";
+import { formatThreadLink } from "@aprende/shared/threadLinks";
 import {
   normalizeThreadPullRequestKey,
   visibleThreadPullRequests,
@@ -89,7 +89,7 @@ import * as ProviderAdapterRegistry from "../orchestration-v2/ProviderAdapterReg
 import {
   subagentResultForRun,
   delegatedTaskProgress,
-} from "@t3tools/provider-core/server/subagentProjection";
+} from "@aprende/provider-core/server/subagentProjection";
 import {
   DispatchModeLimit,
   type DispatchModeRefusal,
@@ -220,7 +220,7 @@ export interface OrchestratorMcpServiceShape {
 export class OrchestratorMcpService extends Context.Service<
   OrchestratorMcpService,
   OrchestratorMcpServiceShape
->()("t3/mcp/OrchestratorMcpService") {}
+>()("aprende/mcp/OrchestratorMcpService") {}
 
 const isThreadManagementError = Schema.is(ThreadManagementService.ThreadManagementError);
 
@@ -280,11 +280,11 @@ function scheduledTaskSummary(task: ScheduledTask, mayRun: boolean): Orchestrato
 }
 
 /**
- * Large catalogs (OpenCode, Cursor, Pi) can list hundreds of models, so agents
+ * Large catalogs (ACP agents) can list hundreds of models, so agents
  * get a short list by default and search for the rest. These providers have
  * small official catalogs, so all their current models are listed.
  */
-const FULL_CATALOG_DRIVERS: ReadonlySet<string> = new Set(["codex", "claudeAgent", "muse", "grok"]);
+const FULL_CATALOG_DRIVERS: ReadonlySet<string> = new Set(["codex", "claudeAgent"]);
 const LISTED_MODEL_LIMIT = 8;
 
 /**

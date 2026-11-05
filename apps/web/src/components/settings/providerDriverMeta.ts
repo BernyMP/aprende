@@ -1,1 +1,1 @@
-export { providerClients } from "@t3tools/client-runtime/provider-clients";
+export { providerClients } from "@aprende/client-runtime/provider-clients";

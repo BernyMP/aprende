@@ -1,24 +1,21 @@
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import type { ModelSelection, ProviderInstanceId } from "@t3tools/contracts";
+import type { ModelSelection, ProviderInstanceId } from "@aprende/contracts";
 import {
   isProviderAvailable,
   isProviderTextGenerationCapable,
   resolveProjectProviderInstanceEnabled,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as DateTime from "effect/DateTime";
-import { exhaustedUsageWindow } from "@t3tools/shared/usageLimits";
-import {
-  defaultTextGenerationModel,
-  fallbackTextGenerationModelSelection,
-} from "@t3tools/shared/serverSettings";
+import { exhaustedUsageWindow } from "@aprende/shared/usageLimits";
+import { fallbackTextGenerationModelSelection } from "@aprende/shared/serverSettings";
 import * as ServerSettings from "../serverSettings.ts";
-import type { ProviderTextGeneration } from "@t3tools/provider-core/server/textGeneration";
-import { TextGenerationError } from "@t3tools/contracts";
+import type { ProviderTextGeneration } from "@aprende/provider-core/server/textGeneration";
+import { TextGenerationError } from "@aprende/contracts";
 
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
-import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
+import type { ProviderInstance } from "@aprende/provider-core/server/driver";
 import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
 import * as ThreadTitleLinks from "./ThreadTitleLinks.ts";
 
@@ -33,10 +30,10 @@ export type {
   ReviewGuideGenerationResult,
   ThreadTitleGenerationInput,
   ThreadTitleGenerationResult,
-} from "@t3tools/provider-core/server/textGeneration";
+} from "@aprende/provider-core/server/textGeneration";
 
 export class TextGeneration extends Context.Service<TextGeneration, ProviderTextGeneration>()(
-  "t3/textGeneration/TextGeneration",
+  "aprende/textGeneration/TextGeneration",
 ) {}
 
 type TextGenerationOp =
@@ -89,7 +86,6 @@ export const make = Effect.gen(function* () {
     const limited = exhaustedUsageWindow(
       snapshots.find((provider) => provider.instanceId === selection.instanceId),
       now,
-      selection.model,
     );
     if (limited) {
       const settings = yield* serverSettings.getSettings.pipe(
@@ -116,7 +112,7 @@ export const make = Effect.gen(function* () {
               isProviderAvailable(provider) &&
               isProviderTextGenerationCapable(provider) &&
               (operation !== "generateReviewGuide" || INVESTIGATING_DRIVERS.has(driver)) &&
-              !exhaustedUsageWindow(provider, now, defaultTextGenerationModel(driver))
+              !exhaustedUsageWindow(provider, now)
             );
           },
           { includeConfiguredInstances: true },

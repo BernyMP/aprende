@@ -12,9 +12,9 @@ import {
   ProviderInstanceId,
   ProviderSessionId,
   ThreadId,
-} from "@t3tools/contracts";
-import { pendingBackgroundTurnItems } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
-import { resolveSelfInvocation, selfInvocationArgs } from "@t3tools/shared/nodeRuntime";
+} from "@aprende/contracts";
+import { pendingBackgroundTurnItems } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
+import { resolveSelfInvocation, selfInvocationArgs } from "@aprende/shared/nodeRuntime";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as DateTime from "effect/DateTime";
@@ -30,37 +30,37 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as EffectAcpErrors from "effect-acp/errors";
 
-import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
+import { makeProviderFailure } from "@aprende/provider-core/server/failure";
+import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
+import * as TestProviderHost from "@aprende/provider-testing/TestProviderHost";
 import {
   makeProviderReplayGate,
   type ProviderReplayGate,
-} from "@t3tools/provider-testing/replayGate";
-import type { ProviderContinuationRequest } from "@t3tools/provider-core/server/ProviderContinuationRequests";
+} from "@aprende/provider-testing/replayGate";
+import type { ProviderContinuationRequest } from "@aprende/provider-core/server/ProviderContinuationRequests";
 import * as ServerSettings from "../../serverSettings.ts";
-import type { AcpRegistryLiveConfiguration } from "@t3tools/provider-acp-registry/testing";
-import * as AcpRegistrySupport from "@t3tools/provider-acp-registry/server/AcpRegistrySupport";
-import * as AcpRegistryRuntimeCoordinator from "@t3tools/provider-acp-registry/server/AcpRegistryRuntimeCoordinator";
-import { ACP_SESSION_MODE_OPTION_ID } from "@t3tools/provider-acp/server/sessionConfig";
-import * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
-import { t3AcpPromptWithInstructions } from "@t3tools/provider-core/server/orchestrationInstructions";
-import { buildRuntimeInstructions } from "@t3tools/provider-core/server/runtimeInstructions";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import type { AcpRegistryLiveConfiguration } from "@aprende/provider-acp-registry/testing";
+import * as AcpRegistrySupport from "@aprende/provider-acp-registry/server/AcpRegistrySupport";
+import * as AcpRegistryRuntimeCoordinator from "@aprende/provider-acp-registry/server/AcpRegistryRuntimeCoordinator";
+import { ACP_SESSION_MODE_OPTION_ID } from "@aprende/provider-acp/server/sessionConfig";
+import * as AcpSessionRuntime from "@aprende/provider-acp/server/AcpSessionRuntime";
+import { t3AcpPromptWithInstructions } from "@aprende/provider-core/server/orchestrationInstructions";
+import { buildRuntimeInstructions } from "@aprende/provider-core/server/runtimeInstructions";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import {
   decodeAcpReplayTranscript,
   makeAcpReplayCompletenessAssertion,
   makeAcpReplayRuntime,
   makeTurnInput,
 } from "./AcpAdapterV2.testkit.ts";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
-import { AcpRegistryAdapterV2Driver } from "@t3tools/provider-acp-registry/server";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
+import { AcpRegistryAdapterV2Driver } from "@aprende/provider-acp-registry/server";
 import {
   ACP_REGISTRY_PROVIDER,
   makeAcpRegistryAdapterV2,
   acpRegistryPromptFailure,
   acpRegistryProbeResult,
-} from "@t3tools/provider-acp-registry/testing";
+} from "@aprende/provider-acp-registry/testing";
 
 const decodeAcpRegistryAdapterSettings = Schema.decodeUnknownEffect(
   AcpRegistryAdapterV2Driver.configSchema,
@@ -1207,14 +1207,14 @@ describe("AcpRegistryAdapterV2", () => {
       const http = (authorization: string) => [
         {
           type: "http",
-          name: "t3-code",
+          name: "aprende",
           url: endpoint,
           headers: [{ name: "Authorization", value: authorization }],
         },
       ];
       const stdio = (authorization: string) => [
         {
-          name: "t3-code",
+          name: "aprende",
           command: selfInvocation.command,
           args: [...selfInvocationArgs(selfInvocation, ["acp-mcp-bridge"])],
           env: [
@@ -1229,7 +1229,7 @@ describe("AcpRegistryAdapterV2", () => {
         yield* sessionMcpServers({ agentId: "github-copilot-cli" }, { T3_ACP_MCP_HTTP: "1" }),
         { new: http("Bearer opened-token"), load: http("Bearer rotated-token") },
       );
-      const acp = [{ type: "acp", name: "t3-code", serverId: "t3-code" }];
+      const acp = [{ type: "acp", name: "aprende", serverId: "aprende" }];
       assert.deepEqual(
         yield* sessionMcpServers(
           { agentId: "github-copilot-cli" },
@@ -1938,7 +1938,7 @@ describe("AcpRegistryAdapterV2", () => {
               event.turnItem.nativeItemRef?.nativeId ===
                 "agent-1:session:grandchild:tool:terminal-tool" &&
               event.turnItem.threadId === row.subagent.childThreadId &&
-              event.turnItem.toolName === "t3-code.orchestrator_capabilities",
+              event.turnItem.toolName === "aprende.orchestrator_capabilities",
           ),
           "embedded agent-terminal commands preserve nested MCP identity",
         );

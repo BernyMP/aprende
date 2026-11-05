@@ -226,8 +226,8 @@ it("keeps backslashes that CommonMark would read as escapes in prose Windows pat
   expect(render(String.raw`See C:\x and \*this\* and Note:\*that\*.`)).toBe(
     String.raw`See C:\x and *this* and Note:*that*.`,
   );
-  expect(render(String.raw`${"`"}C:\me\.t3${"`"} and C:\me\.t3`)).toBe(
-    String.raw`<code>C:\me\.t3</code> and C:\me\.t3`,
+  expect(render(String.raw`${"`"}C:\me\.t3${"`"} and C:\me\.aprende`)).toBe(
+    String.raw`<code>C:\me\.t3</code> and C:\me\.aprende`,
   );
 });
 

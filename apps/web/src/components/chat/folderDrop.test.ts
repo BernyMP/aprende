@@ -2,8 +2,8 @@ import {
   BearerConnectionTarget,
   RelayConnectionTarget,
   SshConnectionTarget,
-} from "@t3tools/client-runtime/connection";
-import { EnvironmentId } from "@t3tools/contracts";
+} from "@aprende/client-runtime/connection";
+import { EnvironmentId } from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { folderDropTarget } from "./folderDrop";
@@ -70,7 +70,7 @@ describe("folderDropTarget", () => {
         ...thinClient,
         connection: {
           target: new RelayConnectionTarget(base),
-          httpBaseUrl: "https://relay.t3.codes",
+          httpBaseUrl: "https://relay.aprende.invalid",
         },
       },
       "remote",

@@ -1,5 +1,5 @@
-import type { ChatGptHandoffInput, ChatGptHandoffState } from "@t3tools/contracts";
-import { ProviderSetupError } from "@t3tools/contracts";
+import type { ChatGptHandoffInput, ChatGptHandoffState } from "@aprende/contracts";
+import { ProviderSetupError } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
@@ -42,7 +42,6 @@ export function subscribeChatGptHandoff(
         ...endpoints,
         instanceId: input.instanceId,
         reconnectProfile: input.profile,
-        telemetryFlow: "primary_handoff",
         defaultReturnUrl: input.returnUrl,
       }).pipe(
         Effect.provideService(ServerSecretStore.ServerSecretStore, store),

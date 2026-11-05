@@ -21,7 +21,7 @@ import {
   isSecretReference,
   type SecretReference,
   withIdleCompaction,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Cache from "effect/Cache";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
@@ -29,7 +29,7 @@ import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import * as Effect from "effect/Effect";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+import * as NodeSqliteClient from "@aprende/shared/nodeSqliteClient";
 import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -43,17 +43,17 @@ import * as Semaphore from "effect/Semaphore";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
-import { writeFileStringAtomically } from "@t3tools/shared/atomicWrite";
-import { resolveSymlinkTarget } from "@t3tools/shared/symlink";
+import { writeFileStringAtomically } from "@aprende/shared/atomicWrite";
+import { resolveSymlinkTarget } from "@aprende/shared/symlink";
 import * as ServerConfig from "./config.ts";
-import { type DeepPartial, deepMerge } from "@t3tools/shared/Struct";
-import { fromJsonStringPretty, fromLenientJson } from "@t3tools/shared/schemaJson";
+import { type DeepPartial, deepMerge } from "@aprende/shared/Struct";
+import { fromJsonStringPretty, fromLenientJson } from "@aprende/shared/schemaJson";
 import {
   applyServerSettingsPatch,
   deriveLegacyProjectOverrides,
   fallbackTextGenerationModelSelection,
   isModelSelectionProviderEnabled,
-} from "@t3tools/shared/serverSettings";
+} from "@aprende/shared/serverSettings";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
 import { secretProviderDefinitions } from "./secrets/secretProviderDefinitions.ts";
@@ -72,7 +72,7 @@ import {
 export {
   resolveReviewGuideModelSelection,
   resolveSourceControlWriterModelSelection,
-} from "@t3tools/shared/serverSettings";
+} from "@aprende/shared/serverSettings";
 
 const encodeServerSettings = Schema.encodeEffect(ServerSettings);
 const encodeServerSettingsJson = Schema.encodeUnknownEffect(fromJsonStringPretty(ServerSettings));
@@ -279,7 +279,7 @@ export class ServerSettingsService extends Context.Service<
     /** Subscribe before reading a snapshot to retain changes before lazy stream startup. */
     readonly subscribeChanges: Effect.Effect<Stream.Stream<ServerSettings>, never, Scope.Scope>;
   }
->()("t3/serverSettings/ServerSettingsService") {
+>()("aprende/serverSettings/ServerSettingsService") {
   static readonly layerTest = (
     overrides: DeepPartial<ServerSettings> = {},
     managedPolicy?: ManagedPolicySummary,
@@ -430,42 +430,14 @@ function migrateLegacySourceControlSettings(
   return { settings: { ...settings, sourceControlHosts }, secretMoves };
 }
 
-const HISTORY_RESTORED_DRIVERS: ReadonlySet<ProviderDriverKind> = new Set(
-  ["cursor", "grok", "opencode"].map((driver) => ProviderDriverKind.make(driver)),
-);
-
 function migrateLegacyProviderSettings(
   settings: ServerSettings,
   legacyProviders: Readonly<Record<string, unknown>>,
-  providerHistory: ReadonlyArray<{
-    readonly providerName: string;
-    readonly providerInstanceId: string | null;
-  }>,
 ): ServerSettings {
-  const usedProviders = new Set<string>(providerHistory.map(({ providerName }) => providerName));
-  const usedProviderInstances = new Set<string>(
-    providerHistory.map(
-      ({ providerName, providerInstanceId }) => providerInstanceId ?? providerName,
-    ),
-  );
-
-  const providerInstances: Record<ProviderInstanceId, ProviderInstanceConfig> = {};
-  for (const [instanceId, instance] of Object.entries(settings.providerInstances) as Array<
-    [ProviderInstanceId, ProviderInstanceConfig]
-  >) {
-    providerInstances[instanceId] =
-      instance.enabled === undefined &&
-      HISTORY_RESTORED_DRIVERS.has(instance.driver) &&
-      usedProviderInstances.has(instanceId)
-        ? { ...instance, enabled: true }
-        : instance;
-  }
-
-  const legacyEntries = new Map(Object.entries(legacyProviders));
-  for (const driver of HISTORY_RESTORED_DRIVERS) {
-    if (!legacyEntries.has(driver)) legacyEntries.set(driver, {});
-  }
-  for (const [kind, blob] of legacyEntries) {
+  const providerInstances: Record<ProviderInstanceId, ProviderInstanceConfig> = {
+    ...settings.providerInstances,
+  };
+  for (const [kind, blob] of Object.entries(legacyProviders)) {
     if (!isProviderDriverKind(kind) || blob === null || typeof blob !== "object") continue;
     if (Array.isArray(blob)) continue;
     const driver = kind;
@@ -473,10 +445,7 @@ function migrateLegacyProviderSettings(
     if (Object.hasOwn(providerInstances, instanceId)) continue;
 
     const { enabled: rawEnabled, ...config } = blob as Record<string, unknown>;
-    const explicitEnabled = typeof rawEnabled === "boolean" ? rawEnabled : undefined;
-    const enabled =
-      explicitEnabled ??
-      (HISTORY_RESTORED_DRIVERS.has(driver) && usedProviders.has(driver) ? true : undefined);
+    const enabled = typeof rawEnabled === "boolean" ? rawEnabled : undefined;
     const driverDefault = resolveProviderInstanceEnabled({ driver, config: {} });
     if (Object.keys(config).length === 0 && (enabled === undefined || enabled === driverDefault)) {
       continue;
@@ -825,33 +794,6 @@ const make = Effect.gen(function* () {
 
     // A file that failed to decode must stay on disk for the user to repair.
     const settingsFileTrusted = Option.isNone(parseFailure);
-    const providerHistory = yield* sql<{
-      readonly providerName: string;
-      readonly providerInstanceId: string | null;
-    }>`
-      SELECT DISTINCT
-        provider_name AS "providerName",
-        provider_instance_id AS "providerInstanceId"
-      FROM projection_thread_sessions
-      WHERE provider_name IN ('cursor', 'grok', 'opencode')
-      UNION
-      SELECT DISTINCT
-        provider_name AS "providerName",
-        provider_instance_id AS "providerInstanceId"
-      FROM provider_session_runtime
-      WHERE provider_name IN ('cursor', 'grok', 'opencode')
-    `.pipe(
-      NodeSqliteClient.readOnly,
-      Effect.mapError(
-        (cause) =>
-          new ServerSettingsError({
-            settingsPath,
-            operation: "read-provider-history",
-            cause,
-          }),
-      ),
-    );
-
     const legacyProjectRows =
       settings.projectSettingsFolded || !settingsFileTrusted
         ? []
@@ -879,7 +821,7 @@ const make = Effect.gen(function* () {
     const loaded = foldProviderInstanceEnabledFlags(
       legacyProviders === undefined
         ? settings
-        : migrateLegacyProviderSettings(settings, legacyProviders, providerHistory),
+        : migrateLegacyProviderSettings(settings, legacyProviders),
     );
     const folded = settingsFileTrusted
       ? foldLegacyProjectSettings(loaded, legacyProjectRows)

@@ -1,10 +1,10 @@
-import { Connection } from "@t3tools/client-runtime/connection";
-import { ShellSnapshotLoader } from "@t3tools/client-runtime/state/shell";
+import { Connection } from "@aprende/client-runtime/connection";
+import { ShellSnapshotLoader } from "@aprende/client-runtime/state/shell";
 import {
   BoundedThreadSnapshotLoader,
   ThreadHistoryController,
-} from "@t3tools/client-runtime/state/threads";
-import { PullRequestDiffLoader } from "@t3tools/client-runtime/state/pull-requests";
+} from "@aprende/client-runtime/state/threads";
+import { PullRequestDiffLoader } from "@aprende/client-runtime/state/pull-requests";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Atom } from "effect/reactivity";

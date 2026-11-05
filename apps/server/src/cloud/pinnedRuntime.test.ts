@@ -11,7 +11,7 @@ import { HttpClient, HttpClientResponse } from "effect/http";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 
 import * as ProcessRunner from "../processRunner.ts";
 import {
@@ -181,7 +181,7 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
             ),
           ),
           // "404" in the mirror's path must not read a server error as a missing release.
-          releaseBaseUrl: "https://updates.example.com/404/t3code",
+          releaseBaseUrl: "https://updates.example.com/404/aprende",
           runner: extractingRunner(fs, path),
           validate: () => Effect.die("must not validate a missing archive"),
         }).pipe(Effect.flip);
@@ -321,7 +321,7 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
           arch: "x64",
           httpClient: releaseHttpClient(checksums, requests),
           // A signed mirror URL keeps its query on every file it serves.
-          releaseBaseUrl: "https://updates.example.com/t3code/?token=abc",
+          releaseBaseUrl: "https://updates.example.com/aprende/?token=abc",
           requirePublishedRelease: true,
           runner: extractingRunner(fs, path),
           validate: () => Effect.void,
@@ -333,7 +333,7 @@ it.layer(NodeServices.layer)("ensurePinnedRuntimeInstalled", (it) => {
       assert.equal((yield* install(yield* validChecksums, requests)).entryPath, cached.entryPath);
       // Listed, so the cached runtime is used without downloading it again.
       assert.deepEqual(requests, [
-        `https://updates.example.com/t3code/v${version}/SHA256SUMS?token=abc`,
+        `https://updates.example.com/aprende/v${version}/SHA256SUMS?token=abc`,
       ]);
     }),
   );
@@ -470,7 +470,7 @@ it.layer(NodeServices.layer)("prunePinnedRuntimes", (it) => {
           lsofRunner(`p42\nftxt\nn${path.join(versionsDir, "1.3.0", "t3")}\n`),
         ),
         Effect.provideService(HostProcess.Platform, "darwin"),
-        Effect.provideService(HostProcess.Environment, { T3CODE_INSTALL_BIN_DIR: binDir }),
+        Effect.provideService(HostProcess.Environment, { APRENDE_INSTALL_BIN_DIR: binDir }),
       );
 
       // 1.2.0 is the default launcher, 1.2.5 a recorded one, 1.3.0 running, 1.3.5 in the unit,
@@ -589,7 +589,7 @@ it.layer(NodeServices.layer)("prunePinnedRuntimes", (it) => {
       const removed = yield* prunePinnedRuntimes({ baseDir, keep: ["2.0.0"] }).pipe(
         Effect.provideService(ProcessRunner.ProcessRunner, lsofRunner(lsof)),
         Effect.provideService(HostProcess.Platform, "darwin"),
-        Effect.provideService(HostProcess.Environment, { T3CODE_INSTALL_BIN_DIR: baseDir }),
+        Effect.provideService(HostProcess.Environment, { APRENDE_INSTALL_BIN_DIR: baseDir }),
       );
       assert.deepEqual(removed, []);
       assert.deepEqual(yield* fs.readDirectory(versionsDir), ["1.0.0"]);
@@ -609,7 +609,7 @@ it.layer(NodeServices.layer)("prunePinnedRuntimes", (it) => {
         yield* fs.chmod(entry, 0o755);
         const link = path.join(baseDir, "t3");
         yield* fs.symlink(entry, link);
-        // Its argv names only the link, as with `t3 serve` run from PATH. Removing the link after
+        // Its argv names only the link, as with `aprende serve` run from PATH. Removing the link after
         // spawning leaves the process's executable as the only reference.
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
         yield* spawner.spawn(ChildProcess.make(link, ["-e", "setTimeout(() => {}, 30_000)"]));
@@ -617,7 +617,7 @@ it.layer(NodeServices.layer)("prunePinnedRuntimes", (it) => {
 
         const removed = yield* prunePinnedRuntimes({ baseDir, keep: ["2.0.0"] }).pipe(
           Effect.provideService(HostProcess.Platform, "linux"),
-          Effect.provideService(HostProcess.Environment, { T3CODE_INSTALL_BIN_DIR: baseDir }),
+          Effect.provideService(HostProcess.Environment, { APRENDE_INSTALL_BIN_DIR: baseDir }),
           Effect.provide(ProcessRunner.layer),
         );
         assert.deepEqual(removed, ["1.1.0"]);

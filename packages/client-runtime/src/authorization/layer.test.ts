@@ -2,8 +2,8 @@ import {
   AuthStandardClientScopes,
   EnvironmentId,
   ORCHESTRATION_PROTOCOL_VERSION,
-} from "@t3tools/contracts";
-import { type RelayEnvironmentConnectResponse } from "@t3tools/contracts/relay";
+} from "@aprende/contracts";
+import { type RelayEnvironmentConnectResponse } from "@aprende/contracts/relay";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -215,7 +215,7 @@ const makeHarness = Effect.fn("TestRemoteAuthorization.makeHarness")(function* (
           ClientCapabilities.ClientPresentation,
           ClientCapabilities.ClientPresentation.of({
             metadata: {
-              label: "T3 Code Test",
+              label: "aprende Test",
               deviceType: "mobile",
               os: "test",
             },
@@ -409,7 +409,6 @@ describe("RemoteEnvironmentAuthorization", () => {
       }).pipe(Effect.provide(harness.layer));
 
       expect(authorized.socketUrl).toContain("wsTicket=cached-ticket");
-      expect(authorized.socketUrl).toContain("connectionMethod=relay");
       expect(yield* Ref.get(harness.bootstrapCalls)).toBe(0);
       expect(harness.fetch.calls).toHaveLength(1);
       expect(String(harness.fetch.calls[0]?.[0])).toBe(
@@ -594,7 +593,7 @@ describe("RemoteEnvironmentAuthorization", () => {
         for (const [, init] of exchanges) {
           expect(Object.fromEntries(tokenFields(init))).toMatchObject({
             subject_token: BOOTSTRAP.credential,
-            client_label: "T3 Code Test",
+            client_label: "aprende Test",
             client_device_type: "mobile",
             client_os: "test",
           });

@@ -25,8 +25,8 @@ import {
   type OrchestrationV2StoredEvent,
   type OrchestrationV2ThreadProjection,
   type ServerProvider,
-} from "@t3tools/contracts";
-import { checkpointWorkspace } from "@t3tools/provider-testing/replayWorkspace";
+} from "@aprende/contracts";
+import { checkpointWorkspace } from "@aprende/provider-testing/replayWorkspace";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -68,7 +68,7 @@ import { idleThreadProjection, liveThreadShell } from "./McpToolAccess.testkit.t
 import * as OrchestratorMcpService from "./OrchestratorMcpService.ts";
 import { resolveRuntimeMode } from "./delegatedTaskModes.ts";
 import type { ProjectionRecordFilter } from "../orchestration-v2/ProjectionStore.ts";
-import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import type * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
 
 const decodeTarget = Schema.decodeUnknownEffect(OrchestratorMcpTarget);
 
@@ -1160,7 +1160,7 @@ describe("OrchestratorMcpService provider resolution", () => {
     version: input.enabled === false ? null : "test",
     status: input.enabled === false ? "disabled" : "ready",
     auth: { status: input.enabled === false ? "unknown" : "authenticated" },
-    ...(input.enabled === false ? { message: "Provider is disabled in T3 Code settings." } : {}),
+    ...(input.enabled === false ? { message: "Provider is disabled in aprende settings." } : {}),
     checkedAt: "2026-09-13T00:00:00.000Z",
     models:
       input.model === undefined

@@ -2,14 +2,14 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import type {
   EnvironmentId,
   ProviderAuthRespondInput,
   ProviderAuthResponse,
   ProviderInstanceId,
   ServerProvider,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { lazy, Suspense, useRef, useState } from "react";
 import { CopyIcon } from "lucide-react";
 
@@ -73,16 +73,11 @@ export function ProviderAuthenticationSection({
     !signedIn &&
     (provider.setup?.canAuthenticate === false ||
       (provider.driver === "acpRegistry" && auth?.methods?.length === 0));
-  const usesCredentials =
-    provider.driver === "antigravity" &&
-    (provider.auth.type === "gemini-api-key" || provider.auth.type === "agent-platform");
   const accountDescription = active
     ? auth?.phase === "starting"
-      ? (auth.message ?? (usesCredentials ? "Connecting…" : "Starting sign-in…"))
+      ? (auth.message ?? "Starting sign-in…")
       : auth?.phase === "verifying"
-        ? usesCredentials
-          ? "Checking credentials and loading models…"
-          : "Checking your account…"
+        ? "Checking your account…"
         : interaction?.type === "terminal"
           ? "Complete sign-in in the terminal below."
           : interaction?.type === "credentials"
@@ -94,9 +89,7 @@ export function ProviderAuthenticationSection({
         ? "Discovering sign-in methods…"
         : needsExternalSetup
           ? "No in-app sign-in advertised. Follow the provider's docs to finish setup."
-          : usesCredentials
-            ? `Connect on ${environmentLabel} to load models.`
-            : `Sign in on ${environmentLabel}.`;
+          : `Sign in on ${environmentLabel}.`;
   const statusMessage = auth?.phase === "failed" ? auth.message : null;
   const disabled = readOnly || pending || query.error !== null || isDiscovering;
   const draftId = `${auth?.flowId ?? ""}:${interaction?.id ?? ""}`;
@@ -298,12 +291,8 @@ export function ProviderAuthenticationSection({
                 {signedIn
                   ? "Change account"
                   : auth?.phase === "failed" || auth?.phase === "cancelled"
-                    ? usesCredentials
-                      ? "Retry connection"
-                      : "Retry sign-in"
-                    : usesCredentials
-                      ? "Connect"
-                      : "Sign in"}
+                    ? "Retry sign-in"
+                    : "Sign in"}
               </Button>
             ) : null}
             {!active && signedIn && (provider.auth.canLogout ?? provider.setup?.canAuthenticate) ? (

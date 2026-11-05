@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off globalConsole:off
-// Launches a packaged desktop app against a seeded T3 home, opens a thread, and checks its
+// Launches a packaged desktop app against a seeded aprende home, opens a thread, and checks its
 // messages render. Release jobs run it so a build whose backend or bundle cannot start fails
 // before it is published.
 import * as NodeFS from "node:fs";
@@ -45,9 +45,9 @@ try {
       ...process.env,
       XDG_CONFIG_HOME: NodePath.join(home, ".config"),
       XDG_DATA_HOME: NodePath.join(home, ".local/share"),
-      T3CODE_HOME: t3Home,
-      T3CODE_TELEMETRY_ENABLED: "false",
-      T3CODE_DISABLE_AUTO_UPDATE: "true",
+      APRENDE_HOME: t3Home,
+      APRENDE_TELEMETRY_ENABLED: "false",
+      APRENDE_DISABLE_AUTO_UPDATE: "true",
     },
     timeout: STEP_TIMEOUT_MS,
   });

@@ -1,15 +1,14 @@
-import { builtInSourceControlDefinitions } from "@t3tools/source-control-definitions/registry";
+import { builtInSourceControlDefinitions } from "@aprende/source-control-definitions/registry";
 import {
   HostCredentialSettings,
   readSourceControlHostSettings,
   type SourceControlAppSignIn,
   type SourceControlDefinition,
-} from "@t3tools/source-control-core/shared/definition";
-import type { ServerSettings, SourceControlAppAccessInput } from "@t3tools/contracts";
-import { parseGitRemoteRepository } from "@t3tools/shared/git";
+} from "@aprende/source-control-core/shared/definition";
+import type { ServerSettings, SourceControlAppAccessInput } from "@aprende/contracts";
+import { parseGitRemoteRepository } from "@aprende/shared/git";
 
 export {
-  isMonochromeSourceControlIcon,
   UNKNOWN_SOURCE_CONTROL_CLIENT,
   type ChangeRequestLink,
   type ChangeRequestTerminology,
@@ -21,7 +20,7 @@ export {
   type SourceControlDefinition,
   type SourceControlHostCredentials,
   type SourceControlIcon,
-} from "@t3tools/source-control-core/shared/definition";
+} from "@aprende/source-control-core/shared/definition";
 
 export const sourceControlClients = builtInSourceControlDefinitions;
 

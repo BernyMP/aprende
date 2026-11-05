@@ -1,6 +1,6 @@
-import type { UsageProviderKind } from "@t3tools/contracts";
+import type { UsageProviderKind } from "@aprende/contracts";
 
-import { ProviderDriverKind } from "@t3tools/contracts";
+import { ProviderDriverKind } from "@aprende/contracts";
 
 type UsageProviderPresentation = {
   readonly label: string;
@@ -18,32 +18,6 @@ export const PROVIDER_PRESENTATION = {
     label: "Claude Code",
     color: "#d97757",
     driverKind: ProviderDriverKind.make("claudeAgent"),
-  },
-  grok: {
-    label: "Grok Build",
-    color: "color-mix(in oklab, var(--contrast-foreground) 72%, var(--background))",
-    driverKind: ProviderDriverKind.make("grok"),
-  },
-  cursor: { label: "Cursor", color: "#8b8b8b", driverKind: ProviderDriverKind.make("cursor") },
-  opencode: {
-    label: "OpenCode",
-    color: "#5b9bbd",
-    driverKind: ProviderDriverKind.make("opencode"),
-  },
-  antigravity: {
-    label: "Antigravity",
-    color: "#8c7bd1",
-    driverKind: ProviderDriverKind.make("antigravity"),
-  },
-  pi: {
-    label: "Pi",
-    color: "#4d9f8a",
-    driverKind: ProviderDriverKind.make("pi"),
-  },
-  muse: {
-    label: "Muse Code",
-    color: "#0866ff",
-    driverKind: ProviderDriverKind.make("muse"),
   },
 } satisfies Record<UsageProviderKind, UsageProviderPresentation>;
 

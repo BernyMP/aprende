@@ -26,7 +26,7 @@ import {
   type ScopedThreadRef,
   ThreadId,
   SnapShotSource,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   parseScopedProjectKey,
   parseScopedThreadKey,
@@ -34,7 +34,7 @@ import {
   scopeProjectRef,
   scopedThreadKey,
   scopeThreadRef,
-} from "@t3tools/client-runtime/environment";
+} from "@aprende/client-runtime/environment";
 import * as Schema from "effect/Schema";
 import * as Equal from "effect/Equal";
 import * as Effect from "effect/Effect";
@@ -44,13 +44,13 @@ import {
   draftModelPickMatchesThread,
   normalizeCustomModelSlug,
   normalizeModelSlug,
-} from "@t3tools/shared/model";
+} from "@aprende/shared/model";
 import { AsyncResult, Atom, type AtomRegistry } from "effect/reactivity";
 import * as Option from "effect/Option";
 import type {
   EnvironmentShellState,
   EnvironmentThreadShell,
-} from "@t3tools/client-runtime/state/shell";
+} from "@aprende/client-runtime/state/shell";
 import { waitForDraftHeroTransition } from "./components/chat/draftHeroTransition";
 import { getLocalStorageItem } from "./hooks/useLocalStorage";
 import { readThreadPreviewState } from "./previewStateStore";
@@ -97,8 +97,8 @@ import {
   replaceComposerContextReferences,
   toComposerContextId,
   toKindScopedComposerContextId,
-} from "@t3tools/shared/composerContextReferences";
-import { UnifiedSettings } from "@t3tools/contracts/settings";
+} from "@aprende/shared/composerContextReferences";
+import { UnifiedSettings } from "@aprende/contracts/settings";
 
 const isElementContextDetails = Schema.is(ElementContextDetails);
 import { ReviewCommentContextSchema, type ReviewCommentContext } from "./reviewCommentContext";
@@ -110,7 +110,7 @@ const isEnvironmentContextRecord = Schema.is(EnvironmentContextRecord);
 const isSnapShotSource = Schema.is(SnapShotSource);
 const isPreviewAnnotationPayload = Schema.is(PreviewAnnotationPayloadSchema);
 
-export const COMPOSER_DRAFT_STORAGE_KEY = "t3code:composer-drafts:v1";
+export const COMPOSER_DRAFT_STORAGE_KEY = "aprende:composer-drafts:v1";
 const COMPOSER_DRAFT_STORAGE_VERSION = 9;
 const DraftThreadEnvModeSchema = Schema.Literals(["local", "worktree"]);
 export type DraftThreadEnvMode = typeof DraftThreadEnvModeSchema.Type;
@@ -936,7 +936,7 @@ function normalizeProviderModelOptions(
 ): ProviderOptionSelectionsByProvider | null {
   const candidate = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
   const result: ProviderOptionSelectionsByProvider = {};
-  for (const providerKey of ["codex", "claudeAgent", "cursor", "opencode"] as const) {
+  for (const providerKey of ["codex", "claudeAgent"] as const) {
     const selections = coerceProviderOptionSelections(candidate?.[providerKey]);
     if (selections) {
       result[providerKey] = selections;
@@ -1073,7 +1073,7 @@ function legacyToModelSelectionByProvider(
 ): Partial<Record<ProviderInstanceId, ModelSelection>> {
   const result: Partial<Record<ProviderInstanceId, ModelSelection>> = {};
   if (modelOptions) {
-    for (const provider of ["codex", "claudeAgent", "cursor", "opencode"] as const) {
+    for (const provider of ["codex", "claudeAgent"] as const) {
       const options = modelOptions[provider];
       if (options && options.length > 0) {
         const driverKind = ProviderDriverKind.make(provider);
@@ -1110,10 +1110,6 @@ export function deriveEffectiveComposerModelState(input: {
 }): EffectiveComposerModelState {
   const baseModelCandidate =
     input.threadModelSelection?.model ?? input.projectModelSelection?.model ?? null;
-  const preserveThreadModel =
-    input.selectedInstanceId !== null &&
-    input.selectedInstanceId !== undefined &&
-    input.threadModelSelection?.instanceId === input.selectedInstanceId;
   const baseModel =
     (input.selectedInstanceId
       ? resolveAppModelSelectionForInstance(
@@ -1121,11 +1117,8 @@ export function deriveEffectiveComposerModelState(input: {
           input.settings,
           input.providers,
           baseModelCandidate,
-          { preserveUnavailableSelection: preserveThreadModel },
         )
       : null) ??
-    // Antigravity has no static model or cross-account catalog fallback.
-    (input.selectedProvider === "antigravity" && input.selectedInstanceId ? "" : null) ??
     resolveAppModelSelection(
       input.selectedProvider,
       input.settings,
@@ -1153,9 +1146,7 @@ export function deriveEffectiveComposerModelState(input: {
         input.settings,
         input.providers,
         activeSelection.model,
-        { preserveUnavailableSelection: true },
       ) ??
-      (input.selectedProvider === "antigravity" ? "" : null) ??
       resolveAppModelSelection(
         input.selectedProvider,
         input.settings,
@@ -1220,9 +1211,7 @@ function withFallbackInstanceOptions(input: {
       input.providers
         .find((provider) => provider.instanceId === instanceId)
         ?.models.some((entry) => entry.slug === model && entry.isCustom) ||
-      readInstanceCustomModels(input.settings, instanceId, input.selectedProvider).some(
-        (entry) => entry.slug === model,
-      );
+      readInstanceCustomModels(input.settings, instanceId).some((entry) => entry.slug === model);
     return isCustom ? model : normalizeModelSlug(model, input.selectedProvider);
   };
   const sameModel =

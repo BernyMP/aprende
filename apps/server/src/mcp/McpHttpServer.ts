@@ -18,10 +18,8 @@ import {
   OrchestratorMcpFailure,
   PreviewAutomationError,
   ProviderInteractionMode,
-  type RunId,
   RuntimeMode,
-  ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
 import packageJson from "../../package.json" with { type: "json" };
 import { parseBearerToken } from "../auth/EnvironmentAuth.ts";
@@ -29,25 +27,11 @@ import * as ServerConfig from "../config.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as DeviceService from "../device/DeviceService.ts";
 import * as HtmlRender from "../htmlRender/HtmlRender.ts";
-import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
-import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
-import * as AnalyticsService from "../telemetry/AnalyticsService.ts";
-import {
-  type AgentThread,
-  agentToolProperties,
-  handoffSettings,
-  MAX_REPORTED_DEPTH,
-  toolOutcome,
-} from "../telemetry/ProviderDimensions.ts";
 import { advertisedJsonSchema } from "./advertisedJsonSchema.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
 import * as McpToolAccess from "./McpToolAccess.ts";
 import * as OrchestratorMcpService from "./OrchestratorMcpService.ts";
-import { PreviewControlsToolkit } from "./toolkits/previewControls/tools.ts";
-import * as PreviewControlsHandlers from "./toolkits/previewControls/handlers.ts";
-import { EnvironmentToolkit } from "./toolkits/environment/tools.ts";
-import * as EnvironmentHandlers from "./toolkits/environment/handlers.ts";
 import { ProjectToolkit } from "./toolkits/project/tools.ts";
 import * as ProjectHandlers from "./toolkits/project/handlers.ts";
 import { AttachmentToolkit } from "./toolkits/attachment/tools.ts";
@@ -65,9 +49,6 @@ import {
   PreviewSnapshotToolkit,
   PreviewStandardToolkit,
 } from "./toolkits/preview/tools.ts";
-import * as WorktreeHandlers from "./toolkits/worktree/handlers.ts";
-import { WorktreeToolkit } from "./toolkits/worktree/tools.ts";
-import * as WorktreeMcpService from "./WorktreeMcpService.ts";
 import * as PullRequestsHandlers from "./toolkits/pullRequests/handlers.ts";
 import { PullRequestsToolkit } from "./toolkits/pullRequests/tools.ts";
 import * as DeviceHandlers from "./toolkits/device/handlers.ts";
@@ -78,6 +59,16 @@ import {
 } from "./toolkits/device/tools.ts";
 import * as HtmlHandlers from "./toolkits/html/handlers.ts";
 import { HtmlPreviewTool, HtmlPreviewToolkit, HtmlRenderToolkit } from "./toolkits/html/tools.ts";
+import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
+import { PreviewControlsToolkit } from "./toolkits/previewControls/tools.ts";
+import * as PreviewControlsHandlers from "./toolkits/previewControls/handlers.ts";
+import { EnvironmentToolkit } from "./toolkits/environment/tools.ts";
+import * as EnvironmentHandlers from "./toolkits/environment/handlers.ts";
+import * as WorktreeHandlers from "./toolkits/worktree/handlers.ts";
+import { WorktreeToolkit } from "./toolkits/worktree/tools.ts";
+import * as WorktreeMcpService from "./WorktreeMcpService.ts";
+import * as LearnHandlers from "./toolkits/learn/handlers.ts";
+import { LearnToolkit } from "./toolkits/learn/tools.ts";
 import { requestUrl } from "../requestUrl.ts";
 
 const mcpResourceMetadataUrl = (request: HttpServerRequest.HttpServerRequest) =>
@@ -106,7 +97,7 @@ const unauthorized = (input: {
   return HttpServerResponse.jsonUnsafe(
     {
       error: "invalid_mcp_credential",
-      message: "A valid T3 Code MCP credential is required.",
+      message: "A valid aprende MCP credential is required.",
     },
     {
       status: 401,
@@ -125,7 +116,7 @@ export class McpClientAuthenticator extends Context.Service<
       request: HttpServerRequest.HttpServerRequest,
     ) => Effect.Effect<McpInvocationContext.McpInvocationScope | undefined>;
   }
->()("t3/mcp/McpHttpServer/McpClientAuthenticator") {}
+>()("aprende/mcp/McpHttpServer/McpClientAuthenticator") {}
 
 type AuthenticatedHttpEffect = Effect.Effect<
   HttpServerResponse.HttpServerResponse,
@@ -816,212 +807,6 @@ const registerHtmlPreview = Effect.fn("McpHttpServer.registerHtmlPreview")(funct
   );
 });
 
-/**
- * Tools that hand work to another thread's agent: they create it, message it,
- * steer it, or move context into it. Their events name the receiving agent too.
- */
-const HANDOFF_TOOLS: ReadonlySet<string> = new Set([
-  "delegate_task",
-  "create_threads",
-  "t3_thread_launch",
-  "t3_thread_send",
-  "t3_thread_send_attachments",
-  "schedule_task",
-  "run_scheduled_task_now",
-]);
-
-/** Tool actions that hand work over with only a `{ sequence }` result; the input names the thread. */
-const INPUT_TARGET_ACTIONS: Readonly<Record<string, ReadonlySet<string>>> = {
-  t3_queue: new Set(["edit", "promote_to_steer"]),
-  t3_pending_request: new Set(["respond"]),
-};
-
-/** Tool actions that hand work over and name the receiving thread in their result. */
-const RESULT_TARGET_ACTIONS: Readonly<Record<string, ReadonlySet<string>>> = {
-  t3_thread_transfer: new Set(["fork", "merge_back"]),
-};
-
-const hasAction = (
-  actions: Readonly<Record<string, ReadonlySet<string>>>,
-  tool: string,
-  args: unknown,
-) =>
-  actions[tool]?.has(String((args as { readonly action?: unknown } | null | undefined)?.action)) ===
-  true;
-
-const isInputTargetHandoff = (tool: string, args: unknown) =>
-  hasAction(INPUT_TARGET_ACTIONS, tool, args);
-
-const resultThreadKeys = ["childThreadId", "targetThreadId", "boundThreadId", "threadId"] as const;
-
-/** Thread ids a handoff tool result names: the thread that received the work. */
-const resultThreadIds = (content: unknown): ReadonlyArray<string> => {
-  if (typeof content !== "object" || content === null) return [];
-  const record = content as Readonly<Record<string, unknown>>;
-  if (Array.isArray(record.threads)) return record.threads.flatMap(resultThreadIds);
-  const key = resultThreadKeys.find((candidate) => typeof record[candidate] === "string");
-  return key === undefined ? [] : [record[key] as string];
-};
-
-/**
- * Thread ids that received a handoff. The input's `threadId` is used only after
- * the call succeeded, so it is one the handler already resolved and authorized.
- */
-const handoffTargetIds = (
-  tool: string,
-  args: unknown,
-  result: McpSchema.CallToolResult | undefined,
-): ReadonlyArray<string> => {
-  if (!isInputTargetHandoff(tool, args)) return resultThreadIds(result?.structuredContent);
-  if (result === undefined || toolOutcome(result).outcome !== "ok") return [];
-  const threadId = (args as { readonly threadId?: unknown } | null | undefined)?.threadId;
-  return typeof threadId === "string" ? [threadId] : [];
-};
-
-/** Tool analytics must never include IDs, prompts or free text. */
-const withToolAnalytics =
-  /* Request instrumentation already owns the span; keep this helper in that context. */
-  Effect.fnUntraced(function* <A, E, R>(registration: Effect.Effect<A, E, R>) {
-    const server = yield* McpServer.McpServer;
-    const analytics = yield* Effect.serviceOption(AnalyticsService.AnalyticsService);
-    if (Option.isNone(analytics)) return yield* registration;
-    const registry = yield* Effect.serviceOption(ProviderRegistry.ProviderRegistry);
-    const threads = yield* Effect.serviceOption(ThreadManagementService.ThreadManagementService);
-    const shellOf = (threadId: string) =>
-      Option.isNone(threads)
-        ? Effect.succeed(null)
-        : threads.value
-            .getThreadShell(ThreadId.make(threadId))
-            .pipe(Effect.orElseSucceed(() => null));
-    // Delegation depth: parents walked from the caller, capped.
-    const depthOf =
-      /* Request instrumentation already owns the span; keep this helper in that context. */
-      Effect.fnUntraced(function* (thread: AgentThread) {
-        let depth = 0;
-        let parentId =
-          thread.lineage.relationshipToParent === "subagent" ? thread.lineage.parentThreadId : null;
-        while (parentId !== null && depth < MAX_REPORTED_DEPTH) {
-          depth += 1;
-          const parent = yield* shellOf(parentId);
-          parentId =
-            parent?.lineage.relationshipToParent === "subagent"
-              ? parent.lineage.parentThreadId
-              : null;
-        }
-        return depth;
-      });
-    // Whether the caller's active run was started by a scheduled task.
-    const scheduledRunOf = (threadId: string, runId: RunId | null) =>
-      Option.isNone(threads) || runId === null
-        ? Effect.succeed(false)
-        : threads.value
-            .getThreadRecords(ThreadId.make(threadId), ["runs", "messages"], {
-              runIds: [runId],
-              messageRoles: ["user"],
-            })
-            .pipe(
-              Effect.map((records) => {
-                const run = records.runs.find((candidate) => candidate.id === runId);
-                return records.messages.some(
-                  (message) =>
-                    message.id === run?.userMessageId && message.scheduledTaskId !== undefined,
-                );
-              }),
-              Effect.orElseSucceed(() => false),
-            );
-    const record =
-      /* Request instrumentation already owns the span; keep this helper in that context. */
-      Effect.fnUntraced(
-        function* (
-          tool: string,
-          args: unknown,
-          result: McpSchema.CallToolResult | undefined,
-          durationMs: number,
-        ) {
-          const handoff =
-            HANDOFF_TOOLS.has(tool) ||
-            isInputTargetHandoff(tool, args) ||
-            hasAction(RESULT_TARGET_ACTIONS, tool, args);
-          const outcome = toolOutcome(result);
-          // Agents call status, read, and preview tools in tight loops, so an
-          // event per successful call floods analytics. Only failures count there.
-          if (!handoff && outcome.outcome === "ok") return;
-          // Client credentials (no calling thread) report an unknown caller.
-          const invocation = Option.getOrUndefined(
-            yield* Effect.serviceOption(McpInvocationContext.McpInvocationContext),
-          )?.thread;
-          const providers = Option.isSome(registry) ? yield* registry.value.getProviders : [];
-          // Only handoff tools pay for thread lookups; the rest report the
-          // caller's provider from the credential.
-          const caller =
-            handoff && invocation !== undefined
-              ? ((yield* shellOf(invocation.threadId)) ?? undefined)
-              : undefined;
-          const targetIds = handoff
-            ? [...new Set(handoffTargetIds(tool, args, result))].filter(
-                (threadId) => threadId !== invocation?.threadId,
-              )
-            : [];
-          const targets = yield* Effect.forEach(targetIds, shellOf);
-          for (const properties of agentToolProperties({
-            tool,
-            providers,
-            caller,
-            ...(invocation === undefined
-              ? {}
-              : { callerProviderInstanceId: invocation.providerInstanceId }),
-            ...(caller === undefined || invocation === undefined
-              ? {}
-              : {
-                  callerDepth: yield* depthOf(caller),
-                  callerScheduledRun: yield* scheduledRunOf(
-                    invocation.threadId,
-                    caller.activeRunId,
-                  ),
-                }),
-            targets: targets.filter((thread) => thread !== null),
-            outcome,
-            ...(handoff
-              ? { settings: handoffSettings(tool, args, result?.structuredContent) }
-              : {}),
-            durationMs,
-          })) {
-            yield* analytics.value.record("mcp.tool.invoked", properties);
-          }
-        },
-        (effect, _tool, _args, _result, _durationMs) => effect.pipe(Effect.ignoreCause),
-      );
-    const recordingServer = McpServer.McpServer.of({
-      ...server,
-      addTool: Effect.fn("McpServer.addTool")(function (options) {
-        return server.addTool({
-          ...options,
-          handle:
-            /* Request instrumentation already owns the span; keep this helper in that context. */
-            Effect.fnUntraced(function* (payload) {
-              const startedAt = yield* Clock.currentTimeMillis;
-              return yield* options.handle(payload).pipe(
-                Effect.onExit((exit) => {
-                  const result = exit._tag === "Success" ? exit.value : undefined;
-                  // A call that asks for input is retried with it, and that call is the one counted.
-                  if (result instanceof McpSchema.InputRequired) return Effect.void;
-                  // Handoff tools look up threads to record; the response must not wait on them.
-                  return Clock.currentTimeMillis.pipe(
-                    Effect.flatMap((endedAt) =>
-                      record(options.tool.name, payload, result, endedAt - startedAt),
-                    ),
-                    Effect.forkDetach,
-                    Effect.asVoid,
-                  );
-                }),
-              );
-            }),
-        });
-      }),
-    });
-    return yield* registration.pipe(Effect.provideService(McpServer.McpServer, recordingServer));
-  });
-
 /** `McpServer.registerToolkit` advertises the full codec schema; agents get the compact one. */
 const withAdvertisedSchemas = Effect.fn("McpHttpServer.withAdvertisedSchemas")(function* <
   Tools extends Record<string, Tool.Any>,
@@ -1073,9 +858,7 @@ export const toolkitRegistration = <Tools extends Record<string, Tool.Any>, EX, 
   handlers: McpToolAccess.HandlersLayer<Tools, EX, RX>,
 ) =>
   Layer.effectDiscard(
-    withToolAnalytics(
-      withAdvertisedSchemas(toolkit, McpServer.registerToolkit(decodeAsAdvertised(toolkit))),
-    ),
+    withAdvertisedSchemas(toolkit, McpServer.registerToolkit(decodeAsAdvertised(toolkit))),
   ).pipe(
     Layer.provide(
       provideRegistrationServices<
@@ -1089,10 +872,7 @@ export const toolkitRegistration = <Tools extends Record<string, Tool.Any>, EX, 
 const imageToolRegistration = <Tools extends Record<string, Tool.Any>, A, E, R, EX, RX>(
   register: Effect.Effect<A, E, R>,
   handlers: McpToolAccess.HandlersLayer<Tools, EX, RX>,
-) =>
-  Layer.effectDiscard(withToolAnalytics(register)).pipe(
-    Layer.provide(McpToolAccess.HandlersLayer.layer(handlers)),
-  );
+) => Layer.effectDiscard(register).pipe(Layer.provide(McpToolAccess.HandlersLayer.layer(handlers)));
 
 export const layerHtmlToolkit = Layer.mergeAll(
   toolkitRegistration(HtmlRenderToolkit, HtmlHandlers.layerRender),
@@ -1184,7 +964,7 @@ export const layerInProcessMcpServer = McpServer.middleware<{
 
 export const layerMcpTransport = <RA, RE, RR>(registrations: Layer.Layer<RA, RE, RR>) =>
   McpServer.layerHttp({
-    name: "T3 Code",
+    name: "aprende",
     version: packageJson.version,
     path: "/mcp",
     protocols: [McpProtocol.v2025_06_18],
@@ -1192,7 +972,12 @@ export const layerMcpTransport = <RA, RE, RR>(registrations: Layer.Layer<RA, RE,
     registrations,
   }).pipe(Layer.provide(layerMcpAuthMiddleware));
 
-/** Every tool the T3 MCP server advertises. AgentContextBudget.test.ts measures this set. */
+const layerLearnToolkit = toolkitRegistration(LearnToolkit, LearnHandlers.layer);
+
+/**
+ * Every tool the MCP server advertises. The CLI and outside agents use all of them; tutor
+ * sessions see only TUTOR_MCP_TOOL_NAMES. AgentContextBudget.test.ts measures that subset.
+ */
 export const layerTools = Layer.mergeAll(
   layerPreviewToolkit,
   layerOrchestratorToolkit,
@@ -1205,6 +990,7 @@ export const layerTools = Layer.mergeAll(
   layerPullRequestsToolkit,
   layerDeviceToolkit,
   layerHtmlToolkit,
+  layerLearnToolkit,
 );
 
 export const layer = layerMcpTransport(layerTools);

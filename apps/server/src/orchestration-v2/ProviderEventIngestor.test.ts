@@ -24,7 +24,7 @@ import {
   RunId,
   RuntimeRequestId,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -37,21 +37,20 @@ import * as SqlClient from "effect/sql/SqlClient";
 import * as SqlError from "effect/sql/SqlError";
 import * as Stream from "effect/Stream";
 
-import { toolOutputImages } from "@t3tools/shared/toolOutput";
+import { toolOutputImages } from "@aprende/shared/toolOutput";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ServerConfig from "../config.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as EventSink from "./EventSink.ts";
 import * as EventStore from "./EventStore.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProviderEventIngestor from "./ProviderEventIngestor.ts";
-import * as ProviderUsageAnalytics from "../telemetry/ProviderUsageAnalytics.ts";
 import * as ThreadCommandExecutor from "./ThreadCommandExecutor.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
-import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
-import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
+import type { ProviderInstance } from "@aprende/provider-core/server/driver";
+import { makeProviderFailure } from "@aprende/provider-core/server/failure";
 import {
   makeProviderEventRoutingState,
   type ProviderEventRouteIdentity,
@@ -159,7 +158,7 @@ const makeSharedWorktree = Effect.gen(function* () {
     "-m",
     "initial",
   ]);
-  yield* command(repo, ["worktree", "add", "-b", "t3/abcd1234", worktreePath]);
+  yield* command(repo, ["worktree", "add", "-b", "aprende/abcd1234", worktreePath]);
   return { repo, worktreePath, command };
 });
 const modelSelection = {
@@ -324,104 +323,6 @@ it.effect("refreshes the failing instance snapshot after a committed usage_limit
     }),
   ),
 );
-
-it.effect("records accepted billed turn usage once without billing the context window", () => {
-  const recorded: Array<ProviderUsageAnalytics.ProviderTurnReport> = [];
-  const layerAnalytics = Layer.succeed(ProviderUsageAnalytics.ProviderTurnAnalytics, {
-    runStarted: () => Effect.void,
-    turnCompleted: (report) =>
-      Effect.sync(() => {
-        recorded.push(report);
-      }),
-    runSettled: () => Effect.void,
-  });
-  return Effect.gen(function* () {
-    const now = yield* DateTime.now;
-    const eventSink = yield* EventSink.EventSinkV2;
-    const ingestor = yield* ProviderEventIngestor.ProviderEventIngestorV2;
-    const idAllocator = yield* IdAllocator.IdAllocatorV2;
-    const threadEvent = yield* threadCreatedEvent(now);
-    yield* eventSink.write({ events: [threadEvent] });
-    const providerSessionId = yield* idAllocator.allocate.providerSession({
-      providerInstanceId: modelSelection.instanceId,
-      threadId: threadEvent.threadId,
-    });
-    const providerThreadId = idAllocator.derive.providerThread({
-      driver: CODEX_DRIVER,
-      nativeThreadId: "billing-thread",
-    });
-    const providerTurn = {
-      id: idAllocator.derive.providerTurn({ driver: CODEX_DRIVER, nativeTurnId: "billing-turn" }),
-      providerThreadId,
-      nodeId: NodeId.make("node:billing-turn"),
-      runAttemptId: null,
-      nativeTurnRef: null,
-      ordinal: 1,
-      status: "completed" as const,
-      startedAt: now,
-      completedAt: DateTime.makeUnsafe(DateTime.toEpochMillis(now) + 120),
-      tokenUsage: {
-        inputTokens: 4000,
-        cachedInputTokens: 3000,
-        outputTokens: 100,
-        usedTokens: 4100,
-        updatedAt: DateTime.formatIso(now),
-      },
-      turnTokenUsage: {
-        usageStatus: "complete" as const,
-        usageScope: "main_agent" as const,
-        hasSubagents: false,
-        inputTokens: 40,
-        cachedInputTokens: 30,
-        outputTokens: 10,
-      },
-    };
-    const input = {
-      providerSessionId,
-      providerInstanceId: modelSelection.instanceId,
-      threadId: threadEvent.threadId,
-      analyticsContext: {
-        modelSelection,
-        runtimeMode: "full-access" as const,
-        interactionMode: "default" as const,
-        origin: {
-          createdBy: "agent" as const,
-          creationSource: "provider" as const,
-          scheduled: false,
-          subagent: true,
-        },
-      },
-      event: { type: "provider_turn.updated" as const, driver: CODEX_DRIVER, providerTurn },
-    };
-    yield* ingestor.ingestNormalized(input);
-    yield* ingestor.ingestNormalized(input);
-    const ignored = yield* ingestor.ingestNormalized({
-      ...input,
-      event: {
-        ...input.event,
-        providerTurn: {
-          ...providerTurn,
-          id: idAllocator.derive.providerTurn({
-            driver: CODEX_DRIVER,
-            nativeTurnId: "stale-billing-turn",
-          }),
-        },
-      },
-      writeIfRunCurrent: {
-        runId: RunId.make("missing-run"),
-        activeAttemptId: RunAttemptId.make("stale-attempt"),
-        expectedStatus: "running",
-      },
-    });
-    assert.isEmpty(ignored);
-    assert.lengthOf(recorded, 1);
-    assert.deepEqual(recorded[0], {
-      driver: CODEX_DRIVER,
-      providerTurn,
-      context: input.analyticsContext,
-    });
-  }).pipe(Effect.provide(layerTest.pipe(Layer.provide(layerAnalytics))));
-});
 
 layer("ProviderEventIngestorV2", (it) => {
   it.effect("normalizes provider events through the real event log and projection store", () =>
@@ -1590,7 +1491,7 @@ layer("ProviderEventIngestorV2", (it) => {
         type: "image",
         file: { base64: readBase64, type: "image/png", originalSize: 30_000 },
       });
-      const screenshot = toolItem("turn-item:screenshot", 2, "mcp__t3-code__device_screenshot", {
+      const screenshot = toolItem("turn-item:screenshot", 2, "mcp__aprende__device_screenshot", {
         content: [
           {
             type: "image",
@@ -1809,7 +1710,7 @@ layer("ProviderEventIngestorV2", (it) => {
         if (rootEvent.type !== "thread.created") throw new Error("Expected thread fixture");
         const parent = {
           ...rootEvent.payload,
-          branch: "t3/abcd1234",
+          branch: "aprende/abcd1234",
           worktreePath,
         };
         yield* eventSink.write({ events: [{ ...rootEvent, payload: parent }] });
@@ -1930,7 +1831,7 @@ layer("ProviderEventIngestorV2", (it) => {
       Effect.gen(function* () {
         const { worktreePath, command } = yield* makeSharedWorktree;
         const git = yield* GitVcsDriver.GitVcsDriver;
-        const branch = scenario === "explicit" ? "child-feature" : "t3/abcd1234";
+        const branch = scenario === "explicit" ? "child-feature" : "aprende/abcd1234";
         if (scenario === "explicit") yield* command(worktreePath, ["branch", "-m", branch]);
         if (scenario === "detached") yield* command(worktreePath, ["checkout", "--detach"]);
         const now = yield* DateTime.now;

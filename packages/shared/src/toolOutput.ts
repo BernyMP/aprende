@@ -1,7 +1,9 @@
 import {
   isProviderSendTurnSupportedImageMimeType,
+  LEARNING_TOOL_NAMES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
-} from "@t3tools/contracts";
+  type LearningToolName,
+} from "@aprende/contracts";
 import * as Predicate from "effect/Predicate";
 
 import {
@@ -43,6 +45,7 @@ interface CompactToolOutput {
   messageId?: string;
   taskId?: string;
   scheduledTaskId?: string;
+  questionId?: string;
   status?: "rolled_back";
   htmlRender?: HtmlRenderReference;
   [MCP_APP_OUTPUT_KEY]?: McpAppReference;
@@ -125,7 +128,13 @@ export function compactDynamicToolOutput(value: unknown): CompactToolOutput | un
   const output: CompactToolOutput = result.failed ? { isError: true } : {};
   const data = budget.exceeded ? undefined : result.data;
   if (data !== undefined) {
-    for (const key of ["threadId", "messageId", "taskId", "scheduledTaskId"] as const) {
+    for (const key of [
+      "threadId",
+      "messageId",
+      "taskId",
+      "scheduledTaskId",
+      "questionId",
+    ] as const) {
       const id = boundedId(data[key]);
       if (id !== undefined) output[key] = id;
     }
@@ -194,6 +203,17 @@ export function htmlRenderFromToolItem(item: {
   if (resolveT3McpToolId(item.toolName) !== HTML_RENDER_TOOL_NAME) return undefined;
   const output = compactDynamicToolOutput(item.output);
   return output?.isError ? undefined : output?.htmlRender;
+}
+
+/** A tutor tool call, with the question id when it showed a question. */
+export function learningToolFromToolItem(item: {
+  readonly toolName: string | null | undefined;
+  readonly output?: unknown;
+}): { readonly tool: LearningToolName; readonly questionId: string | null } | undefined {
+  const id = resolveT3McpToolId(item.toolName);
+  const tool = LEARNING_TOOL_NAMES.find((name) => name === id);
+  if (tool === undefined) return undefined;
+  return { tool, questionId: compactDynamicToolOutput(item.output)?.questionId ?? null };
 }
 
 /** The thread-owned file `preview_recording_stop` stored for the agent. */

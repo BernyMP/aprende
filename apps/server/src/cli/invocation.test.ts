@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -33,72 +33,72 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const bin = yield* fs.makeTempDirectoryScoped();
-    yield* fs.writeFileString(path.join(bin, "t3"), "#!/bin/sh\n", { mode: 0o755 });
+    yield* fs.writeFileString(path.join(bin, "aprende"), "#!/bin/sh\n", { mode: 0o755 });
     return bin;
   });
 
   it.effect("keeps a user-installed Node reachable when the command runs under sudo", () =>
     Effect.gen(function* () {
-      const npx = "/home/theo/.npm/_npx/abc/node_modules/t3/dist/bin.mjs";
+      const npx = "/home/theo/.npm/_npx/abc/node_modules/aprende/dist/bin.mjs";
       expect(yield* rootCommand({ node: "/usr/bin/node", entry: npx })).toBe(
-        "sudo npx t3 browser setup",
+        "sudo npx aprende browser setup",
       );
       expect(
         yield* rootCommand({ node: "/home/theo/.nvm/versions/node/v24/bin/node", entry: npx }),
-      ).toBe('sudo env "PATH=$PATH" npx t3 browser setup');
+      ).toBe('sudo env "PATH=$PATH" npx aprende browser setup');
       expect(
         yield* rootCommand({
           node: "/home/theo/.local/node/bin/node",
-          entry: "/home/theo/.local/lib/node_modules/t3/dist/bin.mjs",
+          entry: "/home/theo/.local/lib/node_modules/aprende/dist/bin.mjs",
           path: yield* pathWithT3,
         }),
-      ).toBe('sudo env "PATH=$PATH" t3 browser setup');
+      ).toBe('sudo env "PATH=$PATH" aprende browser setup');
     }).pipe(Effect.scoped),
   );
 
-  it.effect("keeps the arguments, so root runs setup on the same T3 home", () =>
+  it.effect("keeps the arguments, so root runs setup on the same aprende home", () =>
     Effect.gen(function* () {
       const args = ["--base-dir", "/srv/t3 home"];
       expect(
         yield* rootCommand({
           node: "/home/theo/.local/node/bin/node",
-          entry: "/home/theo/.local/lib/node_modules/t3/dist/bin.mjs",
+          entry: "/home/theo/.local/lib/node_modules/aprende/dist/bin.mjs",
           path: yield* pathWithT3,
           args,
         }),
-      ).toBe(`sudo env "PATH=$PATH" t3 browser setup --base-dir '/srv/t3 home'`);
+      ).toBe(`sudo env "PATH=$PATH" aprende browser setup --base-dir '/srv/t3 home'`);
       expect(
         yield* rootCommand({ node: "/opt/t3/t3", entry: "/opt/t3/t3", executable: true, args }),
       ).toBe("sudo /opt/t3/t3 browser setup --base-dir '/srv/t3 home'");
     }).pipe(Effect.scoped),
   );
 
-  it.effect("names this install's launcher when t3 is not on PATH", () =>
+  it.effect("names this install's launcher when aprende is not on PATH", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
-      const shim = path.join(home, ".local bin", "t3");
+      const shim = path.join(home, ".local bin", "aprende");
       yield* fs.makeDirectory(path.dirname(shim), { recursive: true });
       yield* fs.writeFileString(shim, "#!/bin/sh\n", { mode: 0o755 });
       const desktop = {
-        node: "/tmp/.mount_T3abc/t3code",
+        node: "/tmp/.mount_T3abc/aprende",
         entry: "/tmp/.mount_T3abc/resources/app.asar/apps/server/dist/bin.mjs",
-        env: { T3CODE_CLI_PATH: shim },
+        env: { APRENDE_CLI_PATH: shim },
       };
 
       expect(yield* rootCommand(desktop)).toBe(`sudo '${shim}' browser setup`);
 
-      // An unrelated `t3` on PATH, such as an older npm global, is another install's CLI.
+      // An unrelated `aprende` on PATH, such as an older npm global, is another install's CLI.
       expect(yield* rootCommand({ ...desktop, path: yield* pathWithT3 })).toBe(
         `sudo '${shim}' browser setup`,
       );
 
-      // The link the app installs onto PATH leads to its own launcher, so plain `t3` is right.
+      // The link the app installs onto PATH leads to its own launcher, so plain `aprende` is right.
       const linked = yield* fs.makeTempDirectoryScoped();
-      yield* fs.symlink(shim, path.join(linked, "t3"));
+      yield* fs.symlink(shim, path.join(linked, "aprende"));
       expect(yield* rootCommand({ ...desktop, path: linked })).toBe(
-        'sudo env "PATH=$PATH" t3 browser setup',
+        'sudo env "PATH=$PATH" aprende browser setup',
       );
 
       expect(
@@ -110,8 +110,8 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
       ).toBe("sudo /opt/t3/t3 browser setup");
 
       expect(
-        yield* rootCommand({ ...desktop, env: { T3CODE_CLI_PATH: path.join(home, "gone") } }),
-      ).toBe('sudo env "PATH=$PATH" t3 browser setup');
+        yield* rootCommand({ ...desktop, env: { APRENDE_CLI_PATH: path.join(home, "gone") } }),
+      ).toBe('sudo env "PATH=$PATH" aprende browser setup');
     }).pipe(Effect.scoped),
   );
 });
@@ -122,24 +122,24 @@ it.layer(NodeServices.layer)("host CLI commands", (it) => {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const home = yield* fs.makeTempDirectoryScoped();
-      const shim = path.join(home, "t3.cmd");
+      const shim = path.join(home, "aprende.cmd");
       yield* fs.writeFileString(shim, "@echo off\r\n");
       const hostCommand = (platform: NodeJS.Platform, env: Record<string, string>) =>
-        resolveHostCliCommand("doctor", ["--base-dir", "C:\\Users\\Jane Doe\\.t3"]).pipe(
-          Effect.provideService(HostProcess.ExecutablePath, "C:\\Program Files\\T3 Code\\t3.exe"),
+        resolveHostCliCommand("doctor", ["--base-dir", "C:\\Users\\Jane Doe\\.aprende"]).pipe(
+          Effect.provideService(HostProcess.ExecutablePath, "C:\\Program Files\\aprende\\t3.exe"),
           Effect.provideService(HostProcess.Arguments, [
-            "C:\\Program Files\\T3 Code\\t3.exe",
-            "C:\\Program Files\\T3 Code\\resources\\app.asar\\apps\\server\\dist\\bin.mjs",
+            "C:\\Program Files\\aprende\\t3.exe",
+            "C:\\Program Files\\aprende\\resources\\app.asar\\apps\\server\\dist\\bin.mjs",
           ]),
           Effect.provideService(HostProcess.IsExecutable, false),
           Effect.provideService(HostProcess.Platform, platform),
           Effect.provideService(HostProcess.Environment, { PATH: "", ...env }),
         );
-      expect((yield* hostCommand("win32", { T3CODE_CLI_PATH: shim })).command).toBe(
-        `& "${shim}" doctor "--base-dir" "C:\\Users\\Jane Doe\\.t3"`,
+      expect((yield* hostCommand("win32", { APRENDE_CLI_PATH: shim })).command).toBe(
+        `& "${shim}" doctor "--base-dir" "C:\\Users\\Jane Doe\\.aprende"`,
       );
       expect((yield* hostCommand("win32", {})).command).toBe(
-        't3 doctor "--base-dir" "C:\\Users\\Jane Doe\\.t3"',
+        'aprende doctor "--base-dir" "C:\\Users\\Jane Doe\\.aprende"',
       );
       expect(
         (yield* resolveHostCliCommand("doctor", ["--base-dir", "C:\\T3\\\u201CArchive\u201D"]).pipe(
@@ -149,9 +149,9 @@ it.layer(NodeServices.layer)("host CLI commands", (it) => {
           Effect.provideService(HostProcess.Arguments, ["C:\\t3.exe", "C:\\bin.mjs"]),
           Effect.provideService(HostProcess.IsExecutable, false),
         )).command,
-      ).toBe('t3 doctor "--base-dir" "C:\\T3\\\u201C\u201CArchive\u201D\u201D"');
-      expect((yield* hostCommand("linux", { T3CODE_CLI_PATH: shim })).command).toMatch(
-        / doctor --base-dir 'C:\\Users\\Jane Doe\\\.t3'$/,
+      ).toBe('aprende doctor "--base-dir" "C:\\T3\\\u201C\u201CArchive\u201D\u201D"');
+      expect((yield* hostCommand("linux", { APRENDE_CLI_PATH: shim })).command).toMatch(
+        / doctor --base-dir 'C:\\Users\\Jane Doe\\\.aprende'$/,
       );
     }).pipe(Effect.scoped),
   );
@@ -163,30 +163,30 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
-      const executable = path.join(root, ".t3/runtime/versions/1.0.0/t3");
+      const executable = path.join(root, ".aprende/runtime/versions/1.0.0/t3");
       yield* fs.makeDirectory(path.dirname(executable), { recursive: true });
       yield* fs.writeFileString(executable, "");
       for (const [relative, kind] of [
-        ["npm/_npx/hash/node_modules/t3/dist/bin.mjs", "npx"],
-        ["npm/_npx/hash/node_modules/t3/bin/t3.mjs", "npx"],
-        ["pnpm/dlx/hash/node_modules/t3/dist/bin.mjs", "pnpm-dlx"],
-        [".bun/install/cache/t3/dist/bin.mjs", "bunx"],
+        ["npm/_npx/hash/node_modules/aprende/dist/bin.mjs", "npx"],
+        ["npm/_npx/hash/node_modules/aprende/bin/aprende.mjs", "npx"],
+        ["pnpm/dlx/hash/node_modules/aprende/dist/bin.mjs", "pnpm-dlx"],
+        [".bun/install/cache/aprende/dist/bin.mjs", "bunx"],
       ] as const) {
         const entry = path.join(root, relative);
         yield* fs.makeDirectory(path.dirname(entry), { recursive: true });
         yield* fs.writeFileString(entry, "");
         yield* fs.writeFileString(
           path.join(path.dirname(entry), "../package.json"),
-          `{"name":"t3","version":"${packageJson.version}","bin":{"t3":"./bin/t3.mjs"}}`,
+          `{"name":"aprende","version":"${packageJson.version}","bin":{"aprende":"./bin/aprende.mjs"}}`,
         );
-        const launchedBy = entry.endsWith("t3.mjs");
+        const launchedBy = entry.endsWith("aprende.mjs");
         const installation = yield* resolveServerInstallation.pipe(
           Effect.provideService(HostProcess.Arguments, [launchedBy ? executable : "node", entry]),
           Effect.provideService(HostProcess.ExecutablePath, executable),
           Effect.provideService(HostProcess.IsExecutable, launchedBy),
           Effect.provideService(
             HostProcess.Environment,
-            launchedBy ? { T3CODE_NPM_LAUNCHER_PATH: entry } : {},
+            launchedBy ? { APRENDE_NPM_LAUNCHER_PATH: entry } : {},
           ),
         );
         expect(installation).toEqual({ kind });
@@ -200,15 +200,15 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       const prefix = path.join(root, "bunx-tools");
-      const packageRoot = path.join(prefix, "lib/node_modules/t3");
+      const packageRoot = path.join(prefix, "lib/node_modules/aprende");
       const entry = path.join(packageRoot, "dist/bin.mjs");
-      const globalBin = path.join(prefix, "bin/t3");
+      const globalBin = path.join(prefix, "bin/aprende");
       yield* fs.makeDirectory(path.dirname(entry), { recursive: true });
       yield* fs.makeDirectory(path.dirname(globalBin), { recursive: true });
       yield* fs.writeFileString(entry, "");
       yield* fs.writeFileString(
         path.join(packageRoot, "package.json"),
-        '{"name":"t3","version":"0.0.45","bin":{"t3":"./dist/bin.mjs"}}',
+        '{"name":"aprende","version":"0.0.45","bin":{"aprende":"./dist/bin.mjs"}}',
       );
       const resolve = resolveServerInstallation.pipe(
         Effect.provideService(HostProcess.Arguments, ["node", entry]),
@@ -231,21 +231,21 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       const prefix = path.join(root, "bunx-tools");
-      const packageRoot = path.join(prefix, "lib/node_modules/t3");
-      const launcher = path.join(packageRoot, "bin/t3.mjs");
-      const executable = path.join(root, ".t3/runtime/versions/1.0.0/t3");
+      const packageRoot = path.join(prefix, "lib/node_modules/aprende");
+      const launcher = path.join(packageRoot, "bin/aprende.mjs");
+      const executable = path.join(root, ".aprende/runtime/versions/1.0.0/t3");
       yield* fs.makeDirectory(path.dirname(launcher), { recursive: true });
       yield* fs.makeDirectory(path.dirname(executable), { recursive: true });
       yield* fs.makeDirectory(path.join(prefix, "bin"));
       yield* fs.writeFileString(launcher, "");
       yield* fs.writeFileString(executable, "");
-      yield* fs.symlink(launcher, path.join(prefix, "bin/t3"));
+      yield* fs.symlink(launcher, path.join(prefix, "bin/aprende"));
       const resolve = resolveServerInstallation.pipe(
         Effect.provideService(HostProcess.ExecutablePath, executable),
         Effect.provideService(HostProcess.Arguments, [executable, executable]),
         Effect.provideService(HostProcess.IsExecutable, true),
         Effect.provideService(HostProcess.Platform, "linux"),
-        Effect.provideService(HostProcess.Environment, { T3CODE_NPM_LAUNCHER_PATH: launcher }),
+        Effect.provideService(HostProcess.Environment, { APRENDE_NPM_LAUNCHER_PATH: launcher }),
       );
       for (const [version, expected] of [
         ["0.0.1", null],
@@ -253,7 +253,7 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
       ] as const) {
         yield* fs.writeFileString(
           path.join(packageRoot, "package.json"),
-          `{"name":"t3","version":"${version}","bin":{"t3":"./bin/t3.mjs"}}`,
+          `{"name":"aprende","version":"${version}","bin":{"aprende":"./bin/aprende.mjs"}}`,
         );
         expect(yield* resolve).toEqual(expected);
       }
@@ -266,9 +266,9 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       for (const relative of [
-        "project/node_modules/t3/dist/bin.mjs",
+        "project/node_modules/aprende/dist/bin.mjs",
         "project/apps/server/dist/bin.mjs",
-        ".t3/runtime/0.0.45/t3",
+        ".aprende/runtime/0.0.45/t3",
         "missing/dist/bin.mjs",
       ]) {
         const entry = path.join(root, relative);

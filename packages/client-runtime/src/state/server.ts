@@ -10,7 +10,7 @@ import {
   type ServerSelfUpdateResult,
   shouldRecommendDatabaseCompaction,
   WS_METHODS,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Cause from "effect/Cause";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
@@ -1128,7 +1128,6 @@ export function createServerEnvironmentAtoms<R, E>(
         Object.keys(aliases)
           .sort()
           .map((model) => [model, aliases[model]]),
-        settings?.cursorKeychainUsageEnabled ?? false,
       ]);
     }).pipe(Atom.withLabel(`environment-data:server:usage-scan-settings:${environmentId}`)),
   );
@@ -1326,6 +1325,18 @@ export function createServerEnvironmentAtoms<R, E>(
     scheduledTasksLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:server:scheduled-tasks:live",
       tag: WS_METHODS.scheduledTasksSubscribe,
+    }),
+    learningThreadLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+      label: "environment-data:learning:thread:live",
+      tag: WS_METHODS.learningSubscribeThread,
+    }),
+    tutorPrompt: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:learning:tutor-prompt",
+      tag: WS_METHODS.learningGetTutorPrompt,
+    }),
+    learningKnowledge: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:learning:knowledge",
+      tag: WS_METHODS.learningGetKnowledge,
     }),
     // A cold transcript scan is measured in seconds, so keep the result around
     // long enough that switching windows or re-rendering does not rescan.
@@ -1540,6 +1551,16 @@ export function createServerEnvironmentAtoms<R, E>(
     signalProcess: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:signal-process",
       tag: WS_METHODS.serverSignalProcess,
+    }),
+    answerLearningQuestion: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:answer",
+      tag: WS_METHODS.learningAnswer,
+    }),
+    setTutorPrompt: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:set-tutor-prompt",
+      tag: WS_METHODS.learningSetTutorPrompt,
+      scheduler: configScheduler,
+      concurrency: configConcurrency,
     }),
     upsertScheduledTask: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:scheduled-task:upsert",

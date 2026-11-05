@@ -1,15 +1,15 @@
 import { useEffect, useRef } from "react";
-import type { PhoneViewer } from "@t3tools/client-runtime/device/phone-viewer";
+import type { PhoneViewer } from "@aprende/client-runtime/device/phone-viewer";
 import type {
   DeviceAccessorySource,
   DeviceModelSource,
-} from "@t3tools/client-runtime/device/model";
-import type { DeviceShapeProfile } from "@t3tools/client-runtime/device/shape-profile";
-import type { createPhoneInteraction } from "@t3tools/client-runtime/device/phone-interaction";
-import type { DeviceScreenSize, DeviceStreamClient } from "@t3tools/client-runtime/device/stream";
+} from "@aprende/client-runtime/device/model";
+import type { DeviceShapeProfile } from "@aprende/client-runtime/device/shape-profile";
+import type { createPhoneInteraction } from "@aprende/client-runtime/device/phone-interaction";
+import type { DeviceScreenSize, DeviceStreamClient } from "@aprende/client-runtime/device/stream";
 import { mountDeviceViewer } from "./mountDeviceViewer";
 
-const loadPhoneViewer = () => import("@t3tools/client-runtime/device/phone-viewer");
+const loadPhoneViewer = () => import("@aprende/client-runtime/device/phone-viewer");
 
 export function DevicePhoneViewport(props: {
   readonly profile: DeviceShapeProfile;
@@ -33,13 +33,13 @@ export function DevicePhoneViewport(props: {
   const accessoryRef = useRef(props.accessory);
   const { source, onFrameListener, client, onInputCancel, onResetReady, onUnavailable } = props;
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- pushes the fold angle into the imperative 3D phone viewer
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- pushes the fold angle into the imperative 3D phone viewer
   useEffect(() => {
     foldAngleRef.current = props.foldAngle;
     viewerRef.current?.setFoldAngle(props.foldAngle);
   }, [props.foldAngle]);
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- pushes screen, profile, model and accessory changes into the imperative 3D phone viewer
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- pushes screen, profile, model and accessory changes into the imperative 3D phone viewer
   useEffect(() => {
     screenRef.current = props.screen;
     profileRef.current = props.profile;

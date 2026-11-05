@@ -1,4 +1,4 @@
-import type { ModelSelection, ProviderDriverKind, ProviderInstanceId } from "@t3tools/contracts";
+import type { ModelSelection, ProviderDriverKind, ProviderInstanceId } from "@aprende/contracts";
 import {
   resolveSelectableProviderInstanceEntry,
   type ProviderInstanceEntry,

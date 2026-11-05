@@ -1,8 +1,8 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- FileSystem.access has no execute check.
 import * as NodeFSP from "node:fs/promises";
 
-import type { DesktopCliCommandState } from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import type { DesktopCliCommandState } from "@aprende/contracts";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -60,7 +60,7 @@ export class DesktopCliCommand extends Context.Service<
     readonly install: Effect.Effect<DesktopCliCommandState, DesktopCliCommandError>;
     readonly uninstall: Effect.Effect<DesktopCliCommandState, DesktopCliCommandError>;
   }
->()("@t3tools/desktop/app/DesktopCliCommand") {}
+>()("@aprende/desktop/app/DesktopCliCommand") {}
 
 export const make = Effect.gen(function* () {
   const environment = yield* DesktopEnvironment.DesktopEnvironment;
@@ -86,7 +86,7 @@ export const make = Effect.gen(function* () {
   const isOurLink = Effect.fn("DesktopCliCommand.isOurLink")(
     function* (link: string) {
       yield* fs.readLink(link);
-      // The launcher is a few KB; never read a large binary another `t3` links to.
+      // The launcher is a few KB; never read a large binary another `aprende` links to.
       const info = yield* fs.stat(link);
       if (info.type !== "File" || Number(info.size) > 16_384) return false;
       const content = yield* fs.readFileString(link);
@@ -151,7 +151,7 @@ export const make = Effect.gen(function* () {
 
   const firstOnPath = Effect.gen(function* () {
     for (const directory of pathEntries(env.PATH, ":")) {
-      const candidate = path.join(directory, "t3");
+      const candidate = path.join(directory, "aprende");
       if (yield* isExecutableFile(candidate)) return Option.some(candidate);
     }
     return Option.none<string>();
@@ -173,7 +173,7 @@ export const make = Effect.gen(function* () {
         : Option.none<string>();
     }
     for (const directory of unixCandidates(environment.homeDirectory, environment.platform)) {
-      const link = path.join(directory, "t3");
+      const link = path.join(directory, "aprende");
       if (yield* isOurLink(link)) return Option.some(link);
     }
     return Option.none<string>();
@@ -251,7 +251,7 @@ export const make = Effect.gen(function* () {
       ...candidates.filter((candidate) => onPath.includes(candidate)),
       ...candidates.filter((candidate) => !onPath.includes(candidate)),
     ]) {
-      const link = path.join(directory, "t3");
+      const link = path.join(directory, "aprende");
       const created = (yield* exists(directory))
         ? yield* writableDirectory(directory)
         : yield* fs.makeDirectory(directory, { recursive: true }).pipe(
@@ -281,7 +281,7 @@ export const make = Effect.gen(function* () {
       return yield* state;
     }
     for (const directory of unixCandidates(environment.homeDirectory, environment.platform)) {
-      const link = path.join(directory, "t3");
+      const link = path.join(directory, "aprende");
       if (yield* isOurLink(link)) {
         yield* fs.remove(link).pipe(Effect.mapError(() => fail(`Could not remove ${link}.`)));
       }

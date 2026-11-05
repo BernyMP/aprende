@@ -19,9 +19,9 @@ import {
   type OrchestrationV2TurnItem,
   ThreadId,
   TurnItemId,
-} from "@t3tools/contracts";
-import { chatMarkdownImageSources } from "@t3tools/shared/markdownPipeline";
-import { htmlRenderFromToolItem } from "@t3tools/shared/toolOutput";
+} from "@aprende/contracts";
+import { chatMarkdownImageSources } from "@aprende/shared/markdownPipeline";
+import { htmlRenderFromToolItem } from "@aprende/shared/toolOutput";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
@@ -57,7 +57,6 @@ import {
 } from "../orchestration-v2/WireProjection.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import * as AnalyticsService from "../telemetry/AnalyticsService.ts";
 import { guestShareView, guestThreadModel } from "./guestView.ts";
 import {
   classifyGuestUploads,
@@ -196,7 +195,7 @@ export class GuestShareService extends Context.Service<
       path: string,
     ) => Effect.Effect<{ readonly path: string; readonly mimeType: string }, GuestShareAccessError>;
   }
->()("t3/guest/GuestShareService") {}
+>()("aprende/guest/GuestShareService") {}
 
 /** A reply a guest's stream sent, with its image sources once a media request parsed them. */
 interface SentReply {
@@ -226,7 +225,6 @@ const make = Effect.gen(function* () {
   const { attachmentsDir } = yield* ServerConfig.ServerConfig;
   const fileSystem = yield* FileSystem.FileSystem;
   const random = yield* SecureRandom.SecureRandom;
-  const analytics = yield* AnalyticsService.AnalyticsService;
   const signer = yield* PayloadSigner.make(SIGNING_SECRET_NAME);
   /** A truncated HMAC keeps invite links short. 128 bits is still far beyond guessing range. */
   const inviteSignature = (shareId: string) =>
@@ -375,8 +373,6 @@ const make = Effect.gen(function* () {
       shareId: share.id,
       guestName: request.name,
     });
-    // Guests have no client connection, so their events carry no surface.
-    yield* analytics.record("feature.used", { feature: "guest_share.join" });
     const token = yield* signSession({ kind: "session", threadId: thread.id, shareId: share.id });
     return { token, shareId: share.id };
   });
@@ -467,10 +463,6 @@ const make = Effect.gen(function* () {
       text: request.text,
       ...(attachments.length === 0 ? {} : { attachments }),
     }).pipe(Effect.onError(() => removeStored(attachments)));
-    yield* analytics.record("feature.used", {
-      feature: "guest_message.submit",
-      variant: attachments.length === 0 ? "text_only" : "with_files",
-    });
   });
 
   /** Completes once the session no longer opens its share, so open reads end with it. */

@@ -1,14 +1,13 @@
 import {
-  ANTIGRAVITY_DEFAULT_MODEL,
   type ProviderInstanceId,
   type EnvironmentId,
   type ProviderDriverKind,
   type ResolvedKeybindingsConfig,
   MODEL_PICKER_JUMP_KEYBINDING_COMMANDS,
-} from "@t3tools/contracts";
-import { resolveSelectableModel } from "@t3tools/shared/model";
+} from "@aprende/contracts";
+import { resolveSelectableModel } from "@aprende/shared/model";
 import { useAtomValue } from "@effect/atom-react";
-import { formatProviderUpdateRequiredNotice } from "@t3tools/client-runtime/providerUpdateRequiredModels";
+import { formatProviderUpdateRequiredNotice } from "@aprende/client-runtime/providerUpdateRequiredModels";
 import { useNavigate } from "@tanstack/react-router";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import {
@@ -83,39 +82,10 @@ type ModelPickerItem = {
 };
 
 export function resolveModelPickerSelectedModel(input: {
-  driverKind: ProviderDriverKind | undefined;
   model: string;
   options: ReadonlyArray<ModelEsque>;
 }) {
-  if (input.driverKind === "antigravity" && input.model === ANTIGRAVITY_DEFAULT_MODEL) {
-    const availableModels = input.options.filter(
-      (option) => option.slug !== ANTIGRAVITY_DEFAULT_MODEL && !option.isUnavailable,
-    );
-    return (
-      availableModels.find((option) => option.aliases?.includes(ANTIGRAVITY_DEFAULT_MODEL)) ??
-      availableModels.find((option) => option.isDefault)
-    );
-  }
   return input.options.find((option) => option.slug === input.model);
-}
-
-function shouldIncludeModelPickerOption(input: {
-  readonly entry: ProviderInstanceEntry;
-  readonly option: ModelEsque;
-  readonly activeInstanceId: ProviderInstanceId;
-  readonly activeModel: string;
-}): boolean {
-  if (input.entry.driverKind === "antigravity" && input.option.slug === ANTIGRAVITY_DEFAULT_MODEL) {
-    return false;
-  }
-  if (isProviderInstancePickerReady(input.entry)) return true;
-  return (
-    input.entry.enabled &&
-    (input.entry.driverKind === "opencode" || input.entry.driverKind === "antigravity") &&
-    input.entry.instanceId === input.activeInstanceId &&
-    input.option.slug === input.activeModel &&
-    input.option.isUnavailable === true
-  );
 }
 
 function shouldOfferModelPickerSetup(
@@ -282,7 +252,7 @@ function ModelPickerList({
     setShowBottomScrollFade(itemKeys.length > 5);
   }
   const measureScrollFades = useEffectEvent(updateScrollFades);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- measures the list scroller in animation frames after a new list lays out to set scroll fades
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- measures the list scroller in animation frames after a new list lays out to set scroll fades
   useLayoutEffect(() => {
     let nestedFrame = 0;
     const frame = window.requestAnimationFrame(() => {
@@ -333,7 +303,7 @@ function ModelPickerList({
 // Capture gives picker shortcuts priority over the composer.
 function WindowKeyDownListener({ onKeyDown }: { onKeyDown: (event: KeyboardEvent) => void }) {
   const handleKeyDown = useEffectEvent(onKeyDown);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes a capture-phase window keydown listener for the picker's lifetime
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- subscribes a capture-phase window keydown listener for the picker's lifetime
   useEffect(() => {
     const listener = (event: KeyboardEvent) => handleKeyDown(event);
     window.addEventListener("keydown", listener, true);
@@ -383,7 +353,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   const [searchQuery, setSearchQuery] = useState("");
   const modelListRef = useRef<LegendListRef | null>(null);
   const pickerContentRef = useRef<HTMLDivElement>(null);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- publishes this picker's mount to global keydown handlers
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- publishes this picker's mount to global keydown handlers
   useLayoutEffect(() => registerModelPickerContent(), []);
   const highlightedModelKeyRef = useRef<string | null>(null);
   const { favorites } = useEnvironmentModelPreferences(props.environmentId);
@@ -391,19 +361,15 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
     (entry) => entry.instanceId === props.activeInstanceId,
   );
   const activeModel = resolveModelPickerSelectedModel({
-    driverKind: activeEntry?.driverKind,
     model: props.model,
     options: modelOptionsByInstance.get(props.activeInstanceId) ?? [],
   });
-  const activeModelSlug =
-    activeModel?.slug ?? (props.model === ANTIGRAVITY_DEFAULT_MODEL ? "" : props.model);
+  const activeModelSlug = activeModel?.slug ?? props.model;
   const activeModelKey = activeModelSlug
     ? modelPickerModelKey(props.activeInstanceId, activeModelSlug)
     : null;
   const selectedModelKeys = props.selectedModels?.map((selection) => {
-    const entry = instanceEntries.find((entry) => entry.instanceId === selection.instanceId);
     const model = resolveModelPickerSelectedModel({
-      driverKind: entry?.driverKind,
       model: selection.model,
       options: modelOptionsByInstance.get(selection.instanceId) ?? [],
     });
@@ -412,17 +378,6 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   const selectedModelKeySet = new Set(
     selectedModelKeys ?? (activeModelKey ? [activeModelKey] : []),
   );
-  const activeInstanceHasSelectableUnavailableModel =
-    activeEntry !== undefined &&
-    (modelOptionsByInstance.get(props.activeInstanceId) ?? []).some((option) =>
-      shouldIncludeModelPickerOption({
-        entry: activeEntry,
-        option,
-        activeInstanceId: props.activeInstanceId,
-        activeModel: activeModelSlug,
-      }),
-    ) &&
-    !isProviderInstancePickerReady(activeEntry);
   const activeInstanceNeedsSetup =
     onOpenProviderSetup !== undefined &&
     activeEntry !== undefined &&
@@ -432,11 +387,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
     );
   const [selectedInstanceId, setSelectedInstanceId] = useState<ProviderInstanceId | "favorites">(
     () => {
-      if (
-        props.lockedProvider !== null ||
-        activeInstanceHasSelectableUnavailableModel ||
-        activeInstanceNeedsSetup
-      ) {
+      if (props.lockedProvider !== null || activeInstanceNeedsSetup) {
         return props.activeInstanceId;
       }
       return favorites.length > 0 ? "favorites" : props.activeInstanceId;
@@ -527,9 +478,6 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
 
   const selectableUnavailableInstanceIds = (() => {
     const instanceIds = new Set<ProviderInstanceId>();
-    if (activeInstanceHasSelectableUnavailableModel) {
-      instanceIds.add(props.activeInstanceId);
-    }
     if (canOpenProviderSetup) {
       for (const entry of instanceEntries) {
         if (
@@ -546,20 +494,10 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
     const out: ModelPickerItem[] = [];
     for (const [instanceId, models] of modelOptionsByInstance) {
       const entry = entryByInstanceId.get(instanceId);
-      if (!entry) {
+      if (!entry || !isProviderInstancePickerReady(entry)) {
         continue;
       }
       for (const model of models) {
-        if (
-          !shouldIncludeModelPickerOption({
-            entry,
-            option: model,
-            activeInstanceId: props.activeInstanceId,
-            activeModel: activeModelSlug,
-          })
-        ) {
-          continue;
-        }
         out.push({
           slug: model.slug,
           name: model.name,

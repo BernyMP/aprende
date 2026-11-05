@@ -1,4 +1,4 @@
-import { EnvironmentId, ThreadId, type ScopedThreadRef } from "@t3tools/contracts";
+import { EnvironmentId, ThreadId, type ScopedThreadRef } from "@aprende/contracts";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -128,7 +128,7 @@ export function formatThreadLink(ref: ThreadLink, label?: string): string {
   return cleaned ? `[${cleaned}](${threadLinkHref(ref)})` : `<${threadLinkHref(ref)}>`;
 }
 
-/** What a person copies out of T3 Code: a Markdown link that opens the thread anywhere. */
+/** What a person copies out of aprende: a Markdown link that opens the thread anywhere. */
 export function formatHostedThreadLink(
   ref: ScopedThreadRef,
   label: string,
@@ -139,7 +139,7 @@ export function formatHostedThreadLink(
   return cleaned ? `[${cleaned}](${href})` : href;
 }
 
-export function hasThreadLinks(markdown: string): boolean {
+function hasThreadLinks(markdown: string): boolean {
   return markdown.includes(`${THREAD_LINK_PROTOCOL}://v`) || markdown.includes(HOSTED_PREFIX);
 }
 

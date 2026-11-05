@@ -1,6 +1,6 @@
 // @effect-diagnostics globalDate:off -- A fixed instant keeps calendar-window assertions deterministic.
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { UsageSource } from "@t3tools/contracts";
+import type { UsageSource } from "@aprende/contracts";
 
 import { formatHourShort, makeWindow, usageSourceMessages } from "./usageFormat.ts";
 
@@ -79,21 +79,13 @@ describe("usage source messages", () => {
   it("retains other diagnostics beside the combined warning", () => {
     const source = malformedSource(1);
     const readFailure = "2 transcript path(s) could not be read; usage may be incomplete.";
-    const cursor = malformedSource(0, {
-      fingerprint: { ...source.fingerprint, provider: "cursor" },
-      status: "ok",
-      message: "Cursor history is limited to the last 30 days.",
-    });
-
     expect(
       usageSourceMessages([
         { ...source, message: `${readFailure} ${source.message}` },
         { ...source, malformedRecords: 0, message: readFailure },
-        cursor,
       ]),
     ).toEqual([
       readFailure,
-      cursor.message,
       "1 malformed or inconsistent usage record(s) were skipped; usage may be incomplete.",
     ]);
   });
@@ -116,12 +108,11 @@ describe("usage source messages", () => {
     ]);
   });
 
-  it("omits empty missing sources, healthy sources, and diagnostics handled by an action", () => {
+  it("omits empty missing sources and healthy sources", () => {
     expect(
       usageSourceMessages([
         malformedSource(0, { status: "missing" }),
         malformedSource(1, { status: "ok" }),
-        malformedSource(1, { action: "enableCursorKeychain" }),
       ]),
     ).toEqual([]);
     expect(usageSourceMessages([])).toEqual([]);

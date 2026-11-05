@@ -15,62 +15,28 @@ a new browser.
 
 Prefer a container? See [Dev container](../internals/devcontainer.md) for VS Code and Codespaces setup.
 
-## GitCafe mirror (optional)
-
-GitHub is the source of truth. [git.cafe/pingdotgg/t3code](https://git.cafe/pingdotgg/t3code) is a
-two-way synced mirror with much higher API rate limits, which helps when many agents work at once.
-You never need it to contribute.
-
-Pushes, PRs, comments, reviews, labels, and issue edits made on GitCafe sync to GitHub within
-about a minute, and PR and issue numbers match. CI runs on GitHub, and its checks show up on
-GitCafe.
-
-```sh
-git remote set-url origin https://git.cafe/pingdotgg/t3code.git
-git remote add github https://github.com/pingdotgg/t3code.git
-gh repo set-default pingdotgg/t3code   # `gh` is still used for merging
-bun install -g @gitcafe/cli@latest   # `cafe` needs Bun 1.2 or newer
-cafe auth login && cafe auth http setup
-cafe skills install --global  # optional: cafe-* skills for coding agents
-```
-
-With `origin` on git.cafe, work through GitCafe and leave GitHub's API alone:
-
-- Push to `origin`, open PRs with `cafe pr create` (`--head owner/repo:branch` from a fork) or
-  `cafe stack submit`, and use `cafe` for everything after that. Link the git.cafe PR URL, not the
-  github.com one, wherever a tool tracks the PR, so polling stays on GitCafe.
-- Read checks with `cafe pr status <n>`, and GitHub Actions logs with `cafe ci logs <run>` (run ids
-  from `cafe ci list --pr <n>`). `cafe ci rerun <run>` reruns one. These need `cafe` 0.11 or newer.
-- Write closing references as `Fixes pingdotgg/t3code#<n>`. GitCafe turns a bare `#<n>` in text it
-  syncs to GitHub into a git.cafe link, and GitHub does not close issues from those.
-- Merge with `gh pr merge <n> --match-head-commit <sha>`, because `cafe pr merge` cannot pin the
-  commit you reviewed.
-- `cafe` commands differ from `gh`: `cafe issue comments <n>` not `--comments`, `cafe pr status`
-  not `pr checks`.
-
 ## Choosing a dev process
 
 Use `vp run dev` for server and web, or `vp run dev:desktop` for the Electron client.
 `dev:server` and `dev:web` start those processes separately.
-See the [mobile README](../../apps/mobile/README.md) for native builds and Metro.
 
-Flags go directly after the task name, for example `vp run dev --home-dir /tmp/t3code-dev`.
+Flags go directly after the task name, for example `vp run dev --home-dir /tmp/aprende-dev`.
 Add `--browser` to open a browser automatically.
 
 ### State and ports
 
-Linked worktrees default to their own `.t3/userdata`, even when `T3CODE_HOME` is set.
-The main checkout defaults to `~/.t3/dev`. An explicit `--home-dir` wins in both cases.
+Linked worktrees default to their own `.aprende/userdata`, even when `APRENDE_HOME` is set.
+The main checkout defaults to `~/.aprende/dev`. An explicit `--home-dir` wins in both cases.
 The first start in a worktree seeds its empty database from a read-only copy of
-`~/.t3/userdata/statev2.sqlite` if the source is at most 500 MiB. Larger sources warn
-and dev starts with an empty database. `--no-seed` or `T3CODE_DEV_SEED=0` skips seeding.
+`~/.aprende/userdata/statev2.sqlite` if the source is at most 500 MiB. Larger sources warn
+and dev starts with an empty database. `--no-seed` or `APRENDE_DEV_SEED=0` skips seeding.
 To copy a larger source, run `vp run migrate-dev-db` with dev stopped. It may use
 substantial disk space before pruning.
-Never run a development server against the live `~/.t3/userdata`.
+Never run a development server against the live `~/.aprende/userdata`.
 See [test data](../../AGENTS.md#test-data) for copying a consistent database snapshot.
 
 Read ports from the `[dev-runner]` output. Worktrees derive stable preferences from their paths,
-but occupied ports can shift them. `T3CODE_PORT_OFFSET` or `T3CODE_DEV_INSTANCE` can select a
+but occupied ports can shift them. `APRENDE_PORT_OFFSET` or `APRENDE_DEV_INSTANCE` can select a
 different preference when needed.
 
 ### Replay provider
@@ -89,9 +55,9 @@ and vendor frames, so Grok and fx recordings lose their vendor-only behavior.
 ### Profiling dev startup
 
 Run `vp run profile:startup` to capture the first 20 seconds of inherited Node processes under
-`.t3/startup-profiles/<timestamp>`. Workers that execute the preload get separate profiles.
+`.aprende/startup-profiles/<timestamp>`. Workers that execute the preload get separate profiles.
 It starts the normal dev runner and accepts its flags.
-Stop it with Ctrl+C after the capture. Set `T3CODE_STARTUP_PROFILE_DIR` to choose another output
+Stop it with Ctrl+C after the capture. Set `APRENDE_STARTUP_PROFILE_DIR` to choose another output
 directory. Profiling adds overhead, so compare readiness with an ordinary `vp run dev` run.
 
 Open a `.cpuprofile` in Chrome DevTools' Performance panel for sampled function stacks and source
@@ -100,7 +66,7 @@ synchronous subprocess calls, and startup measures. Per-file records include imp
 source loading, preparation, recursive dependency linking, and top-level evaluation. Preparation
 uses synchronous loader boundaries; linking includes dependencies, and CommonJS evaluation can
 include nested `require` calls. Some ESM/CommonJS interop reports a combined stage. `.process.json` records the process, Node version, and capture window.
-The server's nested Effect and SQL spans remain in `.t3/userdata/logs/server.trace.ndjson`.
+The server's nested Effect and SQL spans remain in `.aprende/userdata/logs/server.trace.ndjson`.
 
 The preload temporarily adds module-body timing markers and uses one automatic debugger pause
 to instrument the live Node loader. The launcher adds `--no-node-snapshot` to inherited
@@ -124,7 +90,7 @@ Leave `VITE_HTTP_URL` and `VITE_WS_URL` unset. Vite proxies the backend through 
 origin so the same build works over localhost and remote connections.
 
 Shared runs enable bundled dev to avoid a network round trip for each import level.
-`T3CODE_BUNDLED_DEV=0` opts out when debugging bundler differences. Two reload traps matter
+`APRENDE_BUNDLED_DEV=0` opts out when debugging bundler differences. Two reload traps matter
 when changing this setup:
 
 - The web entry must dynamically import the app so React refresh initializes before application
@@ -151,7 +117,7 @@ reloads by itself. The license manifest is not generated in this mode. `--built`
 
 Use this only on a hostname where you trust every service. Browsers send cookies to all ports
 on that hostname. Any service you visit there can receive the reusable admin credential,
-including services unrelated to T3 Code. If you run untrusted services on that hostname, keep
+including services unrelated to aprende. If you run untrusted services on that hostname, keep
 normal per-environment pairing instead.
 
 To use one browser profile across web dev worktrees on the same hostname, generate one fixed
@@ -164,7 +130,7 @@ openssl rand -hex 32
 Put that value in the main checkout's gitignored `.env`:
 
 ```dotenv
-T3CODE_DEV_AUTH_TOKEN=<the value generated above>
+APRENDE_DEV_AUTH_TOKEN=<the value generated above>
 ```
 
 The `t3.json` Setup Worktree action links that file to each worktree's `.env`. The dev runner reads repository env files at startup. `.env.local` and inherited process
@@ -173,7 +139,7 @@ environment values override `.env`, so no per-worktree export is needed after se
 For a manual worktree or launcher without that link, export the same fixed value instead:
 
 ```sh
-export T3CODE_DEV_AUTH_TOKEN="<the value generated above>"
+export APRENDE_DEV_AUTH_TOKEN="<the value generated above>"
 ```
 
 Do not generate a new value at startup. Start or restart `vp run dev --share` after configuration,
@@ -335,11 +301,9 @@ rustup target add aarch64-pc-windows-msvc
 ```
 
 NSIS is downloaded by electron-builder. WSL support additionally needs the Linux CLI archive
-passed as `--wsl-runtime`; see the
-[release runbook](./release.md#windows-payload-topology-and-update-validation).
+passed as `--wsl-runtime`.
 
 ### Signing and passkeys
 
-Add `--signed` after configuring the platform credentials in the
-[release runbook](./release.md). macOS passkeys need a signed, provisioned app; follow the
-[Connect setup](./connect-setup.md#desktop-passkeys) for local signing and renderer HMR.
+Add `--signed` after configuring the platform's signing credentials. Builds are unsigned until
+aprende has signing identities.

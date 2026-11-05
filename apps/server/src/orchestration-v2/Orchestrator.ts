@@ -3,14 +3,14 @@ import type {
   OrchestrationV2SearchThreadInput,
   OrchestrationV2SearchThreadResult,
   OrchestrationV2ThreadHistoryPage,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   latestExecutedRun,
   latestRootProviderFailure,
   runRanAfter,
   usageLimitBlockedRun,
-} from "@t3tools/shared/orchestrationV2ThreadError";
-import { canonicalizeGitCafePullRequestUrl } from "@t3tools/source-control-definitions/registry";
+} from "@aprende/shared/orchestrationV2ThreadError";
+import { canonicalizeGitCafePullRequestUrl } from "@aprende/source-control-definitions/registry";
 import { threadPullRequestsOf } from "../sourceControl/threadPullRequests.ts";
 import {
   normalizeThreadPullRequestKey,
@@ -74,15 +74,15 @@ import {
   TurnItemId,
   TrimmedNonEmptyString,
   managedRuntimeModeCeilingMessage,
-} from "@t3tools/contracts";
-import { modelSelectionsEqual } from "@t3tools/shared/model";
+} from "@aprende/contracts";
+import { modelSelectionsEqual } from "@aprende/shared/model";
 import { modelSwitchSince } from "./modelSwitch.ts";
-import { recordThreadOpen } from "@t3tools/shared/paletteSearch";
+import { recordThreadOpen } from "@aprende/shared/paletteSearch";
 import {
   backgroundWorkHoldsCompletion,
   derivePendingBackgroundWork,
   pendingBackgroundTurnItems,
-} from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
+} from "@aprende/shared/orchestrationV2PendingBackgroundWork";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -117,7 +117,7 @@ import {
   visibleConversationItems,
   visibleDeltaRunOrdinals,
 } from "./ContextHandoffService.ts";
-import { notificationTurnItem } from "@t3tools/provider-core/server/notification";
+import { notificationTurnItem } from "@aprende/provider-core/server/notification";
 import {
   cancelledBeforeStart,
   continuationFailedBeforePrompt,
@@ -141,7 +141,7 @@ import {
 import * as EffectOutbox from "./EffectOutbox.ts";
 import { withCommandMetrics } from "../observability/Metrics.ts";
 import type { OrchestrationEffectRequestV2, PendingOrchestrationEffectV2 } from "./EffectOutbox.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as ThreadCommandExecutor from "./ThreadCommandExecutor.ts";
 import {
   DispatchModeLimit,
@@ -168,8 +168,8 @@ import {
   type ShellSnapshotOptions,
 } from "./ProjectionStore.ts";
 import { ProviderAdapterRegistryV2 } from "./ProviderAdapterRegistry.ts";
-import * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
-import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
+import * as ProviderContinuationRequests from "@aprende/provider-core/server/ProviderContinuationRequests";
+import { makeProviderFailure } from "@aprende/provider-core/server/failure";
 import * as RunExecutionService from "./RunExecutionService.ts";
 import { ProviderSessionManagerV2 } from "./ProviderSessionManager.ts";
 import { ProviderSwitchServiceV2 } from "./ProviderSwitchService.ts";
@@ -182,14 +182,14 @@ import {
   subagentResultForRun,
   delegatedTaskProgress,
   subagentThreadTitle,
-} from "@t3tools/provider-core/server/subagentProjection";
+} from "@aprende/provider-core/server/subagentProjection";
 import {
   forkableSourceRunStatusError,
   isForkableSourceRunStatus,
   ThreadForkServiceV2,
 } from "./ThreadForkService.ts";
 import { planThreadDeletion } from "./ThreadDeletion.ts";
-import type * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import type * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
 import * as ServerSettings from "../serverSettings.ts";
 
 const isMessageQuestionAnswer = Schema.is(
@@ -360,7 +360,7 @@ export type OrchestratorV2Error = typeof OrchestratorV2Error.Type;
 export interface OrchestratorV2DispatchResult {
   readonly sequence: number;
   readonly storedEvents: ReadonlyArray<OrchestrationV2StoredEvent>;
-  /** The command id was already accepted; analytics skip it. */
+  /** The command id was already accepted, so this call wrote nothing. */
   readonly replayed?: true;
 }
 
@@ -457,7 +457,6 @@ export interface OrchestratorV2Shape {
     ReadonlyArray<ThreadId>,
     OrchestratorV2Error
   >;
-  readonly countThreads: () => Effect.Effect<number, OrchestratorV2Error>;
   readonly listActiveShellIndex: () => Effect.Effect<
     ReadonlyArray<ActiveShellIndexEntry>,
     OrchestratorV2Error
@@ -494,7 +493,7 @@ export interface OrchestratorV2Shape {
 }
 
 export class OrchestratorV2 extends Context.Service<OrchestratorV2, OrchestratorV2Shape>()(
-  "t3/orchestration-v2/Orchestrator/OrchestratorV2",
+  "aprende/orchestration-v2/Orchestrator/OrchestratorV2",
 ) {}
 
 /** Run ordinals can skip values: a queued run moves past newer runs when it starts. */
@@ -670,7 +669,7 @@ function delegatedTasksStopEffect(command: {
 
 const WORKSPACE_PREPARATION_INPUT = "Preparing workspace";
 const RUNTIME_REQUEST_DELIVERY_FAILED_MESSAGE =
-  "T3 Code could not confirm that your answer reached the agent. If the run stays stuck, stop it and try again.";
+  "aprende could not confirm that your answer reached the agent. If the run stays stuck, stop it and try again.";
 
 function withoutPreparationResult(
   item: Extract<OrchestrationV2TurnItem, { readonly type: "command_execution" }>,
@@ -4786,7 +4785,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
     readonly messageId: OrchestrationV2ConversationMessage["id"];
     readonly text: string;
     readonly attachments: ReadonlyArray<ChatAttachment>;
-    readonly context?: import("@t3tools/contracts").OrchestrationMessageContext | undefined;
+    readonly context?: import("@aprende/contracts").OrchestrationMessageContext | undefined;
     readonly createdBy: OrchestrationV2ConversationMessage["createdBy"];
     readonly creationSource: OrchestrationV2ConversationMessage["creationSource"];
     readonly scheduledTaskId?: OrchestrationV2ConversationMessage["scheduledTaskId"];
@@ -14251,9 +14250,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           .pipe(Effect.mapError(shellProjectionError));
       },
     ),
-    countThreads: Effect.fn("OrchestratorV2.countThreads")(function () {
-      return projectionStore.countThreads().pipe(Effect.mapError(shellProjectionError));
-    }),
     listActiveShellIndex: Effect.fn("OrchestratorV2.listActiveShellIndex")(function () {
       return projectionStore.listActiveShellIndex().pipe(Effect.mapError(shellProjectionError));
     }),
