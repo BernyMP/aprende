@@ -1,10 +1,15 @@
 import * as DocumentText from "../provider/DocumentText.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as FileSystem from "effect/FileSystem";
 import * as ServerConfig from "../config.ts";
+import { createPendingAttachmentId, resolveAttachmentPath } from "../attachmentStore.ts";
 import * as ThreadMessageIntake from "./ThreadMessageIntake.ts";
 import { assert, it, vi } from "@effect/vitest";
 import {
+  type ChatAttachment,
+  ChatAttachmentId,
   CommandId,
+  ComposerContextId,
   DEFAULT_SERVER_SETTINGS,
   MessageId,
   ProjectId,
@@ -13,6 +18,7 @@ import {
   type ServerProvider,
   ThreadId,
 } from "@aprende/contracts";
+import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -21,6 +27,7 @@ import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import * as Result from "effect/Result";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as GitWorkflow from "../git/GitWorkflowService.ts";
@@ -91,6 +98,10 @@ interface HarnessOptions {
   readonly serverSettings?: Parameters<typeof ServerSettings.layerTest>[0];
   readonly providers?: ReadonlyArray<ServerProvider>;
   readonly git?: Partial<GitWorkflow.GitWorkflowService["Service"]>;
+  readonly aroundDispatch?: (
+    command: Parameters<ThreadManagement.ThreadManagementService["Service"]["dispatch"]>[0],
+    dispatch: ReturnType<ThreadManagement.ThreadManagementService["Service"]["dispatch"]>,
+  ) => ReturnType<ThreadManagement.ThreadManagementService["Service"]["dispatch"]>;
 }
 
 function makeHarness(options: HarnessOptions = {}) {
@@ -108,6 +119,20 @@ function makeHarness(options: HarnessOptions = {}) {
     Layer.provide(layerServerSettings),
     Layer.provide(layerReceipts),
   );
+  const aroundDispatch = options.aroundDispatch;
+  const layerLaunchThreadManagement =
+    aroundDispatch === undefined
+      ? layerThreadManagement
+      : Layer.effect(
+          ThreadManagement.ThreadManagementService,
+          Effect.gen(function* () {
+            const threads = yield* ThreadManagement.ThreadManagementService;
+            return ThreadManagement.ThreadManagementService.of({
+              ...threads,
+              dispatch: (command) => aroundDispatch(command, threads.dispatch(command)),
+            });
+          }),
+        ).pipe(Layer.provide(layerThreadManagement));
   const layerOutbox = EffectOutbox.layer.pipe(Layer.provide(layerDatabase));
   const createWorktree = vi.fn(
     options.createWorktree ??
@@ -180,7 +205,7 @@ function makeHarness(options: HarnessOptions = {}) {
     Layer.provide(
       Layer.mergeAll(
         layerExternalServices,
-        layerThreadManagement,
+        layerLaunchThreadManagement,
         layerReceipts,
         IdAllocator.layer,
       ),
@@ -237,6 +262,56 @@ function makeHarness(options: HarnessOptions = {}) {
   };
 }
 
+/**
+ * Holds each workspace preparation at its first write, while its run is still preparing, until
+ * `open`. `entered` fires once `arrivals` preparations wait; `released` once a run is released.
+ */
+const makePreparationGate = (arrivals = 1) =>
+  Effect.gen(function* () {
+    const count = yield* Ref.make(0);
+    const entered = yield* Deferred.make<void>();
+    const allow = yield* Deferred.make<void>();
+    const released = yield* Deferred.make<void>();
+    const aroundDispatch: NonNullable<HarnessOptions["aroundDispatch"]> = (command, dispatch) => {
+      if (command.type === "prepared-run.release") {
+        return dispatch.pipe(Effect.tap(() => Deferred.succeed(released, undefined)));
+      }
+      if (command.type !== "thread.metadata.update" || !command.commandId.endsWith(":workspace")) {
+        return dispatch;
+      }
+      return Ref.updateAndGet(count, (current) => current + 1).pipe(
+        Effect.tap((current) =>
+          current === arrivals ? Deferred.succeed(entered, undefined) : Effect.void,
+        ),
+        Effect.andThen(Deferred.await(allow)),
+        Effect.andThen(dispatch),
+      );
+    };
+    return {
+      count,
+      entered,
+      open: Deferred.succeed(allow, undefined).pipe(Effect.asVoid),
+      released,
+      aroundDispatch,
+    };
+  });
+
+/** Makes the first two launches both read no receipt before either claims the thread. */
+const makeClaimRace = Effect.gen(function* () {
+  const arrived = yield* Ref.make(0);
+  const bothRead = yield* Deferred.make<void>();
+  return Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+    namedProjectsRoot: "/projects",
+    isScratchProject: () => Effect.succeed(false),
+    folderForThread: () =>
+      Ref.updateAndGet(arrived, (count) => count + 1).pipe(
+        Effect.tap((count) => (count === 2 ? Deferred.succeed(bothRead, undefined) : Effect.void)),
+        Effect.andThen(Deferred.await(bothRead)),
+        Effect.as(Option.none()),
+      ),
+  });
+});
+
 function launchInput(input: {
   readonly command: string;
   readonly thread: string;
@@ -265,6 +340,40 @@ function launchInput(input: {
     creationSource: "web" as const,
   };
 }
+
+it.effect("prepares independent launches concurrently instead of behind a global semaphore", () =>
+  Effect.gen(function* () {
+    const preparation = yield* makePreparationGate(2);
+    const harness = makeHarness({ aroundDispatch: preparation.aroundDispatch });
+    yield* Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const results = yield* Effect.all(
+        [
+          launches.launch(
+            launchInput({
+              command: "command:launch:concurrent-a",
+              thread: "thread:launch:concurrent-a",
+              message: "First",
+            }),
+          ),
+          launches.launch(
+            launchInput({
+              command: "command:launch:concurrent-b",
+              thread: "thread:launch:concurrent-b",
+              message: "Second",
+            }),
+          ),
+        ],
+        { concurrency: "unbounded" },
+      );
+      assert.deepEqual(
+        results.map((result) => result.projection.runs[0]?.status),
+        ["preparing", "preparing"],
+      );
+      yield* Deferred.await(preparation.entered);
+    }).pipe(Effect.provide(harness.layer));
+  }),
+);
 
 it.effect.each([" /COMPACT "])(
   "uses the first conversation message for a title after %s",
@@ -695,25 +804,128 @@ it.effect("does not treat an unrelated accepted command receipt as a launch", ()
   }).pipe(Effect.provide(harness.layer));
 });
 
+it.effect("replays a server-allocated launch", () =>
+  Effect.gen(function* () {
+    const preparation = yield* makePreparationGate();
+    const harness = makeHarness({ aroundDispatch: preparation.aroundDispatch });
+    yield* Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const { threadId: _unusedThreadId, ...rest } = launchInput({
+        command: "command:launch:allocated-retry",
+        thread: "unused",
+        message: "Only once",
+      });
+      const first = yield* launches.launch(rest);
+      yield* Deferred.await(preparation.entered);
+      const retry = yield* launches.launch(rest);
+      assert.equal(retry.threadId, first.threadId);
+      assert.isFalse(first.resumed);
+      assert.isTrue(retry.resumed);
+      // Clients drop their pending copy once the thread reaches the message's commit.
+      assert.isNumber(first.sequence);
+      assert.equal(retry.sequence, first.sequence);
+      assert.equal(retry.projection.messages.length, 1);
+      assert.equal(retry.projection.runs.length, 1);
+      assert.equal(retry.projection.messages[0]?.id, first.projection.messages[0]?.id);
+      assert.equal(retry.projection.runs[0]?.id, first.projection.runs[0]?.id);
+      yield* preparation.open;
+      yield* Deferred.await(preparation.released);
+      const settled = yield* launches.launch(rest);
+      assert.equal(settled.threadId, first.threadId);
+      assert.isTrue(settled.resumed);
+      assert.equal(settled.sequence, first.sequence);
+      assert.equal(settled.projection.messages[0]?.id, first.projection.messages[0]?.id);
+      assert.equal(settled.projection.runs[0]?.id, first.projection.runs[0]?.id);
+      assert.equal(yield* Ref.get(preparation.count), 1);
+    }).pipe(Effect.provide(harness.layer));
+  }),
+);
+
+it.effect("bounds concurrent first launches to one thread per command", () =>
+  Effect.gen(function* () {
+    const preparation = yield* makePreparationGate();
+    const harness = makeHarness({
+      managedFolders: yield* makeClaimRace,
+      aroundDispatch: preparation.aroundDispatch,
+    });
+    yield* Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const threads = yield* ThreadManagement.ThreadManagementService;
+      const { threadId: _unusedThreadId, ...rest } = launchInput({
+        command: "command:launch:concurrent-allocated",
+        thread: "unused",
+        message: "Race me",
+      });
+      const results = yield* Effect.all(
+        [launches.launch(rest).pipe(Effect.exit), launches.launch(rest).pipe(Effect.exit)],
+        { concurrency: "unbounded" },
+      );
+      const winner = results.find(Exit.isSuccess);
+      assert.isDefined(winner);
+      const threadId = winner.value.threadId;
+      const loser = results.find(Exit.isFailure);
+      assert.isDefined(loser);
+      const error = Cause.findErrorOption(loser.cause).pipe(Option.getOrThrow);
+      if (error._tag !== "ThreadLaunchError") {
+        assert.fail(`expected ThreadLaunchError, got ${error._tag}`);
+      }
+      assert.equal(error.operation, "create-thread");
+      assert.include(String(error.cause), "cannot be replayed");
+      assert.equal((yield* launches.launch(rest)).threadId, threadId);
+      const projectThreads = yield* threads.listProjectThreads({
+        projectId,
+        includeSubagents: false,
+      });
+      assert.equal(projectThreads.length, 1);
+      const projection = yield* threads.getThreadProjection(threadId);
+      assert.equal(projection.messages.length, 1);
+      assert.equal(projection.runs.length, 1);
+      yield* Deferred.await(preparation.entered);
+      assert.equal(yield* Ref.get(preparation.count), 1);
+    }).pipe(Effect.provide(harness.layer));
+  }),
+);
+
+it.effect("does not let a failing same-command caller strand a concurrent durable launch", () =>
+  Effect.gen(function* () {
+    const preparation = yield* makePreparationGate();
+    const harness = makeHarness({ aroundDispatch: preparation.aroundDispatch });
+    yield* Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const command = "command:launch:failed-owner-race";
+      const [failed, launched] = yield* Effect.all(
+        [
+          launches
+            .launch({
+              ...launchInput({
+                command,
+                thread: "thread:launch:failed-owner-race",
+                message: "This invalid reuse fails",
+              }),
+              reuseExistingThread: true,
+            })
+            .pipe(Effect.exit),
+          launches.launch(
+            launchInput({
+              command,
+              thread: "thread:launch:successful-peer",
+              message: "This peer persists",
+            }),
+          ),
+        ],
+        { concurrency: "unbounded" },
+      );
+      assert.isTrue(Exit.isFailure(failed));
+      assert.equal(launched.projection.runs[0]?.status, "preparing");
+      yield* Deferred.await(preparation.entered);
+      assert.equal(yield* Ref.get(preparation.count), 1);
+    }).pipe(Effect.provide(harness.layer));
+  }),
+);
+
 it.effect("reports one concurrent same-command launch as new and the rest as resumed", () =>
   Effect.gen(function* () {
-    // Both launches read no receipt before either one claims the thread.
-    const arrived = yield* Ref.make(0);
-    const bothRead = yield* Deferred.make<void>();
-    const harness = makeHarness({
-      managedFolders: Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
-        namedProjectsRoot: "/projects",
-        isScratchProject: () => Effect.succeed(false),
-        folderForThread: () =>
-          Ref.updateAndGet(arrived, (count) => count + 1).pipe(
-            Effect.tap((count) =>
-              count === 2 ? Deferred.succeed(bothRead, undefined) : Effect.void,
-            ),
-            Effect.andThen(Deferred.await(bothRead)),
-            Effect.as(Option.none()),
-          ),
-      }),
-    });
+    const harness = makeHarness({ managedFolders: yield* makeClaimRace });
     yield* Effect.gen(function* () {
       const launches = yield* ThreadLaunch.ThreadLaunchService;
       const input = launchInput({
@@ -762,6 +974,64 @@ it.effect(
     }),
 );
 
+it.effect("schedules an accepted preparing message exactly once across concurrent retries", () =>
+  Effect.gen(function* () {
+    const preparation = yield* makePreparationGate();
+    const harness = makeHarness({ aroundDispatch: preparation.aroundDispatch });
+    yield* Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const threads = yield* ThreadManagement.ThreadManagementService;
+      const input = launchInput({
+        command: "command:launch:accepted-before-fork",
+        thread: "thread:launch:accepted-before-fork",
+        message: "Resume preparation",
+      });
+      // A launch that lost its result after both writes, before scheduling preparation.
+      yield* threads.dispatch({
+        type: "thread.create",
+        commandId: input.commandId,
+        threadId: input.threadId,
+        projectId: input.projectId,
+        title: input.title,
+        modelSelection: input.modelSelection,
+        runtimeMode: input.runtimeMode,
+        interactionMode: input.interactionMode,
+        branch: null,
+        worktreePath: null,
+        createdBy: input.createdBy,
+        creationSource: input.creationSource,
+      });
+      yield* threads.dispatch({
+        type: "message.dispatch",
+        commandId: CommandId.make(`${input.commandId}:initial-message`),
+        threadId: input.threadId,
+        messageId: MessageId.make("Resume preparation:id"),
+        text: "Resume preparation",
+        attachments: [],
+        modelSelection: input.modelSelection,
+        dispatchMode: { type: "defer_start" },
+        createdBy: input.createdBy,
+        creationSource: input.creationSource,
+      });
+      const preparing = yield* threads.getThreadProjection(input.threadId);
+      assert.equal(preparing.runs[0]?.status, "preparing");
+
+      const [first, second] = yield* Effect.all([launches.launch(input), launches.launch(input)], {
+        concurrency: "unbounded",
+      });
+      assert.isTrue(first.resumed);
+      assert.isTrue(second.resumed);
+      yield* Deferred.await(preparation.entered);
+      assert.equal(yield* Ref.get(preparation.count), 1);
+      yield* preparation.open;
+      yield* Deferred.await(preparation.released);
+      const released = yield* threads.getThreadProjection(input.threadId);
+      assert.notEqual(released.runs[0]?.status, "preparing");
+      assert.equal(yield* Ref.get(preparation.count), 1);
+    }).pipe(Effect.provide(harness.layer));
+  }),
+);
+
 it.effect("creates a strong provider-thread mapping for an imported native session", () => {
   const harness = makeHarness();
   return Effect.gen(function* () {
@@ -804,6 +1074,238 @@ it.effect("creates a strong provider-thread mapping for an imported native sessi
       launched.projection.providerThreads[0]?.id,
     );
   }).pipe(Effect.provide(harness.layer));
+});
+
+it.effect("shared intake preserves durable attachment bytes after a lost launch result", () => {
+  const harness = makeHarness();
+  const layerFiles = ServerConfig.layerTest(process.cwd(), { prefix: "t3-message-intake-" }).pipe(
+    Layer.provideMerge(DocumentText.layer.pipe(Layer.provideMerge(NodeServices.layer))),
+  );
+  return Effect.gen(function* () {
+    const config = yield* ServerConfig.ServerConfig;
+    const fs = yield* FileSystem.FileSystem;
+    const launches = yield* ThreadLaunch.ThreadLaunchService;
+    const threads = yield* ThreadManagement.ThreadManagementService;
+    const pendingId = createPendingAttachmentId();
+    assert.isNotNull(pendingId);
+    const attachment: ChatAttachment = {
+      type: "image",
+      id: ChatAttachmentId.make(pendingId),
+      name: "image.png",
+      mimeType: "image/png",
+      sizeBytes: 4,
+    };
+    const pendingPath = resolveAttachmentPath({
+      attachmentsDir: config.attachmentsDir,
+      attachment,
+    });
+    assert.isNotNull(pendingPath);
+    yield* fs.makeDirectory(config.attachmentsDir, { recursive: true });
+    yield* fs.writeFile(pendingPath, new Uint8Array([1, 2, 3, 4]));
+    const input = {
+      ...launchInput({ command: "intake-launch", thread: "intake-thread" }),
+      initialMessage: {
+        messageId: MessageId.make("intake-first"),
+        text: "First",
+        context: {
+          version: 1 as const,
+          records: [
+            {
+              version: 1 as const,
+              contextId: ComposerContextId.make("intake-file"),
+              kind: "file" as const,
+              label: attachment.name,
+              attachmentId: attachment.id,
+              name: attachment.name,
+              mimeType: attachment.mimeType,
+              sizeBytes: attachment.sizeBytes,
+            },
+          ],
+        },
+        attachments: [attachment],
+      },
+    };
+    const failed = yield* ThreadMessageIntake.launchThread(input).pipe(
+      Effect.provideService(ThreadLaunch.ThreadLaunchService, {
+        launch: (request) =>
+          launches.launch(request).pipe(
+            Effect.andThen(
+              new ThreadLaunch.ThreadLaunchError({
+                operation: "create-thread",
+                commandId: request.commandId,
+                projectId,
+                cause: "lost result after acceptance",
+              }),
+            ),
+          ),
+        retryPreparation: launches.retryPreparation,
+        prepareRun: launches.prepareRun,
+      }),
+      Effect.flip,
+    );
+    assert.equal(failed._tag, "ThreadLaunchError");
+    const accepted = yield* threads.getThreadProjection(input.threadId);
+    const stored = accepted.messages.find(
+      (message) => message.id === input.initialMessage.messageId,
+    );
+    assert.isDefined(stored);
+    assert.notEqual(stored.attachments[0]?.id, attachment.id);
+    const record = stored.context?.records[0];
+    assert.isDefined(record);
+    assert.equal((record as { attachmentId: string }).attachmentId, stored.attachments[0]?.id);
+    const userItem = accepted.turnItems.find(
+      (item) => item.type === "user_message" && item.messageId === stored.id,
+    );
+    assert.ok(userItem?.type === "user_message");
+    assert.deepEqual(userItem.context, stored.context);
+    const storedPath = resolveAttachmentPath({
+      attachmentsDir: config.attachmentsDir,
+      attachment: stored.attachments[0]!,
+    });
+    assert.isNotNull(storedPath);
+    assert.deepEqual(yield* fs.readFile(storedPath), new Uint8Array([1, 2, 3, 4]));
+    assert.deepEqual(yield* fs.readFile(pendingPath), new Uint8Array([1, 2, 3, 4]));
+
+    const replayed = yield* ThreadMessageIntake.launchThread(input);
+    assert.equal(replayed.projection.messages[0]?.id, stored.id);
+    assert.deepEqual(replayed.projection.messages[0]?.attachments, stored.attachments);
+    const claimedFiles = Effect.map(fs.readDirectory(config.attachmentsDir), (files) =>
+      files.filter((name) => !name.startsWith("pending-")),
+    );
+    assert.equal((yield* claimedFiles).length, 1);
+
+    const duplicate = yield* ThreadMessageIntake.launchThread({
+      ...input,
+      commandId: CommandId.make("intake-duplicate-create"),
+      initialMessage: { ...input.initialMessage, messageId: MessageId.make("intake-duplicate") },
+    }).pipe(Effect.result);
+    assert.ok(Result.isFailure(duplicate));
+    assert.ok(duplicate.failure._tag === "ThreadLaunchError");
+    assert.equal(duplicate.failure.operation, "create-thread");
+    assert.propertyVal(duplicate.failure.cause, "_tag", "OrchestratorThreadAlreadyExistsError");
+    assert.equal((yield* claimedFiles).length, 1);
+    assert.deepEqual(yield* fs.readFile(storedPath), new Uint8Array([1, 2, 3, 4]));
+    assert.deepEqual(yield* fs.readFile(pendingPath), new Uint8Array([1, 2, 3, 4]));
+
+    const missingProject = yield* ThreadMessageIntake.launchThread({
+      ...input,
+      commandId: CommandId.make("intake-no-project"),
+      projectId: ProjectId.make("missing-project"),
+    }).pipe(Effect.flip);
+    assert.equal(missingProject._tag, "ThreadLaunchError");
+    assert.equal((yield* claimedFiles).length, 1);
+    const missingThread = yield* ThreadMessageIntake.dispatchCommand({
+      type: "message.dispatch",
+      commandId: CommandId.make("intake-no-thread"),
+      threadId: ThreadId.make("missing-thread"),
+      messageId: MessageId.make("intake-missing"),
+      text: "Missing",
+      attachments: [attachment],
+      dispatchMode: { type: "start_immediately" },
+      createdBy: "user",
+      creationSource: "web",
+    }).pipe(Effect.flip);
+    assert.equal(missingThread._tag, "OrchestratorProjectionError");
+    assert.equal((yield* claimedFiles).length, 1);
+
+    const dispatch = ThreadMessageIntake.dispatchCommand({
+      type: "message.dispatch",
+      commandId: CommandId.make("intake-dispatch"),
+      threadId: input.threadId,
+      messageId: MessageId.make("intake-second"),
+      text: "Second",
+      attachments: [attachment],
+      dispatchMode: { type: "queue_after_active" },
+      createdBy: "user",
+      creationSource: "web",
+    });
+    yield* dispatch;
+    yield* dispatch;
+    const queuedProjection = yield* threads.getThreadProjection(input.threadId);
+    const queuedRun = queuedProjection.runs.find(
+      (run) => run.userMessageId === MessageId.make("intake-second"),
+    );
+    assert.isDefined(queuedRun);
+    assert.equal(queuedRun.status, "queued");
+    const queuedMessage = queuedProjection.messages.find(
+      (message) => message.id === queuedRun.userMessageId,
+    );
+    assert.isDefined(queuedMessage);
+    const file: ChatAttachment = {
+      type: "file",
+      id: ChatAttachmentId.make(createPendingAttachmentId("pdf")),
+      name: "queued.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 4,
+    };
+    const filePath = resolveAttachmentPath({
+      attachmentsDir: config.attachmentsDir,
+      attachment: file,
+    });
+    assert.isNotNull(filePath);
+    yield* fs.writeFile(filePath, new Uint8Array([5, 6, 7, 8]));
+    const edit = ThreadMessageIntake.dispatchCommand({
+      type: "queued-run.edit",
+      commandId: CommandId.make("intake-edit"),
+      threadId: input.threadId,
+      runId: queuedRun.id,
+      text: "Edited with a file",
+      attachments: [...queuedMessage.attachments, file],
+    });
+    yield* edit;
+    yield* edit;
+    const editedProjection = yield* threads.getThreadProjection(input.threadId);
+    const editedMessage = editedProjection.messages.find(
+      (message) => message.id === queuedRun.userMessageId,
+    );
+    assert.isDefined(editedMessage);
+    assert.equal(editedMessage.attachments.length, 2);
+    assert.deepEqual(editedMessage.attachments[0], queuedMessage.attachments[0]);
+    assert.notEqual(editedMessage.attachments[1]?.id, file.id);
+    const durableFilePath = resolveAttachmentPath({
+      attachmentsDir: config.attachmentsDir,
+      attachment: editedMessage.attachments[1]!,
+    });
+    assert.isNotNull(durableFilePath);
+    assert.deepEqual(yield* fs.readFile(durableFilePath), new Uint8Array([5, 6, 7, 8]));
+    assert.deepEqual(yield* fs.readFile(filePath), new Uint8Array([5, 6, 7, 8]));
+    const beforeRejectedEdit = (yield* claimedFiles).length;
+    const rejectedEdit = yield* ThreadMessageIntake.dispatchCommand({
+      type: "queued-run.edit",
+      commandId: CommandId.make("intake-edit-rejected"),
+      threadId: input.threadId,
+      runId: queuedRun.id,
+      text: "",
+      attachments: [file],
+    }).pipe(Effect.flip);
+    assert.equal(rejectedEdit._tag, "OrchestratorCommandRejectedError");
+    assert.equal((yield* claimedFiles).length, beforeRejectedEdit);
+    assert.deepEqual(yield* fs.readFile(filePath), new Uint8Array([5, 6, 7, 8]));
+    const send = ThreadMessageIntake.sendToThread({
+      commandId: CommandId.make("intake-send"),
+      projectId,
+      threadId: input.threadId,
+      messageId: MessageId.make("intake-third"),
+      text: "Third",
+      attachments: [attachment],
+      mode: "queue",
+      createdBy: "agent",
+      creationSource: "mcp",
+    });
+    yield* send;
+    yield* send;
+    assert.equal((yield* claimedFiles).length, 4);
+    const final = yield* threads.getThreadProjection(input.threadId);
+    assert.equal(final.messages.length, 3);
+    for (const message of final.messages) {
+      const path = resolveAttachmentPath({
+        attachmentsDir: config.attachmentsDir,
+        attachment: message.attachments[0]!,
+      });
+      assert.isNotNull(path);
+      assert.deepEqual(yield* fs.readFile(path), new Uint8Array([1, 2, 3, 4]));
+    }
+  }).pipe(Effect.provide(Layer.mergeAll(harness.layer, layerFiles)));
 });
 
 it.effect("replays an accepted send after the project disables the instance", () => {
