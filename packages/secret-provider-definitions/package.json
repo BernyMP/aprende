@@ -12,7 +12,6 @@
     "typecheck": "effect-tsgo tsrs --noEmit"
   },
   "dependencies": {
-    "@aprende/secret-provider-core": "workspace:*",
-    "@aprende/secret-provider-onepassword": "workspace:*"
+    "@aprende/secret-provider-core": "workspace:*"
   }
 }

@@ -10,12 +10,10 @@ import { McpServer } from "effect/ai";
 import { AssetSigner } from "../assets/AssetSigner.ts";
 import { ServerSecretStore } from "../auth/ServerSecretStore.ts";
 import { ServerConfig } from "../config.ts";
-import { DeviceService } from "../device/DeviceService.ts";
 import { ServerEnvironment } from "../environment/ServerEnvironment.ts";
 import { GitWorkflowService } from "../git/GitWorkflowService.ts";
 import { LearningService } from "../learning/LearningService.ts";
 import * as McpHttpServer from "../mcp/McpHttpServer.ts";
-import { PreviewAutomationBroker } from "../mcp/PreviewAutomationBroker.ts";
 import {
   CLAUDE_PROVIDER,
   CLAUDE_TUTOR_HIDDEN_MCP_TOOLS,
@@ -26,12 +24,7 @@ import { ProviderAdapterRegistryV2 } from "../orchestration-v2/ProviderAdapterRe
 import { ThreadLaunchService } from "../orchestration-v2/ThreadLaunchService.ts";
 import { ThreadManagementService } from "../orchestration-v2/ThreadManagementService.ts";
 import { ThreadSearch } from "../orchestration-v2/ThreadSearch.ts";
-import { PeerForwarding } from "../peer/PeerForwarding.ts";
-import { PeerLinkRequests } from "../peer/PeerLinkRequests.ts";
-import { PeerLinks } from "../peer/PeerLinks.ts";
-import { RemoteDelegation } from "../peer/RemoteDelegation.ts";
-import { PreviewManager } from "../preview/Manager.ts";
-import { PreviewBrowser } from "../preview/PreviewBrowser.ts";
+import { PreviewBrowser } from "../htmlRender/PreviewBrowser.ts";
 import { ManagedProjectFolders } from "../project/ManagedProjectFolders.ts";
 import { ProjectCloneTracker } from "../project/ProjectCloneTracker.ts";
 import { ProjectService } from "../project/ProjectService.ts";
@@ -50,7 +43,6 @@ import budget from "./agentContextBudget.json" with { type: "json" };
 // Registration only stores tool definitions, so the handlers' services are never called.
 const toolHandlerServices = Layer.mergeAll(
   Layer.mock(AssetSigner)({}),
-  Layer.mock(DeviceService)({}),
   Layer.mock(DocumentText)({}),
   Layer.mock(GitVcsDriver)({}),
   Layer.mock(GitWorkflowService)({}),
@@ -58,19 +50,13 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(ManagedProjectFolders)({ namedProjectsRoot: "" }),
   Layer.mock(McpProviderSessions)({}),
   Layer.mock(OrchestratorV2)({}),
-  Layer.mock(PeerForwarding)({}),
-  Layer.mock(PeerLinkRequests)({}),
-  Layer.mock(PeerLinks)({}),
-  Layer.mock(PreviewAutomationBroker)({}),
   Layer.mock(PreviewBrowser)({}),
-  Layer.mock(PreviewManager)({}),
   Layer.mock(ProjectCloneTracker)({}),
   Layer.mock(ProjectService)({}),
   Layer.mock(ProjectSetupScriptRunner)({}),
   Layer.mock(ProviderAdapterRegistryV2)({}),
   Layer.mock(ProviderRegistry)({}),
   Layer.mock(PullRequestReviewGuideService)({}),
-  Layer.mock(RemoteDelegation)({}),
   Layer.mock(ScheduledTaskService)({}),
   Layer.mock(SecretRequests)({}),
   ServerConfig.layerTest(process.cwd(), { prefix: "t3-agent-context-budget-" }),

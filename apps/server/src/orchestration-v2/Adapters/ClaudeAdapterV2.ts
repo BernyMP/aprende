@@ -171,7 +171,6 @@ import {
 } from "../../claudeModelOptions.ts";
 import * as ServerConfig from "../../config.ts";
 import { DEFAULT_TUTOR_PROMPT, readTutorPrompt } from "../../learning/tutorPrompt.ts";
-import * as PortScanner from "../../preview/PortScanner.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import { expandHomePath } from "@aprende/provider-core/server/pathExpansion";
 import { spawnAndCollect } from "@aprende/provider-core/server/snapshotProbe";
@@ -1153,7 +1152,6 @@ export const layerQueryRunner: Layer.Layer<
   | ChildProcessSpawner.ChildProcessSpawner
   | SecureRandom.SecureRandom
   | Path.Path
-  | PortScanner.PortDiscovery
   | ProviderEventLoggers.ProviderEventLoggers
 > = Layer.effect(
   ClaudeAgentSdkQueryRunner,
@@ -1166,7 +1164,6 @@ export const layerQueryRunner: Layer.Layer<
     const platform = yield* HostProcess.Platform;
     const runFork = Effect.runForkWith(yield* Effect.context<never>());
     const hostEnvironment = yield* HostProcess.Environment;
-    const portDiscovery = yield* PortScanner.PortDiscovery;
 
     return ClaudeAgentSdkQueryRunner.of({
       allocateSessionId: random.uuidV4(),
@@ -1189,14 +1186,7 @@ export const layerQueryRunner: Layer.Layer<
           );
           // Send MCP credentials over stdin to keep them out of SDK argv and inherited command environments.
           const { mcpServers, ...sdkOptions } = input.options;
-          // Jobs the agent starts inherit the thread, so port discovery can attribute their servers.
-          const queryOptions = {
-            ...sdkOptions,
-            env: {
-              ...(sdkOptions.env ?? hostEnvironment),
-              [PortScanner.AGENT_THREAD_ENV]: input.threadId,
-            },
-          };
+          const queryOptions = { ...sdkOptions, env: sdkOptions.env ?? hostEnvironment };
           // The SDK can prepend a scope wrapper to native binaries; script entries run through node.
           const binaryPath = queryOptions.pathToClaudeCodeExecutable;
           const launch =
@@ -1258,10 +1248,6 @@ export const layerQueryRunner: Layer.Layer<
           const spawnClaudeCodeProcess = (spawnOptions: ClaudeSpawnOptions) => {
             const child = spawnProcess(spawnOptions);
             spawnedProcess = child;
-            // A spawn that fails emits only "error".
-            const releaseAgent = portDiscovery.trackAgent();
-            child.once("exit", releaseAgent);
-            child.on("error", releaseAgent);
             processExited = child.exitCode !== null || child.signalCode != null;
             processExit = new Promise<void>((resolve) => {
               if (processExited) resolve();
@@ -1744,8 +1730,6 @@ export function makeClaudeQueryOptions(input: {
   readonly sdkSettings?: string | ClaudeSdkSettings;
   readonly environment?: NodeJS.ProcessEnv;
   readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
-  /** The thread's T3 MCP session holds the `device` capability. */
-  readonly deviceToolsAvailable?: boolean;
   readonly tools?: ClaudeAgentSdkQueryTools;
   readonly allowedTools?: ReadonlyArray<string>;
   readonly disallowedTools?: ReadonlyArray<string>;
@@ -1980,27 +1964,11 @@ export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__create_threads",
   "mcp__aprende__delegate_task",
   "mcp__aprende__delete_scheduled_task",
-  "mcp__aprende__device_close",
-  "mcp__aprende__device_list",
-  "mcp__aprende__device_open",
-  "mcp__aprende__device_screenshot",
   "mcp__aprende__link_pull_request",
   "mcp__aprende__link_pull_requests",
   "mcp__aprende__list_scheduled_tasks",
   "mcp__aprende__list_thread_pull_requests",
   "mcp__aprende__orchestrator_capabilities",
-  "mcp__aprende__preview_act",
-  "mcp__aprende__preview_dialog",
-  "mcp__aprende__preview_evaluate",
-  "mcp__aprende__preview_navigate",
-  "mcp__aprende__preview_open",
-  "mcp__aprende__preview_recording_start",
-  "mcp__aprende__preview_recording_stop",
-  "mcp__aprende__preview_resize",
-  "mcp__aprende__preview_set_appearance",
-  "mcp__aprende__preview_snapshot",
-  "mcp__aprende__preview_status",
-  "mcp__aprende__preview_wait_for",
   "mcp__aprende__read_pull_request_guide",
   "mcp__aprende__request_secret",
   "mcp__aprende__run_scheduled_task_now",
@@ -2008,14 +1976,9 @@ export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__t3_attachment_discard",
   "mcp__aprende__t3_attachment_prepare_upload",
   "mcp__aprende__t3_background_wait",
-  "mcp__aprende__t3_environment_link",
-  "mcp__aprende__t3_environment_links",
   "mcp__aprende__t3_environment_preferences_update",
   "mcp__aprende__t3_environment_read",
-  "mcp__aprende__t3_environment_unlink",
   "mcp__aprende__t3_pending_request",
-  "mcp__aprende__t3_preview_close",
-  "mcp__aprende__t3_preview_list",
   "mcp__aprende__t3_project_clone",
   "mcp__aprende__t3_project_create",
   "mcp__aprende__t3_project_delete",
@@ -10930,7 +10893,6 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             ...(mcpOverrides.mcpServers === undefined
               ? {}
               : { mcpServers: mcpOverrides.mcpServers }),
-            deviceToolsAvailable: mcpSession?.capabilities?.has("device") === true,
             permissionMode: queryPolicy.permissionMode,
             ...(queryPolicy.allowDangerouslySkipPermissions === undefined
               ? {}

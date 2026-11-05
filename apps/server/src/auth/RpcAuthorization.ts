@@ -1,6 +1,5 @@
 import {
   CLIENT_GUARDED_RPC_SCOPES,
-  type DeviceListInput,
   clientRpcRequiredScopes,
   authScopeRequiredResponse,
   AssetCreateUrlInput,
@@ -18,12 +17,7 @@ import {
   AuthDiagnosticsReadScope,
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
-  AuthPreviewOperateScope,
-  AuthRelayReadScope,
-  AuthRelayWriteScope,
-  AuthTerminalOperateScope,
   ORCHESTRATION_V2_WS_METHODS,
-  AuthTerminalReadScope,
   type AuthEnvironmentScope,
   EnvironmentAuthorizationError,
   RpcScopeAuthorization,
@@ -86,7 +80,6 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.serverRemoveKeybinding]: AuthSettingsWriteScope,
   [WS_METHODS.serverGetStorageCleanupReport]: AuthOrchestrationReadScope,
   [WS_METHODS.serverGetDatabaseStorage]: AuthOrchestrationReadScope,
-  [WS_METHODS.peerLinksList]: AuthAccessReadScope,
   [WS_METHODS.serverUpdateSettings]: AuthSettingsWriteScope,
   [WS_METHODS.serverSearchAcpRegistry]: AuthOrchestrationReadScope,
   [WS_METHODS.serverPrepareAcpRegistryAgent]: AuthProvidersManageScope,
@@ -119,8 +112,6 @@ export const RPC_REQUIRED_SCOPES = {
   // Delivery logs hold request bodies, so they need the same scope as the URL.
   [WS_METHODS.scheduledTasksListWebhookDeliveries]: AuthOrchestrationOperateScope,
   [WS_METHODS.scheduledTasksGetWebhookDelivery]: AuthOrchestrationOperateScope,
-  [WS_METHODS.cloudGetRelayClientStatus]: AuthRelayReadScope,
-  [WS_METHODS.cloudInstallRelayClient]: AuthRelayWriteScope,
   [WS_METHODS.pullRequestsList]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsListStats]: AuthOrchestrationReadScope,
   [WS_METHODS.pullRequestsFilterOptions]: AuthOrchestrationReadScope,
@@ -176,39 +167,6 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.vcsRefreshStatus]: AuthOrchestrationReadScope,
   [WS_METHODS.gitResolvePullRequest]: AuthOrchestrationReadScope,
   [WS_METHODS.vcsListRefs]: AuthOrchestrationReadScope,
-  [WS_METHODS.reviewGetBranchCommits]: AuthFilesystemReadScope,
-  [WS_METHODS.reviewGetDiffPreview]: AuthFilesystemReadScope,
-  [WS_METHODS.reviewGetDiffFileContents]: AuthFilesystemReadScope,
-  [WS_METHODS.terminalOpen]: AuthTerminalOperateScope,
-  [WS_METHODS.terminalAttach]: AuthTerminalOperateScope,
-  [WS_METHODS.terminalObserve]: AuthTerminalReadScope,
-  [WS_METHODS.terminalWrite]: AuthTerminalOperateScope,
-  [WS_METHODS.terminalResize]: AuthTerminalOperateScope,
-  [WS_METHODS.terminalClear]: AuthTerminalOperateScope,
-  [WS_METHODS.terminalClose]: AuthTerminalOperateScope,
-  [WS_METHODS.subscribeTerminalMetadata]: AuthTerminalReadScope,
-  [WS_METHODS.previewOpen]: AuthPreviewOperateScope,
-  [WS_METHODS.previewResize]: AuthPreviewOperateScope,
-  [WS_METHODS.previewAdjust]: AuthPreviewOperateScope,
-  [WS_METHODS.previewClose]: AuthPreviewOperateScope,
-  [WS_METHODS.previewList]: AuthOrchestrationReadScope,
-  [WS_METHODS.previewClearProfile]: AuthPreviewOperateScope,
-  [WS_METHODS.previewReportProfiles]: AuthPreviewOperateScope,
-  [WS_METHODS.previewReportStatus]: AuthPreviewOperateScope,
-  [WS_METHODS.previewStopLocalServer]: AuthTerminalOperateScope,
-  [WS_METHODS.subscribePreviewEvents]: AuthOrchestrationReadScope,
-  [WS_METHODS.subscribeDiscoveredLocalServers]: AuthOrchestrationReadScope,
-  [WS_METHODS.deviceConfigure]: AuthSettingsWriteScope,
-  [WS_METHODS.deviceTestHost]: AuthSettingsWriteScope,
-  [WS_METHODS.deviceEasAccount]: AuthSettingsWriteScope,
-  [WS_METHODS.deviceSimlockIdentity]: AuthSettingsWriteScope,
-  [WS_METHODS.deviceList]: AuthOrchestrationReadScope,
-  [WS_METHODS.deviceOpen]: AuthOrchestrationOperateScope,
-  [WS_METHODS.deviceClose]: AuthOrchestrationOperateScope,
-  [WS_METHODS.deviceShutdown]: AuthOrchestrationOperateScope,
-  [WS_METHODS.deviceDetail]: AuthOrchestrationReadScope,
-  [WS_METHODS.deviceAction]: AuthOrchestrationOperateScope,
-  [WS_METHODS.subscribeDeviceState]: AuthOrchestrationReadScope,
   [WS_METHODS.subscribeServerConfig]: AuthOrchestrationReadScope,
   [WS_METHODS.subscribeServerLifecycle]: AuthOrchestrationReadScope,
   [WS_METHODS.subscribeAuthAccess]: AuthAccessReadScope,
@@ -225,7 +183,7 @@ export function requiredScopeForRpcMethod(method: string): AuthEnvironmentScope 
   return requiredScope;
 }
 
-export const rpcAuthorizationError = (requiredScope: AuthEnvironmentScope) =>
+const rpcAuthorizationError = (requiredScope: AuthEnvironmentScope) =>
   new EnvironmentAuthorizationError({
     message: `The authenticated token is missing required scope: ${requiredScope}.`,
     ...authScopeRequiredResponse(requiredScope),
@@ -283,9 +241,3 @@ export const layer = (scopes: ReadonlyArray<AuthEnvironmentScope>) =>
     if (requiredScope !== undefined) return Effect.fail(rpcAuthorizationError(requiredScope));
     return effect;
   });
-
-/** Retrying can install or restart tools even though ordinary listing is readable. */
-export const requiredScopeForDeviceList = (input: DeviceListInput): AuthEnvironmentScope =>
-  input.retryHostId || input.updateTool
-    ? AuthOrchestrationOperateScope
-    : AuthOrchestrationReadScope;

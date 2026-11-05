@@ -245,8 +245,6 @@ describe("DesktopBackendConfiguration", () => {
         assert.equal(first.bootstrap.port, 4888);
         assert.equal(first.bootstrap.host, "0.0.0.0");
         assert.equal(first.bootstrap.t3Home, environment.baseDir);
-        assert.equal(first.bootstrap.tailscaleServeEnabled, true);
-        assert.equal(first.bootstrap.tailscaleServePort, 8443);
         assert.match(first.bootstrap.desktopBootstrapSecret ?? "", /^[0-9a-f]{64}$/i);
         assert.equal(
           second.bootstrap.desktopBootstrapSecret,
@@ -733,7 +731,6 @@ describe("DesktopBackendConfiguration", () => {
         assert.equal(config.executablePath, "wsl.exe");
         assert.equal(config.bootstrap.port, 5050);
         assert.equal(config.bootstrap.host, "0.0.0.0");
-        assert.equal(config.bootstrap.tailscaleServeEnabled, false);
         assert.notProperty(config.bootstrap, "desktopTelemetryFd");
         assert.notProperty(config.bootstrap, "resourceMonitorPath");
         assert.equal(config.httpBaseUrl.href, "http://172.27.0.99:5050/");

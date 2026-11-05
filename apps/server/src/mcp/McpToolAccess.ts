@@ -8,7 +8,6 @@ import {
   type ThreadId,
 } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Ref from "effect/Ref";
 import * as Struct from "effect/Struct";
@@ -20,7 +19,6 @@ import {
   DispatchModeLimit,
   type DispatchModeRefusal,
 } from "../orchestration-v2/DispatchModeLimit.ts";
-import * as PeerForwarding from "../peer/PeerForwarding.ts";
 import { assertNotLinked, assertSameLink, callerLinkOrigin } from "./linkOrigin.ts";
 import * as McpInvocationContext from "./McpInvocationContext.ts";
 import { resolveInteractionMode, resolveRuntimeMode } from "./delegatedTaskModes.ts";
@@ -380,8 +378,6 @@ const routed = Effect.fn("McpToolAccess.routed")(function* <Tools extends Record
   declarations: Handlers<Tools>,
   checked: Toolkit.HandlersFrom<Tools>,
 ) {
-  // Optional so toolkits that never leave this environment build without it.
-  const forwarding = yield* Effect.serviceOption(PeerForwarding.PeerForwarding);
   const handlers: Record<string, unknown> = { ...checked };
   for (const [name, declaration] of Object.entries<Declaration<unknown>>(declarations)) {
     const tool = toolkit.tools[name];
@@ -397,12 +393,11 @@ const routed = Effect.fn("McpToolAccess.routed")(function* <Tools extends Record
     handlers[name] = ({ environmentId, ...params }: { readonly environmentId?: EnvironmentId }) =>
       Effect.gen(function* () {
         const scope = yield* McpInvocationContext.McpInvocationContext;
-        const target = PeerForwarding.remoteTarget(scope, environmentId);
-        if (target === undefined) return yield* here(params);
-        if (scope.linkedEnvironments === false) return yield* PeerForwarding.linkedEnvironmentsOff;
+        if (environmentId === undefined || environmentId === scope.environmentId) {
+          return yield* here(params);
+        }
         yield* (remote as RemoteCheck<typeof params>)(params);
-        if (Option.isNone(forwarding)) return yield* linksUnavailable;
-        return yield* forwarding.value.call(scope, tool, target, { ...params, environmentId });
+        return yield* linksUnavailable;
       });
   }
   return handlers as Toolkit.HandlersFrom<Tools>;

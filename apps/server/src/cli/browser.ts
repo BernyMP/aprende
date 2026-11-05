@@ -9,7 +9,7 @@ import { Command } from "effect/cli";
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
-import * as PreviewBrowserHost from "../preview/PreviewBrowserHost.ts";
+import * as PreviewBrowserHost from "../htmlRender/PreviewBrowserHost.ts";
 import { resolveBaseDir } from "../os-jank.ts";
 import { baseDirFlag } from "./config.ts";
 import { resolveRootCliCommand } from "./invocation.ts";

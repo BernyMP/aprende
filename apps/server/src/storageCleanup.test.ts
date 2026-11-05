@@ -17,8 +17,6 @@ import {
   DEFAULT_SERVER_SETTINGS,
   type WorktreeKeepWhen,
   type StorageCleanupSettings,
-  type TerminalMetadataStreamEvent,
-  type TerminalSummary,
 } from "@aprende/contracts";
 import * as HostProcess from "@aprende/shared/HostProcess";
 import * as ServerConfig from "./config.ts";
@@ -30,7 +28,6 @@ import * as ProjectionStore from "./orchestration-v2/ProjectionStore.ts";
 import * as ProviderSessionManager from "./orchestration-v2/ProviderSessionManager.ts";
 import * as ProjectStore from "./orchestration-v2/ProjectStore.ts";
 import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
-import * as TerminalManager from "./terminal/Manager.ts";
 import { CodexProviderCapabilitiesV2 } from "./orchestration-v2/Adapters/CodexAdapterV2.ts";
 import { ServerActivation } from "./serverActivation.ts";
 import { describe, expect, it } from "@effect/vitest";
@@ -349,7 +346,6 @@ const cleanupFixture = (
     let outboxStatus: string | null = null;
     let fullStatusCalls = 0;
     let snapshotReads = 0;
-    let terminalListener: ((event: TerminalMetadataStreamEvent) => Effect.Effect<void>) | undefined;
     let events: Stream.Stream<OrchestrationV2DomainEvent> = Stream.empty;
     const activated = yield* Deferred.make<void>();
     const context = yield* Layer.build(StorageCleanup.layer).pipe(
@@ -457,22 +453,11 @@ const cleanupFixture = (
       Effect.provideService(GitManager.GitManager, {
         invalidateStatus: () => Effect.void,
       } as unknown as GitManager.GitManager["Service"]),
-      Effect.provideService(TerminalManager.TerminalManager, {
-        subscribeMetadata: (
-          listener: (event: TerminalMetadataStreamEvent) => Effect.Effect<void>,
-        ) =>
-          Effect.sync(() => {
-            terminalListener = listener;
-            return () => {};
-          }),
-      } as unknown as TerminalManager.TerminalManager["Service"]),
       Effect.provideService(ServerActivation, Deferred.await(activated)),
     );
     return {
       service: Context.get(context, StorageCleanup.StorageCleanup),
       repo,
-      setTerminals: (terminals: TerminalSummary[]) =>
-        terminalListener?.({ type: "snapshot", terminals }) ?? Effect.void,
       editBeforeRemoval: () => {
         editBeforeRemoval = true;
       },
@@ -533,22 +518,6 @@ const cleanupFixture = (
       setOpenSessionCwd: (cwd: string | null) => {
         openSessionCwd = cwd;
       },
-      openTerminal: (paths: { cwd: string; worktreePath: string | null }) =>
-        terminalListener?.({
-          type: "upsert",
-          terminal: {
-            threadId: "thread-1",
-            terminalId: "terminal-1",
-            status: "running",
-            pid: 1,
-            exitCode: null,
-            exitSignal: null,
-            hasRunningSubprocess: false,
-            label: "Terminal",
-            updatedAt: "2026-06-10T12:00:00.000Z",
-            ...paths,
-          },
-        }) ?? Effect.void,
       fullStatusCalls: () => fullStatusCalls,
       snapshotReads: () => snapshotReads,
       activate: (domainEvents: Stream.Stream<OrchestrationV2DomainEvent>) => {
@@ -1314,52 +1283,6 @@ describe("deleted thread worktrees", () => {
   );
 
   it.effect(
-    "removes a deleted thread's worktree once its terminal closes and its session stops",
-    () =>
-      Effect.gen(function* () {
-        yield* TestClock.setTime(NOW_MS);
-        const fixture = yield* cleanupFixture({
-          ...DEFAULT_SERVER_SETTINGS.storageCleanup,
-          worktreeAfterDays: null,
-          worktreeOnDelete: true,
-        });
-        const owner = parent(fixture.worktree);
-        fixture.setDeletedThreads([owner]);
-        fixture.setThreads([]);
-        yield* fixture.setTerminals([
-          {
-            threadId: owner.id,
-            terminalId: "terminal-1",
-            cwd: fixture.worktree,
-            worktreePath: fixture.worktree,
-            status: "running",
-            pid: 1,
-            exitCode: null,
-            exitSignal: null,
-            hasRunningSubprocess: false,
-            label: "Terminal",
-            updatedAt: DateTime.formatIso(at(0)),
-          },
-        ]);
-        const reads = yield* stopSessionAfterStartupSweep(
-          fixture,
-          owner.id,
-          Effect.gen(function* () {
-            expect((yield* fixture.service.latestReport)?.entries[0]).toMatchObject({
-              threadId: owner.id,
-              outcome: "kept",
-              reason: "Open terminal",
-            });
-            yield* fixture.setTerminals([]);
-          }),
-          fixture.repo,
-        );
-        expect(reads).toBeGreaterThan(0);
-        expect(yield* fixture.fs.exists(fixture.worktree)).toBe(false);
-      }).pipe(Effect.provide(cleanupTestLayer), Effect.scoped),
-  );
-
-  it.effect(
     "retries a deleted thread's worktree kept for another reason when a session in it stops",
     () =>
       Effect.gen(function* () {
@@ -1842,35 +1765,6 @@ describe("orphan worktree reports", () => {
           const report = yield* fixture.service.runNow;
           expect(report.entries.map((entry) => entry.path).sort()).toEqual(
             platform === "win32" ? [] : [referenced],
-          );
-        }),
-      ),
-  );
-
-  it.live.each([
-    ["win32", "cwd"],
-    ["win32", "worktreePath"],
-    ["linux", "cwd"],
-    ["linux", "worktreePath"],
-  ] as const)(
-    "matches a terminal at the worktree root with host casing rules (%s, %s)",
-    ([platform, field]) =>
-      runCleanupTest(
-        Effect.gen(function* () {
-          const fixture = yield* cleanupFixture().pipe(
-            Effect.provideService(HostProcess.Platform, platform),
-          );
-          const upper = fixture.worktree.toUpperCase();
-          yield* fixture.openTerminal(
-            field === "cwd"
-              ? { cwd: upper, worktreePath: null }
-              : { cwd: fixture.repo, worktreePath: upper },
-          );
-          const report = yield* fixture.service.runNow;
-          expect(report.entries[0]).toMatchObject(
-            platform === "win32"
-              ? { outcome: "kept", reason: "Open terminal" }
-              : { outcome: "removed" },
           );
         }),
       ),

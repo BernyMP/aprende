@@ -1,7 +1,3 @@
-import {
-  t3ConnectTroubleshootingUrl,
-  type T3ConnectTroubleshootingSection,
-} from "@aprende/contracts";
 import type { RelayEnvironmentStatusResponse } from "@aprende/contracts/relay";
 import * as DateTime from "effect/DateTime";
 
@@ -231,59 +227,6 @@ function steps(host: string, located: Located, failure: ConnectionAttemptError |
   }
 }
 
-function helpSection(
-  located: Located,
-  failure: ConnectionAttemptError | null,
-): T3ConnectTroubleshootingSection {
-  switch (located.cause) {
-    case "offline":
-      return "this-device-cant-reach-t3-connect";
-    case "outdated":
-      return "the-host-runs-an-older-aprende";
-    case "clock_skew":
-      return "the-clock-is-off";
-    case "session_pending":
-    case "not_linked":
-    case "tunnel_not_enabled":
-      return "sign-in-account-or-link-problems";
-    case "relay_error":
-      return "t3-connect-returned-an-error";
-    case "released":
-    case "tunnel_down":
-    case "tunnel_pending":
-      return "the-hosts-tunnel-is-offline";
-    case "origin_unreachable":
-    case "invalid_response":
-      return "the-tunnel-works-but-aprende-does-not-answer";
-    case "dns":
-    case "tls":
-    case "refused":
-    case "timeout":
-    case "unknown":
-      return "the-t3-connect-address-does-not-resolve-or-answer";
-    case null:
-      break;
-  }
-  const onThisDevice =
-    failure?.reason === "network" ||
-    failure?.reason === "transport" ||
-    failure?.reason === "timeout";
-  switch (located.hop) {
-    case "device":
-      return "this-device-cant-reach-t3-connect";
-    case "relay":
-      return failure?.reason === "authentication"
-        ? "sign-in-account-or-link-problems"
-        : "this-device-cant-reach-t3-connect";
-    case "tunnel":
-      return onThisDevice ? "this-device-cant-reach-t3-connect" : "the-hosts-tunnel-is-offline";
-    case "server":
-      return failure?.reason === "authentication" || failure?.reason === "permission"
-        ? "sign-in-account-or-link-problems"
-        : "the-tunnel-works-but-aprende-does-not-answer";
-  }
-}
-
 const HOP_ORDER = {
   relay: ["device", "relay", "tunnel", "server"],
   direct: ["device", "server"],
@@ -357,10 +300,7 @@ export function presentConnectionDiagnosis(
     hops,
     steps: steps(host, located, failure),
     facts,
-    moreInfoUrl:
-      relayPath || located.cause === "session_pending"
-        ? t3ConnectTroubleshootingUrl(helpSection(located, failure))
-        : null,
+    moreInfoUrl: null,
   };
 }
 

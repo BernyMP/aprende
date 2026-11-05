@@ -1206,11 +1206,6 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.serverRunStorageCleanup,
       concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
     }),
-    prepareTriage: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:prepare-triage",
-      tag: WS_METHODS.serverPrepareTriage,
-      concurrency: { mode: "singleFlight", key: ({ environmentId }) => environmentId },
-    }),
     databaseStorage,
     databaseCompactionRecommendations,
     storageCleanupReport: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
@@ -1600,10 +1595,6 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.scheduledTasksRotateWebhookToken,
       scheduler: configScheduler,
       concurrency: configConcurrency,
-    }),
-    createGuestShare: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:guest-share:create",
-      tag: WS_METHODS.guestShareCreate,
     }),
     // Off the config lane: answering a card must not queue behind settings
     // edits. One answer per card at a time.

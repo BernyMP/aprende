@@ -69,8 +69,8 @@ const screenshotItem = {
   ordinal: 1,
   status: "completed" as const,
   title: null,
-  toolName: "mcp__aprende__device_screenshot",
-  input: { deviceId: "phone" },
+  toolName: "mcp__aprende__html_preview",
+  input: { html: "<p>chart</p>" },
   output: {
     content: [
       {

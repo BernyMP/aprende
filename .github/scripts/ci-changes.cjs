@@ -26,8 +26,6 @@ const EXTRA_OWNERS = [
   [/^apps\/desktop\/gnome-extension\//, ["@aprende/scripts"]],
   [/^native\/kde-snap-shot\//, ["@aprende/desktop"]],
   [/^native\/libghostty-vt\//, ["@aprende/web"]],
-  // apps/server/src/cloud/ConnectReachability.test.ts checks the guide's headings.
-  [/^docs\/user\/t3-connect-troubleshooting\.md$/, ["aprende"]],
 ];
 const RUST = /^native\/(resource-monitor|kde-snap-shot|hyprland-snap-shot)\//;
 

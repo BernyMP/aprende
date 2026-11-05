@@ -78,7 +78,6 @@ import * as HostProcess from "@aprende/shared/HostProcess";
 import { getModelSelectionStringOptionValue } from "@aprende/shared/model";
 import { SpawnExecutableResolution } from "@aprende/shared/shell";
 
-import * as PortScanner from "../../preview/PortScanner.ts";
 import { attachmentRelativePath } from "../../attachmentStore.ts";
 import { WorkflowAgentTranscriptReadObserver } from "../workflowAgentTranscript.ts";
 import * as ServerConfig from "../../config.ts";
@@ -518,7 +517,6 @@ describe("ClaudeAdapterV2 MCP query overrides", () => {
     providerInstanceId: ProviderInstanceId.make("claudeAgent"),
     endpoint: "http://127.0.0.1:43123/mcp",
     authorizationHeader,
-    browserToolsAvailable: true,
   });
 
   it("pre-approves only read-only aprende tools in a read-only sandbox", () => {
@@ -591,7 +589,6 @@ describe("ClaudeAdapterV2 native protocol logging", () => {
       providerInstanceId: ProviderInstanceId.make("claudeAgent"),
       endpoint: "http://127.0.0.1:43123/mcp",
       authorizationHeader: "Bearer secret-claude-token",
-      browserToolsAvailable: true,
     };
 
     const overrides = ClaudeAdapterV2.claudeMcpQueryOverrides({
@@ -2612,7 +2609,7 @@ describe("ClaudeAdapterV2 MCP credential channel", () => {
         },
       });
     }).pipe(
-      Effect.provide(ClaudeAdapterV2.layerQueryRunner.pipe(Layer.provide(PortScanner.layerTest))),
+      Effect.provide(ClaudeAdapterV2.layerQueryRunner),
       Effect.provideService(ProviderEventLoggers.ProviderEventLoggers, {
         ...ProviderEventLoggers.NoOpProviderEventLoggers,
         native,

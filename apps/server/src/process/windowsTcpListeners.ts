@@ -1,8 +1,17 @@
-import { LSOF_LOCAL_HOST_TOKENS } from "@aprende/shared/preview";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 
 import type * as ProcessRunner from "../processRunner.ts";
+
+const LOCAL_HOST_TOKENS: ReadonlySet<string> = new Set([
+  "localhost",
+  "127.0.0.1",
+  "0.0.0.0",
+  "::1",
+  "*",
+  "[::]",
+  "[::1]",
+]);
 
 const NETSTAT_TIMEOUT = Duration.seconds(5);
 /** `netstat -ano` lists every connection, not just listeners; ~80 bytes per row, sized for ~200k rows. */
@@ -23,7 +32,7 @@ const parseWindowsTcpListenerLine = (line: string): WindowsTcpListener | null =>
   const lastColon = localEndpoint.lastIndexOf(":");
   if (lastColon <= 0) return null;
   const host = localEndpoint.slice(0, lastColon);
-  if (!LSOF_LOCAL_HOST_TOKENS.has(host) && host !== "::") return null;
+  if (!LOCAL_HOST_TOKENS.has(host) && host !== "::") return null;
   const port = Number(localEndpoint.slice(lastColon + 1));
   if (!Number.isInteger(port) || port <= 0 || port >= 65536) return null;
   const pid = Number(fields.at(-1));

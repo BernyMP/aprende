@@ -19,11 +19,9 @@ with T3 Tools Inc. Many internal notes below describe architecture inherited fro
 - [Usage and limits](./user/usage.md)
 - [Telemetry](./user/telemetry.md)
 - [Remote access](./user/remote-access.md)
-- [T3 Connect troubleshooting](./user/t3-connect-troubleshooting.md)
 - [Outside agents (MCP)](./user/outside-agents.md)
 - [Running in the background](./user/background-service.md)
 - [Updating aprende](./user/updating.md)
-- [Triage an issue](./user/triage.md)
 - Provider guides: [Codex](./user/providers-codex.md) · [Claude](./user/providers-claude.md)
 
 ---
@@ -48,10 +46,7 @@ source alone does not explain. Most code changes do not need an internal documen
 - [Server updates](./internals/server-updates.md)
 - [Resource telemetry](./internals/resource-telemetry.md)
 - [Environment auth](./internals/environment-auth.md)
-- [T3 Connect](./internals/t3-connect.md)
 - [Assistant citations](./internals/assistant-citations.md)
-- [Terminal runtime](./internals/terminal-runtime.md)
-- [Devices](./internals/devices.md)
 
 ### Runbooks
 

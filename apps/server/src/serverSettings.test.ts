@@ -36,7 +36,6 @@ import { writeFileStringAtomically } from "@aprende/shared/atomicWrite";
 import * as ServerSettingsModule from "./serverSettings.ts";
 import { SECRET_REDACTED } from "./settingsSecrets.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
-import { resolveProviderInstanceTerminalEnvironment } from "./terminal/Manager.ts";
 
 const decodeServerSettings = Schema.decodeUnknownEffect(ServerSettings);
 const decodeServerSettingsJson = Schema.decodeUnknownEffect(Schema.fromJsonString(ServerSettings));
@@ -225,7 +224,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         config.settingsPath,
         `{
           "responseStreamingMode": "token",
-          "enableAgentBrowserAccess": false,
+          "defaultAutoPull": true,
           "projectSettingsOverrides": {
             "legacy": { "responseStreamingMode": "token", "defaultAutoPull": true },
             "buffered": { "responseStreamingMode": "turn" },
@@ -236,7 +235,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
 
       const settings = yield* service.getSettings;
       assert.equal(settings.responseStreamingMode, "paragraph");
-      assert.isFalse(settings.enableAgentBrowserAccess);
+      assert.isTrue(settings.defaultAutoPull);
       assert.deepEqual(settings.projectSettingsOverrides, {
         [ProjectId.make("legacy")]: { responseStreamingMode: "paragraph", defaultAutoPull: true },
         [ProjectId.make("buffered")]: { responseStreamingMode: "turn" },
@@ -300,21 +299,17 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
     }).pipe(Effect.provide(layerServerSettings())),
   );
 
-  it.effect("sends clients a known secret provider's config but never an unknown kind's", () =>
+  it.effect("never sends clients the config of a secret provider kind it does not load", () =>
     Effect.gen(function* () {
       const settings = yield* decodeServerSettings({
         secretProviders: {
-          personal: { kind: "one_password", label: "Personal", config: { account: "my" } },
           vault: { kind: "openbao", label: "Vault", config: { token: "bao-token" } },
         },
       });
       assert.deepStrictEqual<unknown>(
         ServerSettingsModule.redactServerSettingsForClient(settings, { secretReferences: true })
           .secretProviders,
-        {
-          personal: { kind: "one_password", label: "Personal", config: { account: "my" } },
-          vault: { kind: "openbao", label: "Vault" },
-        },
+        { vault: { kind: "openbao", label: "Vault" } },
       );
     }),
   );
@@ -1277,17 +1272,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
               enabled: true,
             },
           },
-          easDeviceHosts: [
-            {
-              kind: "eas",
-              id: "eas",
-              label: "EAS Simulator",
-              accessToken: "expo-secret",
-              maxSessionMinutes: 30,
-              idleMinutes: 10,
-              maxConcurrentSessions: 2,
-            },
-          ],
         });
         const values = [
           "env-secret",
@@ -1295,7 +1279,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           "bitbucket-secret",
           "gitcafe-secret",
           "quota-secret",
-          "expo-secret",
         ];
         const client = ServerSettingsModule.redactServerSettingsForClient(saved, {
           secretReferences: true,
@@ -1312,7 +1295,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           providerInstances: client.providerInstances,
           sourceControlHosts: client.sourceControlHosts,
           usageLimitSources: client.usageLimitSources,
-          easDeviceHosts: client.easDeviceHosts,
         });
         for (const value of values) assert.include(JSON.stringify(echoed), value);
         const secretNames = [
@@ -1468,10 +1450,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           provider: SecretProviderId.make("personal"),
           reference: "op://Private/Hub/key",
         };
-        const easReference = {
-          provider: SecretProviderId.make("personal"),
-          reference: "op://Private/Expo/token",
-        };
         const hub = UsageLimitSourceId.make("hub");
         const withUsage = yield* serverSettings.updateSettings({
           usageLimitSources: {
@@ -1482,17 +1460,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
               enabled: true,
             },
           },
-          easDeviceHosts: [
-            {
-              kind: "eas",
-              id: "eas",
-              label: "EAS Simulator",
-              accessToken: easReference,
-              maxSessionMinutes: 30,
-              idleMinutes: 10,
-              maxConcurrentSessions: 2,
-            },
-          ],
         });
         const legacy = ServerSettingsModule.redactServerSettingsForClient(withUsage, {
           secretReferences: false,
@@ -1500,11 +1467,9 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         assert.notInclude(JSON.stringify(legacy), "op://");
         assert.equal(legacy.sourceControlHosts.bitbucket?.accessToken, SECRET_REDACTED);
         assert.equal(legacy.usageLimitSources[hub]?.managementKey, SECRET_REDACTED);
-        assert.equal(legacy.easDeviceHosts[0]?.accessToken, SECRET_REDACTED);
         const echoed = yield* serverSettings.updateSettings({
           sourceControlHosts: legacy.sourceControlHosts,
           usageLimitSources: legacy.usageLimitSources,
-          easDeviceHosts: legacy.easDeviceHosts,
         });
         assert.deepEqual(echoed.sourceControlHosts.bitbucket?.accessToken, reference);
         assert.deepEqual(echoed.sourceControlHosts.github?.tokens, {
@@ -1512,7 +1477,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           "ghe.acme.test": "ghp_ghe",
         });
         assert.deepEqual(echoed.usageLimitSources[hub]?.managementKey, usageReference);
-        assert.deepEqual(echoed.easDeviceHosts[0]?.accessToken, easReference);
         assert.isTrue(Option.isSome(yield* stored("github", "tokens", "ghe.acme.test")));
       }).pipe(Effect.provide(layerServerSettingsWithSecrets())),
   );
@@ -1521,7 +1485,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
     Effect.sync(() => {
       // Shipped clients decode these as strings. Each must be covered by the older-client case above.
       assert.deepEqual(strictSecretReferencePaths(ServerSettings.ast), [
-        "easDeviceHosts.[].accessToken",
         "usageLimitSources.*.managementKey",
       ]);
     }),
@@ -1622,40 +1585,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       }).pipe(Effect.provide(layerServerSettingsWithSecrets())),
   );
 
-  it.effect("materializes provider secrets for terminal environment resolution", () =>
-    Effect.gen(function* () {
-      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-      const serverConfig = yield* ServerConfig.ServerConfig;
-      const fileSystem = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const instanceId = ProviderInstanceId.make("codex_terminal");
-
-      yield* serverSettings.updateSettings({
-        providerInstances: {
-          [instanceId]: {
-            driver: ProviderDriverKind.make("codex"),
-            environment: [
-              { name: "OPENROUTER_API_KEY", value: "sk-terminal-secret", sensitive: true },
-            ],
-            config: { homePath: "~/.codex-terminal" },
-          },
-        },
-      });
-
-      const environment = yield* resolveProviderInstanceTerminalEnvironment({
-        serverSettings,
-        path,
-        rawProviderInstanceId: instanceId,
-        env: undefined,
-      });
-      const persisted = yield* fileSystem.readFileString(serverConfig.settingsPath);
-
-      assert.equal(environment.OPENROUTER_API_KEY, "sk-terminal-secret");
-      assert.match(environment.CODEX_HOME ?? "", /[\\/][.]codex-terminal$/);
-      assert.notInclude(persisted, "sk-terminal-secret");
-      assert.include(persisted, '"valueRedacted": true');
-    }).pipe(Effect.provide(layerServerSettings())),
-  );
   it.effect("rolls back provider secret changes when the settings file commit fails", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
@@ -1893,7 +1822,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       }
       yield* fileSystem.writeFileString(
         serverConfig.settingsPath,
-        `{"projectAgentBrowserAccessOverrides":{"${legacyProject}":false},"projectAutoPullOverrides":{"${scriptedProject}":true},"projectScriptOverrides":{"${legacyProject}":null}}`,
+        `{"projectAutoPullOverrides":{"${scriptedProject}":true},"projectScriptOverrides":{"${legacyProject}":null}}`,
       );
 
       const settings = yield* serverSettings.getSettings;
@@ -1902,7 +1831,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
         settings.projectSettingsOverrides,
         {
           [legacyProject]: {
-            enableAgentBrowserAccess: false,
             defaultModelSelection: model,
             defaultThreadEnvMode: "worktree",
             defaultAutoPull: true,
@@ -1968,7 +1896,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
       organization: "Example Corp",
       settings: {
         defaultRuntimeMode: { value: "approval-required", locked: false },
-        enableAgentDeviceAccess: { value: false, locked: true },
+        continueThreadsAfterServerUpdate: { value: true, locked: true },
       },
     };
 
@@ -2099,44 +2027,49 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         yield* fs.writeFileString(
           config.settingsPath,
           JSON.stringify({
-            enableAgentDeviceAccess: true,
-            projectSettingsOverrides: { [projectId]: { enableAgentDeviceAccess: true } },
+            continueThreadsAfterServerUpdate: false,
+            projectSettingsOverrides: { [projectId]: { continueThreadsAfterServerUpdate: false } },
           }),
         );
 
         const settings = yield* service.getSettings;
-        assert.isFalse(settings.enableAgentDeviceAccess);
-        assert.isFalse(settings.projectSettingsOverrides[projectId]?.enableAgentDeviceAccess);
+        assert.isTrue(settings.continueThreadsAfterServerUpdate);
+        assert.isTrue(
+          settings.projectSettingsOverrides[projectId]?.continueThreadsAfterServerUpdate,
+        );
         assert.deepEqual(service.managedPolicy, {
           organization: "Example Corp",
-          lockedSettings: ["enableAgentDeviceAccess"],
+          lockedSettings: ["continueThreadsAfterServerUpdate"],
         });
 
         const rejected = yield* service
-          .updateSettings({ enableAgentDeviceAccess: true, defaultAutoPull: true })
+          .updateSettings({ continueThreadsAfterServerUpdate: false, defaultAutoPull: true })
           .pipe(Effect.flip);
         assert.equal(rejected.operation, "write-managed-setting");
-        assert.equal(rejected.managedSetting, "enableAgentDeviceAccess");
+        assert.equal(rejected.managedSetting, "continueThreadsAfterServerUpdate");
         assert.equal(
           rejected.message,
-          "enableAgentDeviceAccess is managed by Example Corp and cannot be changed.",
+          "continueThreadsAfterServerUpdate is managed by Example Corp and cannot be changed.",
         );
         assert.isFalse((yield* service.getSettings).defaultAutoPull);
 
         const projectRejected = yield* service
           .updateSettings({
-            projectSettingsOverrides: { [projectId]: { enableAgentDeviceAccess: true } },
+            projectSettingsOverrides: { [projectId]: { continueThreadsAfterServerUpdate: false } },
           })
           .pipe(Effect.flip);
-        assert.equal(projectRejected.managedSetting, "enableAgentDeviceAccess");
+        assert.equal(projectRejected.managedSetting, "continueThreadsAfterServerUpdate");
 
         // Unrelated writes, and writes that keep the locked value, go through.
-        yield* service.updateSettings({ enableAgentDeviceAccess: false, defaultAutoPull: true });
+        yield* service.updateSettings({
+          continueThreadsAfterServerUpdate: true,
+          defaultAutoPull: true,
+        });
         assert.isTrue((yield* service.getSettings).defaultAutoPull);
 
         // The user's own value stays on disk, ready for when the policy is removed.
         const stored = JSON.parse(yield* fs.readFileString(config.settingsPath));
-        assert.isTrue(stored.enableAgentDeviceAccess);
+        assert.isFalse(stored.continueThreadsAfterServerUpdate);
       }).pipe(Effect.provide(layerServerSettings(policy))),
     );
     it.effect("accepts a project override that brings the locked value inside a new setting", () =>

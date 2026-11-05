@@ -1,6 +1,5 @@
 import { AgentScope } from "@aprende/shared/AgentScope";
 import * as KeyedLock from "@aprende/shared/KeyedLock";
-import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import {
   isOrchestrationV2WorkActive,
   ModelSelection,
@@ -41,9 +40,7 @@ import {
   withMetrics,
 } from "../observability/Metrics.ts";
 import { ProviderWorkspaceMissingError } from "../provider/Errors.ts";
-import * as ProjectService from "../project/ProjectService.ts";
 import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
-import * as ServerSettings from "../serverSettings.ts";
 import * as McpSessionRegistry from "../mcp/McpSessionRegistry.ts";
 import * as EventSink from "./EventSink.ts";
 import * as CommandOutputHub from "./CommandOutputHub.ts";
@@ -337,53 +334,12 @@ export const layerWithOptions = (
       const fileSystem = yield* FileSystem.FileSystem;
       const mcpSessionRegistry = yield* McpSessionRegistry.McpSessionRegistry;
       const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
-      /** Unreadable settings must preserve explicit browser-access opt-outs. */
-      const serverSettings = yield* Effect.serviceOption(ServerSettings.ServerSettingsService);
-      const projectService = yield* Effect.serviceOption(ProjectService.ProjectService);
       const eventSink = yield* EventSink.EventSinkV2;
       const commandOutput = yield* CommandOutputHub.CommandOutputHub;
       const idAllocator = yield* IdAllocator.IdAllocatorV2;
       const providerEventIngestor = yield* ProviderEventIngestor.ProviderEventIngestorV2;
       const projectionStore = yield* ProjectionStore.ProjectionStoreV2;
       const agentScope = yield* AgentScope;
-      const agentAccessSettings = Effect.fn("ProviderSessionManagerV2.agentAccessSettings")(
-        function* (threadId: ThreadId) {
-          if (Option.isNone(serverSettings)) return { browser: true, device: false };
-          return yield* Effect.gen(function* () {
-            const settings = yield* serverSettings.value.getSettings;
-            const thread = yield* projectionStore.getThread(threadId);
-            const entries = Object.values(settings.projectSettingsOverrides);
-            const browserOverridden = entries.some(
-              (entry) => entry.enableAgentBrowserAccess !== undefined,
-            );
-            const deviceOverridden = entries.some(
-              (entry) => entry.enableAgentDeviceAccess !== undefined,
-            );
-            if (browserOverridden || deviceOverridden) {
-              const project = Option.isSome(projectService)
-                ? yield* projectService.value.getById(thread.projectId)
-                : Option.none();
-              if (Option.isNone(project))
-                return {
-                  browser: browserOverridden ? false : settings.enableAgentBrowserAccess,
-                  device: deviceOverridden ? false : settings.enableAgentDeviceAccess,
-                };
-            }
-            const effective = resolveProjectSettings(settings, thread.projectId).settings;
-            return {
-              browser: effective.enableAgentBrowserAccess,
-              device: effective.enableAgentDeviceAccess,
-            };
-          }).pipe(
-            Effect.catch((cause) =>
-              Effect.logWarning(
-                "Could not resolve agent access; withholding browser and device tools.",
-                { threadId, cause },
-              ).pipe(Effect.as({ browser: false, device: false })),
-            ),
-          );
-        },
-      );
       const layerScope = yield* Effect.scope;
       // Group signals stop providers before restart capture; drop post-signal events so recovery owns that state.
       const shutdownSignal = { received: false };
@@ -450,13 +406,9 @@ export const layerWithOptions = (
               threadId,
               Effect.gen(function* () {
                 // Live providers build MCP clients once; reuse credentials across workspace handoffs.
-                const { browser: browserToolsAvailable, device: deviceToolsAvailable } =
-                  yield* agentAccessSettings(threadId);
                 const capabilities = new Set<
                   import("../mcp/McpInvocationContext.ts").McpCapability
                 >(["orchestration", "worktree", "pull-requests"]);
-                if (browserToolsAvailable) capabilities.add("preview");
-                if (deviceToolsAvailable) capabilities.add("device");
                 const subagent = yield* projectionStore.getThread(threadId).pipe(
                   Effect.map((thread) => thread.lineage.relationshipToParent === "subagent"),
                   Effect.orElseSucceed(() => false),
@@ -480,8 +432,6 @@ export const layerWithOptions = (
                     resolved !== undefined &&
                     resolved.thread.threadId === threadId &&
                     resolved.thread.providerInstanceId === providerInstanceId &&
-                    resolved.capabilities.has("preview") === browserToolsAvailable &&
-                    resolved.capabilities.has("device") === deviceToolsAvailable &&
                     // A credential issued while the lineage read failed is replaced once it works.
                     (resolved.thread.subagent === true) === subagent
                   ) {
@@ -493,7 +443,6 @@ export const layerWithOptions = (
                 const credential = yield* mcpSessionRegistry.issue({
                   threadId,
                   providerInstanceId,
-                  browserToolsAvailable,
                   capabilities,
                   subagent,
                 });

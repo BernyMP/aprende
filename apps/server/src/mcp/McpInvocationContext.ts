@@ -3,7 +3,6 @@ import {
   type EnvironmentId,
   McpCapabilityUnavailableError,
   OrchestratorMcpFailure,
-  PreviewAutomationUnavailableError,
   type ProviderInstanceId,
   type ProviderInteractionMode,
   type RuntimeMode,
@@ -12,15 +11,9 @@ import {
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import { formatThreadLink, hostedThreadLink } from "@aprende/shared/threadLinks";
+import { formatThreadLink } from "@aprende/shared/threadLinks";
 
-const ALL_MCP_CAPABILITIES = [
-  "preview",
-  "orchestration",
-  "worktree",
-  "device",
-  "pull-requests",
-] as const;
+const ALL_MCP_CAPABILITIES = ["orchestration", "worktree", "pull-requests"] as const;
 export type McpCapability = (typeof ALL_MCP_CAPABILITIES)[number];
 
 export interface McpThreadCaller {
@@ -45,8 +38,6 @@ export interface McpClientCaller {
    * another environment passing on the limits of the agent it calls for.
    */
   readonly narrowedTo?: ClientModes | undefined;
-  /** An outside client's thread links go through this hosted app, as Copy thread's do. */
-  readonly hostedAppUrl?: string | undefined;
 }
 
 /**
@@ -133,18 +124,10 @@ export interface McpInvocationScope {
   readonly linkedEnvironments?: boolean;
 }
 
-/**
- * aprende renders `t3-thread://` links as thread chips. Other MCP clients cannot open them, so
- * they get the hosted link Copy thread copies, which opens the thread in either app or a browser.
- */
 export const threadLinkFor = (
-  scope: Pick<McpInvocationScope, "environmentId" | "client">,
+  scope: Pick<McpInvocationScope, "environmentId">,
   threadId: ThreadId,
-): string => {
-  const hostedAppUrl = scope.client?.hostedAppUrl;
-  const ref = { environmentId: scope.environmentId, threadId };
-  return hostedAppUrl === undefined ? formatThreadLink(ref) : hostedThreadLink(ref, hostedAppUrl);
-};
+): string => formatThreadLink({ environmentId: scope.environmentId, threadId });
 
 export class McpInvocationContext extends Context.Service<
   McpInvocationContext,
@@ -168,48 +151,24 @@ export const hiddenWhileLinksOff = (): boolean => {
   return scope?.linkedEnvironments !== false;
 };
 
-export type McpCapabilityError<C extends McpCapability> = C extends "preview"
-  ? PreviewAutomationUnavailableError
-  : McpCapabilityUnavailableError;
-
-const missingCapability = (
-  invocation: McpInvocationScope,
+export const requireMcpCapability = (
   capability: McpCapability,
-): PreviewAutomationUnavailableError | McpCapabilityUnavailableError => {
-  const fields = {
-    environmentId: invocation.environmentId,
-    ...(invocation.thread === undefined
-      ? {}
-      : {
-          threadId: invocation.thread.threadId,
-          providerSessionId: invocation.thread.providerSessionId,
-          providerInstanceId: invocation.thread.providerInstanceId,
-        }),
-  };
-  return capability === "preview"
-    ? new PreviewAutomationUnavailableError({ capability, ...fields })
-    : new McpCapabilityUnavailableError({ capability, ...fields });
-};
-
-export const requireMcpCapability = <const C extends McpCapability>(
-  capability: C,
-): Effect.Effect<McpInvocationScope, McpCapabilityError<C>, McpInvocationContext> =>
+): Effect.Effect<McpInvocationScope, McpCapabilityUnavailableError, McpInvocationContext> =>
   McpInvocationContext.pipe(
     Effect.filterOrFail(
       (invocation) => invocation.capabilities.has(capability),
-      (invocation) => missingCapability(invocation, capability) as McpCapabilityError<C>,
-    ),
-    Effect.withSpan("mcp.requireCapability"),
-  );
-
-export const requireThreadMcpCapability = <const C extends "preview" | "device">(
-  capability: C,
-): Effect.Effect<McpThreadInvocationScope, McpCapabilityError<C>, McpInvocationContext> =>
-  McpInvocationContext.pipe(
-    Effect.filterOrFail(
-      (invocation): invocation is McpThreadInvocationScope =>
-        invocation.capabilities.has(capability) && invocation.thread !== undefined,
-      (invocation) => missingCapability(invocation, capability) as McpCapabilityError<C>,
+      (invocation) =>
+        new McpCapabilityUnavailableError({
+          capability,
+          environmentId: invocation.environmentId,
+          ...(invocation.thread === undefined
+            ? {}
+            : {
+                threadId: invocation.thread.threadId,
+                providerSessionId: invocation.thread.providerSessionId,
+                providerInstanceId: invocation.thread.providerInstanceId,
+              }),
+        }),
     ),
     Effect.withSpan("mcp.requireCapability"),
   );

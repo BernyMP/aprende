@@ -137,8 +137,6 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   serverInstallation: ForwardCompatibleOptional(ServerInstallation),
   serverSelfUpdateProgress: Schema.optionalKey(Schema.Boolean),
   serverUpdateThreadContinuation: Schema.optionalKey(Schema.Boolean),
-  /** Only explicit false skips Live Activity seeding; older servers may still publish. */
-  agentActivityPublishing: Schema.optionalKey(Schema.Boolean),
   projectCloneTracking: Schema.optionalKey(Schema.Boolean),
   /** Server keeps `pinned` and `archived` from project.update. Older servers drop them. */
   projectOrganization: Schema.optionalKey(Schema.Boolean),
@@ -150,22 +148,6 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   desktopAppChannelSwitch: Schema.optionalKey(Schema.Boolean),
   /** Subscribe to command output only when advertised; older servers never send it. */
   commandOutputStreaming: Schema.optionalKey(Schema.Boolean),
-  /** Hosts headless Chromium tabs streamed over /api/preview-stream for clients without a local runtime. */
-  serverBrowser: Schema.optionalKey(Schema.Boolean),
-  /** Server links to other environments (`PeerLink`) and its agents can work
-      in them. Absent on servers from before linking, which clients must not
-      offer linking for. */
-  peerLinks: Schema.optionalKey(Schema.Boolean),
-  /** Server's `/mcp` narrows an OAuth client's modes from `T3-Mode-Limit`, so
-      a linked environment's calls keep its agent's limits. Another environment
-      links to this one only when it is set. */
-  mcpModeLimitHeader: Schema.optionalKey(Schema.Boolean),
-  /** Work a linked environment starts here stays within its link
-      (`linkOrigin`). Another environment links to this one only when it is
-      set, since without it that work could change the user's own threads. */
-  linkFence: Schema.optionalKey(Schema.Boolean),
-  /** Server answers server.prepareTriage. */
-  triage: Schema.optionalKey(Schema.Boolean),
   /** Server accepts `{ type: "once" }` scheduled tasks; older servers reject them on save. */
   oneTimeSchedules: Schema.optionalKey(Schema.Boolean),
 });

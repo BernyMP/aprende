@@ -1,6 +1,5 @@
 import * as NodeAssert from "node:assert/strict";
 
-import { T3_CODE_DEVICE_TOOL_INSTRUCTIONS } from "@aprende/provider-core/server/orchestrationInstructions";
 import { describe, it } from "vite-plus/test";
 
 import {
@@ -12,22 +11,19 @@ describe("buildCodexAdditionalContext", () => {
   describe.each([
     { model: "custom-model", modelName: "Custom 🦊 Model", reasoningEffort: "xhigh" },
   ])("with runtime $model", (runtime) => {
-    it.each([undefined, { browser: true, device: true }])(
-      "keeps every entry within Codex's per-entry cap with tools %j",
-      (availability) => {
-        const context = buildCodexAdditionalContext(runtime, availability);
+    it("keeps every entry within Codex's per-entry cap", () => {
+      const context = buildCodexAdditionalContext(runtime);
 
-        for (const [key, entry] of Object.entries(context)) {
-          // Codex counts ceil(UTF-8 bytes / 4) tokens, excluding keys and wrappers.
-          const bytes = Buffer.byteLength(entry.value, "utf8");
-          const limit = CODEX_ADDITIONAL_CONTEXT_VALUE_MAX_BYTES;
-          NodeAssert.ok(
-            bytes <= limit,
-            `${key}: ${bytes} UTF-8 bytes exceeds Codex's ${limit}-byte per-entry cap by ${bytes - limit} bytes; split the instructions into separate entries to avoid silent truncation`,
-          );
-        }
-      },
-    );
+      for (const [key, entry] of Object.entries(context)) {
+        // Codex counts ceil(UTF-8 bytes / 4) tokens, excluding keys and wrappers.
+        const bytes = Buffer.byteLength(entry.value, "utf8");
+        const limit = CODEX_ADDITIONAL_CONTEXT_VALUE_MAX_BYTES;
+        NodeAssert.ok(
+          bytes <= limit,
+          `${key}: ${bytes} UTF-8 bytes exceeds Codex's ${limit}-byte per-entry cap by ${bytes - limit} bytes; split the instructions into separate entries to avoid silent truncation`,
+        );
+      }
+    });
   });
 });
 
@@ -77,18 +73,6 @@ describe("Codex orchestration context", () => {
     NodeAssert.ok(!orchestration.includes("Prefer native"));
     // The ACP terminal fallback is ACP-only; Codex agents never need it.
     NodeAssert.ok(!orchestration.includes("acp-mcp-call"));
-  });
-});
-
-describe("Codex device context", () => {
-  it("adds the shared device block only when the session holds device access", () => {
-    const tools = (device: boolean) =>
-      buildCodexAdditionalContext({ model: "gpt-6.1-sol" }, { browser: true, device }).t3_code_tools
-        ?.value ?? "";
-
-    NodeAssert.ok(tools(true).includes(T3_CODE_DEVICE_TOOL_INSTRUCTIONS));
-    NodeAssert.ok(!tools(true).includes("ToolSearch"));
-    NodeAssert.ok(!tools(false).includes("## aprende devices"));
   });
 });
 

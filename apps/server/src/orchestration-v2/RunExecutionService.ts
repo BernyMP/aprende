@@ -39,7 +39,6 @@ import * as Stream from "effect/Stream";
 
 import * as McpSessionRegistry from "../mcp/McpSessionRegistry.ts";
 import * as McpAppModelContext from "../mcpApps/McpAppModelContext.ts";
-import * as PreviewAgentActivity from "../preview/PreviewAgentActivity.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as CheckpointService from "./CheckpointService.ts";
 import * as EventSink from "./EventSink.ts";
@@ -592,7 +591,6 @@ export const layer: Layer.Layer<
   | ProviderEventIngestor.ProviderEventIngestorV2
   | ServerSettings.ServerSettingsService
   | McpAppModelContext.McpAppModelContext
-  | PreviewAgentActivity.PreviewAgentActivity
   | TurnItemPositionStore.TurnItemPositionStoreV2
 > = Layer.effect(
   RunExecutionServiceV2,
@@ -604,7 +602,6 @@ export const layer: Layer.Layer<
     const providerEventIngestor = yield* ProviderEventIngestor.ProviderEventIngestorV2;
     const serverSettings = yield* ServerSettings.ServerSettingsService;
     const mcpAppModelContext = yield* McpAppModelContext.McpAppModelContext;
-    const previewAgentActivity = yield* PreviewAgentActivity.PreviewAgentActivity;
     const turnItemPositions = yield* TurnItemPositionStore.TurnItemPositionStoreV2;
     const finalizationObserver = yield* RunFinalizationService.RunFinalizationObserver;
 
@@ -1278,9 +1275,6 @@ export const layer: Layer.Layer<
         // Held text writes nothing, so its item would take a position only
         // when finally written, behind every item that began after it.
         const reservedHeldTurnItemIds = new Set<TurnItemId>();
-        // Ends once the root turn and the children it drives settle. Background commands such
-        // as a dev server keep this consumer alive afterwards and must not pin preview focus.
-        const endPreviewActivity = yield* previewAgentActivity.begin(input.run.threadId);
         const providerEventFiber = yield* eventSubscription.events.pipe(
           Stream.mapEffect((event) =>
             Effect.gen(function* () {
@@ -1458,12 +1452,6 @@ export const layer: Layer.Layer<
               yield* trackChildLifecycle(event, deliveredEvent !== null);
             }),
           ),
-          // Also after events this run does not accept, such as a child handed to another run.
-          Stream.tap(() =>
-            Effect.gen(function* () {
-              if (yield* agentTurnsSettled) yield* endPreviewActivity;
-            }),
-          ),
           Stream.takeUntilEffect(() => shouldStopProviderEventIngestion),
           Stream.runDrain,
           Effect.mapError((cause) => new RunExecutionIngestError({ runId: input.run.id, cause })),
@@ -1601,7 +1589,6 @@ export const layer: Layer.Layer<
                 );
               }),
           ),
-          Effect.ensuring(endPreviewActivity),
           Effect.ensuring(eventSubscription.close),
           Effect.forkDetach,
         );

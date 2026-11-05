@@ -23,7 +23,7 @@ import { Argument, Flag } from "effect/cli";
 import * as CliError from "effect/cli/CliError";
 
 import { readBootstrapEnvelope } from "../bootstrap.ts";
-import { resolveServiceLauncherMode } from "../cloud/serviceLauncherClient.ts";
+import { resolveServiceLauncherMode } from "../service/serviceLauncherClient.ts";
 import * as ServerConfig from "../config.ts";
 import { expandHomePath, resolveBaseDir } from "../os-jank.ts";
 import { isProcessAlive, readPersistedServerRuntimeState } from "../serverRuntimeState.ts";
@@ -406,7 +406,6 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     resolveOptionPrecedence(
       normalizedFlags.tailscaleServeEnabled,
       Option.fromUndefinedOr(env.tailscaleServeEnabled),
-      Option.fromUndefinedOr(bootstrap?.tailscaleServeEnabled),
     ),
     () => false,
   );
@@ -414,7 +413,6 @@ export const resolveServerConfig = Effect.fn("config.resolveServerConfig")(funct
     resolveOptionPrecedence(
       normalizedFlags.tailscaleServePort,
       Option.fromUndefinedOr(env.tailscaleServePort),
-      Option.fromUndefinedOr(bootstrap?.tailscaleServePort),
     ),
     () => 443,
   );

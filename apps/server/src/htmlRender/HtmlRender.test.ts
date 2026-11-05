@@ -21,8 +21,8 @@ import { resolveAttachmentPathById } from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
 import * as HtmlRender from "./HtmlRender.ts";
 import { HtmlRenderBrowserError } from "./headlessChrome.ts";
-import * as PreviewBrowser from "../preview/PreviewBrowser.ts";
-import * as PreviewBrowserHost from "../preview/PreviewBrowserHost.ts";
+import * as PreviewBrowser from "./PreviewBrowser.ts";
+import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
 
 const TEST_BROWSER_ENV = "APRENDE_TEST_HEADLESS_SHELL";
 
@@ -199,7 +199,6 @@ describe("HtmlRender", () => {
         providerInstanceId: ProviderInstanceId.make("claude"),
         endpoint: "http://localhost:8311/mcp",
         authorizationHeader: "Bearer first-token",
-        browserToolsAvailable: false,
       };
       yield* mcpSessions.set(session);
 
@@ -239,7 +238,7 @@ describe("HtmlRender", () => {
       expect(yield* mcpSessions.takeHtmlRender(threadId, page)).toEqual(reference);
       expect(yield* mcpSessions.takeHtmlRender(threadId, page)).toBe(undefined);
       const reused = yield* htmlRender.publish({ threadId, ...page });
-      yield* mcpSessions.set({ ...session, browserToolsAvailable: true });
+      yield* mcpSessions.set({ ...session });
       expect(yield* mcpSessions.takeHtmlRender(threadId, page)).toEqual(reused);
 
       yield* htmlRender.publish({ threadId, ...page });

@@ -1,9 +1,4 @@
-import {
-  EnvironmentId,
-  type RelayClientInstallProgressEvent,
-  type ServerLifecycleStreamEvent,
-  WS_METHODS,
-} from "@aprende/contracts";
+import { EnvironmentId, type ServerLifecycleStreamEvent, WS_METHODS } from "@aprende/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
@@ -35,11 +30,11 @@ const TARGET = new PrimaryConnectionTarget({
   wsBaseUrl: "wss://environment.example.test",
 });
 
-const INSTALL_CHECKING: RelayClientInstallProgressEvent = {
+const INSTALL_CHECKING = {
   type: "progress",
   stage: "checking",
 };
-const INSTALL_DOWNLOADING: RelayClientInstallProgressEvent = {
+const INSTALL_DOWNLOADING = {
   type: "progress",
   stage: "downloading",
 };
@@ -82,18 +77,20 @@ const makeHarness = Effect.fn("TestEnvironmentRpc.makeHarness")(function* () {
 describe("environment RPC", () => {
   it.effect("binds finite streaming commands to one active session", () =>
     Effect.gen(function* () {
-      const firstEvents = yield* Queue.unbounded<RelayClientInstallProgressEvent>();
-      const secondEvents = yield* Queue.unbounded<RelayClientInstallProgressEvent>();
+      const firstEvents = yield* Queue.unbounded<unknown>();
+      const secondEvents = yield* Queue.unbounded<unknown>();
       const firstClient = {
-        [WS_METHODS.cloudInstallRelayClient]: () => Stream.fromQueue(firstEvents),
+        [WS_METHODS.serverUpdateServerWithProgress]: () => Stream.fromQueue(firstEvents),
       } as unknown as WsRpcProtocolClient;
       const secondClient = {
-        [WS_METHODS.cloudInstallRelayClient]: () => Stream.fromQueue(secondEvents),
+        [WS_METHODS.serverUpdateServerWithProgress]: () => Stream.fromQueue(secondEvents),
       } as unknown as WsRpcProtocolClient;
       const { activeSession, supervisor } = yield* makeHarness();
 
       yield* SubscriptionRef.set(activeSession, Option.some(session(firstClient)));
-      const resultFiber = yield* runStream(WS_METHODS.cloudInstallRelayClient, {}).pipe(
+      const resultFiber = yield* runStream(WS_METHODS.serverUpdateServerWithProgress, {
+        targetVersion: "1.0.0",
+      }).pipe(
         Stream.take(2),
         Stream.runCollect,
         Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
@@ -115,14 +112,14 @@ describe("environment RPC", () => {
       const subscriptions: string[] = [];
       const subscriptionChanges = yield* Queue.make<void>();
       const firstClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("first");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.never;
         },
       } as unknown as WsRpcProtocolClient;
       const secondClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("second");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.never;
@@ -140,7 +137,7 @@ describe("environment RPC", () => {
         }
       });
 
-      const subscriptionFiber = yield* subscribe(WS_METHODS.subscribeTerminalMetadata, {}).pipe(
+      const subscriptionFiber = yield* subscribe(WS_METHODS.subscribeServerLifecycle, {}).pipe(
         Stream.runDrain,
         Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
         Effect.forkChild,
@@ -227,7 +224,7 @@ describe("environment RPC", () => {
       const subscriptions: string[] = [];
       const subscriptionChanges = yield* Queue.make<void>();
       const firstClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("first");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.fail(
@@ -241,7 +238,7 @@ describe("environment RPC", () => {
         },
       } as unknown as WsRpcProtocolClient;
       const secondClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("second");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.never;
@@ -249,7 +246,7 @@ describe("environment RPC", () => {
       } as unknown as WsRpcProtocolClient;
       const { activeSession, retryCount, supervisor } = yield* makeHarness();
 
-      const subscriptionFiber = yield* subscribe(WS_METHODS.subscribeTerminalMetadata, {}).pipe(
+      const subscriptionFiber = yield* subscribe(WS_METHODS.subscribeServerLifecycle, {}).pipe(
         Stream.runDrain,
         Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
         Effect.forkChild,
@@ -273,14 +270,14 @@ describe("environment RPC", () => {
 
   it.effect("surfaces domain subscription failures without reconnecting", () =>
     Effect.gen(function* () {
-      const domainError = new Error("terminal subscription rejected");
+      const domainError = new Error("lifecycle subscription rejected");
       const client = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => Stream.fail(domainError),
+        [WS_METHODS.subscribeServerLifecycle]: () => Stream.fail(domainError),
       } as unknown as WsRpcProtocolClient;
       const { activeSession, retryCount, supervisor } = yield* makeHarness();
 
       yield* SubscriptionRef.set(activeSession, Option.some(session(client)));
-      const error = yield* subscribe(WS_METHODS.subscribeTerminalMetadata, {}).pipe(
+      const error = yield* subscribe(WS_METHODS.subscribeServerLifecycle, {}).pipe(
         Stream.runDrain,
         Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
         Effect.flip,
@@ -293,20 +290,20 @@ describe("environment RPC", () => {
 
   it.effect("keeps handled domain failures dormant until a replacement session arrives", () =>
     Effect.gen(function* () {
-      const domainError = new Error("terminal subscription rejected");
+      const domainError = new Error("lifecycle subscription rejected");
       const subscriptions: string[] = [];
       const subscriptionChanges = yield* Queue.make<void>();
       const observedFailures: Error[] = [];
       const failureObserved = yield* Deferred.make<void>();
       const firstClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("first");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.fail(domainError);
         },
       } as unknown as WsRpcProtocolClient;
       const secondClient = {
-        [WS_METHODS.subscribeTerminalMetadata]: () => {
+        [WS_METHODS.subscribeServerLifecycle]: () => {
           subscriptions.push("second");
           Queue.offerUnsafe(subscriptionChanges, undefined);
           return Stream.never;
@@ -316,7 +313,7 @@ describe("environment RPC", () => {
 
       yield* SubscriptionRef.set(activeSession, Option.some(session(firstClient)));
       const subscriptionFiber = yield* subscribe(
-        WS_METHODS.subscribeTerminalMetadata,
+        WS_METHODS.subscribeServerLifecycle,
         {},
         {
           onExpectedFailure: (cause) =>
@@ -358,13 +355,13 @@ describe("environment RPC", () => {
         const defectObserved = yield* Deferred.make<void>();
         const resubscribed = yield* Deferred.make<void>();
         const firstClient = {
-          [WS_METHODS.subscribeTerminalMetadata]: () => {
+          [WS_METHODS.subscribeServerLifecycle]: () => {
             streams += 1;
             return where === "stream" ? Stream.die(defect) : Stream.never;
           },
         } as unknown as WsRpcProtocolClient;
         const secondClient = {
-          [WS_METHODS.subscribeTerminalMetadata]: () => {
+          [WS_METHODS.subscribeServerLifecycle]: () => {
             Deferred.doneUnsafe(resubscribed, Effect.void);
             return Stream.never;
           },
@@ -373,7 +370,7 @@ describe("environment RPC", () => {
 
         yield* SubscriptionRef.set(activeSession, Option.some(session(firstClient)));
         const subscriptionFiber = yield* subscribeDynamicWithSession(
-          WS_METHODS.subscribeTerminalMetadata,
+          WS_METHODS.subscribeServerLifecycle,
           () =>
             Effect.suspend(() => {
               inputs += 1;
