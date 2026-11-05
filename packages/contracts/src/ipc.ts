@@ -3,9 +3,7 @@ import * as Schema from "effect/Schema";
 import { SnapShotSource } from "./chatAttachment.ts";
 import { EnvironmentId, TrimmedNonEmptyString } from "./baseSchemas.ts";
 import { BrowserProfileId } from "./browserProfile.ts";
-import { AuthAccessTokenResult, AuthSessionState } from "./auth.ts";
 import { AdvertisedEndpoint } from "./remoteAccess.ts";
-import { ExecutionEnvironmentDescriptor } from "./environment.ts";
 import { type ClientSettings, type QuitConfirmationMode, SnapShotShortcut } from "./settings.ts";
 import type { EditorId } from "./editor.ts";
 
@@ -425,7 +423,7 @@ export interface DesktopSshPasswordPromptRequest {
   expiresAt: string;
 }
 
-export const DesktopSshPasswordPromptCancelledType = "ssh-password-prompt-cancelled" as const;
+const DesktopSshPasswordPromptCancelledType = "ssh-password-prompt-cancelled" as const;
 
 export const DesktopSshPasswordPromptCancelledResultSchema = Schema.Struct({
   type: Schema.Literal(DesktopSshPasswordPromptCancelledType),
@@ -1043,8 +1041,6 @@ export interface DesktopBridge {
   setClientSettings: (settings: ClientSettings) => Promise<void>;
   getConnectionCatalog: () => Promise<string | null>;
   setConnectionCatalog: (catalog: string) => Promise<boolean>;
-  discoverSshHosts: () => Promise<readonly DesktopDiscoveredSshHost[]>;
-  resolveSshHost: (alias: string) => Promise<DesktopSshEnvironmentTarget>;
   requestSnapShotPermissions: (includeAccessibility: boolean) => Promise<void>;
   getSnapShotState: () => Promise<DesktopSnapShotState>;
   setupSnapShot: (action: DesktopSnapShotSetupAction) => Promise<void>;
@@ -1063,25 +1059,8 @@ export interface DesktopBridge {
   ) => Promise<void>;
   dismissSnapShotAnimation: (id: DesktopSnapShotId) => Promise<void>;
   acknowledgeSnapShot: (id: string) => Promise<void>;
-  ensureSshEnvironment: (
-    target: DesktopSshEnvironmentTarget,
-    options?: { issuePairingToken?: boolean },
-  ) => Promise<DesktopSshEnvironmentBootstrap>;
-  disconnectSshEnvironment: (target: DesktopSshEnvironmentTarget) => Promise<void>;
-  fetchSshEnvironmentDescriptor: (httpBaseUrl: string) => Promise<ExecutionEnvironmentDescriptor>;
-  bootstrapSshBearerSession: (
-    httpBaseUrl: string,
-    credential: string,
-  ) => Promise<AuthAccessTokenResult>;
-  fetchSshSessionState: (httpBaseUrl: string, bearerToken: string) => Promise<AuthSessionState>;
-  onSshPasswordPrompt: (listener: (request: DesktopSshPasswordPromptRequest) => void) => () => void;
-  resolveSshPasswordPrompt: (requestId: string, password: string | null) => Promise<void>;
   getServerExposureState: () => Promise<DesktopServerExposureState>;
   setServerExposureMode: (mode: DesktopServerExposureMode) => Promise<DesktopServerExposureState>;
-  setTailscaleServeEnabled: (input: {
-    readonly enabled: boolean;
-    readonly port?: number;
-  }) => Promise<DesktopServerExposureState>;
   getAdvertisedEndpoints: () => Promise<readonly AdvertisedEndpoint[]>;
   getWslState: () => Promise<DesktopWslState>;
   setWslBackendEnabled: (enabled: boolean) => Promise<DesktopWslState>;

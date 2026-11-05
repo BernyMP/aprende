@@ -9,26 +9,19 @@ import {
   type DesktopServerExposureMode,
   type DesktopServerExposureState,
 } from "@aprende/contracts";
-import { isTailscaleIpv4Address, readTailscaleStatus } from "@aprende/tailscale";
-import * as Cache from "effect/Cache";
+import { isTailscaleIpv4Address } from "@aprende/tailscale";
 import * as Context from "effect/Context";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import * as HttpClient from "effect/http/HttpClient";
-import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import * as DesktopManagedPolicy from "../app/DesktopManagedPolicy.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopConfig from "../app/DesktopConfig.ts";
 import * as DesktopNetworkInterfaces from "./DesktopNetworkInterfaces.ts";
-import { resolveTailscaleAdvertisedEndpoints } from "./tailscaleEndpointProvider.ts";
-
-const TAILSCALE_STATUS_CACHE_TTL = Duration.seconds(60);
 
 const DESKTOP_LOOPBACK_HOST = "127.0.0.1";
 const DESKTOP_LAN_BIND_HOST = "0.0.0.0";
@@ -232,19 +225,6 @@ export class DesktopServerExposureModePersistenceError extends Schema.TaggedErro
   }
 }
 
-export class DesktopTailscaleServePersistenceError extends Schema.TaggedError<DesktopTailscaleServePersistenceError>()(
-  "DesktopTailscaleServePersistenceError",
-  {
-    enabled: Schema.Boolean,
-    port: Schema.NullOr(Schema.Number),
-    cause: Schema.instanceOf(DesktopAppSettings.DesktopSettingsWriteError),
-  },
-) {
-  override get message(): string {
-    return `Failed to persist desktop Tailscale Serve settings (enabled: ${this.enabled}, port: ${this.port ?? "unchanged"}).`;
-  }
-}
-
 export const DesktopServerExposureSetModeError = Schema.Union([
   DesktopServerExposureNoNetworkAddressError,
   DesktopServerExposureModePersistenceError,
@@ -254,7 +234,6 @@ export type DesktopServerExposureSetModeError = typeof DesktopServerExposureSetM
 export const DesktopServerExposureError = Schema.Union([
   DesktopServerExposureNoNetworkAddressError,
   DesktopServerExposureModePersistenceError,
-  DesktopTailscaleServePersistenceError,
 ]);
 export type DesktopServerExposureError = typeof DesktopServerExposureError.Type;
 
@@ -282,10 +261,6 @@ export class DesktopServerExposure extends Context.Service<
     readonly setMode: (
       mode: DesktopServerExposureMode,
     ) => Effect.Effect<DesktopServerExposureChange, DesktopServerExposureSetModeError>;
-    readonly setTailscaleServeEnabled: (input: {
-      readonly enabled: boolean;
-      readonly port?: number;
-    }) => Effect.Effect<DesktopServerExposureChange, DesktopTailscaleServePersistenceError>;
     readonly getAdvertisedEndpoints: Effect.Effect<readonly AdvertisedEndpoint[]>;
   }
 >()("@aprende/desktop/backend/DesktopServerExposure") {}
@@ -434,25 +409,6 @@ const withCurrentAdvertisedHost = (
   };
 };
 
-const tailscaleIpv4AddressKey = (
-  networkInterfaces: DesktopNetworkInterfaces.NetworkInterfaces,
-): string =>
-  [
-    ...new Set(
-      Object.values(networkInterfaces)
-        .flatMap((addresses) => addresses ?? [])
-        .filter(
-          (address) =>
-            !address.internal &&
-            address.family === "IPv4" &&
-            isTailscaleIpv4Address(address.address),
-        )
-        .map((address) => address.address),
-    ),
-  ]
-    .toSorted()
-    .join(",");
-
 const requiresBackendRelaunch = (previous: RuntimeState, next: RuntimeState): boolean =>
   previous.port !== next.port ||
   previous.bindHost !== next.bindHost ||
@@ -462,37 +418,24 @@ const requiresBackendRelaunch = (previous: RuntimeState, next: RuntimeState): bo
 export const make = Effect.gen(function* () {
   const config = yield* DesktopConfig.DesktopConfig;
   const networkInterfaces = yield* DesktopNetworkInterfaces.DesktopNetworkInterfaces;
-  const childProcessSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const httpClient = yield* HttpClient.HttpClient;
   const desktopSettings = yield* DesktopAppSettings.DesktopAppSettings;
   const stateRef = yield* Ref.make(initialRuntimeState());
   // Serialize read-persist-write changes so stale runtime state cannot overwrite another update.
   const changePermit = yield* Semaphore.make(1);
 
-  // Key status by interface addresses so network changes bypass stale DNS and
-  // identity. Cache unchanged addresses to avoid repeated macOS TCC prompts.
-  const tailscaleStatusCache = yield* Cache.make({
-    capacity: 1,
-    timeToLive: TAILSCALE_STATUS_CACHE_TTL,
-    lookup: (_addresses: string) =>
-      readTailscaleStatus.pipe(
-        Effect.orElseSucceed(() => null),
-        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, childProcessSpawner),
-      ),
-  });
-
   const readNetworkInterfaces = networkInterfaces.read;
 
-  // The server refuses to bind wider than the policy's clients allow, so network access or Serve
-  // saved before the policy would keep the backend from starting. The backend runs without them;
-  // the saved choice stays for when the policy allows it.
+  // The server refuses to bind wider than the policy's clients allow, so network access saved
+  // before the policy would keep the backend from starting. The backend runs without it; the
+  // saved choice stays for when the policy allows it. Tailscale Serve has no control here, so a
+  // value an older build saved stays off.
   const remoteAllowed = yield* (yield* DesktopManagedPolicy.DesktopManagedPolicy).read.pipe(
     Effect.map((found) => found?.document.limits?.clients?.includes("remote") ?? true),
     Effect.orElseSucceed(() => false),
   );
   const withinPolicy = (settings: DesktopAppSettings.DesktopSettings) =>
     remoteAllowed
-      ? settings
+      ? { ...settings, tailscaleServeEnabled: false }
       : { ...settings, serverExposureMode: "local-only" as const, tailscaleServeEnabled: false };
 
   const readCurrentState = (currentNetworkInterfaces: DesktopNetworkInterfaces.NetworkInterfaces) =>
@@ -565,70 +508,14 @@ export const make = Effect.gen(function* () {
     };
   }, changePermit.withPermit);
 
-  const setTailscaleServeEnabled = Effect.fn("desktop.serverExposure.setTailscaleServeEnabled")(
-    function* (input: { readonly enabled: boolean; readonly port?: number }) {
-      yield* Effect.annotateCurrentSpan({
-        enabled: input.enabled,
-        ...(input.port === undefined ? {} : { port: input.port }),
-      });
-      const result = yield* desktopSettings
-        .setTailscaleServe({
-          enabled: input.enabled,
-          port: Option.fromNullishOr(input.port),
-        })
-        .pipe(
-          Effect.mapError(
-            (cause) =>
-              new DesktopTailscaleServePersistenceError({
-                enabled: input.enabled,
-                port: input.port ?? null,
-                cause,
-              }),
-          ),
-        );
-
-      const nextState = yield* Ref.updateAndGet(stateRef, (current) => ({
-        ...current,
-        tailscaleServeEnabled: withinPolicy(result.settings).tailscaleServeEnabled,
-        tailscaleServePort: result.settings.tailscaleServePort,
-      }));
-
-      return {
-        state: toContractState(nextState),
-        requiresRelaunch: result.changed,
-      };
-    },
-    changePermit.withPermit,
-  );
-
   const getAdvertisedEndpoints = Effect.gen(function* () {
     const currentNetworkInterfaces = yield* readNetworkInterfaces;
     const state = yield* readCurrentState(currentNetworkInterfaces);
-    const coreEndpoints = resolveDesktopCoreAdvertisedEndpoints({
+    return resolveDesktopCoreAdvertisedEndpoints({
       port: state.port,
       exposure: toResolvedExposure(state),
       customHttpsEndpointUrls: config.desktopHttpsEndpointUrls,
     });
-
-    // Spawning Mac App Store Tailscale can prompt for TCC access even when exposure is disabled.
-    if (state.mode !== "network-accessible" && !state.tailscaleServeEnabled) {
-      return coreEndpoints;
-    }
-
-    const tailscaleEndpoints = yield* resolveTailscaleAdvertisedEndpoints({
-      port: state.port,
-      serveEnabled: state.tailscaleServeEnabled,
-      servePort: state.tailscaleServePort,
-      networkInterfaces: currentNetworkInterfaces,
-      readStatus: Cache.get(
-        tailscaleStatusCache,
-        tailscaleIpv4AddressKey(currentNetworkInterfaces),
-      ),
-    }).pipe(
-      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, childProcessSpawner),
-      Effect.provideService(HttpClient.HttpClient, httpClient),
-    );
-    return [...coreEndpoints, ...tailscaleEndpoints];
   }).pipe(Effect.withSpan("desktop.serverExposure.getAdvertisedEndpoints"));
 
   return DesktopServerExposure.of({
@@ -636,7 +523,6 @@ export const make = Effect.gen(function* () {
     backendConfig,
     configureFromSettings,
     setMode,
-    setTailscaleServeEnabled,
     getAdvertisedEndpoints,
   });
 });

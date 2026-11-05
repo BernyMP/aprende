@@ -27,10 +27,8 @@ import { isLocalEnvironmentDisabled } from "../../localEnvironment";
 import {
   applyWslEnableSelection,
   isWslSettingsRowVisible,
-  missingTailscaleEndpointDescription,
   resolveAccessEnvironmentId,
   resolveLocalVersionStatusLabel,
-  resolveTailscaleServeBaseUrl,
 } from "./ConnectionsSettings.logic";
 import { settingsScopeEnvironmentLabel } from "./settingsScopeAxis";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
@@ -42,17 +40,6 @@ import { FoldedSettingsSection } from "./FoldedSettingsSection";
 import { LinkedEnvironmentsSettings } from "./LinkedEnvironmentsSettings";
 import { usePeerLinkHosts } from "~/state/peerLinks";
 import { LoadBalancingSettings } from "./LoadBalancingSettings";
-import { Input } from "../ui/input";
-import {
-  Dialog,
-  DialogClose,
-  DialogFooter,
-  DialogDescription,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-} from "../ui/dialog";
 import { ScrollArea } from "../ui/scroll-area";
 import {
   AlertDialog,
@@ -117,7 +104,6 @@ import {
   toDesktopPairingLinkRecord,
   toDesktopClientSessionRecord,
   selectPairingEndpoint,
-  isTailscaleHttpsEndpoint,
   endpointDefaultPreferenceKey,
 } from "./ConnectionsSettings.logic";
 import {
@@ -130,7 +116,6 @@ import { ITEM_ROW_CLASSNAME } from "./itemRows";
 import { EmptyRemoteEnvironments, SavedBackendListRow } from "./SavedEnvironmentRows";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
 
-const DEFAULT_TAILSCALE_SERVE_PORT = 443;
 const EMPTY_ADVERTISED_ENDPOINTS: ReadonlyArray<AdvertisedEndpoint> = [];
 
 // Colons are invalid in distro names, keeping picker sentinels collision-free.
@@ -249,7 +234,7 @@ function ConnectionsSettingsContent({
   });
   const primaryEnvironmentId = primaryEnvironment?.environmentId ?? null;
   const accessEnvironment = useEnvironment(accessEnvironmentId);
-  // Desktop network, Tailscale, and WSL controls change the backend this app spawned.
+  // Desktop network and WSL controls change the backend this app spawned.
   const isPrimaryAccess =
     accessEnvironmentId !== null && accessEnvironmentId === primaryEnvironmentId;
   const accessSessionState = useEnvironmentSessionState(accessEnvironmentId);
@@ -339,7 +324,6 @@ function ConnectionsSettingsContent({
   const [removingSavedEnvironmentId, setRemovingSavedEnvironmentId] =
     useState<EnvironmentId | null>(null);
   const [isUpdatingDesktopServerExposure, setIsUpdatingDesktopServerExposure] = useState(false);
-  const [isUpdatingTailscaleServe, setIsUpdatingTailscaleServe] = useState(false);
   const [isUpdatingWslBackend, setIsUpdatingWslBackend] = useState(false);
   const [desktopWslMutationError, setDesktopWslMutationError] = useState<string | null>(null);
   type PendingWslChange =
@@ -349,12 +333,6 @@ function ConnectionsSettingsContent({
     | { readonly kind: "wsl-only"; readonly nextValue: boolean };
   const [pendingWslChange, setPendingWslChange] = useState<PendingWslChange | null>(null);
   const isWslConfirmDialogOpen = pendingWslChange !== null;
-  const [pendingTailscaleServeEndpoint, setPendingTailscaleServeEndpoint] =
-    useState<AdvertisedEndpoint | null>(null);
-  const [disableTailscaleServeDialogOpen, setDisableTailscaleServeDialogOpen] = useState(false);
-  const [tailscaleServePortInput, setTailscaleServePortInput] = useState(
-    String(DEFAULT_TAILSCALE_SERVE_PORT),
-  );
   const [pendingDesktopServerExposureMode, setPendingDesktopServerExposureMode] = useState<
     DesktopServerExposureState["mode"] | null
   >(null);
@@ -434,20 +412,6 @@ function ConnectionsSettingsContent({
   const isLocalBackendNetworkAccessible = desktopBridge
     ? desktopServerExposureState?.mode === "network-accessible"
     : currentAuthPolicy === "remote-reachable";
-  const trimmedTailscaleServePortInput = tailscaleServePortInput.trim();
-  const parsedTailscaleServePort = Number(trimmedTailscaleServePortInput);
-  const isTailscaleServePortValid =
-    /^\d+$/u.test(trimmedTailscaleServePortInput) &&
-    Number.isInteger(parsedTailscaleServePort) &&
-    parsedTailscaleServePort >= 1 &&
-    parsedTailscaleServePort <= 65_535;
-
-  const pendingTailscaleServeBaseUrl = resolveTailscaleServeBaseUrl(
-    pendingTailscaleServeEndpoint,
-    parsedTailscaleServePort,
-    isTailscaleServePortValid,
-  );
-
   const handleDesktopServerExposureChange = async (checked: boolean) => {
     if (
       !desktopBridge ||
@@ -481,83 +445,6 @@ function ConnectionsSettingsContent({
     if (pendingDesktopServerExposureMode === null) return;
     const checked = pendingDesktopServerExposureMode === "network-accessible";
     void handleDesktopServerExposureChange(checked);
-  };
-
-  const handleConfirmTailscaleServeSetup = async () => {
-    if (
-      !desktopBridge ||
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope)
-    )
-      return;
-    if (!isTailscaleServePortValid) return;
-    setIsUpdatingTailscaleServe(true);
-    setDesktopServerExposureMutationError(null);
-    const settled = await settlePromise(async () => {
-      await desktopBridge.setTailscaleServeEnabled({
-        enabled: true,
-        port: parsedTailscaleServePort,
-      });
-      refreshDesktopNetworkAccessState();
-      setPendingTailscaleServeEndpoint(null);
-    });
-    if (settled._tag === "Failure") {
-      const error = Cause.squash(settled.cause);
-      const message =
-        error instanceof Error ? error.message : "Failed to configure Tailscale HTTPS.";
-      setDesktopServerExposureMutationError(message);
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: "Could not set up Tailscale HTTPS",
-          description: message,
-        }),
-      );
-    }
-    setIsUpdatingTailscaleServe(false);
-  };
-
-  const handleStartTailscaleServeSetup = (endpoint: AdvertisedEndpoint) => {
-    setTailscaleServePortInput(
-      String(desktopServerExposureState?.tailscaleServePort ?? DEFAULT_TAILSCALE_SERVE_PORT),
-    );
-    setPendingTailscaleServeEndpoint(endpoint);
-  };
-
-  const handleConfirmTailscaleServeDisable = async () => {
-    if (
-      !desktopBridge ||
-      primaryEnvironmentId === null ||
-      !readEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope)
-    )
-      return;
-    setIsUpdatingTailscaleServe(true);
-    setDesktopServerExposureMutationError(null);
-    const settled = await settlePromise(async () => {
-      await desktopBridge.setTailscaleServeEnabled({
-        enabled: false,
-        port: desktopServerExposureState?.tailscaleServePort ?? DEFAULT_TAILSCALE_SERVE_PORT,
-      });
-      refreshDesktopNetworkAccessState();
-      setDisableTailscaleServeDialogOpen(false);
-    });
-    if (settled._tag === "Failure") {
-      const error = Cause.squash(settled.cause);
-      const message = error instanceof Error ? error.message : "Failed to disable Tailscale HTTPS.";
-      setDesktopServerExposureMutationError(message);
-      toastManager.add(
-        stackedThreadToast({
-          type: "error",
-          title: "Could not disable Tailscale HTTPS",
-          description: message,
-        }),
-      );
-    }
-    setIsUpdatingTailscaleServe(false);
-  };
-
-  const handleStartTailscaleServeDisable = (_endpoint: AdvertisedEndpoint) => {
-    setDisableTailscaleServeDialogOpen(true);
   };
 
   const handleRevokeDesktopPairingLink = async (id: string) => {
@@ -689,23 +576,14 @@ function ConnectionsSettingsContent({
   };
 
   const visibleDesktopPairingLinks = desktopPairingLinks;
-  const tailscaleHttpsEndpoint = desktopAdvertisedEndpoints.find(isTailscaleHttpsEndpoint) ?? null;
   const visibleDesktopNetworkAdvertisedEndpoints = isLocalBackendNetworkAccessible
-    ? desktopAdvertisedEndpoints.filter((endpoint) => !isTailscaleHttpsEndpoint(endpoint))
+    ? desktopAdvertisedEndpoints
     : [];
-  const visibleDesktopAdvertisedEndpoints = tailscaleHttpsEndpoint
-    ? [...visibleDesktopNetworkAdvertisedEndpoints, tailscaleHttpsEndpoint]
-    : visibleDesktopNetworkAdvertisedEndpoints;
-  const defaultDesktopNetworkAdvertisedEndpoint = selectPairingEndpoint(
+  const visibleDesktopAdvertisedEndpoints = visibleDesktopNetworkAdvertisedEndpoints;
+  const defaultDesktopAdvertisedEndpoint = selectPairingEndpoint(
     visibleDesktopNetworkAdvertisedEndpoints,
     defaultAdvertisedEndpointKey,
   );
-  const defaultDesktopAdvertisedEndpoint =
-    defaultDesktopNetworkAdvertisedEndpoint ??
-    selectPairingEndpoint(
-      tailscaleHttpsEndpoint ? [tailscaleHttpsEndpoint] : [],
-      defaultAdvertisedEndpointKey,
-    );
   const defaultDesktopAdvertisedEndpointKey = defaultDesktopAdvertisedEndpoint
     ? endpointDefaultPreferenceKey(defaultDesktopAdvertisedEndpoint)
     : null;
@@ -733,9 +611,6 @@ function ConnectionsSettingsContent({
               endpoint={endpoint}
               isDefault={endpointKey === defaultDesktopAdvertisedEndpointKey}
               onSetDefault={handleSetDefaultAdvertisedEndpoint}
-              onSetupTailscaleServe={handleStartTailscaleServeSetup}
-              onDisableTailscaleServe={handleStartTailscaleServeDisable}
-              isUpdatingTailscaleServe={isUpdatingTailscaleServe}
             />
           );
         })
@@ -982,35 +857,6 @@ function ConnectionsSettingsContent({
     );
   };
 
-  const renderTailscaleRow = () => (
-    <SettingsRow
-      title={searchableSetting("tailscale-https").title}
-      description={
-        tailscaleHttpsEndpoint
-          ? tailscaleHttpsEndpoint.status === "available"
-            ? tailscaleHttpsEndpoint.httpBaseUrl
-            : "Use Tailscale Serve to expose this backend through a MagicDNS HTTPS URL."
-          : missingTailscaleEndpointDescription(desktopServerExposureState)
-      }
-      control={
-        tailscaleHttpsEndpoint ? (
-          <Switch
-            checked={tailscaleHttpsEndpoint.status === "available"}
-            disabled={isUpdatingTailscaleServe}
-            onCheckedChange={(checked) => {
-              if (checked) {
-                handleStartTailscaleServeSetup(tailscaleHttpsEndpoint);
-                return;
-              }
-              handleStartTailscaleServeDisable(tailscaleHttpsEndpoint);
-            }}
-            aria-label="Enable Tailscale HTTPS"
-          />
-        ) : null
-      }
-      managed={tailscaleHttpsEndpoint?.status === "available" ? undefined : remoteClientsDenial}
-    />
-  );
   const newestPairingLink = visibleDesktopPairingLinks.find(
     (pairingLink) => pairingLink.id === newestPairingLinkId,
   );
@@ -1051,7 +897,7 @@ function ConnectionsSettingsContent({
       description={
         isLocalBackendNetworkAccessible ? (
           <NetworkAccessDescription
-            endpoint={defaultDesktopNetworkAdvertisedEndpoint}
+            endpoint={defaultDesktopAdvertisedEndpoint}
             hiddenEndpointCount={Math.max(visibleDesktopNetworkAdvertisedEndpoints.length - 1, 0)}
             expanded={isAdvertisedEndpointListExpanded}
             onToggleExpanded={() => setIsAdvertisedEndpointListExpanded((expanded) => !expanded)}
@@ -1212,7 +1058,6 @@ function ConnectionsSettingsContent({
               <>
                 {renderNetworkAccessRow()}
                 {renderEndpointRows()}
-                {renderTailscaleRow()}
                 {renderWslRow()}
               </>
             ) : canManageLocalBackend ? (
@@ -1300,7 +1145,7 @@ function ConnectionsSettingsContent({
                 <AlertDialogDescription>
                   {pendingDesktopServerExposureMode === "network-accessible"
                     ? "Let your other devices connect to aprende over the network. Pair devices to give them access. aprende will restart."
-                    : "Devices connected over your local network will disconnect. Existing tunnels, such as T3 Connect or Tailscale HTTPS, keep working. aprende will restart."}
+                    : "Devices connected over your local network will disconnect. aprende will restart."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1439,116 +1284,6 @@ function ConnectionsSettingsContent({
               </AlertDialogFooter>
             </AlertDialogPopup>
           </AlertDialog>
-          <AlertDialog
-            open={disableTailscaleServeDialogOpen && canManageLocalBackend}
-            onOpenChange={(open) => {
-              if (isUpdatingTailscaleServe) return;
-              setDisableTailscaleServeDialogOpen(open);
-            }}
-          >
-            <AlertDialogPopup>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Disable Tailscale HTTPS?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  aprende will restart the local backend without Tailscale Serve.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogClose
-                  disabled={isUpdatingTailscaleServe}
-                  render={<Button variant="outline" disabled={isUpdatingTailscaleServe} />}
-                >
-                  Cancel
-                </AlertDialogClose>
-                <Button
-                  variant="destructive"
-                  onClick={() => void handleConfirmTailscaleServeDisable()}
-                  disabled={isUpdatingTailscaleServe || !canManageLocalBackend}
-                >
-                  {isUpdatingTailscaleServe ? (
-                    <>
-                      <Spinner size="sm" />
-                      Restarting…
-                    </>
-                  ) : (
-                    "Restart and disable"
-                  )}
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogPopup>
-          </AlertDialog>
-          <Dialog
-            open={pendingTailscaleServeEndpoint !== null}
-            onOpenChange={(open) => {
-              if (isUpdatingTailscaleServe) return;
-              if (!open) setPendingTailscaleServeEndpoint(null);
-            }}
-          >
-            <DialogPopup className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Set up Tailscale HTTPS?</DialogTitle>
-                <DialogDescription>
-                  aprende will restart the local backend with Tailscale Serve enabled and ask
-                  Tailscale to proxy HTTPS traffic to this backend.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogPanel>
-                <label className="block">
-                  <span className="text-sm font-medium text-foreground">HTTPS port</span>
-                  <Input
-                    className="mt-2"
-                    type="number"
-                    inputMode="numeric"
-                    min={1}
-                    max={65_535}
-                    step={1}
-                    value={tailscaleServePortInput}
-                    onChange={(event) => setTailscaleServePortInput(event.target.value)}
-                    disabled={isUpdatingTailscaleServe}
-                  />
-                </label>
-                {!isTailscaleServePortValid ? (
-                  <p className="mt-2 text-xs text-destructive">Enter a port from 1 to 65535.</p>
-                ) : null}
-                <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2">
-                  <p className="text-xs font-medium text-muted-foreground">HTTPS endpoint</p>
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <p className="mt-1 truncate text-sm text-foreground">
-                          {pendingTailscaleServeBaseUrl ?? "Pending MagicDNS endpoint"}
-                        </p>
-                      }
-                    />
-                    {pendingTailscaleServeBaseUrl ? (
-                      <TooltipPopup side="top">{pendingTailscaleServeBaseUrl}</TooltipPopup>
-                    ) : null}
-                  </Tooltip>
-                </div>
-              </DialogPanel>
-              <DialogFooter>
-                <DialogClose
-                  disabled={isUpdatingTailscaleServe}
-                  render={<Button variant="outline" disabled={isUpdatingTailscaleServe} />}
-                >
-                  Cancel
-                </DialogClose>
-                <Button
-                  onClick={() => void handleConfirmTailscaleServeSetup()}
-                  disabled={isUpdatingTailscaleServe || !isTailscaleServePortValid}
-                >
-                  {isUpdatingTailscaleServe ? (
-                    <>
-                      <Spinner size="sm" />
-                      Restarting…
-                    </>
-                  ) : (
-                    "Enable"
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogPopup>
-          </Dialog>
         </>
       ) : (
         <SettingsSection {...searchableSetting("connections-environment")}>
@@ -1582,7 +1317,6 @@ function ConnectionsSettingsContent({
               open={addBackendDialogOpen}
               routeTarget={routeTarget}
               error={savedBackendError}
-              savedEnvironments={savedEnvironments}
               onOpenChange={handleAddBackendDialogOpenChange}
               onErrorChange={setSavedBackendError}
             />
