@@ -348,6 +348,21 @@ it.effect("shuts down without waiting for a folder lookup that never returns", (
   }),
 );
 
+it.effect("refuses an open that arrives after shutdown began", () =>
+  Effect.gen(function* () {
+    const { spawned, layer } = yield* makeHarness();
+    const scope = yield* Scope.make();
+    const services = yield* Layer.buildWithScope(layer, scope);
+    const terminals = yield* PracticeTerminalService.PracticeTerminalService.pipe(
+      Effect.provide(services),
+    );
+    yield* Scope.close(scope, Exit.void);
+    const late = yield* Effect.flip(terminals.open({ ...target("prob-a"), ...size }));
+    assert.include(late.message, "This terminal is closed.");
+    assert.lengthOf(spawned, 0);
+  }),
+);
+
 it.effect("keeps a closed shell that ignores SIGHUP counted until SIGKILL ends it", () =>
   Effect.gen(function* () {
     const { spawned, layer } = yield* makeHarness({ trapsHangup: true });

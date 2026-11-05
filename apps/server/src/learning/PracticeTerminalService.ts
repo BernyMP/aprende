@@ -107,6 +107,7 @@ const make = Effect.gen(function* () {
   // Opening checks the cap and spawns as one step, so two opens cannot both take the last slot.
   const opening = Semaphore.makeUnsafe(1);
   const shuttingDown = Deferred.makeUnsafe<void>();
+  let stopped = false;
 
   const env: NodeJS.ProcessEnv = {
     ...Object.fromEntries(Object.entries(hostEnv).filter(([key]) => !isServerVariable(key))),
@@ -216,7 +217,8 @@ const make = Effect.gen(function* () {
       // A shell spawned here is registered even if the request is interrupted, so it can be killed.
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
-          if (pending.cancelled) return yield* fail(CLOSED);
+          // Checked under the lock, so an open that arrives during shutdown never spawns.
+          if (pending.cancelled || stopped) return yield* fail(CLOSED);
           const existing = terminals.get(key);
           if (existing !== undefined) {
             resizeProcess(existing, input);
@@ -235,7 +237,7 @@ const make = Effect.gen(function* () {
           );
           const shell = yield* restore(spawnShell(cwd, input));
           const terminal = register(key, input.threadId, shell);
-          if (pending.cancelled) {
+          if (pending.cancelled || stopped) {
             yield* closeTerminal(terminal);
             return yield* fail(CLOSED);
           }
@@ -329,6 +331,7 @@ const make = Effect.gen(function* () {
 
   yield* Effect.addFinalizer(() =>
     Effect.gen(function* () {
+      stopped = true;
       for (const pending of pendingOpens) pending.cancelled = true;
       yield* Deferred.succeed(shuttingDown, undefined);
       for (const terminal of terminals.values()) yield* closeTerminal(terminal);
