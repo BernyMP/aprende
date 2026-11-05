@@ -380,7 +380,10 @@ import {
   LearningAnswerResult,
   LearningError,
   LearningKnowledge,
+  LearningProblemResult,
+  LearningRevealHintInput,
   LearningSetTutorPromptInput,
+  LearningSubmitSolutionInput,
   LearningSubscribeThreadInput,
   LearningThreadState,
   LearningTutorPrompt,
@@ -549,6 +552,8 @@ export const WS_METHODS = {
 
   learningSubscribeThread: "learning.subscribeThread",
   learningAnswer: "learning.answer",
+  learningRevealHint: "learning.revealHint",
+  learningSubmitSolution: "learning.submitSolution",
   learningGetTutorPrompt: "learning.getTutorPrompt",
   learningSetTutorPrompt: "learning.setTutorPrompt",
   learningGetKnowledge: "learning.getKnowledge",
@@ -1926,6 +1931,18 @@ const WsLearningAnswerRpc = Rpc.make(WS_METHODS.learningAnswer, {
   error: LearningRpcError,
 });
 
+const WsLearningRevealHintRpc = Rpc.make(WS_METHODS.learningRevealHint, {
+  payload: LearningRevealHintInput,
+  success: LearningProblemResult,
+  error: LearningRpcError,
+});
+
+const WsLearningSubmitSolutionRpc = Rpc.make(WS_METHODS.learningSubmitSolution, {
+  payload: LearningSubmitSolutionInput,
+  success: LearningProblemResult,
+  error: LearningRpcError,
+});
+
 const WsLearningGetTutorPromptRpc = Rpc.make(WS_METHODS.learningGetTutorPrompt, {
   payload: Schema.Struct({}),
   success: LearningTutorPrompt,
@@ -2091,6 +2108,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerSignalProcessRpc,
   WsLearningSubscribeThreadRpc,
   WsLearningAnswerRpc,
+  WsLearningRevealHintRpc,
+  WsLearningSubmitSolutionRpc,
   WsLearningGetTutorPromptRpc,
   WsLearningSetTutorPromptRpc,
   WsLearningGetKnowledgeRpc,

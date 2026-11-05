@@ -162,17 +162,19 @@ describe("orchestration V2 wire projection", () => {
     expect(item.output).toEqual({ ok: true });
   });
 
-  it("never sends a question's committed answer to clients", () => {
+  it.each([
+    ["mcp__aprende__ask_question", { question: "Which?", correctOptions: [1] }],
+    ["mcp__aprende__pose_problem", { statement: "Solve.", modelSolution: "42", hints: ["Add."] }],
+  ])("never sends %s's committed answer to clients", (toolName, input) => {
     const item = {
       ...base,
-      toolName: "mcp__aprende__ask_question",
-      input: { question: "Which?", options: ["A", "B"], correctOptions: [1] },
-      output: { questionId: "q-1" },
+      toolName,
+      input,
+      output: { ok: true },
     } satisfies OrchestrationV2TurnItem;
     for (const projected of [projectTurnItemForWire(item), projectTurnItemForDetail(item)]) {
       expect(projected.type === "dynamic_tool" ? projected.input : "unexpected").toBeNull();
     }
-    expect(item.input.correctOptions).toEqual([1]);
   });
 
   it("uses encoded JSON bytes for strings near the dynamic-value limit", () => {

@@ -1556,6 +1556,14 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:learning:answer",
       tag: WS_METHODS.learningAnswer,
     }),
+    revealLearningHint: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:reveal-hint",
+      tag: WS_METHODS.learningRevealHint,
+    }),
+    submitLearningSolution: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:submit-solution",
+      tag: WS_METHODS.learningSubmitSolution,
+    }),
     setTutorPrompt: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:learning:set-tutor-prompt",
       tag: WS_METHODS.learningSetTutorPrompt,

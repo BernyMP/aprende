@@ -51,6 +51,16 @@ describe("RPC authorization scopes", () => {
     );
   });
 
+  it("keeps learner answers and practice, which start tutor turns, behind operate scope", () => {
+    for (const method of [
+      WS_METHODS.learningAnswer,
+      WS_METHODS.learningRevealHint,
+      WS_METHODS.learningSubmitSolution,
+    ]) {
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
+    }
+  });
+
   it("separates passive terminal observation from operations that can change a shell", () => {
     for (const method of [WS_METHODS.terminalObserve, WS_METHODS.subscribeTerminalMetadata]) {
       expect(requiredScopeForRpcMethod(method)).toBe(AuthTerminalReadScope);

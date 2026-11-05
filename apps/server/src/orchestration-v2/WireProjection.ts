@@ -152,10 +152,11 @@ function capCheckpointItemFiles(item: OrchestrationV2TurnItem): OrchestrationV2T
   return item.type === "checkpoint" ? capCheckpointFiles(item) : item;
 }
 
-// The tutor commits the answer in ask_question's input; learners see it through the learning
-// store only after answering, so it never reaches a client from the transcript.
+// The tutor commits answers, solutions and hints in these inputs; learners see them through the
+// learning store only when it reveals them, so they never reach a client from the transcript.
+const COMMITTED_ANSWER_TOOLS: ReadonlySet<string> = new Set(["ask_question", "pose_problem"]);
 const visibleToolInput = (item: { readonly toolName: string | null; readonly input: unknown }) =>
-  resolveT3McpToolId(item.toolName) === "ask_question" ? null : item.input;
+  COMMITTED_ANSWER_TOOLS.has(resolveT3McpToolId(item.toolName) ?? "") ? null : item.input;
 
 export function projectTurnItemForWire(item: OrchestrationV2TurnItem): OrchestrationV2TurnItem {
   switch (item.type) {

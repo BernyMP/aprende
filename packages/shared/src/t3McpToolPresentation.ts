@@ -368,6 +368,8 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
   html_preview: tool(["Preview", "Previewing", "Previewed", "an HTML page"], "html-preview"),
   html_render: tool(["Render", "Rendering", "Rendered", "an HTML page"], "html-render"),
   ask_question: tool(["Ask", "Asking", "Asked", "a question"], "learning"),
+  pose_problem: tool(["Pose", "Posing", "Posed", "a problem"], "learning"),
+  conclude_problem: tool(["Judge", "Judging", "Judged", "their work"], "learning"),
   finish_measuring: tool(["Record", "Recording", "Recorded", "where they stand"], "learning"),
   set_plan: tool(["Plan", "Planning", "Planned", "the path"], "learning"),
   graph_search: tool(["Search", "Searching", "Searched", "what they know"], "learning"),

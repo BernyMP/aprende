@@ -2165,6 +2165,8 @@ export const layerWsRpc = (
           ),
         [WS_METHODS.learningSubscribeThread]: (input) => learning.subscribeThread(input.threadId),
         [WS_METHODS.learningAnswer]: (input) => learning.answer(input),
+        [WS_METHODS.learningRevealHint]: (input) => learning.revealHint(input),
+        [WS_METHODS.learningSubmitSolution]: (input) => learning.submitSolution(input),
         [WS_METHODS.learningGetTutorPrompt]: () => learning.getTutorPrompt(),
         [WS_METHODS.learningSetTutorPrompt]: (input) => learning.setTutorPrompt(input),
         [WS_METHODS.learningGetKnowledge]: () => learning.getKnowledge(),

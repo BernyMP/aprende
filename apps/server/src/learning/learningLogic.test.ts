@@ -1,11 +1,16 @@
 import { describe, expect, it } from "@effect/vitest";
-import { learningAnswerMessageQuestionId } from "@aprende/contracts";
+import {
+  learningAnswerMessageQuestionId,
+  learningSolutionMessageProblemId,
+} from "@aprende/contracts";
 
 import {
   answerProblem,
   formatAnswerMessage,
+  formatSolutionMessage,
   gradeAnswer,
   planProblem,
+  problemDraftProblem,
   questionDraftProblem,
   shuffleOptions,
   type StoredQuestion,
@@ -169,5 +174,75 @@ describe("formatAnswerMessage", () => {
     expect(text).toContain("Confidence: 80%");
     expect(text).toContain("Their thinking: I guessed");
     expect(learningAnswerMessageQuestionId("Hello [Answer to question q-1]")).toBeNull();
+  });
+});
+
+describe("problemDraftProblem", () => {
+  const base = {
+    mode: "compose" as const,
+    statement: "Order these tasks.",
+    targets: ["p-edges"],
+    modelSolution: "A, then B, then C.",
+    hints: ["Start with what has no prerequisites."],
+  };
+
+  it.each([
+    ["accepts a valid problem", base, undefined],
+    ["needs a model solution", { ...base, modelSolution: "  " }, "modelSolution"],
+    ["needs a hint", { ...base, hints: [] }, "1 to 3"],
+    ["takes at most three hints", { ...base, hints: ["a", "b", "c", "d"] }, "1 to 3"],
+    ["refuses an empty hint", { ...base, hints: ["a", " "] }, "empty"],
+    ["needs a target", { ...base, targets: [] }, "target"],
+  ] as const)("%s", (_name, draft, expected) => {
+    const problem = problemDraftProblem(draft);
+    if (expected === undefined) expect(problem).toBeUndefined();
+    else expect(problem).toContain(expected);
+  });
+});
+
+describe("formatSolutionMessage", () => {
+  const problem = {
+    id: "prob-1",
+    mode: "discriminate" as const,
+    statement: "Which graph is a valid plan?",
+    targets: [
+      { name: "Edges", propositionId: "p-1" },
+      { name: "cycles", propositionId: null },
+    ],
+    hintCount: 3,
+    retestOf: "prob-0",
+  };
+
+  it("names the problem and carries the work, hints and confidence", () => {
+    const text = formatSolutionMessage(
+      problem,
+      {
+        text: "The second one.",
+        gaveUp: false,
+        confidence: 40,
+        thinking: " no cycle ",
+        submittedAt: "2026-11-04T00:00:00.000Z",
+      },
+      2,
+    );
+    expect(learningSolutionMessageProblemId(text)).toBe("prob-1");
+    expect(learningAnswerMessageQuestionId(text)).toBeNull();
+    expect(text).toContain("Problem (discriminate): Which graph is a valid plan?");
+    expect(text).toContain("Targets: Edges (p-1); cycles");
+    expect(text).toContain("Retest of: prob-0");
+    expect(text).toContain("Their work: The second one.");
+    expect(text).toContain("Hints used: 2 of 3");
+    expect(text).toContain("Confidence: 40%");
+    expect(text).toContain("Their thinking: no cycle");
+  });
+
+  it("says when they gave up", () => {
+    const text = formatSolutionMessage(
+      problem,
+      { gaveUp: true, submittedAt: "2026-11-04T00:00:00.000Z" },
+      0,
+    );
+    expect(text).toContain("They gave up without an attempt.");
+    expect(text).not.toContain("Confidence");
   });
 });

@@ -1,7 +1,12 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import { ProjectId, ThreadId, learningAnswerMessageQuestionId } from "@aprende/contracts";
+import {
+  ProjectId,
+  ThreadId,
+  learningAnswerMessageQuestionId,
+  learningSolutionMessageProblemId,
+} from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
@@ -153,6 +158,166 @@ it.effect("replaces an unanswered question and derives the phase and current nod
           [second.questionId, "open"],
         ],
       );
+    }).pipe(Effect.provide(makeLayer(sent)));
+  }),
+);
+
+const problemDraft = {
+  mode: "compose" as const,
+  statement: "Order: build, test, deploy, where deploy needs test and test needs build.",
+  targets: ["prerequisites first"],
+  modelSolution: "Build, then test, then deploy.",
+  hints: ["What has no prerequisite?", "Build comes first."],
+};
+
+it.effect("keeps the solution and unrevealed hints on the server until the tutor concludes", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const { problemId } = yield* learning.poseProblem(threadId, problemDraft);
+      const problemOf = Effect.map(
+        learning.getThreadState(threadId),
+        (state) => state.problems[0]!,
+      );
+
+      const posed = yield* problemOf;
+      assert.equal(posed.status, "open");
+      assert.deepEqual(posed.hints, []);
+      assert.equal(posed.hintCount, 2);
+      assert.isNull(posed.modelSolution);
+
+      const first = yield* learning.revealHint({ threadId, problemId });
+      assert.deepEqual(first.problem.hints, ["What has no prerequisite?"]);
+      const second = yield* learning.revealHint({ threadId, problemId });
+      assert.deepEqual(second.problem.hints, problemDraft.hints);
+      assert.equal(second.problem.hintsUsed, 2);
+      assert.isTrue(
+        Exit.isFailure(yield* learning.revealHint({ threadId, problemId }).pipe(Effect.exit)),
+      );
+
+      const early = yield* learning
+        .concludeProblem(threadId, { problemId, outcome: "solved", verdict: "Yes.", retest: false })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(early));
+
+      const work = { threadId, problemId, text: "Build, test, deploy.", gaveUp: false };
+      const submitted = yield* learning.submitSolution({ ...work, confidence: 30 });
+      assert.equal(submitted.problem.status, "submitted");
+      assert.isNull(submitted.problem.modelSolution);
+      assert.isTrue(Exit.isFailure(yield* learning.submitSolution(work).pipe(Effect.exit)));
+      assert.isTrue(
+        Exit.isFailure(yield* learning.revealHint({ threadId, problemId }).pipe(Effect.exit)),
+      );
+      const texts = yield* Ref.get(sent);
+      assert.equal(texts.length, 1);
+      assert.equal(learningSolutionMessageProblemId(texts[0]!), problemId);
+      assert.include(texts[0]!, "Hints used: 2 of 2");
+      assert.include(texts[0]!, "Confidence: 30%");
+
+      const wrongThread = yield* learning
+        .concludeProblem(otherThreadId, {
+          problemId,
+          outcome: "solved",
+          verdict: "Yes.",
+          retest: false,
+        })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(wrongThread));
+      yield* learning.concludeProblem(threadId, {
+        problemId,
+        outcome: "solved",
+        verdict: "Right order.",
+        retest: true,
+      });
+      const concluded = yield* problemOf;
+      assert.equal(concluded.status, "concluded");
+      assert.equal(concluded.modelSolution, problemDraft.modelSolution);
+      assert.equal(concluded.conclusion?.retest, true);
+      assert.isTrue(
+        Exit.isFailure(
+          yield* learning
+            .concludeProblem(threadId, {
+              problemId,
+              outcome: "missed",
+              verdict: "No.",
+              retest: false,
+            })
+            .pipe(Effect.exit),
+        ),
+      );
+    }).pipe(Effect.provide(makeLayer(sent)));
+  }),
+);
+
+it.effect("reopens the problem when the work cannot reach the tutor", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const { problemId } = yield* learning.poseProblem(threadId, problemDraft);
+      const exit = yield* learning
+        .submitSolution({ threadId, problemId, gaveUp: true })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(exit));
+      const problem = (yield* learning.getThreadState(threadId)).problems[0]!;
+      assert.equal(problem.status, "open");
+      assert.isNull(problem.attempt);
+    }).pipe(Effect.provide(makeLayer(sent, { sendFails: true })));
+  }),
+);
+
+it.effect("keeps one card open at a time and retests only problems of the same session", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const question = yield* learning.askQuestion(threadId, measureQuestion);
+      const first = yield* learning.poseProblem(threadId, problemDraft);
+      const second = yield* learning.poseProblem(threadId, problemDraft);
+      const state = yield* learning.getThreadState(threadId);
+      assert.equal(state.questions[0]!.id, question.questionId);
+      assert.equal(state.questions[0]!.status, "skipped");
+      assert.deepEqual(
+        state.problems.map((problem) => [problem.id, problem.status]),
+        [
+          [first.problemId, "skipped"],
+          [second.problemId, "open"],
+        ],
+      );
+
+      yield* learning.submitSolution({ threadId, problemId: second.problemId, gaveUp: true });
+      // Work waiting for a verdict blocks the next problem, so no attempt goes unjudged.
+      const unjudged = yield* learning.poseProblem(threadId, problemDraft).pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(unjudged));
+      yield* learning.concludeProblem(threadId, {
+        problemId: second.problemId,
+        outcome: "missed",
+        verdict: "Start from what has no prerequisite.",
+        missType: "gap",
+        retest: true,
+      });
+
+      const recorded = yield* learning.recordGraph(otherThreadId, {
+        propositions: [{ key: "edge", name: "Edges", statement: "Edges point forward." }],
+        chains: [],
+      });
+      const edgeId = recorded.propositions[0]!.id;
+      const elsewhere = yield* learning.poseProblem(otherThreadId, {
+        ...problemDraft,
+        targets: [edgeId, "cycles"],
+      });
+      assert.deepEqual((yield* learning.getThreadState(otherThreadId)).problems[0]!.targets, [
+        { name: "Edges", propositionId: edgeId },
+        { name: "cycles", propositionId: null },
+      ]);
+      const foreign = yield* learning
+        .poseProblem(threadId, { ...problemDraft, retestOf: elsewhere.problemId })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(foreign));
+      yield* learning.poseProblem(threadId, { ...problemDraft, retestOf: second.problemId });
+      const retest = (yield* learning.getThreadState(threadId)).problems.at(-1)!;
+      assert.equal(retest.retestOf, second.problemId);
     }).pipe(Effect.provide(makeLayer(sent)));
   }),
 );

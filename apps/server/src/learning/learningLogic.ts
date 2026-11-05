@@ -1,7 +1,13 @@
 import {
   LEARNING_MAX_OPTIONS,
   learningAnswerMessageHeader,
+  learningSolutionMessageHeader,
   type LearningAnswer,
+  type LearningMissType,
+  type LearningProblemAttempt,
+  type LearningProblemMode,
+  type LearningProblemOutcome,
+  type LearningProblemTarget,
   type LearningPlanEdge,
   type LearningPlanNode,
   type LearningQuestionFormat,
@@ -209,5 +215,90 @@ export function formatAnswerMessage(question: StoredQuestion, answer: LearningAn
   }
   const thinking = answer.thinking?.trim();
   if (thinking) lines.push(`Their thinking: ${thinking}`);
+  return lines.join("\n");
+}
+
+const LEARNING_MAX_HINTS = 3;
+
+export interface ProblemDraft {
+  readonly mode: LearningProblemMode;
+  readonly statement: string;
+  readonly targets: ReadonlyArray<string>;
+  readonly modelSolution: string;
+  readonly hints: ReadonlyArray<string>;
+  readonly retestOf?: string | undefined;
+}
+
+/** The reason a problem cannot be shown, or undefined when it is valid. */
+export function problemDraftProblem(draft: ProblemDraft): string | undefined {
+  if (draft.statement.trim().length === 0) return "The problem statement is empty.";
+  if (draft.targets.length === 0 || draft.targets.some((target) => target.trim().length === 0))
+    return "Name at least one target: a proposition id from graph_search, or a short name.";
+  if (draft.modelSolution.trim().length === 0)
+    return "Commit a complete modelSolution before the learner sees the problem.";
+  if (draft.hints.length === 0 || draft.hints.length > LEARNING_MAX_HINTS)
+    return `Give 1 to ${LEARNING_MAX_HINTS} hints, gentlest first.`;
+  if (draft.hints.some((hint) => hint.trim().length === 0)) return "A hint is empty.";
+  return undefined;
+}
+
+/** The reason a verdict cannot be recorded, or undefined. */
+export function conclusionProblem(input: {
+  readonly outcome: LearningProblemOutcome;
+  readonly missType?: LearningMissType | undefined;
+}): string | undefined {
+  return input.outcome === "solved" && input.missType !== undefined
+    ? "missType is only for partial or missed problems."
+    : undefined;
+}
+
+/** The reason the learner's work cannot be accepted, or undefined. */
+export function solutionProblem(input: {
+  readonly text?: string | undefined;
+  readonly gaveUp: boolean;
+}): string | undefined {
+  return !input.gaveUp && (input.text ?? "").trim().length === 0
+    ? "Write your work, or give up."
+    : undefined;
+}
+
+export interface StoredProblem {
+  readonly id: string;
+  readonly mode: LearningProblemMode;
+  readonly statement: string;
+  readonly targets: ReadonlyArray<LearningProblemTarget>;
+  readonly hintCount: number;
+  readonly retestOf: string | null;
+}
+
+/** The message that hands the learner's work on a problem back to the tutor as their next turn. */
+export function formatSolutionMessage(
+  problem: StoredProblem,
+  attempt: LearningProblemAttempt,
+  hintsUsed: number,
+): string {
+  const lines = [
+    learningSolutionMessageHeader(problem.id),
+    `Problem (${problem.mode}): ${problem.statement}`,
+    `Targets: ${problem.targets
+      .map((target) =>
+        target.propositionId === null ? target.name : `${target.name} (${target.propositionId})`,
+      )
+      .join("; ")}`,
+  ];
+  if (problem.retestOf !== null) lines.push(`Retest of: ${problem.retestOf}`);
+  const work = attempt.text?.trim();
+  if (attempt.gaveUp) {
+    lines.push(
+      work ? `They gave up. Their work so far: ${work}` : "They gave up without an attempt.",
+    );
+  } else {
+    lines.push(`Their work: ${work ?? ""}`);
+  }
+  lines.push(`Hints used: ${hintsUsed} of ${problem.hintCount}`);
+  if (attempt.confidence !== undefined) lines.push(`Confidence: ${attempt.confidence}%`);
+  const thinking = attempt.thinking?.trim();
+  if (thinking) lines.push(`Their thinking: ${thinking}`);
+  lines.push("Judge it against your model solution, then call conclude_problem.");
   return lines.join("\n");
 }
