@@ -11,9 +11,8 @@ Terms whose meaning matters across aprende. Architecture and lifecycle constrain
 | Client         | A web, desktop, or mobile UI connected to an environment. The desktop app can also host a server. |
 | Project        | An environment-local workspace record rooted at a directory.                                      |
 | Workspace root | The project's base filesystem directory on the environment.                                       |
-| Worktree       | A separate Git checkout a thread can use instead of the project's main checkout.                  |
 | Thread         | The durable conversation and work history for a project. It survives provider process exits.      |
-| Turn           | One user-to-agent cycle, a V2 run. Provider work can end before checkpoint and diff work settles. |
+| Turn           | One user-to-agent cycle, a V2 run. Provider work can end before run finalization settles.         |
 | Activity       | A non-message timeline item, such as a tool action, approval, or failure.                         |
 | aprende home   | The base data directory. Runtime state normally lives under its `userdata` directory.             |
 
@@ -31,18 +30,16 @@ Terms whose meaning matters across aprende. Architecture and lifecycle constrain
 
 ## Providers and checkpoints
 
-| Term                | Meaning                                                                                                      |
-| ------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Provider            | The agent runtime aprende controls, such as Codex or Claude Code.                                            |
-| Driver              | The integration for a provider kind.                                                                         |
-| Provider instance   | One configured provider, with its own settings and lifecycle. Multiple instances can use the same driver.    |
-| Adapter             | The boundary translating a provider's native protocol into aprende operations and events.                    |
-| Session             | The provider runtime attached to a thread. A session can be stopped and resumed without deleting the thread. |
-| Runtime mode        | The thread's permission policy. See [permission modes](../user/permission-modes.md).                         |
-| Interaction mode    | How the agent approaches the task, such as planning. Separate from permission policy.                        |
-| Checkpoint          | A saved workspace state used for diffs and restore, stored as a hidden Git ref.                              |
-| Checkpoint baseline | The workspace state captured before the work being compared.                                                 |
-| Turn diff           | The workspace changes attributed to one turn.                                                                |
+| Term              | Meaning                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| Provider          | The agent runtime aprende controls, such as Codex or Claude Code.                                            |
+| Driver            | The integration for a provider kind.                                                                         |
+| Provider instance | One configured provider, with its own settings and lifecycle. Multiple instances can use the same driver.    |
+| Adapter           | The boundary translating a provider's native protocol into aprende operations and events.                    |
+| Session           | The provider runtime attached to a thread. A session can be stopped and resumed without deleting the thread. |
+| Runtime mode      | The thread's permission policy. See [permission modes](../user/permission-modes.md).                         |
+| Interaction mode  | How the agent approaches the task, such as planning. Separate from permission policy.                        |
+| Checkpoint        | A turn marker that rewind and fork target. It records no files.                                              |
 
 ## Composer context
 

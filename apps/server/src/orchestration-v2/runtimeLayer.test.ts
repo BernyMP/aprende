@@ -34,14 +34,11 @@ import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import * as SqlClient from "effect/sql/SqlClient";
 
-import * as CheckpointStore from "../checkpointing/CheckpointStore.ts";
-import * as GitWorkflow from "../git/GitWorkflowService.ts";
 import * as ServerConfig from "../config.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as OrchestrationEventStore from "../persistence/OrchestrationEventStore.ts";
@@ -51,8 +48,6 @@ import * as ServerSettings from "../serverSettings.ts";
 import * as McpSessionRegistryTestkit from "../mcp/McpSessionRegistry.testkit.ts";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import type { ProviderInstance } from "@aprende/provider-core/server/driver";
-import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
-import * as VcsProcess from "../vcs/VcsProcess.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
 import * as LegacyV1ThreadImporter from "./legacy/LegacyV1ThreadImporter.ts";
 import * as Orchestrator from "./Orchestrator.ts";
@@ -88,19 +83,6 @@ const modelSelection = {
 } satisfies ModelSelection;
 const alternateInstanceId = ProviderInstanceId.make("codex_alternate");
 
-const layerVcsDriverRegistryTest = VcsDriverRegistry.layer.pipe(
-  Layer.provide(VcsProcess.layer),
-  Layer.provide(layerServerConfig),
-  Layer.provide(layerPlatformTest),
-);
-
-const layerCheckpointStoreTest = CheckpointStore.layer.pipe(
-  Layer.provide(layerVcsDriverRegistryTest),
-);
-const layerGitWorkflowTest = Layer.mock(GitWorkflow.GitWorkflowService)({
-  pruneWorktrees: () => Effect.void,
-  createWorktree: () => Effect.succeed({} as never),
-});
 const layerProjectServiceTest = Layer.mock(ProjectService.ProjectService)({
   getById: () => Effect.succeedNone,
 });
@@ -211,11 +193,9 @@ const layerTest = Layer.mergeAll(
   Layer.provide(McpSessionRegistryTestkit.layer),
   Layer.provide(McpProviderSessions.layer),
   Layer.provide(SqlitePersistence.layerMemory),
-  Layer.provide(layerCheckpointStoreTest),
   Layer.provide(layerServerConfig),
   Layer.provide(ServerSettings.layerTest()),
   Layer.provide(layerTestProviderInstanceRegistry),
-  Layer.provide(layerGitWorkflowTest),
   Layer.provide(layerProjectServiceTest),
   Layer.provide(layerPlatformTest),
 );
@@ -224,11 +204,9 @@ const layerLegacyImportTest = Layer.merge(RuntimeLayer.layer, layerProjectionRep
   Layer.provide(McpSessionRegistryTestkit.layer),
   Layer.provide(McpProviderSessions.layer),
   Layer.provideMerge(SqlitePersistence.layerMemory),
-  Layer.provide(layerCheckpointStoreTest),
   Layer.provide(layerServerConfig),
   Layer.provide(ServerSettings.layerTest()),
   Layer.provide(layerTestProviderInstanceRegistry),
-  Layer.provide(layerGitWorkflowTest),
   Layer.provide(layerProjectServiceTest),
   Layer.provide(layerPlatformTest),
 );
@@ -267,11 +245,9 @@ const layerProjectDeletionTest = Layer.mergeAll(
   Layer.provide(McpSessionRegistryTestkit.layer),
   Layer.provide(McpProviderSessions.layer),
   Layer.provide(SqlitePersistence.layerMemory),
-  Layer.provide(layerCheckpointStoreTest),
   Layer.provide(layerServerConfig),
   Layer.provide(ServerSettings.layerTest()),
   Layer.provide(layerTestProviderInstanceRegistry),
-  Layer.provide(layerGitWorkflowTest),
   Layer.provide(layerPlatformTest),
 );
 
@@ -628,11 +604,9 @@ const layerSharedApplicationDataPlaneTest = Layer.mergeAll(
   Layer.provide(McpSessionRegistryTestkit.layer),
   Layer.provide(McpProviderSessions.layer),
   Layer.provideMerge(SqlitePersistence.layerMemory),
-  Layer.provide(layerCheckpointStoreTest),
   Layer.provide(layerServerConfig),
   Layer.provide(ServerSettings.layerTest()),
   Layer.provide(layerTestProviderInstanceRegistry),
-  Layer.provide(layerGitWorkflowTest),
   Layer.provide(layerPlatformTest),
 );
 
@@ -655,7 +629,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: `/tmp/t3-${name}`,
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "message.dispatch",
@@ -710,7 +684,6 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
             threadId,
             checkpointId,
             scopeId: scope.id,
-            restoreFiles: false,
           }),
       };
     });
@@ -743,7 +716,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
     }),
   );
 
-  it.effect("rejects non-ready rollback targets before persisting events or effects", () =>
+  it.effect("rejects only rolled-back rollback targets, before persisting events or effects", () =>
     Effect.gen(function* () {
       const orchestrator = yield* Orchestrator.OrchestratorV2;
       const eventSink = yield* EventSink.EventSinkV2;
@@ -778,7 +751,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
       const scope = projection.checkpointScopes[0]!;
       const now = yield* DateTime.now;
 
-      for (const status of ["missing", "error", "stale", "ready"] as const) {
+      for (const status of ["stale", "missing", "error", "ready"] as const) {
         const checkpointId = CheckpointId.make("runtime-rollback-checkpoint");
         const commandId = CommandId.make(`runtime-rollback-${status}`);
         yield* eventSink.write({
@@ -815,7 +788,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
           scopeId: scope.id,
         });
 
-        if (status === "ready") {
+        if (status !== "stale") {
           const accepted = yield* rollback;
           assert.deepEqual(
             accepted.storedEvents.map((stored) => stored.event.type),
@@ -825,75 +798,12 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
             (yield* outbox.listByCommandId(commandId)).map((effect) => effect.request.type),
             ["provider-thread.rollback"],
           );
-          const path = yield* Path.Path.pipe(
-            Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
-          );
-          yield* orchestrator.dispatch({
-            type: "thread.create",
-            createdBy: "user",
-            creationSource: "web",
-            commandId: CommandId.make("runtime-rollback-ancestor-create"),
-            threadId: ThreadId.make("runtime-rollback-ancestor"),
-            projectId: ProjectId.make("runtime-rollback-readiness-project"),
-            title: "Ancestor workspace owner",
-            modelSelection,
-            runtimeMode: "full-access",
-            interactionMode: "default",
-            branch: null,
-            worktreePath: path.dirname(process.cwd()),
-          });
-          const overlapCommandId = CommandId.make("runtime-rollback-overlap");
-          const overlapSequence = yield* orchestrator.getThreadEventSequence(threadId);
-          const overlap = yield* orchestrator
-            .dispatch({
-              type: "checkpoint.rollback",
-              commandId: overlapCommandId,
-              threadId,
-              checkpointId,
-              scopeId: scope.id,
-            })
-            .pipe(Effect.flip);
-          assert.match(String(overlap.cause), /isolated worktree/);
-          assert.equal(yield* orchestrator.getThreadEventSequence(threadId), overlapSequence);
-          assert.deepEqual(yield* outbox.listByCommandId(overlapCommandId), []);
-          yield* orchestrator.dispatch({
-            type: "thread.metadata.update",
-            commandId: CommandId.make("runtime-rollback-share"),
-            threadId,
-            worktreePath: null,
-          });
-          const sharedCommandId = CommandId.make("runtime-rollback-shared");
-          const sequence = yield* orchestrator.getThreadEventSequence(threadId);
-          const shared = yield* orchestrator
-            .dispatch({
-              type: "checkpoint.rollback",
-              commandId: sharedCommandId,
-              threadId,
-              checkpointId,
-              scopeId: scope.id,
-            })
-            .pipe(Effect.flip);
-          assert.match(String(shared.cause), /isolated worktree/);
-          assert.equal(yield* orchestrator.getThreadEventSequence(threadId), sequence);
-          assert.deepEqual(yield* outbox.listByCommandId(sharedCommandId), []);
-          const conversationOnly = yield* orchestrator.dispatch({
-            type: "checkpoint.rollback",
-            commandId: CommandId.make("runtime-rollback-conversation"),
-            threadId,
-            checkpointId,
-            scopeId: scope.id,
-            restoreFiles: false,
-          });
-          assert.deepEqual(
-            conversationOnly.storedEvents.map((stored) => stored.event.type),
-            ["thread.metadata-updated", "checkpoint.rollback-requested"],
-          );
         } else {
           const error = yield* rollback.pipe(Effect.flip);
           assert.instanceOf(error, Orchestrator.OrchestratorDispatchError);
           assert.equal(
             error.cause,
-            `Checkpoint ${checkpointId} is ${status} and cannot be restored.`,
+            `Checkpoint ${checkpointId} was rolled back and cannot be rewound to.`,
           );
           assert.equal(yield* orchestrator.getThreadEventSequence(threadId), previousSequence);
           assert.deepEqual(
@@ -904,6 +814,66 @@ it.layer(layerTest)("OrchestrationV2LayerLive", (it) => {
         }
       }
     }).pipe(Effect.provide(Layer.fresh(layerTest))),
+  );
+
+  it.effect("forgets a removed worktree without detaching the thread's provider session", () =>
+    Effect.gen(function* () {
+      const orchestrator = yield* Orchestrator.OrchestratorV2;
+      const eventSink = yield* EventSink.EventSinkV2;
+      const threadId = ThreadId.make("runtime-forget-removed-worktree");
+      const removed = `${process.cwd()}/removed-worktree`;
+      yield* orchestrator.dispatch({
+        type: "thread.create",
+        createdBy: "user",
+        creationSource: "web",
+        commandId: CommandId.make("runtime-forget-removed-worktree-create"),
+        threadId,
+        projectId: ProjectId.make("runtime-forget-removed-worktree-project"),
+        title: "Removed worktree",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: removed,
+      });
+      const now = yield* DateTime.now;
+      yield* eventSink.write({
+        commandId: CommandId.make("runtime-forget-removed-worktree-session"),
+        events: [
+          {
+            id: EventId.make("runtime-forget-removed-worktree-session-event"),
+            type: "provider-session.attached",
+            threadId,
+            occurredAt: now,
+            payload: {
+              id: ProviderSessionId.make("runtime-forget-removed-worktree-session"),
+              driver,
+              providerInstanceId: modelSelection.instanceId,
+              status: "ready",
+              cwd: process.cwd(),
+              model: modelSelection.model,
+              capabilities: CodexProviderCapabilitiesV2,
+              createdAt: now,
+              updatedAt: now,
+              lastError: null,
+            },
+          },
+        ],
+      });
+      // A turn may be opening this session in the project root while the clear commits.
+      const cleared = yield* orchestrator.dispatch({
+        type: "thread.metadata.update",
+        commandId: CommandId.make("runtime-forget-removed-worktree-clear"),
+        threadId,
+        worktreePath: null,
+        expectedWorktreePath: removed,
+      });
+      assert.deepEqual(
+        cleared.storedEvents.map((stored) => stored.event.type),
+        ["thread.metadata-updated"],
+      );
+      assert.isNull((yield* orchestrator.getThreadProjection(threadId)).thread.worktreePath);
+    }),
   );
 
   it.effect("resolves delivery intent against the active run and starts after it completes", () =>
@@ -2486,7 +2456,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
           runtimeMode: "full-access",
           interactionMode: "default",
           branch: null,
-          worktreePath: "/tmp/runtime-layer-restart",
+          worktreePath: process.cwd(),
         });
         yield* orchestrator.dispatch({
           type: "message.dispatch",
@@ -2608,7 +2578,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
           runtimeMode: "full-access",
           interactionMode: "default",
           branch: null,
-          worktreePath: "/tmp/runtime-layer-restart-failed",
+          worktreePath: process.cwd(),
         });
         yield* orchestrator.dispatch({
           type: "message.dispatch",
@@ -2699,7 +2669,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: "/tmp/runtime-layer-active-settle",
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "thread.settle",
@@ -2768,7 +2738,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: "/tmp/runtime-layer-settle-after-run",
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "message.dispatch",
@@ -2834,7 +2804,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: "/tmp/runtime-layer-settle-automatic",
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "message.dispatch",
@@ -3724,46 +3694,6 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
       yield* end("probe", "completed");
       assert.equal(yield* Queue.take(startedRunIds), (yield* runFor("after-stop")).id);
       yield* releasedAfter("after-stop", "probe");
-    }),
-  );
-
-  it.effect("keeps held agent messages while the thread's worktree setup is unresolved", () =>
-    Effect.gen(function* () {
-      const orchestrator = yield* Orchestrator.OrchestratorV2;
-      const eventSink = yield* EventSink.EventSinkV2;
-      const dispatcherId = ThreadId.make("runtime-layer-held-queue-worktree");
-      const dispatcher = yield* queueTestThread(dispatcherId);
-      const witness = yield* queueTestThread(ThreadId.make("runtime-layer-held-queue-witness"));
-      yield* dispatcher.send("setup", "agent", true);
-      yield* dispatcher.send("issue", "agent", false);
-      yield* dispatcher.end("setup", "failed", "", {
-        workspacePreparation: { type: "worktree", baseRef: "main" },
-      });
-      yield* dispatcher.awaitHeld("issue");
-      assert.isTrue((yield* dispatcher.runFor("issue")).queueHeld);
-      yield* dispatcher.send("tick", "agent", true);
-      assert.equal((yield* dispatcher.runFor("tick")).status, "starting");
-      yield* witness.send("active", "agent", true);
-      yield* witness.send("queued", "agent", false);
-      // The failed setup never produced the thread's worktree.
-      const { thread } = yield* orchestrator.getThreadProjection(dispatcherId);
-      yield* eventSink.write({
-        events: [
-          {
-            id: EventId.make(`${dispatcherId}:worktree-missing`),
-            type: "thread.metadata-updated",
-            threadId: dispatcherId,
-            occurredAt: yield* DateTime.now,
-            payload: { ...thread, worktreePath: null },
-          },
-        ],
-      });
-      yield* dispatcher.end("tick", "completed");
-      // One listener handles every thread's completions in order, so the witness starting
-      // means the tick's completion was handled too.
-      yield* witness.end("active", "completed");
-      assert.equal(yield* Queue.take(witness.startedRunIds), (yield* witness.runFor("queued")).id);
-      assert.isTrue((yield* dispatcher.runFor("issue")).queueHeld);
     }),
   );
 
@@ -4739,7 +4669,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
         runtimeMode: "full-access",
         interactionMode: "default",
         branch: null,
-        worktreePath: "/tmp/runtime-layer-queued-edit",
+        worktreePath: process.cwd(),
       });
       yield* orchestrator.dispatch({
         type: "message.dispatch",
@@ -4970,7 +4900,7 @@ it.layer(layerTest)("snooze queued runs", (it) => {
           runtimeMode: "full-access",
           interactionMode: "default",
           branch: null,
-          worktreePath: "/tmp/snooze-queued",
+          worktreePath: process.cwd(),
           createdBy: "user",
           creationSource: "web",
         });
@@ -5109,7 +5039,7 @@ it.layer(layerTest)("snooze queued runs", (it) => {
           runtimeMode: "full-access",
           interactionMode: "default",
           branch: null,
-          worktreePath: "/tmp/snooze-wake",
+          worktreePath: process.cwd(),
           createdBy: "user",
           creationSource: "web",
         });
@@ -6611,7 +6541,6 @@ const layerQueueResumeDisabledInstanceTest = Layer.mergeAll(
   Layer.provide(McpSessionRegistryTestkit.layer),
   Layer.provide(McpProviderSessions.layer),
   Layer.provide(SqlitePersistence.layerMemory),
-  Layer.provide(layerCheckpointStoreTest),
   Layer.provide(layerServerConfig),
   Layer.provide(
     ServerSettings.layerTest({
@@ -6626,7 +6555,6 @@ const layerQueueResumeDisabledInstanceTest = Layer.mergeAll(
     }),
   ),
   Layer.provide(layerTestProviderInstanceRegistry),
-  Layer.provide(layerGitWorkflowTest),
   Layer.provide(layerProjectServiceTest),
   Layer.provide(layerPlatformTest),
 );

@@ -305,11 +305,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["long lines code blocks diffs file previews"],
   },
   {
-    id: "composer-context",
-    title: "Composer context",
-    to: "/settings/appearance",
-  },
-  {
     id: "project-grouping",
     title: "Project grouping",
     to: "/settings/general",
@@ -454,15 +449,8 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/maintenance",
     scope: "environment-defaults",
     searchTerms: [
-      "balanced performance battery saver advanced git fetch provider health refresh host power monitor idle policy",
+      "balanced performance battery saver advanced provider health refresh host power monitor idle policy",
     ],
-  },
-  {
-    id: "new-threads",
-    title: "New threads",
-    to: "/settings/threads",
-    scope: "project-defaults",
-    searchTerms: ["default workspace mode draft local worktree"],
   },
   {
     id: "add-project-starts-in",
@@ -642,17 +630,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/providers",
     searchTerms: ["refresh availability versions auth state models background probes seconds off"],
     providerSettingsOnly: true,
-  },
-  {
-    id: "git-fetch-interval",
-    title: "Git fetch interval",
-    to: "/settings/maintenance",
-    targetId: "background-activity",
-    searchTerms: [
-      "automatic remote branch refresh background credentials security keys seconds off",
-    ],
-    environmentOnly: true,
-    scope: "environment-defaults",
   },
   {
     id: "environment-icon",

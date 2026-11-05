@@ -71,10 +71,11 @@ start no Codex turn settle on a provider turn without a native ref, which native
 not count. Claude's SDK mode emits no goal events; its adapter reads goal state from the
 synthetic command output and Stop hook feedback in the transcript.
 
-Capabilities must describe what the provider can actually do. Antigravity can capture workspace
-checkpoints but cannot roll back its conversation. The [checkpoint boundary](./overview.md#turn-completion-and-checkpoints)
-therefore rejects revert before touching files. Native permission and question option IDs must
-also survive normalization; a display label is not necessarily a valid reply.
+Capabilities must describe what the provider can actually do. A provider that cannot roll back its
+conversation must report `supportsConversationRollback: false`, so clients hide rewind for it
+instead of failing at the [checkpoint boundary](./overview.md#turn-completion-and-checkpoints).
+Native permission and question option IDs must also survive normalization; a display label is not
+necessarily a valid reply.
 
 ## Attachments and stored history
 
@@ -101,7 +102,7 @@ before redaction and serialization, so logging a large response does not require
 copies. These limits apply to diagnostics; provider event handling is unchanged.
 
 Codex resumes with metadata-only reads when it needs a thread's identity and update time. Its
-initialization capabilities opt out of `turn/diff/updated`: T3 derives diffs from checkpoints.
+initialization capabilities opt out of `turn/diff/updated`, since aprende shows no diffs.
 The logger filters those notifications before traversal when an older provider still sends them.
 
 Model classification has its own [manifest constraints](./model-manifest.md). Assistant-reference

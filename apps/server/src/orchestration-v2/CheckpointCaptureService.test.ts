@@ -1,4 +1,3 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { assert, it } from "@effect/vitest";
 import {
   CheckpointId,
@@ -23,8 +22,6 @@ import * as Ref from "effect/Ref";
 import * as SqlClient from "effect/sql/SqlClient";
 
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
-import * as CheckpointStore from "../checkpointing/CheckpointStore.ts";
-import { VcsProcessTimeoutError } from "@aprende/contracts";
 import * as CheckpointService from "./CheckpointService.ts";
 import * as CheckpointCaptureService from "./CheckpointCaptureService.ts";
 import * as EventSink from "./EventSink.ts";
@@ -53,8 +50,8 @@ const modelSelection = {
 
 it.layer(layerProjectionStoreTest)("CheckpointCaptureServiceV2", (it) => {
   it.effect.each([false, true])(
-    "captures without decoding history or losing newer delegated completion, ref lookup fails=%s",
-    (refLookupFails) =>
+    "captures without decoding history or losing newer delegated completion, real service=%s",
+    (realService) =>
       Effect.gen(function* () {
         const projectionStore = yield* ProjectionStore.ProjectionStoreV2;
         const now = yield* DateTime.now;
@@ -269,29 +266,8 @@ it.layer(layerProjectionStoreTest)("CheckpointCaptureServiceV2", (it) => {
           Layer.provide(
             Layer.mergeAll(
               IdAllocator.layer,
-              refLookupFails
-                ? CheckpointService.layer.pipe(
-                    Layer.provide(
-                      Layer.mergeAll(
-                        IdAllocator.layer,
-                        NodeCrypto.layer,
-                        Layer.mock(CheckpointStore.CheckpointStore)({
-                          listAuthoredPaths: () => Effect.succeed(null),
-                          isGitRepository: () => Effect.succeed(true),
-                          captureCheckpoint: () => Effect.void,
-                          hasCheckpointRef: () =>
-                            Effect.fail(
-                              new VcsProcessTimeoutError({
-                                operation: "test.hasCheckpointRef",
-                                command: "git",
-                                cwd: "/repo",
-                                timeoutMs: 30000,
-                              }),
-                            ),
-                        }),
-                      ),
-                    ),
-                  )
+              realService
+                ? CheckpointService.layer.pipe(Layer.provide(IdAllocator.layer))
                 : Layer.mock(CheckpointService.CheckpointServiceV2)({
                     materializeBaselineCheckpoint: () =>
                       Effect.die(
@@ -333,9 +309,9 @@ it.layer(layerProjectionStoreTest)("CheckpointCaptureServiceV2", (it) => {
           const capturedEvent = events.find((event) => event.type === "checkpoint.captured");
           assert.equal(
             runUpdated.payload.checkpointId,
-            refLookupFails ? capturedEvent?.payload.id : captured.id,
+            realService ? capturedEvent?.payload.id : captured.id,
           );
-          if (refLookupFails && capturedEvent?.type === "checkpoint.captured") {
+          if (realService && capturedEvent?.type === "checkpoint.captured") {
             assert.equal(capturedEvent.payload.status, "ready");
             assert.deepEqual(capturedEvent.payload.files, []);
           }
@@ -720,7 +696,7 @@ it.layer(layerProjectionStoreTest)("CheckpointCaptureServiceV2", (it) => {
     }),
   );
 
-  it.effect("completes a side chat run with a missing checkpoint and never touches git", () =>
+  it.effect("completes a side chat run with a checkpoint it can rewind to", () =>
     Effect.gen(function* () {
       const projectionStore = yield* ProjectionStore.ProjectionStoreV2;
       const now = yield* DateTime.now;
@@ -859,24 +835,11 @@ it.layer(layerProjectionStoreTest)("CheckpointCaptureServiceV2", (it) => {
         },
       ];
       yield* Effect.forEach(events, (candidate) => projectionStore.apply(candidate));
-      const gitUnavailable = () => Effect.die("side chats must not snapshot the shared worktree");
       const layerCapture = CheckpointCaptureService.layer.pipe(
         Layer.provide(
           Layer.mergeAll(
             IdAllocator.layer,
-            CheckpointService.layer.pipe(
-              Layer.provide(
-                Layer.mergeAll(
-                  IdAllocator.layer,
-                  NodeCrypto.layer,
-                  Layer.mock(CheckpointStore.CheckpointStore)({
-                    isGitRepository: gitUnavailable,
-                    captureCheckpoint: gitUnavailable,
-                    hasCheckpointRef: gitUnavailable,
-                  }),
-                ),
-              ),
-            ),
+            CheckpointService.layer.pipe(Layer.provide(IdAllocator.layer)),
             Layer.mock(EventSink.EventSinkV2)({
               commitCommand: (input) =>
                 Effect.forEach(input.events, (committed) => projectionStore.apply(committed)).pipe(
@@ -902,7 +865,7 @@ it.layer(layerProjectionStoreTest)("CheckpointCaptureServiceV2", (it) => {
       ]);
       assert.equal(runs[0]?.status, "completed");
       const checkpoint = checkpoints.find((candidate) => candidate.id === runs[0]?.checkpointId);
-      assert.equal(checkpoint?.status, "missing");
+      assert.equal(checkpoint?.status, "ready");
     }),
   );
 });

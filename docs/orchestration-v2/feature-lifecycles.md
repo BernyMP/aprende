@@ -360,7 +360,7 @@ If the provider cannot fork native threads, V2 may synthesize a fork by creating
 
 ## Checkpointing
 
-Checkpoints attach to checkpoint scopes. Root runs and child execution nodes can both be checkpointed.
+Checkpoints are turn markers that rewind and fork target; they record no files. They attach to checkpoint scopes. Root runs and child execution nodes can both be checkpointed.
 
 Pre-run baseline:
 
@@ -375,7 +375,6 @@ Post-root-run checkpoint:
 root node terminal
   -> drain/finalize streams
   -> capture root checkpoint for app run ordinal
-  -> compute diff from prior root checkpoint
   -> mark run terminal with checkpoint
 ```
 
@@ -387,14 +386,12 @@ child checkpointable node starts
 child node terminal
   -> drain/finalize child streams/items
   -> capture child checkpoint for that scope
-  -> compute diff from parent/previous child checkpoint
   -> mark child node checkpointed
 ```
 
 Interrupted/failed runs:
 
-- If filesystem state is meaningful and safe to capture, capture with status reflecting terminal state.
-- If not, store a missing/error checkpoint summary.
+- Capture the checkpoint with a status reflecting the terminal state.
 - Child/subagent checkpoints are allowed, but they do not advance the parent app run count.
 - Root run checkpointing should include or reference child checkpoint summaries so the run has a complete audit trail.
 
@@ -402,12 +399,11 @@ Rollback:
 
 ```text
 rollback.toRun(threadId, targetRunOrdinal)
-  -> restore filesystem checkpoint targetRunOrdinal
   -> compute provider turns to roll back if provider supports rollback
   -> call provider rollback
   -> reconcile returned provider snapshot if available
   -> mark later runs rolled_back
-  -> delete or mark stale later checkpoint refs
+  -> mark later checkpoints stale
 ```
 
 Codex `thread/revert` returns updated loaded thread metadata with an empty `turns` array; retained history must be hydrated through `thread/turns/list`. Other providers may require a synthetic provider thread restart from context.
@@ -416,13 +412,10 @@ Nested rollback:
 
 ```text
 rollback.node(nodeId, checkpointId)
-  -> restore child checkpoint if scope cwd/ref is available
   -> roll back provider thread for that child scope if supported
   -> mark descendant child checkpoints stale/rolled_back
-  -> preserve parent run checkpoint history unless parent filesystem state changed
+  -> preserve parent run checkpoint history
 ```
-
-If a child checkpoint mutates the same workspace as the parent, restoring it may dirty the parent run's workspace state. The UI/API should make that explicit.
 
 ## Approvals
 

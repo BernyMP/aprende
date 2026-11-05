@@ -42,17 +42,13 @@ export function useNewProject() {
       return false;
     }
 
-    const { projectId, workspaceRoot, commitError } = result.value;
+    const { projectId, workspaceRoot } = result.value;
     toastManager.add(
-      stackedThreadToast(
-        commitError === undefined
-          ? { type: "success", title: `Created ${input.name}`, description: workspaceRoot }
-          : {
-              type: "warning",
-              title: `Created ${input.name} without a first commit`,
-              description: `${commitError} The project is in ${workspaceRoot}.`,
-            },
-      ),
+      stackedThreadToast({
+        type: "success",
+        title: `Created ${input.name}`,
+        description: workspaceRoot,
+      }),
     );
 
     const projectRef = scopeProjectRef(input.environmentId, projectId);

@@ -4,7 +4,7 @@ A prompt link opens aprende with a prompt ready to send. Use one to share a prom
 media or in a pull request comment.
 
 A link never runs anything. It opens a draft. You read the prompt, then press Send. A link cannot
-change your permission mode, branch, or worktree. Your own defaults apply.
+change your permission mode. Your own defaults apply.
 
 ## Make a link
 

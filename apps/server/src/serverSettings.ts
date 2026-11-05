@@ -281,14 +281,10 @@ const makeTest = Effect.fn("serverSettings.makeTest")(function* (
   overrides: DeepPartial<ServerSettings> = {},
   managedPolicy?: ManagedPolicySummary,
 ) {
-  const { automaticGitFetchInterval, providerHealthRefreshInterval, ...overridesForMerge } =
-    overrides;
+  const { providerHealthRefreshInterval, ...overridesForMerge } = overrides;
   const merged = deepMerge(DEFAULT_SERVER_SETTINGS, overridesForMerge);
   const initialSettings = yield* normalizeServerSettings({
     ...merged,
-    ...(automaticGitFetchInterval !== undefined
-      ? { automaticGitFetchInterval: automaticGitFetchInterval as Duration.Duration }
-      : {}),
     ...(providerHealthRefreshInterval !== undefined
       ? { providerHealthRefreshInterval: providerHealthRefreshInterval as Duration.Duration }
       : {}),
@@ -458,7 +454,6 @@ function fallbackTextGenerationProvider(
 
 const ATOMIC_SETTINGS_KEYS: ReadonlySet<string> = new Set([
   "backgroundActivity",
-  "automaticGitFetchInterval",
   "providerHealthRefreshInterval",
   "textGenerationModelSelection",
   "fallbackModelSelection",
@@ -512,8 +507,6 @@ const decodeModelSelectionJson = Schema.decodeUnknownOption(
 interface LegacyProjectSettingsRow {
   readonly projectId: string;
   readonly defaultModelSelection: string | null;
-  readonly defaultThreadEnvMode: string | null;
-  readonly autoPull: number;
   readonly scripts: string;
 }
 
@@ -523,11 +516,7 @@ function foldLegacyProjectSettings(
   rows: ReadonlyArray<LegacyProjectSettingsRow>,
 ): ServerSettings {
   if (settings.projectSettingsFolded) return settings;
-  if (
-    rows.length === 0 &&
-    Object.keys(settings.projectAutoPullOverrides).length === 0 &&
-    Object.keys(settings.projectScriptOverrides).length === 0
-  ) {
+  if (rows.length === 0 && Object.keys(settings.projectScriptOverrides).length === 0) {
     return settings;
   }
   const entries: Record<string, ProjectSettingsOverrides> = {
@@ -543,9 +532,6 @@ function foldLegacyProjectSettings(
     if (Object.hasOwn(entry, key)) return;
     entries[projectId] = { ...entry, [key]: value };
   };
-  for (const [projectId, value] of Object.entries(settings.projectAutoPullOverrides)) {
-    set(projectId, "defaultAutoPull", value);
-  }
   // A stored null resets to machine defaults, so the project's aggregate scripts must not resurface.
   const resetScripts = new Set<string>();
   for (const [projectId, value] of Object.entries(settings.projectScriptOverrides)) {
@@ -557,10 +543,6 @@ function foldLegacyProjectSettings(
     if (Option.isSome(model) && model.value !== null) {
       set(row.projectId, "defaultModelSelection", model.value);
     }
-    if (row.defaultThreadEnvMode === "local" || row.defaultThreadEnvMode === "worktree") {
-      set(row.projectId, "defaultThreadEnvMode", row.defaultThreadEnvMode);
-    }
-    if (row.autoPull === 1) set(row.projectId, "defaultAutoPull", true);
     const scripts = decodeProjectScriptsJson(row.scripts);
     if (Option.isSome(scripts) && scripts.value.length > 0 && !resetScripts.has(row.projectId)) {
       set(row.projectId, "defaultProjectScripts", scripts.value);
@@ -738,8 +720,6 @@ const make = Effect.gen(function* () {
           SELECT
             project_id AS "projectId",
             default_model_selection_json AS "defaultModelSelection",
-            default_thread_env_mode AS "defaultThreadEnvMode",
-            auto_pull AS "autoPull",
             scripts_json AS "scripts"
           FROM projection_projects
           WHERE deleted_at IS NULL

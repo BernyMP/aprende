@@ -578,7 +578,6 @@ describe("orchestration V2 thread fork", () => {
           },
           {
             type: "checkpoint.rollback",
-            restoreFiles: false,
             commandId: yield* ids.allocate.command({
               fixtureName: "thread-fork-native-prior-turn-source-rollback",
               commandName: "rollback-source-to-alpha",
@@ -780,7 +779,6 @@ describe("orchestration V2 thread fork", () => {
           },
           {
             type: "checkpoint.rollback",
-            restoreFiles: false,
             commandId: yield* ids.allocate.command({
               fixtureName: "thread-fork-native-fork-local-rollback",
               commandName: "rollback-fork-to-first",

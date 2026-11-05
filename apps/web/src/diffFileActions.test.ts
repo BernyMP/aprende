@@ -1,38 +1,16 @@
-import { scopeThreadRef } from "@aprende/client-runtime/environment";
-import { EnvironmentId, ThreadId } from "@aprende/contracts";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
-import { openDiffFilePrimaryAction, resolveDiffPathForWorkspace } from "./diffFileActions";
-import { selectThreadRightPanelState, useRightPanelStore } from "./rightPanelStore";
+import { resolveDiffPathForWorkspace } from "./diffFileActions";
 
-const THREAD_REF = scopeThreadRef(
-  EnvironmentId.make("environment-local"),
-  ThreadId.make("thread-1"),
-);
-
-describe("openDiffFilePrimaryAction", () => {
-  beforeEach(() => {
-    useRightPanelStore.setState({ byThreadKey: {}, threadPanelVisibilityByThreadKey: {} });
-  });
-
-  it("opens repository-relative diff files from a nested project", () => {
-    const openInEditor = vi.fn();
-
-    openDiffFilePrimaryAction({
-      threadRef: THREAD_REF,
-      filePath: "frontend/Dockerfile",
-      activeCwd: "/repo/frontend",
-      repositoryRoot: "/repo",
-      openInEditor,
-    });
-
+describe("resolveDiffPathForWorkspace", () => {
+  it("resolves repository-relative diff files from a nested project", () => {
     expect(
-      selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, THREAD_REF),
-    ).toMatchObject({
-      isOpen: true,
-      activeSurfaceId: "file:Dockerfile",
-    });
-    expect(openInEditor).not.toHaveBeenCalled();
+      resolveDiffPathForWorkspace({
+        filePath: "frontend/Dockerfile",
+        workspaceRoot: "/repo/frontend",
+        repositoryRoot: "/repo",
+      }),
+    ).toBe("Dockerfile");
   });
 
   it("preserves repository-relative paths in a separate worktree", () => {
@@ -94,20 +72,13 @@ describe("openDiffFilePrimaryAction", () => {
     "/repo/frontend/../backend/server.ts",
     "/repo/frontend",
     "/etc/passwd",
-  ])("does not open an out-of-project diff path: %s", (filePath) => {
-    const openInEditor = vi.fn();
-
-    openDiffFilePrimaryAction({
-      threadRef: THREAD_REF,
-      filePath,
-      activeCwd: "/repo/frontend",
-      repositoryRoot: "/repo",
-      openInEditor,
-    });
-
+  ])("does not resolve an out-of-project diff path: %s", (filePath) => {
     expect(
-      selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, THREAD_REF),
-    ).toMatchObject({ isOpen: false });
-    expect(openInEditor).not.toHaveBeenCalled();
+      resolveDiffPathForWorkspace({
+        filePath,
+        workspaceRoot: "/repo/frontend",
+        repositoryRoot: "/repo",
+      }),
+    ).toBeNull();
   });
 });

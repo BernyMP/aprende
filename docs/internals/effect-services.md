@@ -8,7 +8,7 @@ review check enforces the same rules; keep the two in step.
 
 ## Where a feature lives
 
-A server capability is a method on a service in its domain folder (`project/`, `workspace/`, `git/`,
+A server capability is a method on a service in its domain folder (`project/`, `workspace/`, `learning/`,
 `provider/`, ...). Extend the service that already owns the domain; add a new one only when none
 does.
 

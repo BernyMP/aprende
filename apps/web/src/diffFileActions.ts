@@ -1,21 +1,9 @@
-import type { ScopedThreadRef } from "@aprende/contracts";
 import {
   isAbsolutePath,
   isWindowsAbsolutePath,
   normalizeProjectPathForComparison,
   workspaceRelativeFilePath,
 } from "@aprende/shared/path";
-
-import { useRightPanelStore } from "./rightPanelStore";
-import { resolvePathLinkTarget } from "@aprende/shared/fileLinks";
-
-interface OpenDiffFilePrimaryActionInput {
-  readonly threadRef: ScopedThreadRef | null;
-  readonly filePath: string;
-  readonly activeCwd: string | undefined;
-  readonly repositoryRoot?: string | undefined;
-  readonly openInEditor: (targetPath: string) => void;
-}
 
 function normalizedRelativePathSegments(filePath: string): ReadonlyArray<string> | null {
   if (filePath.startsWith("/") || isWindowsAbsolutePath(filePath) || /^[a-zA-Z]:/.test(filePath)) {
@@ -87,26 +75,4 @@ export function resolveDiffPathForWorkspace(input: {
 
   const relativeSegments = fileSegments.slice(workspaceSegments.length);
   return relativeSegments.length > 0 ? relativeSegments.join("/") : null;
-}
-
-export function openDiffFilePrimaryAction({
-  threadRef,
-  filePath,
-  activeCwd,
-  repositoryRoot,
-  openInEditor,
-}: OpenDiffFilePrimaryActionInput): void {
-  const workspaceFilePath = resolveDiffPathForWorkspace({
-    filePath,
-    workspaceRoot: activeCwd,
-    repositoryRoot,
-  });
-  if (!workspaceFilePath) return;
-
-  if (threadRef) {
-    useRightPanelStore.getState().openFile(threadRef, workspaceFilePath);
-    return;
-  }
-
-  openInEditor(activeCwd ? resolvePathLinkTarget(workspaceFilePath, activeCwd) : workspaceFilePath);
 }

@@ -182,11 +182,10 @@ Policy examples:
 
 ## Checkpoint Capabilities
 
-Checkpointing is primarily app-owned, but provider conversation rollback is provider-dependent.
+Checkpoints are app-owned turn markers, but provider conversation rollback is provider-dependent.
 
 ```ts
 type CheckpointCapabilities = {
-  appCanCheckpointFilesystem: boolean;
   supportsNestedCheckpointScopes: boolean;
   providerCanRollbackConversation: boolean;
   providerRollbackReturnsSnapshot: boolean;
@@ -194,7 +193,7 @@ type CheckpointCapabilities = {
 };
 ```
 
-If provider rollback is unsupported, filesystem rollback can still happen, but provider conversation state must be restarted or marked divergent. Nested checkpoint scopes are app-owned; providers only affect whether their nested provider conversations can be rolled back to match restored filesystem state.
+If provider rollback is unsupported, rewind is unavailable for that provider. Nested checkpoint scopes are app-owned; providers only affect whether their nested provider conversations can be rolled back.
 
 ## Identity Capabilities
 
@@ -230,10 +229,10 @@ fork unsupported
   -> synthetic fork from app projection if policy allows
 
 rollback unsupported
-  -> restore filesystem checkpoint, restart provider context, mark provider state divergent
+  -> hide rewind
 
 nested checkpoint unsupported
-  -> capture only root-run checkpoint and record child filesystem activity as uncheckpointed
+  -> capture only root-run checkpoints
 
 provider switch return unsupported
   -> create fresh provider thread with full app-thread summary
@@ -279,6 +278,6 @@ The UI should receive capability-informed affordances:
 - show interrupt as available, destructive fallback, or unavailable.
 - show approvals as respondable or expired.
 - show plan/todo panels only when structured plan artifacts exist.
-- show rollback only when app checkpoint exists, and annotate provider rollback support.
+- show rewind only when an app checkpoint exists and the provider can roll back its conversation.
 
 This keeps the product predictable across Codex, Claude, Cursor, OpenCode, and future providers.

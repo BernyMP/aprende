@@ -284,10 +284,7 @@ export const layer = McpToolAccess.toLayer(ProjectToolkit, {
                 Option.match({ onNone: () => Effect.fail(unavailable()), onSome: Effect.succeed }),
               ),
             );
-          return {
-            ...project,
-            ...(created.commitError === undefined ? {} : { commitError: created.commitError }),
-          };
+          return project;
         }
         const commandId = yield* newCommandId();
         return yield* projects

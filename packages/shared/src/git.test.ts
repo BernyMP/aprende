@@ -1,16 +1,6 @@
-import type { VcsStatusRemoteResult, VcsStatusResult } from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  applyGitStatusStreamEvent,
-  buildTemporaryWorktreeBranchName,
-  flattenTemporaryWorktreeBranchName,
-  isBareGitConfig,
-  isTemporaryWorktreeBranch,
-  normalizeGitRemoteUrl,
-  parseOriginUrlFromGitConfig,
-  WORKTREE_BRANCH_PREFIX,
-} from "./git.ts";
+import { isBareGitConfig, normalizeGitRemoteUrl, parseOriginUrlFromGitConfig } from "./git.ts";
 
 describe("normalizeGitRemoteUrl", () => {
   it("canonicalizes equivalent GitHub remotes across protocol variants", () => {
@@ -142,105 +132,5 @@ describe("parseOriginUrlFromGitConfig", () => {
       "\turl = https://github.com/me/repo.git",
     ].join("\n");
     expect(parseOriginUrlFromGitConfig(config)).toBe("https://github.com/acme/repo.git");
-  });
-});
-
-describe("isTemporaryWorktreeBranch", () => {
-  it("matches generated temporary worktree refs", () => {
-    expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/deadbeef`)).toBe(true);
-    expect(isTemporaryWorktreeBranch(` ${WORKTREE_BRANCH_PREFIX}/deadbeef `)).toBe(true);
-    expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/DEADBEEF`)).toBe(true);
-  });
-
-  it("normalizes a UUID-shaped random callback to the canonical 8-hex form", () => {
-    expect(buildTemporaryWorktreeBranchName(() => "f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(
-      `${WORKTREE_BRANCH_PREFIX}/f4ae4e0e`,
-    );
-  });
-
-  it("rejects UUID-shaped refs that are not RFC 4122 v4", () => {
-    expect(isTemporaryWorktreeBranch("aprende/f4ae4e0e-f971-1d48-b4f2-9cf0aa54ab12")).toBe(false);
-    expect(isTemporaryWorktreeBranch("aprende/f4ae4e0e-f971-4d48-c4f2-9cf0aa54ab12")).toBe(false);
-  });
-
-  it("matches the flat fallback used when a plain aprende branch exists", () => {
-    const flat = flattenTemporaryWorktreeBranchName(`${WORKTREE_BRANCH_PREFIX}/deadbeef`);
-    expect(flat).toBe(`${WORKTREE_BRANCH_PREFIX}-deadbeef`);
-    expect(isTemporaryWorktreeBranch(flat)).toBe(true);
-    expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}-deadbeef-extra`)).toBe(false);
-    expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}-feature`)).toBe(false);
-    expect(flattenTemporaryWorktreeBranchName("aprende/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(
-      `${WORKTREE_BRANCH_PREFIX}-f4ae4e0e`,
-    );
-    expect(flattenTemporaryWorktreeBranchName("aprende-deadbeef")).toBe(
-      `${WORKTREE_BRANCH_PREFIX}-deadbeef`,
-    );
-    expect(flattenTemporaryWorktreeBranchName("aprende/deadbeef")).toBe(
-      `${WORKTREE_BRANCH_PREFIX}-deadbeef`,
-    );
-  });
-
-  it("rejects non-temporary refName names", () => {
-    expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/feature/demo`)).toBe(false);
-    expect(isTemporaryWorktreeBranch("main")).toBe(false);
-    expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/deadbeef-extra`)).toBe(false);
-  });
-});
-
-describe("applyGitStatusStreamEvent", () => {
-  it("treats a remote-only update as a repository when local state is missing", () => {
-    const remote: VcsStatusRemoteResult = {
-      hasUpstream: true,
-      aheadCount: 2,
-      behindCount: 1,
-      pr: null,
-    };
-
-    expect(applyGitStatusStreamEvent(null, { _tag: "remoteUpdated", remote })).toEqual({
-      isRepo: true,
-      hasPrimaryRemote: false,
-      isDefaultRef: false,
-      refName: null,
-      hasWorkingTreeChanges: false,
-      workingTree: { files: [], insertions: 0, deletions: 0 },
-      hasUpstream: true,
-      aheadCount: 2,
-      behindCount: 1,
-      pr: null,
-    });
-  });
-
-  it("preserves local-only fields when applying a remote update", () => {
-    const current: VcsStatusResult = {
-      isRepo: true,
-      hasPrimaryRemote: true,
-      isDefaultRef: false,
-      refName: "feature/demo",
-      hasWorkingTreeChanges: true,
-      workingTree: {
-        files: [{ path: "src/demo.ts", insertions: 1, deletions: 0 }],
-        insertions: 1,
-        deletions: 0,
-      },
-      hasUpstream: false,
-      aheadCount: 0,
-      behindCount: 0,
-      pr: null,
-    };
-
-    const remote: VcsStatusRemoteResult = {
-      hasUpstream: true,
-      aheadCount: 2,
-      behindCount: 1,
-      pr: null,
-    };
-
-    expect(applyGitStatusStreamEvent(current, { _tag: "remoteUpdated", remote })).toEqual({
-      ...current,
-      hasUpstream: true,
-      aheadCount: 2,
-      behindCount: 1,
-      pr: null,
-    });
   });
 });

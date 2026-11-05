@@ -99,9 +99,6 @@ function BackgroundActivityAdvancedDialog({
   const updateSettings = useUpdateScopedSettings();
   const resolvedBackgroundActivity = resolveServerBackgroundActivitySettings(settings);
   const activeProfile = resolvedBackgroundActivity.profile;
-  const automaticGitFetchIntervalSeconds = durationToSeconds(
-    resolvedBackgroundActivity.automaticGitFetchInterval,
-  );
   const providerHealthRefreshIntervalSeconds = durationToSeconds(
     resolvedBackgroundActivity.providerHealthRefreshInterval,
   );
@@ -166,36 +163,6 @@ function BackgroundActivityAdvancedDialog({
                   </SelectItem>
                 </SelectPopup>
               </Select>
-            </div>
-
-            <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 space-y-1">
-                <div className="text-sm font-medium">
-                  {searchableSetting("git-fetch-interval").title}
-                </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Refresh remote branch status in the background.
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <IntervalSecondsField
-                  label="Git fetch interval"
-                  value={automaticGitFetchIntervalSeconds}
-                  min={0}
-                  step={5}
-                  onCommit={(seconds, options) =>
-                    updateSettings(
-                      backgroundActivityOverrideSettings(
-                        settings.backgroundActivity,
-                        resolvedBackgroundActivity,
-                        { automaticGitFetchInterval: Duration.seconds(seconds) },
-                      ),
-                      options,
-                    )
-                  }
-                />
-                <span className="text-xs text-muted-foreground">seconds</span>
-              </div>
             </div>
 
             <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -356,8 +323,8 @@ export function BackgroundActivitySettingsRow() {
         <span className="inline-flex items-center gap-1.5">
           {searchableSetting("background-activity").title}
           <PolicyTooltip>
-            This shared policy gates background work such as Git refreshes and provider health
-            probes after their individual intervals elapse.
+            This shared policy gates background work such as provider health probes after their
+            individual intervals elapse.
           </PolicyTooltip>
         </span>
       }

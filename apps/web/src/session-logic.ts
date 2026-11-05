@@ -511,7 +511,6 @@ function projectedWorkEntry(row: OrchestrationV2ProjectedTurnItem): WorkLogEntry
       return {
         ...common,
         label: title ?? "Checkpoint captured",
-        changedFiles: item.files.map((file) => file.path),
         toolData: item,
       };
     case "system_notice":
@@ -1128,7 +1127,7 @@ export function deriveRevertTurnCountByUserMessageId(input: {
 }): Map<ChatMessage["id"], number> {
   const readyTurnCountByRunId = new Map<RunId, number>();
   for (const checkpoint of input.checkpoints) {
-    if (checkpoint.status === "ready") {
+    if (checkpoint.status !== "stale") {
       readyTurnCountByRunId.set(checkpoint.runId, checkpoint.checkpointTurnCount);
     }
   }
@@ -1179,7 +1178,7 @@ export function findRevertCheckpoint(
 ): OrchestrationV2Checkpoint | undefined {
   return checkpoints.findLast(
     (checkpoint) =>
-      checkpoint.status === "ready" &&
+      checkpoint.status !== "stale" &&
       (turnCount === 0
         ? checkpoint.ordinalWithinScope === 0 && checkpoint.appRunOrdinal === null
         : checkpoint.appRunOrdinal === turnCount),

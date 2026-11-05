@@ -83,14 +83,6 @@ export const runQueueWait = Metric.timer("t3_run_queue_wait", {
   description: "Time a run waited between being requested and starting.",
 });
 
-export const gitCommandsTotal = Metric.counter("t3_git_commands_total", {
-  description: "Total git commands executed by the server runtime.",
-});
-
-export const gitCommandDuration = Metric.timer("t3_git_command_duration", {
-  description: "Git command execution duration.",
-});
-
 export const secretRequestsTotal = Metric.counter("t3_secret_requests_total", {
   description: "Secrets agents asked users for, by how each request ended.",
 });

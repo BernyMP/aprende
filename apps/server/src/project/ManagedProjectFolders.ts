@@ -1,28 +1,18 @@
-import {
-  CommandId,
-  type GitManagerServiceError,
-  ProjectId,
-  type ThreadId,
-  VcsProcessSpawnError,
-} from "@aprende/contracts";
+import { CommandId, ProjectId, type ThreadId } from "@aprende/contracts";
 import { newProjectFolderName } from "@aprende/shared/path";
-import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as PlatformError from "effect/PlatformError";
+import type * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 
 import * as ServerConfig from "../config.ts";
-import * as GitWorkflow from "../git/GitWorkflowService.ts";
-import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as ProjectService from "./ProjectService.ts";
 
 export class ScratchUnavailableError extends Schema.TaggedError<ScratchUnavailableError>()(
@@ -99,12 +89,10 @@ export class ManagedProjectFolders extends Context.Service<
     }) => Effect.Effect<Option.Option<string>, ScratchFolderError>;
     readonly namedProjectsRoot: string;
     /** Removes failed/cancelled creations' folders only while no project owns them. */
-    readonly createNamedProject: (input: { readonly name: string }) => Effect.Effect<
-      {
-        readonly projectId: ProjectId;
-        readonly workspaceRoot: string;
-        readonly commitError?: string;
-      },
+    readonly createNamedProject: (input: {
+      readonly name: string;
+    }) => Effect.Effect<
+      { readonly projectId: ProjectId; readonly workspaceRoot: string },
       NamedProjectError
     >;
   }
@@ -148,7 +136,7 @@ function escapeXml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
-// ProjectFaviconResolver finds assets/icon.svg on every clone.
+// ProjectFaviconResolver finds assets/icon.svg.
 function namedProjectIconSvg(name: string): string {
   const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const initials =
@@ -182,31 +170,10 @@ function namedProjectReadme(name: string): string {
   ].join("\n");
 }
 
-function describeCommitFailure(stderr: string): string {
-  if (/identity unknown|tell me who you are|no (name|email) was given/i.test(stderr)) {
-    return "Git has no name or email on this machine. Set user.name and user.email, then commit.";
-  }
-  const lines = stderr
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  return lines.at(-1) ?? "Git could not make the first commit.";
-}
-
-const isVcsProcessSpawnError = Schema.is(VcsProcessSpawnError);
-
-const isGitMissing = (error: GitManagerServiceError) =>
-  error._tag === "GitManagerError" &&
-  isVcsProcessSpawnError(error.cause) &&
-  PlatformError.isPlatformError(error.cause.cause) &&
-  error.cause.cause.reason._tag === "NotFound";
-
 const make = Effect.gen(function* () {
   const config = yield* ServerConfig.ServerConfig;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const gitWorkflow = yield* GitWorkflow.GitWorkflowService;
-  const git = yield* GitVcsDriver.GitVcsDriver;
   const projects = yield* ProjectService.ProjectService;
   const random = yield* SecureRandom.SecureRandom;
 
@@ -230,20 +197,7 @@ const make = Effect.gen(function* () {
     }
   });
 
-  // Scratch inside a checkout would inherit its git status and checkpoints; require a data dir outside work trees.
-  const [probe, invalidate] = yield* Effect.cachedInvalidateWithTTL(
-    gitWorkflow.isRepository(config.baseDir).pipe(
-      Effect.catchIf(isGitMissing, () => Effect.succeed(false)),
-      Effect.map((isRepository) =>
-        isRepository ? Option.none<string>() : Option.some(path.resolve(config.baseDir, "scratch")),
-      ),
-      Effect.catchCause((cause) =>
-        Cause.hasInterrupts(cause) ? Effect.interrupt : Effect.succeed(Option.none<string>()),
-      ),
-    ),
-    Duration.infinity,
-  );
-  const scratchRoot = probe.pipe(Effect.onInterrupt(() => invalidate));
+  const scratchRoot = Effect.succeedSome(path.resolve(config.baseDir, "scratch"));
 
   const makeScratchFolder = (folder: string) =>
     fileSystem
@@ -375,48 +329,16 @@ const make = Effect.gen(function* () {
     });
   });
 
-  const scaffoldRepository = Effect.fn("ManagedProjectFolders.scaffoldRepository")(function* (
+  const scaffoldFolder = Effect.fn("ManagedProjectFolders.scaffoldFolder")(function* (
     cwd: string,
     name: string,
   ) {
-    const branch =
-      (yield* git
-        .readConfigValue(cwd, "init.defaultBranch")
-        .pipe(Effect.orElseSucceed(() => null))) ?? "main";
-    yield* git.execute({
-      operation: "ManagedProjectFolders.init",
-      cwd,
-      args: ["init", `--initial-branch=${branch}`],
-      timeoutMs: 10_000,
-    });
     yield* fileSystem.writeFileString(path.join(cwd, "README.md"), namedProjectReadme(name));
     yield* fileSystem.makeDirectory(path.join(cwd, "assets"));
     yield* fileSystem.writeFileString(
       path.join(cwd, "assets", "icon.svg"),
       namedProjectIconSvg(name),
     );
-    // Force explicit filenames so global ignore rules cannot drop them, and keep
-    // core.safecrlf=true from refusing the LF files under CRLF conversion.
-    yield* git.execute({
-      operation: "ManagedProjectFolders.add",
-      cwd,
-      args: ["-c", "core.safecrlf=false", "add", "--force", "--", "README.md", "assets/icon.svg"],
-      timeoutMs: 10_000,
-    });
-    return yield* git
-      .execute({
-        operation: "ManagedProjectFolders.commit",
-        cwd,
-        args: ["commit", "--message", "Initial commit"],
-        allowNonZeroExit: true,
-        timeoutMs: 30_000,
-      })
-      .pipe(
-        Effect.map((result) =>
-          result.exitCode === 0 ? undefined : describeCommitFailure(result.stderr),
-        ),
-        Effect.catch((error) => Effect.succeed(error.message)),
-      );
   });
 
   const createNamedProject: ManagedProjectFolders["Service"]["createNamedProject"] = Effect.fn(
@@ -425,14 +347,14 @@ const make = Effect.gen(function* () {
     const workspaceRoot = yield* claimNamedFolder(input.name);
     const removeFolder = fileSystem.remove(workspaceRoot, { recursive: true }).pipe(Effect.ignore);
     const prepared = yield* Effect.all([
-      scaffoldRepository(workspaceRoot, input.name).pipe(
+      scaffoldFolder(workspaceRoot, input.name).pipe(
         Effect.mapError((cause) => new NamedProjectFolderError({ folder: workspaceRoot, cause })),
       ),
       random
         .uuidV4()
         .pipe(Effect.mapError((cause) => new NamedProjectCreateError({ workspaceRoot, cause }))),
     ]).pipe(Effect.onExit((exit) => (Exit.isSuccess(exit) ? Effect.void : removeFolder)));
-    const [commitError, id] = prepared;
+    const [, id] = prepared;
     const project = yield* projects
       .create({
         commandId: CommandId.make(`named-project:${id}`),
@@ -452,11 +374,7 @@ const make = Effect.gen(function* () {
         ),
         Effect.mapError((cause) => new NamedProjectCreateError({ workspaceRoot, cause })),
       );
-    return {
-      projectId: project.id,
-      workspaceRoot,
-      ...(commitError === undefined ? {} : { commitError }),
-    };
+    return { projectId: project.id, workspaceRoot };
   });
 
   return ManagedProjectFolders.of({

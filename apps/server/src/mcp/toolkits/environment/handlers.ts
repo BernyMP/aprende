@@ -9,15 +9,8 @@ import { readCaller, unavailable } from "../../threadAccess.ts";
 import { EnvironmentToolkit } from "./tools.ts";
 
 export function preferences(settings: ServerSettings) {
-  const {
-    defaultThreadEnvMode,
-    newWorktreesStartFromOrigin,
-    enableProviderUpdateChecks,
-    backgroundActivity,
-  } = settings;
+  const { enableProviderUpdateChecks, backgroundActivity } = settings;
   return {
-    defaultThreadEnvMode,
-    newWorktreesStartFromOrigin,
     enableProviderUpdateChecks,
     backgroundActivity: { profile: backgroundActivity.profile },
   };

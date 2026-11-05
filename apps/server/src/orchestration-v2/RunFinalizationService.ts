@@ -4,7 +4,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import * as VcsStatusBroadcaster from "../vcs/VcsStatusBroadcaster.ts";
 import * as WorkspaceEntries from "../workspace/WorkspaceEntries.ts";
 import * as CheckpointCapture from "./CheckpointCaptureService.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
@@ -20,17 +19,12 @@ export class RunFinalizationError extends Schema.TaggedError<RunFinalizationErro
   },
 ) {}
 
-export class RunFinalizationRefreshError extends Schema.TaggedError<RunFinalizationRefreshError>()(
-  "RunFinalizationRefreshError",
-  { cwd: Schema.String, cause: Schema.Defect() },
-) {}
-
-export class RunFinalizationObserver extends Context.Reference<{
+class RunFinalizationObserver extends Context.Reference<{
   readonly refresh: (input: {
     readonly cwd: string;
     readonly threadId: ThreadId;
     readonly runId: RunId;
-  }) => Effect.Effect<void, RunFinalizationRefreshError>;
+  }) => Effect.Effect<void>;
 }>("aprende/orchestration-v2/RunFinalizationObserver", {
   defaultValue: () => ({ refresh: () => Effect.void }),
 }) {}
@@ -70,16 +64,7 @@ const make = Effect.gen(function* () {
       );
     const cwd = projection.checkpointScopes.find((scope) => scope.id === input.scopeId)?.cwd;
     if (cwd !== undefined) {
-      // Retrying a display refresh after the checkpoint is durable blocks the next turn.
-      yield* observer.refresh({ cwd, threadId: input.threadId, runId: input.runId }).pipe(
-        Effect.catchTags({
-          RunFinalizationRefreshError: (cause) =>
-            Effect.logWarning("Failed to refresh workspace after checkpoint capture", {
-              ...input,
-              cause,
-            }),
-        }),
-      );
+      yield* observer.refresh({ cwd, threadId: input.threadId, runId: input.runId });
     }
   });
   return RunFinalizationService.of({ finalize });
@@ -91,18 +76,10 @@ export const layerObserver = Layer.effect(
   RunFinalizationObserver,
   Effect.gen(function* () {
     const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
-    const vcsStatus = yield* VcsStatusBroadcaster.VcsStatusBroadcaster;
     return {
-      refresh: Effect.fn("RunFinalizationService.refresh")(
-        function* ({ cwd }) {
-          yield* Effect.all([workspaceEntries.refresh(cwd), vcsStatus.refreshLocalStatus(cwd)], {
-            concurrency: "unbounded",
-            discard: true,
-          });
-        },
-        (effect, { cwd }) =>
-          effect.pipe(Effect.mapError((cause) => new RunFinalizationRefreshError({ cwd, cause }))),
-      ),
+      refresh: Effect.fn("RunFinalizationObserver.refresh")(function* ({ cwd }) {
+        yield* workspaceEntries.refresh(cwd);
+      }),
     };
   }),
 );

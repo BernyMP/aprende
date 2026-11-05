@@ -21,12 +21,14 @@ describe("T3ProjectFileFromJson", () => {
 });
 
 describe("parseT3ProjectFile", () => {
-  it("reads project defaults from JSONC with a URL in a block comment", () => {
+  it("reads JSONC with a URL in a block comment and drops retired worktree keys", () => {
     expect(
       parseT3ProjectFile(`{
         /* See https://aprende.invalid/schema/t3.json */
-        "defaultThreadEnvMode": "worktree"
+        "iconPath": "assets/logo.svg",
+        "defaultThreadEnvMode": "worktree",
+        "worktreeSubmodules": "none"
       }`),
-    ).toEqual({ defaultThreadEnvMode: "worktree" });
+    ).toEqual({ iconPath: "assets/logo.svg" });
   });
 });

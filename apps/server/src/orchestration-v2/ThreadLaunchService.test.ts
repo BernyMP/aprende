@@ -30,7 +30,6 @@ import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as TestClock from "effect/testing/TestClock";
 
-import * as GitWorkflow from "../git/GitWorkflowService.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ProjectStore from "./ProjectStore.ts";
 import * as ProjectService from "../project/ProjectService.ts";
@@ -89,15 +88,9 @@ const adapter = {
 interface HarnessOptions {
   readonly adapters?: ReadonlyArray<ProviderAdapter.ProviderAdapterV2["Service"]>;
   readonly managedFolders?: Layer.Layer<ManagedProjectFolders.ManagedProjectFolders>;
-  readonly createWorktree?: GitWorkflow.GitWorkflowService["Service"]["createWorktree"];
-  readonly fetchWorktreeBaseCommit?: GitWorkflow.GitWorkflowService["Service"]["fetchWorktreeBaseCommit"];
-  readonly remoteExists?: GitWorkflow.GitWorkflowService["Service"]["remoteExists"];
-  readonly hasCommit?: GitWorkflow.GitWorkflowService["Service"]["hasCommit"];
-  readonly renameBranch?: GitWorkflow.GitWorkflowService["Service"]["renameBranch"];
   readonly generateTitle?: TextGeneration.TextGeneration["Service"]["generateThreadTitle"];
   readonly serverSettings?: Parameters<typeof ServerSettings.layerTest>[0];
   readonly providers?: ReadonlyArray<ServerProvider>;
-  readonly git?: Partial<GitWorkflow.GitWorkflowService["Service"]>;
   readonly aroundDispatch?: (
     command: Parameters<ThreadManagement.ThreadManagementService["Service"]["dispatch"]>[0],
     dispatch: ReturnType<ThreadManagement.ThreadManagementService["Service"]["dispatch"]>,
@@ -134,24 +127,6 @@ function makeHarness(options: HarnessOptions = {}) {
           }),
         ).pipe(Layer.provide(layerThreadManagement));
   const layerOutbox = EffectOutbox.layer.pipe(Layer.provide(layerDatabase));
-  const createWorktree = vi.fn(
-    options.createWorktree ??
-      ((input) =>
-        Effect.succeed({
-          worktree: { path: "/repo-worktrees/feature", refName: input.newRefName, headSha: "abc" },
-        } as never)),
-  );
-  const renameBranch = vi.fn(
-    options.renameBranch ?? ((input) => Effect.succeed({ branch: input.newBranch })),
-  );
-  const removeWorktree = vi.fn(
-    (_input: Parameters<GitWorkflow.GitWorkflowService["Service"]["removeWorktree"]>[0]) =>
-      Effect.void,
-  );
-  const deleteLocalBranch = vi.fn(
-    (_input: Parameters<GitWorkflow.GitWorkflowService["Service"]["deleteLocalBranch"]>[0]) =>
-      Effect.void,
-  );
   const generateThreadTitle = vi.fn(
     options.generateTitle ?? (() => Effect.succeed({ title: "Generated title" })),
   );
@@ -174,20 +149,6 @@ function makeHarness(options: HarnessOptions = {}) {
       snapshot: Effect.die("unused"),
       getShell: () => Effect.die("unused"),
       listShells: () => Effect.die("unused"),
-    }),
-    Layer.mock(GitWorkflow.GitWorkflowService)({
-      createWorktree,
-      renameBranch,
-      fetchWorktreeBaseCommit:
-        options.fetchWorktreeBaseCommit ??
-        (() => Effect.succeed({ commitSha: "remote-main-sha", remoteRefName: "origin/main" })),
-      hasCommit: options.hasCommit ?? (() => Effect.succeed(false)),
-      resolveWorktreeBaseRemote: () => Effect.succeed({ remoteName: "origin", branchName: "main" }),
-      remoteExists: options.remoteExists ?? (() => Effect.succeed(true)),
-      remoteBranchExists: () => Effect.succeed(true),
-      removeWorktree,
-      deleteLocalBranch,
-      ...options.git,
     }),
     Layer.mock(TextGeneration.TextGeneration)({
       generateThreadTitle,
@@ -254,10 +215,6 @@ function makeHarness(options: HarnessOptions = {}) {
       layerDatabase,
       layerExternalServices,
     ),
-    createWorktree,
-    removeWorktree,
-    deleteLocalBranch,
-    renameBranch,
     generateThreadTitle,
   };
 }

@@ -25,8 +25,7 @@ while a turn is running, or as a new turn when the thread is stopped. Change it 
 Use `mod+shift+m` to choose a model and `mod+shift+h` to choose a host.
 To step a new thread to the next machine instead of opening the menu, bind
 **Composer: Cycle Host** in Keybindings. It has no default shortcut.
-Use `mod+shift+e` for effort, `mod+shift+a` for permissions, and `mod+shift+g` for the
-Git branch.
+Use `mod+shift+e` for effort and `mod+shift+a` for permissions.
 
 To change effort one step without opening the picker, bind
 **Composer: Increase Effort** and **Composer: Decrease Effort** in Keybindings.
@@ -157,7 +156,7 @@ closes the browser tab; rebind `rightPanel.close` and `terminal.close` to an ava
 shortcut such as `alt+w`.
 
 `mod+shift+t` reopens the last closed tab across the app, including files,
-diffs, pull requests, browsers, and devices, in the order you closed them.
+pull requests, browsers, and devices, in the order you closed them.
 A browser opens in a fresh session without its old page history. Incognito tabs
 can reopen until you reload or quit the app. This shortcut does not undo deleted work.
 Browsers also use it to reopen browser tabs; choose another binding in Settings

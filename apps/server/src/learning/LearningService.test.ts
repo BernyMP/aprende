@@ -2,6 +2,7 @@ import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
+  type OrchestrationV2ServerCommand,
   ProjectId,
   ThreadId,
   learningAnswerMessageQuestionId,
@@ -61,6 +62,9 @@ const makeLayer = (
     readonly sendFails?: boolean;
     /** The session's folder, where practice folders go. */
     readonly root?: string;
+    /** A worktree an older release recorded for the session. */
+    readonly worktreePath?: string;
+    readonly dispatched?: Ref.Ref<ReadonlyArray<OrchestrationV2ServerCommand>>;
     readonly spawn?: (command: Spawned) => Effect.Effect<ChildProcessSpawner.ChildProcessHandle>;
   },
 ) =>
@@ -70,12 +74,18 @@ const makeLayer = (
         getThreadShell: () =>
           Effect.succeed({
             projectId: ProjectId.make("project-learning"),
-            worktreePath: null,
+            worktreePath: options?.worktreePath ?? null,
           } as never),
         sendToThread: (input) =>
           options?.sendFails === true
             ? Effect.die("provider is down")
             : Ref.update(sent, (texts) => [...texts, input.text]).pipe(Effect.as({} as never)),
+        dispatch: (command) =>
+          options?.dispatched === undefined
+            ? Effect.die("no dispatch expected")
+            : Ref.update(options.dispatched, (commands) => [...commands, command]).pipe(
+                Effect.as({} as never),
+              ),
       }),
     ),
     Layer.provide(
@@ -479,10 +489,18 @@ it.effect("writes starter files into a fresh practice folder and never into an e
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-practice-" });
+    const removedWorktree = path.join(root, "removed-worktree");
     const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    const dispatched = yield* Ref.make<ReadonlyArray<OrchestrationV2ServerCommand>>([]);
     yield* Effect.gen(function* () {
       const learning = yield* LearningService.LearningService;
       const first = yield* learning.poseProblem(threadId, codingProblem);
+      assert.deepInclude((yield* Ref.get(dispatched))[0], {
+        type: "thread.metadata.update",
+        threadId,
+        worktreePath: null,
+        expectedWorktreePath: removedWorktree,
+      });
       const workspace = (yield* learning.getThreadState(threadId)).problems[0]!.workspace!;
       assert.match(workspace.folder, /^practice\/build-order-[0-9a-f]{8}$/);
       assert.deepEqual(workspace.files, ["main.py", "tests/test_main.py"]);
@@ -513,7 +531,10 @@ it.effect("writes starter files into a fresh practice folder and never into an e
       const escaped = yield* learning.poseProblem(otherThreadId, codingProblem).pipe(Effect.exit);
       assert.isTrue(Exit.isFailure(escaped));
       assert.deepEqual(yield* fileSystem.readDirectory(outside), []);
-    }).pipe(Effect.provide(makeLayer(sent, { root })));
+    }).pipe(
+      // A removed worktree leaves the session in its project folder, and the thread forgets it.
+      Effect.provide(makeLayer(sent, { root, worktreePath: removedWorktree, dispatched })),
+    );
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 

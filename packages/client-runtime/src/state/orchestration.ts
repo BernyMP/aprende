@@ -1,9 +1,4 @@
-import {
-  ORCHESTRATION_V2_WS_METHODS,
-  type EnvironmentId,
-  type ThreadId,
-  type OrchestrationGetTurnDiffResult,
-} from "@aprende/contracts";
+import { ORCHESTRATION_V2_WS_METHODS, type EnvironmentId, type ThreadId } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
@@ -18,7 +13,6 @@ import {
   createEnvironmentRpcQueryAtomFamily,
   createEnvironmentRpcSubscriptionAtomFamily,
   createEnvironmentCommand,
-  type QueryAnswerHandler,
 } from "./runtime.ts";
 import type { EnvironmentRegistry } from "../connection/registry.ts";
 import * as EnvironmentSupervisor from "../connection/supervisor.ts";
@@ -35,17 +29,8 @@ export function createOrchestrationEnvironmentAtoms<R, E>(
     readonly shellState?: (
       environmentId: EnvironmentId,
     ) => Atom.Atom<Pick<EnvironmentShellState, "removedAt">>;
-    /** Runs on each turn-range and full-thread diff the server answers. */
-    readonly onCheckpointDiffAnswer?: QueryAnswerHandler<
-      { readonly ignoreWhitespace?: boolean },
-      OrchestrationGetTurnDiffResult
-    >;
   } = {},
 ) {
-  const onCheckpointDiffAnswer =
-    options.onCheckpointDiffAnswer === undefined
-      ? {}
-      : { onAnswer: options.onCheckpointDiffAnswer };
   const shellState = options.shellState;
   return {
     threadTitles: createEnvironmentRpcQueryAtomFamily(runtime, {
@@ -115,11 +100,6 @@ export function createOrchestrationEnvironmentAtoms<R, E>(
           ),
       }),
     },
-    turnDiff: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:orchestration:turn-diff",
-      tag: ORCHESTRATION_V2_WS_METHODS.getTurnDiff,
-      ...onCheckpointDiffAnswer,
-    }),
     workflowScript: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:orchestration:workflow-script",
       tag: ORCHESTRATION_V2_WS_METHODS.getWorkflowScript,
@@ -139,11 +119,6 @@ export function createOrchestrationEnvironmentAtoms<R, E>(
       tag: ORCHESTRATION_V2_WS_METHODS.getTurnItem,
       staleTimeMs: 60_000,
       idleTtlMs: 60_000,
-    }),
-    fullThreadDiff: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:orchestration:full-thread-diff",
-      tag: ORCHESTRATION_V2_WS_METHODS.getFullThreadDiff,
-      ...onCheckpointDiffAnswer,
     }),
     threadFind: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:orchestration:thread-find",

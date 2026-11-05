@@ -2,7 +2,6 @@ import {
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthSettingsWriteScope,
-  AuthSourceControlWriteScope,
   AuthTerminalOperateScope,
   type AuthEnvironmentScope,
 } from "./auth.ts";
@@ -15,12 +14,6 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.serverCheckOtlpEndpoint]: AuthSettingsWriteScope,
   [WS_METHODS.serverRefreshProviders]: AuthOrchestrationReadScope,
   [WS_METHODS.projectsCreateFromThread]: AuthOrchestrationOperateScope,
-  [WS_METHODS.vcsPull]: AuthSourceControlWriteScope,
-  [WS_METHODS.vcsCreateWorktree]: AuthSourceControlWriteScope,
-  [WS_METHODS.vcsRemoveWorktree]: AuthSourceControlWriteScope,
-  [WS_METHODS.vcsCreateRef]: AuthSourceControlWriteScope,
-  [WS_METHODS.vcsSwitchRef]: AuthSourceControlWriteScope,
-  [WS_METHODS.vcsInit]: AuthSourceControlWriteScope,
 
   [WS_METHODS.learningAnswer]: AuthOrchestrationOperateScope,
   [WS_METHODS.learningRevealHint]: AuthOrchestrationOperateScope,

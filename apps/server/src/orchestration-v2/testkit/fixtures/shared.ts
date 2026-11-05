@@ -861,7 +861,6 @@ export function materializeFixtureInput(input: {
             });
             pushDispatch({
               type: "checkpoint.rollback",
-              restoreFiles: false,
               commandId: yield* idAllocator.allocate.command({
                 fixtureName: input.scenario,
                 commandName: `rollback-${step.checkpointSuffix}`,

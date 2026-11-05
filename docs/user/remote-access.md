@@ -101,8 +101,7 @@ Preferences are saved separately in each client.
 
 The composer checks eligible machines when choosing a draft's environment, then keeps
 that choice stable. Choose **Auto balance** again to check current resources, or choose
-a specific machine to override it. Choosing a branch or worktree also keeps the draft
-on that machine. Existing threads stay where they started. If resource checks are
+a specific machine to override it. Existing threads stay where they started. If resource checks are
 unavailable or all eligible machines are full, choose a machine manually to continue.
 Mobile keeps its manual environment selection.
 
@@ -149,12 +148,6 @@ permissions.
 Grouping checkouts does not combine their permissions. Shared project settings
 require `orchestration:operate` on every member environment; actions on one
 checkout use that checkout's permissions.
-
-`source-control:write` covers direct Git changes made from the
-client: pulling, switching or creating branches, and removing
-worktrees. It does not restrict what a task does. Starting a task in a new
-worktree still creates that branch and worktree with `orchestration:operate`,
-and the agent it runs can use Git however the environment allows.
 
 Settings changes, provider management, environment maintenance and access
 management can each be granted separately. New

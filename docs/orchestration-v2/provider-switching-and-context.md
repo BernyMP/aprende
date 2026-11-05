@@ -168,7 +168,6 @@ Include:
 - commands/tests run,
 - plans/todo state,
 - unresolved approvals/questions,
-- current checkpoint/diff summary,
 - known failures,
 - relevant subagent results.
 
@@ -176,14 +175,13 @@ Do not include:
 
 - irrelevant provider protocol noise,
 - hidden chain-of-thought,
-- stale tool output that is superseded by later runs,
-- large diffs when a file summary is enough.
+- stale tool output that is superseded by later runs.
 
 ## Checkpoint Interaction
 
 Provider switching does not change checkpoint ownership. Checkpoints still attach to app runs.
 
-However, handoff generation should reference the latest checkpoint and diff summary so the next provider has a correct workspace-state picture.
+Handoff generation summarizes through the latest checkpoint, so the next provider picks up where the last completed run ended.
 
 ```text
 run N completed

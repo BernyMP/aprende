@@ -17,7 +17,6 @@ import {
   TurnItemId,
   WS_METHODS,
   WsRpcGroup,
-  type VcsStatusStreamEvent,
   type OrchestrationProjectShell,
   type OrchestrationV2ProjectedTurnItem,
   type OrchestrationV2Run,
@@ -364,7 +363,6 @@ const handlers: Record<string, (input: never) => unknown> = {
       },
     );
   },
-  [WS_METHODS.subscribeVcsStatus]: () => subscribe<VcsStatusStreamEvent>([]),
   [WS_METHODS.subscribeServerConfig]: () =>
     subscribe([{ version: 1 as const, type: "snapshot" as const, config: serverConfig }]),
 };

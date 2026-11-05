@@ -143,9 +143,6 @@ A few settings need care:
 - A setting that can be empty, such as `defaultModelSelection`, is managed as a whole. You cannot
   manage one field inside it.
 - `defaultRuntimeMode` cannot be broader than [`maxRuntimeMode`](#permission-modes).
-- `worktreeCleanup`, which projects can also set, overrides the `worktree` rules in
-  `storageCleanup`. Lock it along with those rules; aprende refuses a policy that locks only the
-  rules.
 - Manage `idleCompaction`, not the older `compactIdleThreads`. A Claude instance's own idle
   compaction choice still wins over `idleCompaction`.
 - A provider instance's fields override each other, so lock `providerInstances.<id>` as a whole,

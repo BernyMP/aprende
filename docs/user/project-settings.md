@@ -37,7 +37,7 @@ machine's setting. Every other provider setting stays per machine.
 
 On mobile, open **Settings** and use the filter in its header to choose connected environments
 and a project. The filter stays available in server-setting pages. With **All projects** selected,
-the server-setting pages, such as Threads and Worktrees, edit the selected
+the server-setting pages, such as Threads, edit the selected
 environments' defaults. Choosing a project edits its overrides on the selected
 environments. Use **Use defaults** in a page to remove that page's project overrides.
 Open **Settings → Projects** to rename the project across its selected
@@ -64,7 +64,7 @@ A project on several machines must have every machine connected to pin or archiv
 
 ## Defaults and inheritance
 
-Threads contains the model and workspace for new threads. Browser controls agent browser
+Threads contains the model for new threads. Browser controls agent browser
 access. The same rows edit environment defaults or project overrides depending on the
 project crumb.
 
@@ -73,43 +73,19 @@ checkouts and removal. Actions belong to a project: editing them creates the pro
 on each selected environment, and reset returns to the environment's shared list. A project's
 `t3.json` actions can be imported there.
 
-Settings a repository can also declare in `t3.json`, such as the workspace for new threads,
-resolve in one order: a project override, then the environment setting, then `t3.json`, then the
-built-in default. Leave a setting on **Inherit** to let the next tier decide.
+A project override wins over the environment setting, which wins over the built-in default.
 Browser access changes apply when an agent session next starts.
 
 ## Storage cleanup
 
-Open **Settings → Worktrees → Cleanup** to enable automatic cleanup on one machine or all connected
-environments. Policies are off by default and run on the server at startup, when changed, and
-hourly. Offline machines keep their existing policies.
+Open **Settings → Maintenance** to set how long browser captures and rotated logs are kept, on one
+machine or all connected environments. Cleanup is off by default and runs on the server at
+startup, when the retention changes, and hourly. Offline machines keep their existing settings.
+Expired capture links stop working. Current logs, message attachments, and browser profiles are
+kept.
 
-Select a project to set **Automatic worktree cleanup** to **Inherit**, **Off**, or **Custom**.
-Inherit follows each machine's rules; Off keeps that project's worktrees until you remove them
-manually. Custom applies separate worktree rules to the selected project or checkout. Browser
-captures and log retention remain machine-wide.
-
-Worktrees can be removed after a chosen number of inactive days, after a thread settles, or when they have no commits beyond the default branch. Set settled retention to 0 days
-to remove a worktree at the next cleanup after settlement. In repositories without remotes,
-unchanged-worktree cleanup compares against the branch checked out in the project workspace;
-if that checkout has a detached HEAD, the worktree is kept. Only T3-managed worktrees are eligible.
-Active sessions and shared worktrees prevent removal. **Keep worktrees with local changes** defaults
-to **Uncommitted changes**, which protects tracked edits and untracked files but deletes ignored
-files such as `.env` and build output. **Any local files** also protects ignored files other than
-`node_modules`. **Edited tracked files** protects only tracked edits and allows untracked and
-ignored files to be deleted. Branches and thread history stay; starting another turn recreates the checkout.
-
-Enable **Delete worktrees with deleted threads** to remove safe worktrees after their last
-thread is deleted, including archived threads and worktrees left by earlier deletions. The
-server waits for sessions and terminals to stop and retries skipped worktrees after restart.
-Existing prompts for deleting a worktree manually remain available when this policy is off.
-
-Choose **Delete now** to run the enabled rules immediately. The latest results show which
-worktrees were removed or kept and why, plus any failures.
-Results also list folders in the worktree folder that no thread uses, with their sizes; cleanup never removes them, so remove them manually if you want.
-
-Browser captures and rotated logs have separate retention periods. Expired capture links stop
-working. Current logs, message attachments, and browser profiles are kept.
+Choose **Delete now** to run cleanup immediately. The latest results show what was removed or kept
+and why, plus any failures.
 
 ## Project icons
 

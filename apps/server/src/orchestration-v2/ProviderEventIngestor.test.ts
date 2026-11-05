@@ -6,7 +6,6 @@ import {
   CheckpointRef,
   CheckpointScopeId,
   MessageId,
-  GitCommandError,
   type ModelSelection,
   NodeId,
   type OrchestrationV2AppThread,
@@ -31,7 +30,6 @@ import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
-import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as SqlError from "effect/sql/SqlError";
@@ -39,8 +37,6 @@ import * as Stream from "effect/Stream";
 
 import { toolOutputImages } from "@aprende/shared/toolOutput";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
-import * as ServerConfig from "../config.ts";
-import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as EventSink from "./EventSink.ts";
 import * as EventStore from "./EventStore.ts";
 import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
@@ -67,10 +63,7 @@ const layerTestEventSink = EventSink.layer.pipe(
   Layer.provide(Layer.mergeAll(layerTestStores, layerTestDatabase)),
 );
 
-const layerGit = GitVcsDriver.layer.pipe(
-  Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "ingestor-git-" })),
-  Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
-);
+const layerPlatform = Layer.mergeAll(NodeServices.layer, NodeCrypto.layer);
 
 const layerEmptyInstances = Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({
   getInstance: () => Effect.undefined,
@@ -86,7 +79,7 @@ const makeLayerTest = <E>(
     layerTestEventSink,
     IdAllocator.layer,
     ThreadCommandExecutor.layer,
-    layerGit,
+    layerPlatform,
     ProviderEventIngestor.layer.pipe(
       Layer.provide(
         Layer.mergeAll(
@@ -95,7 +88,6 @@ const makeLayerTest = <E>(
           ingestorEventSink,
           IdAllocator.layer,
           ThreadCommandExecutor.layer,
-          layerGit,
         ),
       ),
     ),
@@ -138,29 +130,6 @@ const layerFailingWrites = (
     ).pipe(Layer.provide(layerTestEventSink)),
   );
 
-const makeSharedWorktree = Effect.gen(function* () {
-  const fs = yield* FileSystem.FileSystem;
-  const git = yield* GitVcsDriver.GitVcsDriver;
-  const directory = yield* fs.makeTempDirectoryScoped({ prefix: "ingestor-worktree-" });
-  const repo = `${directory}/repo`;
-  const worktreePath = `${directory}/shared`;
-  yield* fs.makeDirectory(repo);
-  const command = (cwd: string, args: string[]) =>
-    git.execute({ operation: "ingestor-test", cwd, args });
-  yield* command(repo, ["init", "-b", "main"]);
-  yield* command(repo, [
-    "-c",
-    "user.name=Test",
-    "-c",
-    "user.email=test@example.test",
-    "commit",
-    "--allow-empty",
-    "-m",
-    "initial",
-  ]);
-  yield* command(repo, ["worktree", "add", "-b", "aprende/abcd1234", worktreePath]);
-  return { repo, worktreePath, command };
-});
 const modelSelection = {
   instanceId: ProviderInstanceId.make("codex"),
   model: "gpt-5.4",
@@ -1684,204 +1653,6 @@ layer("ProviderEventIngestorV2", (it) => {
       assert.equal(messageEvents[0]?.type, "message.updated");
       assert.equal(messageEvents[0]?.threadId, childThreadId);
     }),
-  );
-
-  it.effect.each([
-    { parentMoved: false, failure: null },
-    { parentMoved: true, failure: null },
-    { parentMoved: false, failure: "write" },
-    { parentMoved: false, failure: "git" },
-  ])(
-    "rechecks a pending native child's branch after the rename scan: %j",
-    ({ parentMoved, failure }) =>
-      Effect.gen(function* () {
-        const { worktreePath, command } = yield* makeSharedWorktree;
-        const git = yield* GitVcsDriver.GitVcsDriver;
-        const now = yield* DateTime.now;
-        const eventSink = yield* EventSink.EventSinkV2;
-        const projections = yield* ProjectionStore.ProjectionStoreV2;
-        const ids = yield* IdAllocator.IdAllocatorV2;
-        const rootEvent = yield* threadCreatedEvent(now);
-        if (rootEvent.type !== "thread.created") throw new Error("Expected thread fixture");
-        const parent = {
-          ...rootEvent.payload,
-          branch: "aprende/abcd1234",
-          worktreePath,
-        };
-        yield* eventSink.write({ events: [{ ...rootEvent, payload: parent }] });
-        const childId = ids.derive.threadFromProviderThread({
-          driver: CODEX_DRIVER,
-          nativeThreadId: `child-created-during-rename:${parentMoved}:${failure}`,
-        });
-        const beforeCommit = yield* Deferred.make<
-          void,
-          ProviderEventIngestor.ProviderEventIngestorV2Error
-        >();
-        const allowCommit = yield* Deferred.make<void>();
-        let correctionWrites = 0;
-        const gatedSink = EventSink.EventSinkV2.of({
-          ...eventSink,
-          write: (input) => {
-            if (
-              input.events.some(
-                (event) => event.type === "thread.metadata-updated" && event.threadId === childId,
-              )
-            ) {
-              correctionWrites++;
-              if (failure === "write" && correctionWrites === 1)
-                return Effect.fail(new EventSink.EventSinkWriteError({ eventCount: 1 }));
-            }
-            return input.events.some(
-              (event) => event.type === "thread.created" && event.threadId === childId,
-            )
-              ? Deferred.succeed(beforeCommit, undefined).pipe(
-                  Effect.andThen(Deferred.await(allowCommit)),
-                  Effect.andThen(eventSink.write(input)),
-                )
-              : eventSink.write(input);
-          },
-        });
-        const ingestor = yield* ProviderEventIngestor.ProviderEventIngestorV2.pipe(
-          Effect.provide(Layer.fresh(ProviderEventIngestor.layer)),
-          Effect.provideService(EventSink.EventSinkV2, gatedSink),
-          Effect.provideService(GitVcsDriver.GitVcsDriver, {
-            ...git,
-            resolveBranchName: (cwd, refName) =>
-              failure === "git"
-                ? Effect.fail(
-                    new GitCommandError({
-                      operation: "ingestor-test",
-                      cwd,
-                      command: "rev-parse",
-                      detail: "Read failed",
-                    }),
-                  )
-                : git.resolveBranchName(cwd, refName),
-          }),
-        );
-        const providerSessionId = yield* ids.allocate.providerSession({
-          providerInstanceId: modelSelection.instanceId,
-          threadId: parent.id,
-        });
-        const creationInput = {
-          providerSessionId,
-          providerInstanceId: modelSelection.instanceId,
-          threadId: parent.id,
-          event: {
-            type: "app_thread.created",
-            driver: CODEX_DRIVER,
-            appThread: {
-              ...parent,
-              id: childId,
-              lineage: {
-                parentThreadId: parent.id,
-                rootThreadId: parent.id,
-                relationshipToParent: "subagent",
-              },
-            },
-          },
-        } satisfies ProviderEventIngestor.ProviderEventIngestInput;
-        const creation = yield* ingestor.ingestNormalized(creationInput).pipe(
-          Effect.tapCause((cause) => Deferred.failCause(beforeCommit, cause)),
-          Effect.forkScoped,
-        );
-        yield* Deferred.await(beforeCommit);
-        yield* command(worktreePath, ["branch", "-m", "generated-branch"]);
-        yield* eventSink.write({
-          events: [
-            {
-              ...rootEvent,
-              id: yield* ids.allocate.event({ threadId: parent.id }),
-              type: "thread.metadata-updated",
-              payload: {
-                ...parent,
-                branch: parentMoved ? "user/checkout" : "generated-branch",
-                worktreePath: parentMoved ? `${worktreePath}-moved` : worktreePath,
-              },
-            },
-          ],
-        });
-        const snapshot = yield* projections.getShellSnapshot();
-        assert.isFalse(
-          [...snapshot.threads, ...snapshot.archivedThreads].some(
-            (thread) =>
-              thread.worktreePath === parent.worktreePath && thread.branch === parent.branch,
-          ),
-        );
-        yield* Deferred.succeed(allowCommit, undefined);
-        const stored = yield* Fiber.join(creation);
-        assert.equal(stored[0]?.event.type, "thread.created");
-        const child = yield* projections.getThread(childId);
-        assert.equal(child.branch, failure === null ? "generated-branch" : parent.branch);
-        assert.equal(child.worktreePath, parent.worktreePath);
-        assert.equal(correctionWrites, failure === "git" ? 0 : 1);
-        assert.deepEqual(yield* ingestor.ingestNormalized(creationInput), []);
-      }),
-  );
-
-  // regression: #20079 the renamed-branch correction must not rewrite a child that needs none
-  it.effect.each(["explicit", "detached"])(
-    "preserves a native child's branch when the checkout needs no correction: %s",
-    (scenario) =>
-      Effect.gen(function* () {
-        const { worktreePath, command } = yield* makeSharedWorktree;
-        const git = yield* GitVcsDriver.GitVcsDriver;
-        const branch = scenario === "explicit" ? "child-feature" : "aprende/abcd1234";
-        if (scenario === "explicit") yield* command(worktreePath, ["branch", "-m", branch]);
-        if (scenario === "detached") yield* command(worktreePath, ["checkout", "--detach"]);
-        const now = yield* DateTime.now;
-        const sink = yield* EventSink.EventSinkV2;
-        const projections = yield* ProjectionStore.ProjectionStoreV2;
-        const ids = yield* IdAllocator.IdAllocatorV2;
-        const root = yield* threadCreatedEvent(now);
-        if (root.type !== "thread.created") throw new Error("Expected thread fixture");
-        yield* sink.write({
-          events: [
-            { ...root, payload: { ...root.payload, branch: "parent-feature", worktreePath } },
-          ],
-        });
-        const childId = ids.derive.threadFromProviderThread({
-          driver: CODEX_DRIVER,
-          nativeThreadId: `no-correction:${scenario}`,
-        });
-        let gitReads = 0;
-        const ingestor = yield* ProviderEventIngestor.ProviderEventIngestorV2.pipe(
-          Effect.provide(Layer.fresh(ProviderEventIngestor.layer)),
-          Effect.provideService(GitVcsDriver.GitVcsDriver, {
-            ...git,
-            resolveBranchName: (cwd, refName) => {
-              gitReads++;
-              return git.resolveBranchName(cwd, refName);
-            },
-          }),
-        );
-        const stored = yield* ingestor.ingestNormalized({
-          providerSessionId: yield* ids.allocate.providerSession({
-            providerInstanceId: modelSelection.instanceId,
-            threadId: root.threadId,
-          }),
-          providerInstanceId: modelSelection.instanceId,
-          threadId: root.threadId,
-          event: {
-            type: "app_thread.created",
-            driver: CODEX_DRIVER,
-            appThread: {
-              ...root.payload,
-              id: childId,
-              branch,
-              worktreePath,
-              lineage: {
-                parentThreadId: root.threadId,
-                rootThreadId: root.threadId,
-                relationshipToParent: "subagent",
-              },
-            },
-          },
-        });
-        assert.equal((yield* projections.getThread(childId)).branch, branch);
-        assert.equal(stored.length, 1);
-        assert.equal(gitReads, scenario === "explicit" ? 0 : 1);
-      }),
   );
 
   it.effect("updates provider child metadata without recreating its saved thread", () =>

@@ -1289,17 +1289,6 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   }
 }
 
-/* Blue-orange already spends blue on additions. Same specificity as the dark block above and
-   later, so it wins there too. */
-:root[data-diff-color-scheme="blue-orange"] {
-  --diff-modified-icon: var(--muted-foreground);
-  --diff-added-icon: initial;
-
-  @variant dark {
-    --diff-modified-icon: color-mix(in srgb, var(--muted-foreground) 65%, transparent);
-  }
-}
-
 /* Sections in the provider detail pane sit flat in its card instead of nesting cards inside
    it. Headings and row dividers still separate them. */
 [data-provider-detail] [data-slot="settings-group"] {
@@ -2285,21 +2274,6 @@ code {
 
 :root[data-chat-width="full"] {
   --chat-content-max-width: 100%;
-}
-
-:root[data-diff-color-scheme="blue-orange"] {
-  --diff-addition: light-dark(var(--color-blue-600), var(--color-blue-400));
-  --diff-deletion: light-dark(var(--color-orange-600), var(--color-orange-400));
-  --diff-addition-foreground: var(--diff-addition);
-  --diff-deletion-foreground: var(--diff-deletion);
-  --diffs-addition-color-override: var(--diff-addition);
-  --diffs-deletion-color-override: var(--diff-deletion);
-  --trees-status-added-override: var(--diff-addition);
-  --trees-status-deleted-override: var(--diff-deletion);
-  --trees-status-untracked-override: var(--diff-addition);
-  --trees-git-added-color-override: var(--diff-addition);
-  --trees-git-deleted-color-override: var(--diff-deletion);
-  --trees-git-untracked-color-override: var(--diff-addition);
 }
 
 .diff-render-surface diffs-container {

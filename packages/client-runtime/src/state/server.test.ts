@@ -406,10 +406,6 @@ const makeConfigPersistenceHarness = Effect.fn("test.makeConfigPersistenceHarnes
     removeThread: () => Effect.void,
     loadServerConfig: () => Effect.succeedSome(CONFIG),
     saveServerConfig,
-    loadVcsRefs: () => Effect.succeedNone,
-    saveVcsRefs: () => Effect.void,
-    removeVcsRefs: () => Effect.void,
-    clearVcsRefs: () => Effect.void,
     clear: () => Effect.void,
   });
   const state = yield* makeEnvironmentServerConfigState({
@@ -1202,10 +1198,6 @@ describe("server state projection", () => {
         removeThread: () => Effect.void,
         loadServerConfig: () => Effect.succeedSome(CONFIG),
         saveServerConfig: (_environmentId, config) => Queue.offer(savedConfigs, config),
-        loadVcsRefs: () => Effect.succeedNone,
-        saveVcsRefs: () => Effect.void,
-        removeVcsRefs: () => Effect.void,
-        clearVcsRefs: () => Effect.void,
         clear: () => Effect.void,
       });
 
@@ -1266,10 +1258,6 @@ describe("server state projection", () => {
         removeThread: () => Effect.void,
         loadServerConfig: () => Effect.succeedSome(CONFIG),
         saveServerConfig: (_environmentId, config) => Queue.offer(savedConfigs, config),
-        loadVcsRefs: () => Effect.succeedNone,
-        saveVcsRefs: () => Effect.void,
-        removeVcsRefs: () => Effect.void,
-        clearVcsRefs: () => Effect.void,
         clear: () => Effect.void,
       });
 

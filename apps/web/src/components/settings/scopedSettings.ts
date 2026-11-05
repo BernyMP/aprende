@@ -11,14 +11,12 @@ import {
   type ProjectScopedServerSettingKey,
   type ProjectSettingsOverrides,
   ServerSettings,
-  type T3ProjectFile,
   type ServerSettingsPatch,
 } from "@aprende/contracts";
 import type { EnvironmentConnectionPhase } from "@aprende/client-runtime/connection";
 import {
   clearProjectSettingsOverrides,
   resolveProjectSettings,
-  resolveWorktreeCleanup,
   type ProjectSettingSource,
 } from "@aprende/shared/projectSettings";
 import * as Equal from "effect/Equal";
@@ -84,8 +82,6 @@ export interface ScopedSettingsTarget {
 export function resolveScopedSettingsTargets(
   scope: ResolvedSettingsScope,
   connectedEnvironments: readonly ScopedSettingsEnvironment[],
-  // A member absent here has no file tier yet; null is a missing or invalid file.
-  projectFiles?: ReadonlyMap<string, T3ProjectFile | null>,
 ): readonly ScopedSettingsTarget[] {
   const byId = new Map(
     connectedEnvironments.map((environment) => [environment.environmentId, environment]),
@@ -94,11 +90,7 @@ export function resolveScopedSettingsTargets(
     return scope.members.flatMap((member) => {
       const environment = byId.get(member.environmentId);
       if (!environment?.serverConfig) return [];
-      const projectFile = projectFiles?.get(member.physicalProjectKey);
-      const resolved =
-        projectFile === undefined
-          ? resolveProjectSettings(environment.serverConfig.settings, member.id)
-          : resolveProjectSettings(environment.serverConfig.settings, member.id, null, projectFile);
+      const resolved = resolveProjectSettings(environment.serverConfig.settings, member.id);
       return [
         {
           environmentId: member.environmentId,
@@ -160,13 +152,7 @@ export function scopedSettingsSource(
   const scoped = keys.filter(isProjectScopedSettingKey);
   if (scoped.length === 0 || targets.length === 0) return "environment";
   const sources = new Set(targets.flatMap((target) => scoped.map((key) => target.sources[key])));
-  return sources.size > 1
-    ? "mixed"
-    : sources.has("project")
-      ? "project"
-      : sources.has("t3.json")
-        ? "t3.json"
-        : "environment";
+  return sources.size > 1 ? "mixed" : sources.has("project") ? "project" : "environment";
 }
 
 interface ScopedServerWrite {
@@ -246,16 +232,6 @@ export function planScopedSettingsPatch(
               const effective = resolveProjectSettings(settings, projectId).settings;
               const next: Record<string, unknown> = { ...current };
               for (const [key, value] of Object.entries<unknown>(serverPatch)) {
-                if (key === "worktreeCleanup" && serverPatch.worktreeCleanup?.mode === "custom") {
-                  next[key] = {
-                    mode: "custom",
-                    rules: {
-                      ...resolveWorktreeCleanup(settings, projectId),
-                      ...serverPatch.worktreeCleanup.rules,
-                    },
-                  };
-                  continue;
-                }
                 // Inherit sends null; remove overrides whose keys cannot store null.
                 if (
                   value === null &&
@@ -269,10 +245,7 @@ export function planScopedSettingsPatch(
                 if (
                   isPlainObject(value) &&
                   isPlainObject(base) &&
-                  (key === "defaultModelSelection" ||
-                    key === "sourceControlWriterModelSelection" ||
-                    key === "reviewGuideModelSelection" ||
-                    key === "textGenerationModelSelection") &&
+                  (key === "defaultModelSelection" || key === "textGenerationModelSelection") &&
                   (value.instanceId !== undefined || value.model !== undefined)
                 ) {
                   next[key] = { instanceId: base.instanceId, model: base.model, ...value };
@@ -292,29 +265,7 @@ export function planScopedSettingsPatch(
                   environmentId: environment.environmentId,
                   label: environment.label,
                   previous,
-                  patch: forDestination(
-                    previous,
-                    previous.worktreeCleanup != null &&
-                      serverPatch.storageCleanup &&
-                      Object.keys(serverPatch.storageCleanup).some((key) =>
-                        key.startsWith("worktree"),
-                      )
-                      ? {
-                          ...serverPatch,
-                          worktreeCleanup: {
-                            mode: "custom",
-                            rules: {
-                              ...resolveWorktreeCleanup(previous, null),
-                              ...Object.fromEntries(
-                                Object.entries(serverPatch.storageCleanup).filter(([key]) =>
-                                  key.startsWith("worktree"),
-                                ),
-                              ),
-                            },
-                          },
-                        }
-                      : serverPatch,
-                  ),
+                  patch: forDestination(previous, serverPatch),
                 },
               ];
             })
