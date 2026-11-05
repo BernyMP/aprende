@@ -1,7 +1,4 @@
-import {
-  AcpRegistryDriver,
-  type AcpRegistryDriverEnv,
-} from "@aprende/provider-acp-registry/server";
+import { LocalAcpDriver, type LocalAcpDriverEnv } from "@aprende/provider-acp/server/localDriver";
 import { ClaudeDriver, type ClaudeDriverEnv } from "./Drivers/ClaudeDriver.ts";
 import { CodexDriver, type CodexDriverEnv } from "./Drivers/CodexDriver.ts";
 import type {
@@ -9,12 +6,12 @@ import type {
   ProviderUsageReaderEnv,
 } from "@aprende/provider-core/server/driver";
 
-export type BuiltInDriversEnv = AcpRegistryDriverEnv | ClaudeDriverEnv | CodexDriverEnv;
+export type BuiltInDriversEnv = LocalAcpDriverEnv | ClaudeDriverEnv | CodexDriverEnv;
 
 export const BUILT_IN_DRIVERS: ReadonlyArray<AnyProviderDriver<BuiltInDriversEnv>> = [
   CodexDriver,
   ClaudeDriver,
-  AcpRegistryDriver,
+  LocalAcpDriver,
 ];
 
 export type BuiltInUsageReadersEnv =

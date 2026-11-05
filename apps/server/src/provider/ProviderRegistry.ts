@@ -6,6 +6,7 @@ import {
   type ServerProvider,
   type ServerProviderUpdateState,
 } from "@aprende/contracts";
+import { LOCAL_ACP_DRIVER } from "@aprende/provider-acp/server/localAgent";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -169,13 +170,9 @@ export function upsertProviderWorkspaceSnapshot(
 }
 
 const shouldRetainMissingProviderModels = (provider: ServerProvider): boolean => {
-  if (provider.driver === ProviderDriverKind.make("acpRegistry")) {
-    // Only completed ACP discovery provides nativeSessions and inventory; placeholder probes cannot establish auth for agents without sign-in.
-    return !(
-      provider.installed &&
-      provider.status === "ready" &&
-      provider.nativeSessions !== undefined
-    );
+  if (provider.driver === LOCAL_ACP_DRIVER) {
+    // Only a completed probe lists the agent's models; placeholders keep the last list.
+    return !(provider.installed && provider.status === "ready");
   }
 
   if (provider.driver !== ProviderDriverKind.make("codex")) return true;

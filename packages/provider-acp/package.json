@@ -19,6 +19,14 @@
       "types": "./src/server/clientTerminals.ts",
       "import": "./src/server/clientTerminals.ts"
     },
+    "./server/localAgent": {
+      "types": "./src/server/localAgent.ts",
+      "import": "./src/server/localAgent.ts"
+    },
+    "./server/localDriver": {
+      "types": "./src/server/localDriver.ts",
+      "import": "./src/server/localDriver.ts"
+    },
     "./server/mcpOverAcpBridge": {
       "types": "./src/server/mcpOverAcpBridge.ts",
       "import": "./src/server/mcpOverAcpBridge.ts"

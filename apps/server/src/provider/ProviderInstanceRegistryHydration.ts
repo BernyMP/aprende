@@ -1,6 +1,5 @@
 import {
   defaultInstanceIdForDriver,
-  ProviderDriverKind,
   ProviderInstanceId,
   providerInstanceConfigEnabledFlag,
   resolveProviderInstanceEnabled,
@@ -8,6 +7,7 @@ import {
   type ProviderInstanceConfigMap,
   ServerSettings,
 } from "@aprende/contracts";
+import { LOCAL_ACP_DRIVER } from "@aprende/provider-acp/server/localAgent";
 import * as HostProcess from "@aprende/shared/HostProcess";
 import type * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
@@ -23,7 +23,6 @@ import { BUILT_IN_DRIVERS, type BuiltInDriversEnv } from "./builtInDrivers.ts";
 import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
 import * as ProviderInstanceRegistryMutator from "./ProviderInstanceRegistryMutator.ts";
 import * as ProviderOrchestrationAdapterInfrastructure from "./ProviderOrchestrationAdapterInfrastructure.ts";
-import * as AcpRegistrySupport from "@aprende/provider-acp-registry/server/AcpRegistrySupport";
 import * as ProviderHostLive from "./ProviderHostLive.ts";
 import type * as ProviderHost from "@aprende/provider-core/server/ProviderHost";
 import type * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
@@ -33,7 +32,6 @@ type ProviderInstanceRegistryHydrationEnv =
   | Exclude<
       BuiltInDriversEnv,
       | ProviderOrchestrationAdapterInfrastructure.ProviderOrchestrationAdapterInfrastructure
-      | AcpRegistrySupport.AcpRegistryCatalog
       | ProviderHost.ProviderHost
     >
   | Settings.ServerSettingsService
@@ -109,8 +107,8 @@ export const seedDevReplayInstance = Effect.fn(
   const instance: ProviderInstanceConfig = {
     displayName: "Replay (dev)",
     ...existing,
-    driver: ProviderDriverKind.make("acpRegistry"),
-    config: { ...existingConfig, source: "local", commandPath, commandArgs: [agentPath] },
+    driver: LOCAL_ACP_DRIVER,
+    config: { ...existingConfig, commandPath, commandArgs: [agentPath] },
   };
   yield* serverSettings.updateProviderInstance({
     operation: "upsert",
@@ -177,7 +175,6 @@ export const layer: Layer.Layer<
         ManagedProviders.disallowedDriverReason(serverSettings.managedPolicy, driver),
     }).pipe(
       Layer.provide(ProviderOrchestrationAdapterInfrastructure.layer),
-      Layer.provide(AcpRegistrySupport.layerFromHost),
       Layer.provide(ProviderHostLive.layer),
       Layer.provide(Layer.succeed(HostProcess.Environment, hostEnvironment)),
       Layer.provide(SecretResolver.layer),

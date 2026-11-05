@@ -398,7 +398,6 @@
   },
   "dependencies": {
     "@aprende/contracts": "workspace:*",
-    "@aprende/provider-acp-registry": "workspace:*",
     "@aprende/provider-core": "workspace:*",
     "@aprende/shared": "workspace:*",
     "@pierre/diffs": "catalog:",

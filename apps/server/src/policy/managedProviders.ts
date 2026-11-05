@@ -14,8 +14,7 @@ import {
   type RuntimeMode,
   type ServerSettings,
 } from "@aprende/contracts";
-import { acpRegistryClient } from "@aprende/provider-acp-registry/client";
-import type { ProviderClientDefinition } from "@aprende/provider-core/client";
+import { LOCAL_ACP_DRIVER, LocalAcpSettings } from "@aprende/provider-acp/server/localAgent";
 
 interface KnownDriver {
   readonly label: string;
@@ -34,8 +33,6 @@ const known = (
     { label, configFields: new Set(Object.keys(settingsSchema.fields)), hasDefaultInstance },
   ] as const;
 
-const PACKAGED_CLIENTS: ReadonlyArray<ProviderClientDefinition> = [acpRegistryClient];
-
 /**
  * Fields that make an instance launch without the settings a pin sets: managed Codex runs T3's own
  * runtime against OpenAI. A policy
@@ -53,9 +50,7 @@ const PIN_BYPASS_FIELDS: ReadonlyMap<
 const KNOWN_DRIVERS: ReadonlyMap<ProviderDriverKind, KnownDriver> = new Map([
   known("codex", "Codex", CodexSettings),
   known("claudeAgent", "Claude", ClaudeSettings),
-  ...PACKAGED_CLIENTS.map((client) =>
-    known(client.driverKind, client.label, client.settingsSchema, client.hasDefaultInstance),
-  ),
+  known(LOCAL_ACP_DRIVER, "Local ACP agent", LocalAcpSettings, false),
 ]);
 
 /** Each driver a policy may name, with the label users see. */

@@ -822,57 +822,54 @@ it.layer(
       );
     });
 
-    it("retains ACP Registry models while discovery has not completed", () => {
+    it("retains local ACP models until a probe completes", () => {
       const previousProvider = {
-        instanceId: ProviderInstanceId.make("acpRegistry_codex"),
+        instanceId: ProviderInstanceId.make("devReplay"),
         driver: ProviderDriverKind.make("acpRegistry"),
         status: "ready",
         enabled: true,
         installed: true,
-        auth: { status: "authenticated" },
+        auth: { status: "unknown" },
         checkedAt: "2026-08-13T00:00:00.000Z",
-        version: "1.2.0",
-        models: [{ slug: "gpt-5.6-sol", name: "GPT-5.6-Sol", isCustom: false, capabilities: null }],
+        version: null,
+        models: [{ slug: "showcase", name: "Showcase", isCustom: false, capabilities: null }],
         slashCommands: [],
         skills: [],
       } as const satisfies ServerProvider;
+      const defaultModel = {
+        slug: "default",
+        name: "Default",
+        isCustom: false,
+        capabilities: null,
+      };
       const checkingProvider = {
         ...previousProvider,
         checkedAt: "2026-08-13T00:01:00.000Z",
-        auth: { status: "unknown" },
-        message: "Checking ACP authentication, models, and commands in the background...",
-        models: [{ slug: "default", name: "Default", isCustom: false, capabilities: null }],
-      } satisfies ServerProvider;
-      const confirmedCheckingProvider = {
-        ...checkingProvider,
-        auth: { status: "authenticated" },
+        status: "warning",
+        installed: false,
+        message: "Checking the local ACP agent...",
+        models: [defaultModel],
       } satisfies ServerProvider;
       const failedProbeProvider = {
         ...checkingProvider,
-        status: "warning",
-        message: "ACP discovery failed.",
+        status: "error",
+        message: "The local ACP agent could not start a session.",
+      } satisfies ServerProvider;
+      const probedProvider = {
+        ...previousProvider,
+        checkedAt: "2026-08-13T00:02:00.000Z",
+        models: [defaultModel],
       } satisfies ServerProvider;
 
+      for (const pending of [checkingProvider, failedProbeProvider]) {
+        assert.deepStrictEqual(
+          ProviderRegistry.mergeProviderSnapshot(previousProvider, pending).models,
+          [defaultModel, previousProvider.models[0]],
+        );
+      }
       assert.deepStrictEqual(
-        ProviderRegistry.mergeProviderSnapshot(previousProvider, checkingProvider).models,
-        [
-          { slug: "default", name: "Default", isCustom: false, capabilities: null },
-          { slug: "gpt-5.6-sol", name: "GPT-5.6-Sol", isCustom: false, capabilities: null },
-        ],
-      );
-      assert.deepStrictEqual(
-        ProviderRegistry.mergeProviderSnapshot(previousProvider, confirmedCheckingProvider).models,
-        [
-          { slug: "default", name: "Default", isCustom: false, capabilities: null },
-          { slug: "gpt-5.6-sol", name: "GPT-5.6-Sol", isCustom: false, capabilities: null },
-        ],
-      );
-      assert.deepStrictEqual(
-        ProviderRegistry.mergeProviderSnapshot(previousProvider, failedProbeProvider).models,
-        [
-          { slug: "default", name: "Default", isCustom: false, capabilities: null },
-          { slug: "gpt-5.6-sol", name: "GPT-5.6-Sol", isCustom: false, capabilities: null },
-        ],
+        ProviderRegistry.mergeProviderSnapshot(previousProvider, probedProvider).models,
+        [defaultModel],
       );
     });
 

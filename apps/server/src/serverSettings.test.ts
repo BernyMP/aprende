@@ -1941,7 +1941,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         assert.equal(rejected.operation, "use-disallowed-provider");
         assert.equal(
           rejected.message,
-          "Example Corp's policy does not allow the ACP Registry provider.",
+          "Example Corp's policy does not allow the Local ACP agent provider.",
         );
         // Switching it on for one project is enabling it too.
         const perProject = yield* service

@@ -8,7 +8,6 @@ import {
   isSecretReference,
   secretSettingsFields,
 } from "@aprende/contracts";
-import { acpRegistryClient } from "@aprende/provider-acp-registry/client";
 import type * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
 import * as Effect from "effect/Effect";
 
@@ -62,7 +61,6 @@ export const SECRET_REDACTED = "\u2022\u2022\u2022\u2022\u2022\u2022";
 const providerSecretFields = new Map([
   ["codex", secretSettingsFields(CodexSettings)],
   ["claudeAgent", secretSettingsFields(ClaudeSettings)],
-  [acpRegistryClient.driverKind, secretSettingsFields(acpRegistryClient.settingsSchema)],
 ]);
 const usageLimitSecretFields = secretSettingsFields(UsageLimitSourceConfig);
 const encode = (value: string) => Buffer.from(value, "utf8").toString("base64url");

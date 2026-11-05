@@ -14,7 +14,7 @@ import { TestClock } from "effect/testing";
 
 import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import { checkpointWorkspace } from "@aprende/provider-testing/replayWorkspace";
-import { AcpRegistryOrchestratorReplayHarness } from "../Adapters/AcpRegistryAdapterV2.testkit.ts";
+import { LocalAcpOrchestratorReplayHarness } from "../Adapters/LocalAcpAdapterV2.testkit.ts";
 import * as EffectWorker from "../EffectWorker.ts";
 import * as Orchestrator from "../Orchestrator.ts";
 import { provideDeterministicTestRuntime } from "./DeterministicRuntime.ts";
@@ -27,7 +27,7 @@ import {
 import { layerProviderReplay } from "./ProviderReplayHarness.ts";
 import { materializeReplayTranscriptRuntimeInstructions } from "./ReplayRuntimeInstructions.ts";
 
-describe("ACP registry replay fixtures", () => {
+describe("Local ACP replay fixtures", () => {
   it.effect.each([
     { name: "open", firstTurn: false, code: -32602 },
     { name: "switch", firstTurn: true, code: -32602 },
@@ -122,7 +122,7 @@ describe("ACP registry replay fixtures", () => {
       const scenario = {
         ...materialized,
         name,
-        transcript: yield* AcpRegistryOrchestratorReplayHarness.decodeTranscript(
+        transcript: yield* LocalAcpOrchestratorReplayHarness.decodeTranscript(
           materializeReplayTranscriptRuntimeInstructions(transcript, {
             driver: ProviderDriverKind.make("acpRegistry"),
             model: "replay-model-a",
@@ -195,7 +195,7 @@ describe("ACP registry replay fixtures", () => {
         }
       }).pipe(
         Effect.provide(
-          layerProviderReplay(scenario, AcpRegistryOrchestratorReplayHarness, {
+          layerProviderReplay(scenario, LocalAcpOrchestratorReplayHarness, {
             runEffectWorker: false,
           }),
         ),
@@ -208,6 +208,6 @@ describe("ACP registry replay fixtures", () => {
   );
 
   itRunsReplayFixtures("acpRegistry", (input) =>
-    runReplayFixture({ ...input, harness: AcpRegistryOrchestratorReplayHarness }),
+    runReplayFixture({ ...input, harness: LocalAcpOrchestratorReplayHarness }),
   );
 });

@@ -1,6 +1,5 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { AcpRegistrySettings } from "@aprende/provider-acp-registry/settings";
 import { resolveSelfInvocation } from "@aprende/shared/nodeRuntime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -22,18 +21,15 @@ import {
   makeAcpReplayRuntime,
 } from "./AcpAdapterV2.testkit.ts";
 import {
-  ACP_REGISTRY_DEFAULT_INSTANCE_ID,
-  ACP_REGISTRY_PROVIDER,
-  makeAcpRegistryAdapterV2,
-} from "@aprende/provider-acp-registry/testing";
-import * as AcpRegistrySupport from "@aprende/provider-acp-registry/server/AcpRegistrySupport";
+  LOCAL_ACP_DEFAULT_INSTANCE_ID,
+  LOCAL_ACP_DRIVER,
+  LocalAcpSettings,
+  makeLocalAcpAdapterV2,
+} from "@aprende/provider-acp/server/localAgent";
 
-const REPLAY_SETTINGS = Schema.decodeSync(AcpRegistrySettings)({
-  agentId: "replay-agent",
-  authMethodId: "replay",
-});
+const REPLAY_SETTINGS = Schema.decodeSync(LocalAcpSettings)({ commandPath: "replay-agent" });
 
-function layerAcpRegistryProviderAdapterRegistryReplay(
+function layerLocalAcpProviderAdapterRegistryReplay(
   transcript: AcpReplayTranscript,
   options: { readonly replayGate?: ProviderReplayGate } = {},
 ) {
@@ -49,15 +45,15 @@ function layerAcpRegistryProviderAdapterRegistryReplay(
       const replayGate = options.replayGate;
       const replayDir = yield* fileSystem
         .makeTempDirectory({
-          prefix: `t3-orchestration-v2-acp-registry-replay-${transcript.scenario}-`,
+          prefix: `t3-orchestration-v2-local-acp-replay-${transcript.scenario}-`,
         })
         .pipe(Effect.orDie);
       const statusPath = path.join(replayDir, "status.json");
       const scriptPath = yield* path
         .fromFileUrl(new URL("../../../scripts/acp-replay-agent.ts", import.meta.url))
         .pipe(Effect.orDie);
-      const adapter = yield* makeAcpRegistryAdapterV2({
-        instanceId: ACP_REGISTRY_DEFAULT_INSTANCE_ID,
+      const adapter = yield* makeLocalAcpAdapterV2({
+        instanceId: LOCAL_ACP_DEFAULT_INSTANCE_ID,
         settings: REPLAY_SETTINGS,
         environment: {},
         selfInvocation: yield* resolveSelfInvocation(),
@@ -75,15 +71,7 @@ function layerAcpRegistryProviderAdapterRegistryReplay(
     }),
   ).pipe(
     Layer.provide(
-      Layer.mergeAll(
-        layerHost,
-        NodeServices.layer,
-        NodeCrypto.layer,
-        IdAllocator.layer,
-        Layer.mock(AcpRegistrySupport.AcpRegistryCatalog)({
-          resolve: () => Effect.die("ACP registry resolver must not run during replay"),
-        }),
-      ),
+      Layer.mergeAll(layerHost, NodeServices.layer, NodeCrypto.layer, IdAllocator.layer),
     ),
     // Held inbound lines must not outlive the scenario and wedge teardown.
     Layer.merge(
@@ -94,14 +82,14 @@ function layerAcpRegistryProviderAdapterRegistryReplay(
   );
 }
 
-export const AcpRegistryOrchestratorReplayHarness: OrchestratorV2ProviderReplayHarness<
+export const LocalAcpOrchestratorReplayHarness: OrchestratorV2ProviderReplayHarness<
   AcpReplayTranscript,
   AcpReplayTranscriptDecodeError
 > = {
-  driver: ACP_REGISTRY_PROVIDER,
+  driver: LOCAL_ACP_DRIVER,
   decodeTranscript: (transcript) =>
-    decodeAcpReplayTranscript(transcript, ACP_REGISTRY_PROVIDER, {
+    decodeAcpReplayTranscript(transcript, LOCAL_ACP_DRIVER, {
       retargetProvider: true,
     }),
-  makeProviderAdapterRegistryLayer: layerAcpRegistryProviderAdapterRegistryReplay,
+  makeProviderAdapterRegistryLayer: layerLocalAcpProviderAdapterRegistryReplay,
 };

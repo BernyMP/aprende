@@ -5,12 +5,11 @@ import {
 } from "@aprende/client-runtime/state/runtime";
 import type {
   EnvironmentId,
-  ProviderAuthRespondInput,
   ProviderAuthResponse,
   ProviderInstanceId,
   ServerProvider,
 } from "@aprende/contracts";
-import { lazy, Suspense, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { CopyIcon } from "lucide-react";
 
 import { writeTextToClipboard } from "../../hooks/useCopyToClipboard";
@@ -24,8 +23,6 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { SettingsRow } from "./settingsLayout";
 import { RedactedSensitiveText } from "./RedactedSensitiveText";
-
-const ProviderAuthTerminal = lazy(() => import("./ProviderAuthTerminal"));
 
 export function ProviderAuthenticationSection({
   environmentId,
@@ -53,8 +50,6 @@ export function ProviderAuthenticationSection({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
-  const terminalQueue = useRef<ProviderAuthRespondInput[]>([]);
-  const terminalSending = useRef(false);
   const auth = query.data;
   const interaction = auth?.interaction;
   const active =
@@ -62,36 +57,20 @@ export function ProviderAuthenticationSection({
   const signedIn =
     provider.auth.status === "authenticated" ||
     (provider.auth.status === "unknown" && auth?.phase === "succeeded");
-  const isDiscovering =
-    provider.driver === "acpRegistry" &&
-    !active &&
-    !signedIn &&
-    !query.error &&
-    auth?.methods === undefined;
-  const needsExternalSetup =
-    !active &&
-    !signedIn &&
-    (provider.setup?.canAuthenticate === false ||
-      (provider.driver === "acpRegistry" && auth?.methods?.length === 0));
+  const needsExternalSetup = !active && !signedIn && provider.setup?.canAuthenticate === false;
   const accountDescription = active
     ? auth?.phase === "starting"
       ? (auth.message ?? "Starting sign-in…")
       : auth?.phase === "verifying"
         ? "Checking your account…"
-        : interaction?.type === "terminal"
-          ? "Complete sign-in in the terminal below."
-          : interaction?.type === "credentials"
-            ? "Enter your credentials below."
-            : "Finish signing in in your browser."
+        : "Finish signing in in your browser."
     : signedIn
       ? "Signed in."
-      : isDiscovering
-        ? "Discovering sign-in methods…"
-        : needsExternalSetup
-          ? "No in-app sign-in advertised. Follow the provider's docs to finish setup."
-          : `Sign in on ${environmentLabel}.`;
+      : needsExternalSetup
+        ? "No in-app sign-in advertised. Follow the provider's docs to finish setup."
+        : `Sign in on ${environmentLabel}.`;
   const statusMessage = auth?.phase === "failed" ? auth.message : null;
-  const disabled = readOnly || pending || query.error !== null || isDiscovering;
+  const disabled = readOnly || pending || query.error !== null;
   const draftId = `${auth?.flowId ?? ""}:${interaction?.id ?? ""}`;
   const values = draft.id === draftId ? draft.values : {};
   const url =
@@ -317,9 +296,7 @@ export function ProviderAuthenticationSection({
         </div>
       }
     >
-      {interaction?.type === "terminal" ||
-      interaction?.type === "credentials" ||
-      interaction?.type === "deviceCode" ||
+      {interaction?.type === "deviceCode" ||
       (url && (interaction?.type === "browser" ? interaction.acceptsCallback : !interaction)) ||
       error ||
       query.error ? (
@@ -330,95 +307,6 @@ export function ProviderAuthenticationSection({
               <code className="select-all font-mono text-foreground">{interaction.userCode}</code>{" "}
               in your browser.
             </p>
-          ) : null}
-          {interaction?.type === "terminal" ? (
-            <div className="py-2">
-              <Suspense
-                fallback={
-                  <p className="text-xs text-muted-foreground">Loading sign-in terminal…</p>
-                }
-              >
-                <ProviderAuthTerminal
-                  key={`${auth?.flowId}:${interaction.id}`}
-                  output={interaction.output}
-                  outputOffset={interaction.outputOffset}
-                  onResponse={(response) => {
-                    if (readOnly || !auth?.flowId) return;
-                    for (
-                      let offset = 0;
-                      offset < Math.max(1, response.data.length);
-                      offset += 4_096
-                    ) {
-                      terminalQueue.current.push({
-                        instanceId,
-                        flowId: auth.flowId,
-                        interactionId: interaction.id,
-                        response: {
-                          ...response,
-                          data: response.data.slice(offset, offset + 4_096),
-                        },
-                      });
-                    }
-                    if (terminalSending.current) return;
-                    terminalSending.current = true;
-                    void (async () => {
-                      while (terminalQueue.current.length > 0) {
-                        const input = terminalQueue.current.shift()!;
-                        const result = await respond({ environmentId, input });
-                        if (result._tag !== "Success") {
-                          terminalQueue.current = [];
-                          if (!isAtomCommandInterrupted(result))
-                            setError("The provider sign-in terminal is no longer available.");
-                          break;
-                        }
-                      }
-                    })()
-                      .catch(() => {
-                        terminalQueue.current = [];
-                        setError("Could not send input to the provider sign-in terminal.");
-                      })
-                      .finally(() => {
-                        terminalSending.current = false;
-                      });
-                  }}
-                />
-              </Suspense>
-            </div>
-          ) : null}
-          {interaction?.type === "credentials" ? (
-            <form
-              className="grid gap-2 py-2 text-sm leading-normal"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void send({ type: "credentials", values }).then((sent) => {
-                  if (sent) setDraft({ id: "", values: {} });
-                });
-              }}
-            >
-              {interaction.fields.map((field) => (
-                <label key={field.name} className="grid gap-1">
-                  {field.label}
-                  <Input
-                    size="sm"
-                    type={field.secret ? "password" : "text"}
-                    autoComplete="off"
-                    value={values[field.name] ?? ""}
-                    disabled={disabled}
-                    maxLength={16_384}
-                    onChange={(event) => updateDraft(field.name, event.target.value)}
-                  />
-                </label>
-              ))}
-              <Button
-                type="submit"
-                size="sm"
-                variant="outline"
-                className="w-fit"
-                disabled={disabled}
-              >
-                Connect
-              </Button>
-            </form>
           ) : null}
           {url && (interaction?.type === "browser" ? interaction.acceptsCallback : !interaction) ? (
             <form
