@@ -442,19 +442,6 @@ it.layer(layerTest)("LegacyV1ThreadImporter", (it) => {
         SELECT * FROM projection_thread_messages WHERE thread_id = ${threadId} ORDER BY message_id
       `;
 
-      yield* sql`
-        INSERT INTO projection_thread_pull_requests (
-          thread_id, host, repository, number, url, source, linked_at, snapshot_json
-        ) VALUES
-          (${threadId}, 'github.com', 'BernyMP/aprende', 9002,
-            'https://github.com/BernyMP/aprende/pull/9002', 'created',
-            '2026-01-03T00:00:00.000Z',
-            '{"state":"open","title":"Second PR","headBranch":"feature-two","baseBranch":"main","isDraft":false,"updatedAt":"2026-01-03T00:00:00.000Z","syncedAt":"2026-01-03T00:00:00.000Z"}'),
-          (${threadId}, 'github.com', 'BernyMP/aprende', 9003,
-            'https://github.com/BernyMP/aprende/pull/9003', 'manual',
-            '2026-01-04T00:00:00.000Z', NULL)
-      `;
-
       assert.equal(yield* importer.pendingThreadCount, 1);
       const shellImport = yield* importer.reconcileShells;
       assert.equal(yield* importer.pendingThreadCount, 1);
