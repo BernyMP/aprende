@@ -122,7 +122,7 @@ Devin runs its commands through aprende's terminals, and those commands follow t
 permission mode. For other agents, aprende shows the command, output, and exit status the agent
 reports but does not run or stop their terminals.
 
-Registry agents can schedule work and use T3's MCP tools. Child-task presentation depends on what
+Registry agents can use aprende's MCP tools. Child-task presentation depends on what
 the agent exposes: ACP has no portable native subagent-lineage contract, so richer delegation views
 remain agent-specific.
 

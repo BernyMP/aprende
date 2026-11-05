@@ -27,11 +27,6 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   // Runs the tutor's check command on the learner's machine, like their own terminal.
   [WS_METHODS.learningRunCheck]: AuthOrchestrationOperateScope,
   [WS_METHODS.learningSetTutorPrompt]: AuthSettingsWriteScope,
-  [WS_METHODS.scheduledTasksUpsert]: AuthOrchestrationOperateScope,
-  [WS_METHODS.scheduledTasksSetEnabled]: AuthOrchestrationOperateScope,
-  [WS_METHODS.scheduledTasksDelete]: AuthOrchestrationOperateScope,
-  [WS_METHODS.scheduledTasksRunNow]: AuthOrchestrationOperateScope,
-  [WS_METHODS.scheduledTasksRotateWebhookToken]: AuthOrchestrationOperateScope,
   [ORCHESTRATION_V2_WS_METHODS.stopWorkflow]: AuthOrchestrationOperateScope,
   // Force stop kills agent processes, as Stop on a terminal does.
   [ORCHESTRATION_V2_WS_METHODS.forceStopThread]: AuthOrchestrationOperateScope,

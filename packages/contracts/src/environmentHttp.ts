@@ -5,7 +5,6 @@ import * as HttpApi from "effect/http-api/HttpApi";
 import * as HttpApiEndpoint from "effect/http-api/HttpApiEndpoint";
 import * as HttpApiGroup from "effect/http-api/HttpApiGroup";
 import * as HttpApiMiddleware from "effect/http-api/HttpApiMiddleware";
-import * as HttpApiSchema from "effect/http-api/HttpApiSchema";
 import * as HttpServerRespondable from "effect/http/HttpServerRespondable";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 
@@ -667,30 +666,9 @@ class EnvironmentProjectsHttpApi extends HttpApiGroup.make("projects")
     }).middleware(EnvironmentAuthenticatedAuth),
   ) {}
 
-// Path tokens and optional body signatures authenticate webhooks; read raw bytes to verify signatures.
-const WebhookParams = Schema.Struct({
-  hookId: TrimmedNonEmptyString,
-  token: TrimmedNonEmptyString,
-});
-const WebhookAccepted = Schema.Struct({ deliveryId: TrimmedNonEmptyString }).pipe(
-  HttpApiSchema.status(202),
-);
-const webhookEndpoint = {
-  params: WebhookParams,
-  success: WebhookAccepted,
-} as const;
-const WEBHOOK_PATH = "/api/hooks/:hookId/:token";
-
-class EnvironmentWebhooksHttpApi extends HttpApiGroup.make("webhooks")
-  .add(HttpApiEndpoint.post("webhookPost", WEBHOOK_PATH, webhookEndpoint))
-  .add(HttpApiEndpoint.put("webhookPut", WEBHOOK_PATH, webhookEndpoint))
-  .add(HttpApiEndpoint.patch("webhookPatch", WEBHOOK_PATH, webhookEndpoint))
-  .add(HttpApiEndpoint.get("webhookGet", WEBHOOK_PATH, webhookEndpoint)) {}
-
 export class EnvironmentHttpApi extends HttpApi.make("environment")
   .add(EnvironmentMetadataHttpApi)
   .add(EnvironmentAuthHttpApi)
   .add(EnvironmentMcpOAuthHttpApi)
   .add(EnvironmentOrchestrationHttpApi)
-  .add(EnvironmentProjectsHttpApi)
-  .add(EnvironmentWebhooksHttpApi) {}
+  .add(EnvironmentProjectsHttpApi) {}

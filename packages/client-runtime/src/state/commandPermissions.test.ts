@@ -12,7 +12,8 @@ import {
   AuthSourceControlWriteScope,
   EnvironmentId,
   ORCHESTRATION_V2_WS_METHODS,
-  ScheduledTaskId,
+  ProjectId,
+  ThreadId,
   WS_METHODS,
   type AuthSessionState,
 } from "@aprende/contracts";
@@ -49,7 +50,7 @@ const runtime = Atom.runtime(
     run: (_id: EnvironmentId, effect: Effect.Effect<unknown>) => effect,
   } as unknown as EnvironmentRegistry["Service"]),
 );
-const permissions = createCommandPermissions(runtime, WS_METHODS.scheduledTasksDelete);
+const permissions = createCommandPermissions(runtime, WS_METHODS.projectsCreateFromThread);
 const setup = Effect.gen(function* () {
   const registry = AtomRegistry.make();
   registry.mount(sessions(env));
@@ -139,7 +140,7 @@ describe("command permissions", () => {
     ),
   );
 
-  it.effect.each([WS_METHODS.scheduledTasksDelete, ORCHESTRATION_V2_WS_METHODS.stopWorkflow])(
+  it.effect.each([WS_METHODS.projectsCreateFromThread, ORCHESTRATION_V2_WS_METHODS.stopWorkflow])(
     "uses the target grant for both availability and execution of %s",
     (method) =>
       Effect.scoped(
@@ -205,17 +206,17 @@ describe("command permissions", () => {
     let calls = 0;
     const command = createEnvironmentRpcCommand(runtime, {
       label: "test.delete",
-      tag: WS_METHODS.scheduledTasksDelete,
+      tag: WS_METHODS.projectsCreateFromThread,
       concurrency: { mode: "serial", key: () => "target" },
       execute: () =>
         Effect.promise(async () => {
           calls++;
           started();
           await gate;
-          return { id: ScheduledTaskId.make("task") };
+          return { projectId: ProjectId.make("project") };
         }),
     });
-    const target = { environmentId: env, input: { id: ScheduledTaskId.make("task") } };
+    const target = { environmentId: env, input: { threadId: ThreadId.make("thread") } };
     try {
       const first = command.run(registry, target);
       await entered;
@@ -257,10 +258,10 @@ it.effect("rejects protected RPCs outside a guarded command", () =>
     let writes = 0;
     const session = {
       client: {
-        [WS_METHODS.scheduledTasksDelete]: () =>
+        [WS_METHODS.projectsCreateFromThread]: () =>
           Effect.sync(() => {
             writes++;
-            return { id: ScheduledTaskId.make("task") };
+            return { projectId: ProjectId.make("project") };
           }),
       },
     } as unknown as RpcSession;
@@ -268,8 +269,8 @@ it.effect("rejects protected RPCs outside a guarded command", () =>
       target: { environmentId: env, label: "target" },
       session: yield* SubscriptionRef.make(Option.some(session)),
     } as unknown as EnvironmentSupervisor["Service"];
-    const unary = yield* requestGuarded(WS_METHODS.scheduledTasksDelete, {
-      id: ScheduledTaskId.make("task"),
+    const unary = yield* requestGuarded(WS_METHODS.projectsCreateFromThread, {
+      threadId: ThreadId.make("thread"),
     }).pipe(Effect.provideService(EnvironmentSupervisor, supervisor), Effect.flip);
     expect(unary._tag).toBe("EnvironmentAuthorizationError");
     expect(writes).toBe(0);

@@ -52,7 +52,6 @@ export * from "./review.ts";
 export * from "./mcpApps.ts";
 export * from "./mcpCapability.ts";
 export * from "./usage.ts";
-export * from "./scheduledTask.ts";
 export * from "./learning.ts";
 export * from "./worktreeMcp.ts";
 export * from "./resourceTelemetry.ts";

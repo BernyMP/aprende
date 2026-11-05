@@ -38,7 +38,6 @@ import { checkpointWorkspace } from "@aprende/provider-testing/replayWorkspace";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
-import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import type { McpInvocationScope } from "./McpInvocationContext.ts";
@@ -186,7 +185,6 @@ it.effect.each([
               Layer.mock(ProjectService.ProjectService)({}),
               Layer.mock(SecretRequests.SecretRequests)({}),
               ServerSettings.layerTest(),
-              Layer.mock(ScheduledTaskService.ScheduledTaskService)({}),
               NodeServices.layer,
               NodeCrypto.layer,
             ),

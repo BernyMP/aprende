@@ -1073,7 +1073,6 @@ const withProductFields = (name: string, value: unknown): unknown => {
       return { ...value, thread: linked(value.thread) };
     case "t3_thread_launch":
     case "t3_thread_send":
-    case "run_scheduled_task_now":
       return linked(value);
     case "t3_thread_list":
     case "create_threads":

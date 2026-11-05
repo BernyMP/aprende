@@ -1963,12 +1963,8 @@ export const CLAUDE_READ_ONLY_T3_MCP_ALLOWED_TOOLS: ReadonlyArray<string> = [
 export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__create_threads",
   "mcp__aprende__delegate_task",
-  "mcp__aprende__delete_scheduled_task",
-  "mcp__aprende__list_scheduled_tasks",
   "mcp__aprende__orchestrator_capabilities",
   "mcp__aprende__request_secret",
-  "mcp__aprende__run_scheduled_task_now",
-  "mcp__aprende__schedule_task",
   "mcp__aprende__t3_attachment_discard",
   "mcp__aprende__t3_attachment_prepare_upload",
   "mcp__aprende__t3_background_wait",
