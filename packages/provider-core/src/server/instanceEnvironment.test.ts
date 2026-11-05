@@ -1,6 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import { SecretProviderId } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as HostProcess from "@aprende/shared/HostProcess";
@@ -62,14 +61,6 @@ describe("mergeProviderInstanceEnvironment", () => {
           [
             { name: "OPENROUTER_API_KEY", value: "sk-or-test", sensitive: true },
             { name: "ANTHROPIC_API_KEY", value: "", sensitive: false },
-            {
-              name: "OPENAI_API_KEY",
-              value: {
-                provider: SecretProviderId.make("personal"),
-                reference: "op://Private/OpenAI/credential",
-              },
-              sensitive: true,
-            },
           ],
           { ANTHROPIC_API_KEY: "inherited", OPENAI_API_KEY: "inherited", PATH: "/bin" },
         ),

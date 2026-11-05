@@ -18,8 +18,6 @@ import {
   type ServerSettingsPatch,
   type ManagedPolicySummary,
   globalIdleCompaction,
-  isSecretReference,
-  type SecretReference,
   withIdleCompaction,
 } from "@aprende/contracts";
 import * as Cache from "effect/Cache";
@@ -35,6 +33,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { LOCAL_ACP_DRIVER } from "@aprende/provider-acp/server/localAgent";
 import * as PubSub from "effect/PubSub";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
@@ -56,14 +55,8 @@ import {
 } from "@aprende/shared/serverSettings";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
-import { secretProviderDefinitions } from "./secrets/secretProviderDefinitions.ts";
 
-import {
-  mapSettingsSecrets,
-  mapSettingsSecretValues,
-  SECRET_REDACTED,
-  type SettingsSecret,
-} from "./settingsSecrets.ts";
+import { mapSettingsSecrets, type SettingsSecret } from "./settingsSecrets.ts";
 
 const encodeServerSettings = Schema.encodeEffect(ServerSettings);
 const encodeServerSettingsJson = Schema.encodeUnknownEffect(fromJsonStringPretty(ServerSettings));
@@ -129,48 +122,12 @@ const normalizeServerSettings = (
     ),
   );
 
-export function redactServerSettingsForClient(
-  settings: ServerSettings,
-  client: { readonly secretReferences: boolean },
-): ServerSettings {
-  const redacted = mapSettingsSecrets(settings, (secret) =>
+export function redactServerSettingsForClient(settings: ServerSettings): ServerSettings {
+  return mapSettingsSecrets(settings, (secret) =>
     secret.sensitive
       ? { value: "", redacted: secret.redacted || secret.value.length > 0 }
       : { value: secret.value, redacted: false },
   );
-  // Older clients decode secret fields as strings and fail on a reference, so they see a saved secret.
-  const shaped = client.secretReferences
-    ? redacted
-    : mapSettingsSecretValues(redacted, (value) =>
-        isSecretReference(value) ? SECRET_REDACTED : value,
-      );
-  return { ...shaped, secretProviders: withoutUnknownSecretProviderConfigs(shaped) };
-}
-
-/** A client shown a reference as a saved secret sends that marker back; it keeps the reference. */
-function withEchoedSecretReferences(current: ServerSettings, next: ServerSettings): ServerSettings {
-  const references = new Map<string, SecretReference>();
-  mapSettingsSecretValues(current, (value, secretName) => {
-    if (isSecretReference(value)) references.set(secretName, value);
-    return value;
-  });
-  if (references.size === 0) return next;
-  return mapSettingsSecretValues(next, (value, secretName) =>
-    value === SECRET_REDACTED ? (references.get(secretName) ?? value) : value,
-  );
-}
-
-// A newer kind's config may hold credentials this build cannot recognize, so it never leaves the server.
-function withoutUnknownSecretProviderConfigs(
-  settings: ServerSettings,
-): ServerSettings["secretProviders"] {
-  return Object.fromEntries(
-    Object.entries(settings.secretProviders).map(([id, entry]) => {
-      if (secretProviderConfigGuards.has(entry.kind)) return [id, entry];
-      const { config: _config, ...envelope } = entry;
-      return [id, envelope];
-    }),
-  ) as ServerSettings["secretProviders"];
 }
 
 export function applyProviderInstanceMutation(
@@ -184,40 +141,6 @@ export function applyProviderInstanceMutation(
     delete providerInstances[mutation.instanceId];
   }
   return { ...settings, providerInstances };
-}
-
-const secretProviderConfigGuards = new Map(
-  secretProviderDefinitions.definitions.map((definition) => [
-    definition.kind as string,
-    Schema.is(definition.configSchema),
-  ]),
-);
-
-// Rejects a kind this server has not loaded rather than storing a config it cannot check.
-function ensureSecretProviderWritesAllowed(
-  patch: ServerSettingsPatch,
-  settingsPath: string,
-): Effect.Effect<void, ServerSettingsError> {
-  for (const [id, entry] of Object.entries(patch.secretProviders ?? {})) {
-    if (entry === null) continue;
-    const isConfig = secretProviderConfigGuards.get(entry.kind);
-    const problem =
-      isConfig === undefined
-        ? `Unsupported secret provider kind: ${entry.kind}.`
-        : isConfig(entry.config)
-          ? undefined
-          : `Invalid ${entry.kind} config for secret provider ${id}.`;
-    if (problem !== undefined) {
-      return Effect.fail(
-        new ServerSettingsError({
-          settingsPath,
-          operation: "write-secret-provider",
-          cause: new Error(problem),
-        }),
-      );
-    }
-  }
-  return Effect.void;
 }
 
 function ensureProviderInstanceMutationAllowed(
@@ -408,13 +331,11 @@ function migrateLegacyProviderSettings(
   };
 }
 
-const ACP_REGISTRY_DRIVER = ProviderDriverKind.make("acpRegistry");
-
 function selectionSupportsTextGeneration(
   settings: ServerSettings,
   selection: ModelSelection,
 ): boolean {
-  return settings.providerInstances[selection.instanceId]?.driver !== ACP_REGISTRY_DRIVER;
+  return settings.providerInstances[selection.instanceId]?.driver !== LOCAL_ACP_DRIVER;
 }
 
 type DriverAllowed = (driver: ProviderDriverKind) => boolean;
@@ -858,7 +779,7 @@ const make = Effect.gen(function* () {
       });
       const changes: SecretChange[] = [];
       const nextSecretNames = new Set<string>();
-      const settings = mapSettingsSecrets(withEchoedSecretReferences(current, next), (secret) => {
+      const settings = mapSettingsSecrets(next, (secret) => {
         const metadata = {
           secretName: secret.secretName,
           ...(secret.providerInstanceId !== undefined
@@ -1162,14 +1083,11 @@ const make = Effect.gen(function* () {
     getSettings: getMaterializedSettings,
     updateSettings: (patch) =>
       updateAndPersistSettings(patch, (current) =>
-        ensureSecretProviderWritesAllowed(patch, settingsPath).pipe(
-          Effect.as(applyServerSettingsPatch(current, patch)),
-        ),
+        Effect.succeed(applyServerSettingsPatch(current, patch)),
       ),
     updateProviderInstance: (mutation, patch = {}) =>
       updateAndPersistSettings(patch, (current) =>
         Effect.gen(function* () {
-          yield* ensureSecretProviderWritesAllowed(patch, settingsPath);
           yield* ensureProviderInstanceMutationAllowed(current, mutation, settingsPath);
           const patched = applyServerSettingsPatch(current, patch);
           return applyProviderInstanceMutation(patched, mutation);

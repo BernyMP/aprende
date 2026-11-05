@@ -51,7 +51,6 @@ import * as ThreadLaunchService from "./ThreadLaunchService.ts";
 import * as ThreadForkService from "./ThreadForkService.ts";
 import * as TurnItemPositionStore from "./TurnItemPositionStore.ts";
 import * as LearningService from "../learning/LearningService.ts";
-import * as SecretRequests from "../secrets/SecretRequests.ts";
 
 export const layerEventInfrastructure = Layer.mergeAll(
   OrchestrationEventStore.layer,
@@ -248,9 +247,6 @@ const layerThreadLaunchProvided = ThreadLaunchService.layer.pipe(
     ),
   ),
 );
-const layerSecretRequestsProvided = SecretRequests.layer.pipe(
-  Layer.provide(layerThreadManagementProvided),
-);
 const layerScratchThreadPromotionProvided = ScratchThreadPromotion.layer.pipe(
   Layer.provide(
     Layer.mergeAll(
@@ -352,7 +348,6 @@ export const layerProduction = Layer.mergeAll(
     Layer.provide(Layer.mergeAll(layerThreadManagementProvided, layerProjectService)),
   ),
   layerScratchThreadPromotionProvided,
-  layerSecretRequestsProvided,
   UsageLimitRecoveryWorker.layer.pipe(
     Layer.provide(
       Layer.mergeAll(

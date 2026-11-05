@@ -116,7 +116,6 @@ export type CustomModelSetting = typeof CustomModelSetting.Type;
 
 const CODEX_DRIVER_KIND = ProviderDriverKind.make("codex");
 const CLAUDE_DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
-const ACP_REGISTRY_DRIVER_KIND = ProviderDriverKind.make("acpRegistry");
 
 export const DEFAULT_MODEL = "gpt-6-astra";
 
@@ -132,7 +131,6 @@ export const DEFAULT_TEXT_GENERATION_REASONING_EFFORT = "low";
 export const DEFAULT_MODEL_BY_PROVIDER: Partial<Record<ProviderDriverKind, string>> = {
   [CODEX_DRIVER_KIND]: DEFAULT_MODEL,
   [CLAUDE_DRIVER_KIND]: "claude-opus-5-5",
-  [ACP_REGISTRY_DRIVER_KIND]: "default",
 };
 
 export const DEFAULT_TEXT_GENERATION_MODEL_BY_PROVIDER: Partial<
@@ -159,5 +157,4 @@ export const MODEL_SLUG_ALIASES_BY_PROVIDER: Partial<
 export const PROVIDER_DISPLAY_NAMES: Partial<Record<ProviderDriverKind, string>> = {
   [CODEX_DRIVER_KIND]: "Codex",
   [CLAUDE_DRIVER_KIND]: "Claude",
-  [ACP_REGISTRY_DRIVER_KIND]: "ACP Registry",
 };

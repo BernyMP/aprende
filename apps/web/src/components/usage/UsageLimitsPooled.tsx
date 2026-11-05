@@ -150,10 +150,7 @@ function SegmentPopover({
   const remaining = remainingPercent(window);
   const timeLeft = paceRemainingPercent(window, now);
   const resetsIn = formatResetsIn(window, now);
-  const where =
-    account.environments.length > 0
-      ? account.environments.map((environment) => environment.label).join(", ")
-      : account.sourceLabel;
+  const where = account.environments.map((environment) => environment.label).join(", ");
   const credits =
     redeem && account.limits.resetCredits?.availableCount ? account.limits.resetCredits : null;
   return (

@@ -3,11 +3,8 @@ import {
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
-  SecretProviderId,
-  SecretProviderKind,
   ServerSettings,
   ServerSettingsPatch,
-  UsageLimitSourceId,
 } from "@aprende/contracts";
 import * as Duration from "effect/Duration";
 import * as Schema from "effect/Schema";
@@ -382,51 +379,6 @@ describe("serverSettings helpers", () => {
       continueThreadsAfterServerUpdate: true,
       providerInstances: {},
     });
-  });
-
-  it("upserts and removes usageLimitSources per entry so concurrent edits cannot clobber", () => {
-    const hubA = UsageLimitSourceId.make("cliproxy-a");
-    const hubB = UsageLimitSourceId.make("cliproxy-b");
-    const source = (url: string) => ({
-      kind: "cliproxy" as const,
-      url,
-      managementKey: "secret",
-      enabled: true,
-    });
-    const current = {
-      ...DEFAULT_SERVER_SETTINGS,
-      usageLimitSources: { [hubA]: source("http://a:8318") },
-    };
-
-    const added = applyServerSettingsPatch(current, {
-      usageLimitSources: { [hubB]: source("http://b:8318") },
-    });
-    expect(Object.keys(added.usageLimitSources)).toEqual([hubA, hubB]);
-
-    const removed = applyServerSettingsPatch(added, { usageLimitSources: { [hubA]: null } });
-    expect(Object.keys(removed.usageLimitSources)).toEqual([hubB]);
-  });
-
-  it("upserts and removes secretProviders per entry so concurrent edits cannot clobber", () => {
-    const personal = SecretProviderId.make("personal");
-    const work = SecretProviderId.make("work");
-    const onePassword = (label: string, account: string) => ({
-      kind: SecretProviderKind.make("one_password"),
-      label,
-      config: { account },
-    });
-    const current = {
-      ...DEFAULT_SERVER_SETTINGS,
-      secretProviders: { [personal]: onePassword("Personal", "my.1password.com") },
-    };
-
-    const added = applyServerSettingsPatch(current, {
-      secretProviders: { [work]: onePassword("Work", "team.1password.com") },
-    });
-    expect(Object.keys(added.secretProviders)).toEqual([personal, work]);
-
-    const removed = applyServerSettingsPatch(added, { secretProviders: { [personal]: null } });
-    expect(Object.keys(removed.secretProviders)).toEqual([work]);
   });
 
   it("replaces and removes individual usage prices without clobbering other models", () => {

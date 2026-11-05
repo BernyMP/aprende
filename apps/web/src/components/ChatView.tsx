@@ -36,7 +36,6 @@ import { useStableCallback } from "../hooks/useStableCallback";
 import { RightPanelSurfaceContent } from "./chat/RightPanelSurfaceContent";
 import { usePendingThreadRequests } from "./chat/usePendingThreadRequests";
 import { isScratchProject } from "@aprende/client-runtime/state/projects";
-import type { UsageLimitSourceSnapshots } from "@aprende/contracts";
 import { feedbackBannerItem } from "./chat/ComposerFeedback";
 import { useUsageLimitsPanel } from "./chat/useUsageLimitsPanel";
 import { useWorkspacePreparationRetry } from "./chat/useWorkspacePreparationRetry";
@@ -305,7 +304,6 @@ import {
 
 const EMPTY_PROVIDERS: ServerProvider[] = [];
 const EMPTY_PROVIDER_MODELS: ServerProvider["models"] = [];
-const EMPTY_USAGE_LIMIT_SOURCES: UsageLimitSourceSnapshots = [];
 import type { CodexArtifactTemplate } from "@aprende/shared/codexArtifactTemplates";
 
 const EMPTY_FEEDBACK_SUBMISSIONS: ReadonlyArray<CodexFeedbackSubmission> = [];
@@ -1206,7 +1204,6 @@ export default function ChatView(props: ChatViewProps) {
     providerInstanceId: activeProviderInstanceId,
     providerDriver: activeProviderStatus?.driver ?? null,
     providers: providerStatuses,
-    sources: serverConfig?.usageLimitSources ?? EMPTY_USAGE_LIMIT_SOURCES,
   });
   const {
     beginLocalDispatch,
@@ -3053,7 +3050,6 @@ export default function ChatView(props: ChatViewProps) {
                   usage={{
                     providerInstanceId: activeProviderInstanceId,
                     providers: providerStatuses,
-                    sources: serverConfig?.usageLimitSources ?? EMPTY_USAGE_LIMIT_SOURCES,
                     contextWindow: activeContextWindow,
                   }}
                 />

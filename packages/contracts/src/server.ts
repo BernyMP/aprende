@@ -1,6 +1,5 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { AcpRegistryUrlAuthAction } from "./acpRegistry.ts";
 import {
   type EnvironmentMachineKind,
   ExecutionEnvironmentDescriptor,
@@ -27,7 +26,7 @@ import { ManagedPolicySummary } from "./managedPolicy.ts";
 import { ModelCapabilities, ProviderOptionDescriptor } from "./model.ts";
 import { RuntimeMode } from "./providerPolicy.ts";
 import { ProviderDriverKind, ProviderInstanceId } from "./providerInstance.ts";
-import { ServerProviderUsageLimits, UsageLimitSourceSnapshots } from "./providerUsageLimits.ts";
+import { ServerProviderUsageLimits } from "./providerUsageLimits.ts";
 import { ServerSettings } from "./settings.ts";
 import { DesktopUpdateChannelSchema } from "./ipc.ts";
 
@@ -65,7 +64,6 @@ export const ServerProviderAuth = Schema.Struct({
   type: Schema.optional(TrimmedNonEmptyString),
   label: Schema.optional(TrimmedNonEmptyString),
   email: Schema.optional(TrimmedNonEmptyString),
-  action: Schema.optional(AcpRegistryUrlAuthAction),
   canLogout: Schema.optional(Schema.Boolean),
   subscriptionSharing: Schema.optional(Schema.Boolean),
   profileId: Schema.optional(TrimmedNonEmptyString),
@@ -210,8 +208,6 @@ export const ServerProvider = Schema.Struct({
   driver: ProviderDriverKind,
   displayName: Schema.optional(TrimmedNonEmptyString),
   accentColor: Schema.optional(TrimmedNonEmptyString),
-  // Validate driver-supplied remote icons against the driver's trusted origin.
-  iconUrl: Schema.optional(TrimmedNonEmptyString.check(Schema.isMaxLength(2_048))),
   badgeLabel: Schema.optional(TrimmedNonEmptyString),
   continuation: Schema.optional(ServerProviderContinuation),
   showInteractionModeToggle: Schema.optional(Schema.Boolean),
@@ -226,15 +222,6 @@ export const ServerProvider = Schema.Struct({
       documentationUrl: Schema.optionalKey(TrimmedNonEmptyString.check(Schema.isMaxLength(2_048))),
     }),
   ),
-  nativeSessions: Schema.optional(
-    Schema.Struct({
-      canList: Schema.Boolean,
-      canLoad: Schema.Boolean,
-      canResume: Schema.Boolean,
-      canDelete: Schema.optional(Schema.Boolean),
-    }),
-  ),
-  configurableProviders: Schema.optional(Schema.Boolean),
   runtimePaths: Schema.optionalKey(
     Schema.Struct({
       homePath: TrimmedNonEmptyString,
@@ -614,10 +601,6 @@ export const ServerConfig = Schema.Struct({
   threadSnapshotPagination: Schema.optionalKey(Schema.Boolean),
   threadFind: Schema.optionalKey(Schema.Boolean),
   threadFindProgressive: Schema.optionalKey(Schema.Boolean),
-  /** Settings patches may carry `secretProviders`; older servers drop the key without an error. */
-  secretProviderSettings: Schema.optionalKey(Schema.Boolean),
-  /** Secret settings may point at a secret provider; older servers drop the reference. */
-  secretReferences: Schema.optionalKey(Schema.Boolean),
   scratchWorkspaceRoot: Schema.optionalKey(TrimmedNonEmptyString),
   newProjectsRoot: Schema.optionalKey(TrimmedNonEmptyString),
   /**
@@ -632,8 +615,6 @@ export const ServerConfig = Schema.Struct({
    * subscriber the same array twice per connect.
    */
   environmentThemes: Schema.optional(Schema.Array(EnvironmentTheme)),
-  /** Stream-only and opt-in; the source stream emits the current set on subscribe. */
-  usageLimitSources: Schema.optional(UsageLimitSourceSnapshots),
 });
 export type ServerConfig = typeof ServerConfig.Type;
 
@@ -741,27 +722,12 @@ export const ServerConfigStreamEnvironmentThemesUpdatedEvent = Schema.Struct({
 export type ServerConfigStreamEnvironmentThemesUpdatedEvent =
   typeof ServerConfigStreamEnvironmentThemesUpdatedEvent.Type;
 
-export const ServerConfigUsageLimitSourcesUpdatedPayload = Schema.Struct({
-  sources: UsageLimitSourceSnapshots,
-});
-export type ServerConfigUsageLimitSourcesUpdatedPayload =
-  typeof ServerConfigUsageLimitSourcesUpdatedPayload.Type;
-
-export const ServerConfigStreamUsageLimitSourcesUpdatedEvent = Schema.Struct({
-  version: Schema.Literal(1),
-  type: Schema.Literal("usageLimitSourcesUpdated"),
-  payload: ServerConfigUsageLimitSourcesUpdatedPayload,
-});
-export type ServerConfigStreamUsageLimitSourcesUpdatedEvent =
-  typeof ServerConfigStreamUsageLimitSourcesUpdatedEvent.Type;
-
 export const ServerConfigStreamEvent = Schema.Union([
   ServerConfigStreamSnapshotEvent,
   ServerConfigStreamKeybindingsUpdatedEvent,
   ServerConfigStreamProviderStatusesEvent,
   ServerConfigStreamSettingsUpdatedEvent,
   ServerConfigStreamEnvironmentThemesUpdatedEvent,
-  ServerConfigStreamUsageLimitSourcesUpdatedEvent,
 ]);
 export type ServerConfigStreamEvent = typeof ServerConfigStreamEvent.Type;
 

@@ -14,7 +14,6 @@ import {
   connectionStatusText,
   environmentMcpUrl,
 } from "@aprende/client-runtime/connection";
-import * as Option from "effect/Option";
 
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { cn } from "../../lib/utils";
@@ -39,7 +38,7 @@ import {
   supportsDesktopAppUpdate,
 } from "~/versionSkew";
 import { environmentCatalog } from "~/connection/catalog";
-import { type EnvironmentPresentation, useRelayEnvironmentDiscovery } from "~/state/environments";
+import type { EnvironmentPresentation } from "~/state/environments";
 import { APP_VERSION } from "~/branding";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { serverEnvironment } from "~/state/server";
@@ -152,43 +151,14 @@ export function SavedBackendListRow({
     serverUpdateState.status === "running" && serverUpdateState.stage === "resuming";
   const status = savedBackendStatus(environment);
   const serverVersion = environment.serverConfig?.environment.serverVersion ?? null;
-  // Discovery empties its map on every refresh, so hold the last descriptor
-  // seen or the glyph would blink back to the generic one each time.
-  const relayDiscovery = useRelayEnvironmentDiscovery();
-  const discoveredDescriptor = Option.getOrNull(
-    relayDiscovery.environments.get(environmentId)?.status ?? Option.none(),
-  )?.descriptor;
-  const [lastDescriptor, setLastDescriptor] = useState(discoveredDescriptor);
-  if (discoveredDescriptor !== undefined && discoveredDescriptor !== lastDescriptor) {
-    setLastDescriptor(discoveredDescriptor);
-  }
-  const discoveredRelayHttpBaseUrl =
-    relayDiscovery.environments.get(environmentId)?.environment.endpoint.httpBaseUrl;
-  const [lastRelayHttpBaseUrl, setLastRelayHttpBaseUrl] = useState(discoveredRelayHttpBaseUrl);
-  if (
-    discoveredRelayHttpBaseUrl !== undefined &&
-    discoveredRelayHttpBaseUrl !== lastRelayHttpBaseUrl
-  ) {
-    setLastRelayHttpBaseUrl(discoveredRelayHttpBaseUrl);
-  }
   const retryNow = useAtomCommand(environmentCatalog.retryNow);
-  const {
-    diagnosis: currentDiagnosis,
-    state: connectionState,
-    relayOnly,
-  } = useConnectionDiagnosis(environment);
+  const { diagnosis: currentDiagnosis, state: connectionState } =
+    useConnectionDiagnosis(environment);
   const diagnosis = resumingServerUpdate ? null : currentDiagnosis;
   const prepared = usePreparedConnection(environmentId);
   const connectedTarget = isConnected && prepared._tag === "Some" ? prepared.value.target : null;
-  const mcpUrl = environmentMcpUrl({
-    entry: environment.entry,
-    relayHttpBaseUrl: discoveredRelayHttpBaseUrl ?? lastRelayHttpBaseUrl,
-    connectedTarget,
-  });
-  const machineKind = resolveEnvironmentMachineKind(
-    environment.serverConfig ??
-      (lastDescriptor === undefined ? null : { environment: lastDescriptor }),
-  );
+  const mcpUrl = environmentMcpUrl({ entry: environment.entry, connectedTarget });
+  const machineKind = resolveEnvironmentMachineKind(environment.serverConfig);
   const routeCount = connectionRoutes(environment.entry).length;
   const subtitleText = [
     environmentTransportLabel(environment, connectedTarget),
@@ -312,7 +282,6 @@ export function SavedBackendListRow({
               hostLabel={environment.label}
               diagnosis={diagnosis}
               onRetry={() => void retryNow(environmentId)}
-              onAddRoute={relayOnly ? () => onAddRoute(environment) : null}
             />
           ) : null}
           {routesOpen && (
@@ -342,7 +311,6 @@ export function SavedBackendListRow({
         <OutdatedServerUpdateAction
           environmentId={environmentId}
           serverLabel={`${environment.label} server`}
-          fromVersion={lastDescriptor?.serverVersion}
           targetVersion={APP_VERSION}
           label={serverUpdateState.status === "failed" ? "Retry update" : "Update"}
         />

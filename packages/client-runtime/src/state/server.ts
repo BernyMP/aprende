@@ -365,7 +365,6 @@ const cachedConfigSnapshotEvent = (config: ServerConfig): ServerConfigStreamEven
 
 export interface ServerConfigSubscriptionOptions {
   readonly environmentThemes?: boolean;
-  readonly usageLimitSources?: boolean;
   readonly usageLimitsCommand?: boolean;
 }
 
@@ -435,12 +434,7 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
       config: ServerConfig,
     ) {
       // A cached stall would read as a fresh freeze on the next launch.
-      const {
-        environmentThemes: _themes,
-        usageLimitSources: _sources,
-        lastEventLoopStall: _stall,
-        ...cacheable
-      } = config;
+      const { environmentThemes: _themes, lastEventLoopStall: _stall, ...cacheable } = config;
       if (lastPersisted !== undefined && sameCacheValue(lastPersisted, cacheable)) {
         return true;
       }
@@ -486,7 +480,6 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
 
     yield* subscribe(WS_METHODS.subscribeServerConfig, {
       ...(subscription.environmentThemes === true ? { environmentThemes: true } : {}),
-      ...(subscription.usageLimitSources === true ? { usageLimitSources: true } : {}),
       ...(subscription.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),
     }).pipe(
       Stream.runForEach((event) =>
@@ -755,7 +748,6 @@ export function createServerEnvironmentAtoms<R, E>(
       environmentId: EnvironmentId,
     ) => Atom.Atom<ServerConfig | null>;
     readonly environmentThemes?: boolean;
-    readonly usageLimitSources?: boolean;
     readonly usageLimitsCommand?: boolean;
   },
 ) {
@@ -770,7 +762,6 @@ export function createServerEnvironmentAtoms<R, E>(
       .atom(
         serverConfigStateChanges(environmentId, {
           ...(options.environmentThemes === true ? { environmentThemes: true } : {}),
-          ...(options.usageLimitSources === true ? { usageLimitSources: true } : {}),
           ...(options.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),
         }),
       )
@@ -1359,13 +1350,6 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.serverGetResourceTelemetryHistory,
       staleTimeMs: 5_000,
     }),
-    searchAcpRegistry: createEnvironmentRpcQueryAtomFamily(runtime, {
-      label: "environment-data:server:acp-registry:search",
-      tag: WS_METHODS.serverSearchAcpRegistry,
-      // Reopening Add provider reuses recent results. Submitting the same search asks the
-      // server again, which reuses a Registry index fetched in the last five minutes.
-      staleTimeMs: 5 * 60_000,
-    }),
     configProjection,
     welcome,
     legacyThreadMigration: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
@@ -1446,93 +1430,6 @@ export function createServerEnvironmentAtoms<R, E>(
     }),
     updateSettings,
     mutateProviderInstance: updateSettings,
-    prepareAcpRegistryAgent: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:prepare",
-      tag: WS_METHODS.serverPrepareAcpRegistryAgent,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) => `${environmentId}:${input.agentId}`,
-      },
-    }),
-    uninstallAcpRegistryManagedBinary: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:uninstall-managed-binary",
-      tag: WS_METHODS.serverUninstallAcpRegistryManagedBinary,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) => `${environmentId}:${input.agentId}`,
-      },
-    }),
-    acceptAcpRegistryUrlAuth: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:accept-url-auth",
-      tag: WS_METHODS.serverAcceptAcpRegistryUrlAuth,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) =>
-          `${environmentId}:${input.instanceId}:${input.elicitationId}`,
-      },
-    }),
-    listAcpRegistrySessions: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:list-sessions",
-      tag: WS_METHODS.serverListAcpRegistrySessions,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) =>
-          `${environmentId}:${input.instanceId}:${input.projectId}:${input.cursor ?? "first"}`,
-      },
-    }),
-    importAcpRegistrySession: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:import-session",
-      tag: WS_METHODS.serverImportAcpRegistrySession,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) =>
-          `${environmentId}:${input.instanceId}:${input.projectId}:${input.sessionId}`,
-      },
-    }),
-    deleteAcpRegistrySession: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:delete-session",
-      tag: WS_METHODS.serverDeleteAcpRegistrySession,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) =>
-          `${environmentId}:${input.instanceId}:${input.projectId}:${input.sessionId}`,
-      },
-    }),
-    listAcpRegistryProviders: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:list-providers",
-      tag: WS_METHODS.serverListAcpRegistryProviders,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) =>
-          `${environmentId}:${input.instanceId}:${input.projectId}`,
-      },
-    }),
-    setAcpRegistryProvider: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:set-provider",
-      tag: WS_METHODS.serverSetAcpRegistryProvider,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) =>
-          `${environmentId}:${input.instanceId}:${input.projectId}:${input.providerId}`,
-      },
-    }),
-    disableAcpRegistryProvider: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:disable-provider",
-      tag: WS_METHODS.serverDisableAcpRegistryProvider,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) =>
-          `${environmentId}:${input.instanceId}:${input.projectId}:${input.providerId}`,
-      },
-    }),
-    logoutAcpRegistry: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:acp-registry:logout",
-      tag: WS_METHODS.serverLogoutAcpRegistry,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) => `${environmentId}:${input.instanceId}`,
-      },
-    }),
     signalProcess: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:signal-process",
       tag: WS_METHODS.serverSignalProcess,
@@ -1591,17 +1488,6 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.learningSetTutorPrompt,
       scheduler: configScheduler,
       concurrency: configConcurrency,
-    }),
-    // Off the config lane: answering a card must not queue behind settings
-    // edits. One answer per card at a time.
-    answerSecretRequest: createEnvironmentRpcCommand(runtime, {
-      label: "environment-data:server:secrets:answer-request",
-      tag: WS_METHODS.secretsAnswerRequest,
-      concurrency: {
-        mode: "singleFlight",
-        key: ({ environmentId, input }) =>
-          JSON.stringify([environmentId, input.threadId, input.turnItemId]),
-      },
     }),
     refreshUsageRates: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:refresh-usage-rates",

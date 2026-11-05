@@ -395,17 +395,14 @@ export function ServerUpdateAction({
   );
 }
 
-/** Read the host descriptor's version because the host never delivers server config. */
 export function OutdatedServerUpdateAction({
   environmentId,
   serverLabel,
-  fromVersion,
   targetVersion,
   label = "Update",
 }: {
   readonly environmentId: EnvironmentId;
   readonly serverLabel: string;
-  readonly fromVersion: string | undefined;
   readonly targetVersion: string;
   readonly label?: string;
 }) {
@@ -413,11 +410,7 @@ export function OutdatedServerUpdateAction({
   const handleUpdate = async () => {
     if (pendingUpdateEnvironmentIds.has(environmentId)) return;
     pendingUpdateEnvironmentIds.add(environmentId);
-    const result = await update({
-      environmentId,
-      input: { targetVersion },
-      ...(fromVersion === undefined ? {} : { fromVersion }),
-    });
+    const result = await update({ environmentId, input: { targetVersion } });
     pendingUpdateEnvironmentIds.delete(environmentId);
     if (result._tag === "Failure") {
       if (isAtomCommandInterrupted(result)) return;
@@ -434,9 +427,6 @@ export function OutdatedServerUpdateAction({
       description: `Reconnected on aprende@${result.value.targetVersion}.`,
     });
   };
-  if (fromVersion !== undefined && crossesReleaseTrack(fromVersion, targetVersion)) {
-    return <CrossTrackNote />;
-  }
   return (
     <Button size="xs" variant="outline" onClick={() => void handleUpdate()}>
       {label}

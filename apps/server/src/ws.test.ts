@@ -1,4 +1,3 @@
-import * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
@@ -36,8 +35,6 @@ import * as SqlClient from "effect/sql/SqlClient";
 import * as Statement from "effect/sql/Statement";
 
 import * as AssetSigner from "./assets/AssetSigner.ts";
-import * as AcpRegistryRuntimeCoordinator from "@aprende/provider-acp-registry/server/AcpRegistryRuntimeCoordinator";
-import * as AcpRegistrySupport from "@aprende/provider-acp-registry/server/AcpRegistrySupport";
 import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
 import * as AgentSessionScanner from "./project/AgentSessionScanner.ts";
 import * as BackgroundPolicy from "./background/BackgroundPolicy.ts";
@@ -68,7 +65,6 @@ import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolve
 import * as ResourceTelemetry from "./resourceTelemetry/ResourceTelemetry.ts";
 import * as Learning from "./learning/LearningService.ts";
 import * as PracticeTerminals from "./learning/PracticeTerminalService.ts";
-import * as SecretRequests from "./secrets/SecretRequests.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
@@ -79,7 +75,6 @@ import * as StorageCleanup from "./storageCleanup.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadSearch from "./orchestration-v2/ThreadSearch.ts";
-import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as UsageService from "./usage/UsageService.ts";
 import * as WorkspaceEntries from "./workspace/WorkspaceEntries.ts";
 import * as WorkspaceFileSystem from "./workspace/WorkspaceFileSystem.ts";
@@ -635,8 +630,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(TraceDiagnostics.TraceDiagnostics)({}),
   Layer.mock(ProjectFaviconResolver.ProjectFaviconResolver)({}),
   Layer.mock(ProjectEnrichment.ProjectEnrichmentService)({}),
-  Layer.mock(AcpRegistryRuntimeCoordinator.AcpRegistryRuntimeCoordinator)({}),
-  Layer.mock(AcpRegistrySupport.AcpRegistryCatalog)({}),
   Layer.mock(AgentSessionImporter.AgentSessionImporter)({}),
   Layer.mock(AgentSessionScanner.AgentSessionScanner)({}),
   Layer.mock(BackgroundPolicy.BackgroundPolicy)({}),
@@ -663,8 +656,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(ResourceTelemetry.ResourceTelemetry)({}),
   Layer.mock(Learning.LearningService)({}),
   Layer.mock(PracticeTerminals.PracticeTerminalService)({}),
-  Layer.mock(SecretRequests.SecretRequests)({}),
-  Layer.mock(SecretResolver.SecretResolver)({}),
   Layer.mock(ServerLifecycleEvents.ServerLifecycleEvents)({}),
   Layer.mock(ServerRuntimeStartup.ServerRuntimeStartup)({}),
   Layer.mock(ServerSelfUpdate.ServerSelfUpdate)({}),
@@ -747,7 +738,6 @@ it.effect.each([
           getProviders: Effect.succeed([]),
           streamChanges: Stream.never,
         }),
-        Layer.mock(UsageLimitSources.UsageLimitSources)({ streamChanges: Stream.make([]) }),
         Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({
           resolveTargets: () =>
             Deferred.succeed(remoteDiscoveryStarted, undefined).pipe(
@@ -825,15 +815,12 @@ it.effect.each([
         },
       ).pipe(
         Effect.provide(
-          layerWsRpc(
-            {
-              sessionId: AuthSessionId.make("config-test"),
-              subject: "config-test",
-              method: "browser-session-cookie",
-              scopes: [],
-            },
-            { secretReferences: true },
-          ).pipe(Layer.provide(configRpcServices)),
+          layerWsRpc({
+            sessionId: AuthSessionId.make("config-test"),
+            subject: "config-test",
+            method: "browser-session-cookie",
+            scopes: [],
+          }).pipe(Layer.provide(configRpcServices)),
         ),
       );
       const requestId = RpcMessage.RequestId("config");
@@ -878,7 +865,7 @@ it.effect.each([
         command: "terminal.split",
       });
       const expectedSettings = [duringDiscovery, latestSettings].map((value) =>
-        ServerSettings.redactServerSettingsForClient(value, { secretReferences: true }),
+        ServerSettings.redactServerSettingsForClient(value),
       );
       const expectedKeybindings = [duringAck.keybindings, latestKeybindings.keybindings];
       // The two sources can interleave, but each must retain its own publication order.
@@ -906,7 +893,7 @@ it.effect.each([
         assert.deepEqual(resolved.config.remoteOpenTargets, targets);
         assert.deepEqual(
           resolved.config.settings,
-          ServerSettings.redactServerSettingsForClient(latestSettings, { secretReferences: true }),
+          ServerSettings.redactServerSettingsForClient(latestSettings),
         );
         assert.deepEqual(resolved.config.keybindings, latestKeybindings.keybindings);
         yield* acknowledge;
@@ -921,9 +908,7 @@ it.effect.each([
           assert.deepEqual(resolved.config.directEndpoints, endpoints);
           assert.deepEqual(
             resolved.config.settings,
-            ServerSettings.redactServerSettingsForClient(latestSettings, {
-              secretReferences: true,
-            }),
+            ServerSettings.redactServerSettingsForClient(latestSettings),
           );
           assert.deepEqual(resolved.config.keybindings, latestKeybindings.keybindings);
           yield* acknowledge;
@@ -983,10 +968,6 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
         ),
         refreshWorkspaceSnapshot: () => Effect.succeed([provider]),
       }),
-      Layer.mock(UsageLimitSources.UsageLimitSources)({
-        current: Effect.succeed([]),
-        streamChanges: Stream.make([]),
-      }),
       Layer.mock(RemoteOpenTargets.RemoteOpenTargets)({
         resolveTargets: () => Effect.succeed([]),
       }),
@@ -1033,15 +1014,12 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
       },
     ).pipe(
       Effect.provide(
-        layerWsRpc(
-          {
-            sessionId: AuthSessionId.make("config-test"),
-            subject: "config-test",
-            method: "browser-session-cookie",
-            scopes: [],
-          },
-          { secretReferences: true },
-        ).pipe(Layer.provide(configRpcServices)),
+        layerWsRpc({
+          sessionId: AuthSessionId.make("config-test"),
+          subject: "config-test",
+          method: "browser-session-cookie",
+          scopes: [],
+        }).pipe(Layer.provide(configRpcServices)),
       ),
     );
     const configRequest = RpcMessage.RequestId("config");

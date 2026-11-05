@@ -17,10 +17,7 @@ import {
   TrimmedNonEmptyString,
   TrimmedString,
 } from "./baseSchemas.ts";
-import { UsageLimitSourceId } from "./usageLimitSourceId.ts";
 import { UsageModelFilter } from "./usage.ts";
-import { SecretProviderId, SecretProviderSlug } from "./secretReference.ts";
-import { SettingsSecretValue } from "./settingsSecretValue.ts";
 import { EnvironmentMachineKind } from "./environment.ts";
 import { KeybindingShortcut } from "./keybindings.ts";
 import {
@@ -474,16 +471,10 @@ declare module "effect/Schema" {
     interface Annotations {
       /** Store this credential separately and expose only whether it is configured to clients. */
       readonly settingsSecret?: boolean | undefined;
-      /** Set by `SettingsSecretValue`: the credential may name a secret provider reference. */
-      readonly settingsSecretReference?: boolean | undefined;
       readonly providerSettingsForm?: ProviderSettingsFormAnnotation | undefined;
       readonly providerSettingsFormSchema?: ProviderSettingsFormSchemaAnnotation | undefined;
     }
   }
-}
-
-function secretSetting<S extends Schema.Top>(schema: S): S["Rebuild"] {
-  return schema.annotateKey({ settingsSecret: true });
 }
 
 /** A masked form field is a credential too, so none is saved or sent to clients as plain text. */
@@ -548,7 +539,7 @@ export const CodexSettings = makeProviderSettingsSchema(
         description:
           "Account-specific Codex home. Keeps auth.json separate while sharing state from CODEX_HOME.",
         providerSettingsForm: {
-          placeholder: "~/.codex-t3/personal",
+          placeholder: "~/.codex-aprende/personal",
           clearWhenEmpty: "omit",
         },
       }),
@@ -663,38 +654,6 @@ export const ClaudeSettings = makeProviderSettingsSchema(
   },
 );
 export type ClaudeSettings = typeof ClaudeSettings.Type;
-
-export const UsageLimitSourceConfig = Schema.Struct({
-  kind: Schema.Literal("cliproxy"),
-  label: Schema.optional(TrimmedNonEmptyString),
-  url: TrimmedNonEmptyString,
-  managementKey: SettingsSecretValue.pipe(
-    Schema.withDecodingDefault(Effect.succeed("")),
-    secretSetting,
-  ),
-  enabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-});
-export type UsageLimitSourceConfig = typeof UsageLimitSourceConfig.Type;
-
-export const SecretProviderKind = SecretProviderSlug.pipe(Schema.brand("SecretProviderKind"));
-export type SecretProviderKind = typeof SecretProviderKind.Type;
-
-export const SecretProviderLabel = TrimmedNonEmptyString.check(Schema.isMaxLength(64));
-
-/** Kinds decode their own config; unknown-kind envelopes round-trip verbatim across versions. */
-export const SecretProviderConfig = Schema.Struct({
-  kind: SecretProviderKind,
-  label: TrimmedNonEmptyString,
-  config: Schema.optionalKey(Schema.Unknown),
-});
-export type SecretProviderConfig = typeof SecretProviderConfig.Type;
-
-// Limits that may change later are enforced on writes only, never on the stored envelope. The
-// server also checks the kind and its config against the secret providers it has loaded.
-const SecretProviderConfigWrite = Schema.Struct({
-  ...SecretProviderConfig.fields,
-  label: SecretProviderLabel,
-});
 
 export const ObservabilitySettings = Schema.Struct({
   otlpTracesUrl: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
@@ -959,13 +918,6 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
   observability: ObservabilitySettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
-  // User-chosen ids preserve rows across edits; undecodable entries round-trip untouched.
-  usageLimitSources: Schema.Record(UsageLimitSourceId, UsageLimitSourceConfig).pipe(
-    Schema.withDecodingDefault(Effect.succeed({})),
-  ),
-  secretProviders: Schema.Record(SecretProviderId, SecretProviderConfig).pipe(
-    Schema.withDecodingDefault(Effect.succeed({})),
-  ),
 
   usagePriceOverrides: Schema.Record(TrimmedNonEmptyString, UsageModelPriceOverride).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
@@ -1085,7 +1037,6 @@ export const ServerSettingsOperation = Schema.Literals([
   "remove-secret",
   "remove-stale-secret",
   "write-secret",
-  "write-secret-provider",
   "write-file",
   "prepare-directory",
   "write-managed-setting",
@@ -1223,13 +1174,6 @@ export const ServerSettingsPatch = Schema.Struct({
   ),
   // Replace whole maps to avoid half-merged driver configs.
   providerInstances: Schema.optionalKey(Schema.Record(ProviderInstanceId, ProviderInstanceConfig)),
-  // Merge per source to avoid racing other edits; null removes an entry.
-  usageLimitSources: Schema.optionalKey(
-    Schema.Record(UsageLimitSourceId, Schema.NullOr(UsageLimitSourceConfig)),
-  ),
-  secretProviders: Schema.optionalKey(
-    Schema.Record(SecretProviderId, Schema.NullOr(SecretProviderConfigWrite)),
-  ),
 
   usagePriceOverrides: Schema.optionalKey(
     Schema.Record(TrimmedNonEmptyString, Schema.NullOr(UsageModelPriceOverride)),
@@ -1248,12 +1192,7 @@ export function requiredScopesForServerSettingsPatch(
   let changesSettings = false;
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    if (
-      key === "providers" ||
-      key === "providerInstances" ||
-      key === "usageLimitSources" ||
-      key === "secretProviders"
-    ) {
+    if (key === "providers" || key === "providerInstances") {
       changesProviders = true;
     } else {
       changesSettings = true;

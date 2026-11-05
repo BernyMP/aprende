@@ -6,6 +6,7 @@ import {
   type ServerProvider,
   type ServerProviderUpdateState,
 } from "@aprende/contracts";
+import { LOCAL_ACP_DRIVER } from "@aprende/provider-acp/server/localAgent";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -28,7 +29,6 @@ import * as ModelManifest from "./ModelManifest.ts";
 import { applyProviderCompatibility } from "./providerCompatibility.ts";
 import * as ServerConfig from "../config.ts";
 import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
-import * as ProviderInstanceRegistryMutator from "./ProviderInstanceRegistryMutator.ts";
 import {
   hydrateCachedProvider,
   isCachedProviderCorrelated,
@@ -62,11 +62,6 @@ export class ProviderRegistry extends Context.Service<
     /** Unknown instance ids return the cached list without error. */
     readonly refreshInstance: (
       instanceId: ProviderInstanceId,
-    ) => Effect.Effect<ReadonlyArray<ServerProvider>>;
-
-    /** Re-reads secret-backed environments first, so a fixed secret applies without a restart. */
-    readonly reloadSecretsAndRefresh: (
-      instanceId?: ProviderInstanceId,
     ) => Effect.Effect<ReadonlyArray<ServerProvider>>;
 
     /** Only refreshed instances can verify an update; the published list still includes every row. */
@@ -169,13 +164,9 @@ export function upsertProviderWorkspaceSnapshot(
 }
 
 const shouldRetainMissingProviderModels = (provider: ServerProvider): boolean => {
-  if (provider.driver === ProviderDriverKind.make("acpRegistry")) {
-    // Only completed ACP discovery provides nativeSessions and inventory; placeholder probes cannot establish auth for agents without sign-in.
-    return !(
-      provider.installed &&
-      provider.status === "ready" &&
-      provider.nativeSessions !== undefined
-    );
+  if (provider.driver === LOCAL_ACP_DRIVER) {
+    // Only a completed probe lists the agent's models; placeholders keep the last list.
+    return !(provider.installed && provider.status === "ready");
   }
 
   if (provider.driver !== ProviderDriverKind.make("codex")) return true;
@@ -281,8 +272,6 @@ export const layer = Layer.effect(
   ProviderRegistry,
   Effect.gen(function* () {
     const instanceRegistry = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
-    const instanceRegistryMutator =
-      yield* ProviderInstanceRegistryMutator.ProviderInstanceRegistryMutator;
     const manifestService = yield* ModelManifest.ModelManifest;
     const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
     const serviceScope = yield* Effect.scope;
@@ -615,13 +604,6 @@ export const layer = Layer.effect(
         return yield* Ref.get(providersRef);
       }
       return yield* refreshOneSource(instance);
-    });
-
-    const reloadSecretsAndRefresh = Effect.fn("reloadSecretsAndRefresh")(function* (
-      instanceId?: ProviderInstanceId,
-    ) {
-      yield* instanceRegistryMutator.reloadSecrets(instanceId);
-      return yield* instanceId === undefined ? refresh() : refreshInstance(instanceId);
     });
 
     const refreshAfterUpdate = Effect.fn("refreshAfterUpdate")(function* (
@@ -1007,8 +989,6 @@ export const layer = Layer.effect(
         refresh(provider).pipe(Effect.catchCause(recoverRefreshFailure)),
       refreshInstance: (instanceId: ProviderInstanceId) =>
         refreshInstance(instanceId).pipe(Effect.catchCause(recoverRefreshFailure)),
-      reloadSecretsAndRefresh: (instanceId?: ProviderInstanceId) =>
-        reloadSecretsAndRefresh(instanceId).pipe(Effect.catchCause(recoverRefreshFailure)),
       refreshWorkspaceSnapshot: (input) =>
         refreshWorkspaceSnapshot(input).pipe(Effect.catchCause(recoverRefreshFailure)),
       refreshAfterUpdate,

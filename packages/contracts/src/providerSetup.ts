@@ -21,7 +21,7 @@ export const ProviderAuthMethod = Schema.Struct({
   accountEmail: Schema.optional(TrimmedNonEmptyString),
   name: TrimmedNonEmptyString,
   description: Schema.NullOr(Schema.String),
-  type: Schema.Literals(["agent", "terminal", "credentials"]),
+  type: Schema.Literal("agent"),
 });
 export type ProviderAuthMethod = typeof ProviderAuthMethod.Type;
 
@@ -39,23 +39,6 @@ export const ProviderAuthInteraction = Schema.Union([
     url: TrimmedNonEmptyString.check(Schema.isMaxLength(16_384)),
     userCode: TrimmedNonEmptyString.check(Schema.isMaxLength(256)),
   }),
-  Schema.Struct({
-    type: Schema.Literal("terminal"),
-    id: SetupOperationId,
-    output: Schema.String.check(Schema.isMaxLength(16_384)),
-    outputOffset: Schema.optionalKey(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
-  }),
-  Schema.Struct({
-    type: Schema.Literal("credentials"),
-    id: SetupOperationId,
-    fields: Schema.Array(
-      Schema.Struct({
-        name: SetupOperationId,
-        label: TrimmedNonEmptyString,
-        secret: Schema.Boolean,
-      }),
-    ).check(Schema.isMaxLength(16)),
-  }),
 ]);
 export type ProviderAuthInteraction = typeof ProviderAuthInteraction.Type;
 
@@ -63,22 +46,6 @@ export const ProviderAuthResponse = Schema.Union([
   Schema.Struct({
     type: Schema.Literal("browser"),
     action: Schema.Literals(["accept", "decline"]),
-  }),
-  Schema.Struct({
-    type: Schema.Literal("terminal"),
-    data: Schema.String.check(Schema.isMaxLength(4_096)),
-    size: Schema.optionalKey(
-      Schema.Struct({
-        cols: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 500 })),
-        rows: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 200 })),
-      }),
-    ),
-  }),
-  Schema.Struct({
-    type: Schema.Literal("credentials"),
-    values: Schema.Record(SetupOperationId, Schema.String.check(Schema.isMaxLength(16_384))).check(
-      Schema.isMaxProperties(16),
-    ),
   }),
 ]);
 export type ProviderAuthResponse = typeof ProviderAuthResponse.Type;

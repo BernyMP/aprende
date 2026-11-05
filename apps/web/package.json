@@ -15,7 +15,6 @@
     "@aprende/client-runtime": "workspace:*",
     "@aprende/contracts": "workspace:*",
     "@aprende/provider-core": "workspace:*",
-    "@aprende/secret-provider-definitions": "workspace:*",
     "@aprende/shared": "workspace:*",
     "@base-ui/react": "^1.9.0",
     "@betteroffice/docx": "0.4.3",

@@ -241,8 +241,6 @@ export interface DesktopServerExposureBackendConfig {
   readonly port: number;
   readonly bindHost: string;
   readonly httpBaseUrl: URL;
-  readonly tailscaleServeEnabled: boolean;
-  readonly tailscaleServePort: number;
 }
 
 export interface DesktopServerExposureChange {
@@ -275,8 +273,6 @@ interface RuntimeState {
   readonly httpBaseUrl: URL;
   readonly endpointUrl: Option.Option<string>;
   readonly advertisedHost: Option.Option<string>;
-  readonly tailscaleServeEnabled: boolean;
-  readonly tailscaleServePort: number;
 }
 
 interface ResolvedRuntimeState {
@@ -287,7 +283,6 @@ interface ResolvedRuntimeState {
 const initialRuntimeState = (): RuntimeState =>
   runtimeStateFromResolvedExposure({
     requestedMode: DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS.serverExposureMode,
-    settings: DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
     exposure: resolveDesktopServerExposure({
       mode: DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS.serverExposureMode,
       port: 0,
@@ -300,16 +295,12 @@ const toContractState = (state: RuntimeState): DesktopServerExposureState => ({
   mode: state.mode,
   endpointUrl: Option.getOrNull(state.endpointUrl),
   advertisedHost: Option.getOrNull(state.advertisedHost),
-  tailscaleServeEnabled: state.tailscaleServeEnabled,
-  tailscaleServePort: state.tailscaleServePort,
 });
 
 const toBackendConfig = (state: RuntimeState): DesktopServerExposureBackendConfig => ({
   port: state.port,
   bindHost: state.bindHost,
   httpBaseUrl: state.httpBaseUrl,
-  tailscaleServeEnabled: state.tailscaleServeEnabled,
-  tailscaleServePort: state.tailscaleServePort,
 });
 
 const toResolvedExposure = (state: RuntimeState): ResolvedDesktopServerExposure => ({
@@ -323,7 +314,6 @@ const toResolvedExposure = (state: RuntimeState): ResolvedDesktopServerExposure 
 
 function runtimeStateFromResolvedExposure(input: {
   readonly requestedMode: DesktopServerExposureMode;
-  readonly settings: DesktopAppSettings.DesktopSettings;
   readonly exposure: ResolvedDesktopServerExposure;
   readonly port: number;
 }): RuntimeState {
@@ -337,14 +327,11 @@ function runtimeStateFromResolvedExposure(input: {
     httpBaseUrl: new URL(input.exposure.localHttpUrl),
     endpointUrl: Option.fromNullishOr(input.exposure.endpointUrl),
     advertisedHost: Option.fromNullishOr(input.exposure.advertisedHost),
-    tailscaleServeEnabled: input.settings.tailscaleServeEnabled,
-    tailscaleServePort: input.settings.tailscaleServePort,
   };
 }
 
 function resolveRuntimeState(input: {
   readonly requestedMode: DesktopServerExposureMode;
-  readonly settings: DesktopAppSettings.DesktopSettings;
   readonly port: number;
   readonly networkInterfaces: DesktopNetworkInterfaces.NetworkInterfaces;
   readonly advertisedHostOverride: Option.Option<string>;
@@ -377,7 +364,6 @@ function resolveRuntimeState(input: {
   return {
     state: runtimeStateFromResolvedExposure({
       requestedMode: input.requestedMode,
-      settings: input.settings,
       exposure,
       port: input.port,
     }),
@@ -427,16 +413,13 @@ export const make = Effect.gen(function* () {
 
   // The server refuses to bind wider than the policy's clients allow, so network access saved
   // before the policy would keep the backend from starting. The backend runs without it; the
-  // saved choice stays for when the policy allows it. Tailscale Serve has no control here, so a
-  // value an older build saved stays off.
+  // saved choice stays for when the policy allows it.
   const remoteAllowed = yield* (yield* DesktopManagedPolicy.DesktopManagedPolicy).read.pipe(
     Effect.map((found) => found?.document.limits?.clients?.includes("remote") ?? true),
     Effect.orElseSucceed(() => false),
   );
-  const withinPolicy = (settings: DesktopAppSettings.DesktopSettings) =>
-    remoteAllowed
-      ? { ...settings, tailscaleServeEnabled: false }
-      : { ...settings, serverExposureMode: "local-only" as const, tailscaleServeEnabled: false };
+  const withinPolicy = (mode: DesktopServerExposureMode): DesktopServerExposureMode =>
+    remoteAllowed ? mode : "local-only";
 
   const readCurrentState = (currentNetworkInterfaces: DesktopNetworkInterfaces.NetworkInterfaces) =>
     Ref.get(stateRef).pipe(
@@ -457,8 +440,7 @@ export const make = Effect.gen(function* () {
       const settings = yield* desktopSettings.get;
       const currentNetworkInterfaces = yield* readNetworkInterfaces;
       const resolved = resolveRuntimeState({
-        requestedMode: withinPolicy(settings).serverExposureMode,
-        settings: withinPolicy(settings),
+        requestedMode: withinPolicy(settings.serverExposureMode),
         port,
         networkInterfaces: currentNetworkInterfaces,
         advertisedHostOverride: config.desktopLanHostOverride,
@@ -473,15 +455,9 @@ export const make = Effect.gen(function* () {
   ) {
     yield* Effect.annotateCurrentSpan({ mode });
     const previous = yield* Ref.get(stateRef);
-    const currentSettings = yield* desktopSettings.get;
-    const nextSettings = {
-      ...currentSettings,
-      serverExposureMode: mode,
-    };
     const currentNetworkInterfaces = yield* readNetworkInterfaces;
     const resolved = resolveRuntimeState({
-      requestedMode: withinPolicy(nextSettings).serverExposureMode,
-      settings: withinPolicy(nextSettings),
+      requestedMode: withinPolicy(mode),
       port: previous.port,
       networkInterfaces: currentNetworkInterfaces,
       advertisedHostOverride: config.desktopLanHostOverride,

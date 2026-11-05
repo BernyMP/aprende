@@ -7,7 +7,6 @@ import {
   type ProviderSetupInput,
   ServerObservability,
   EnvironmentThemeId,
-  UsageLimitSourceId,
   type ServerConfig,
   type ServerConfigStreamEvent,
   type ServerLifecycleWelcomePayload,
@@ -408,10 +407,7 @@ const makeConfigPersistenceHarness = Effect.fn("test.makeConfigPersistenceHarnes
     saveServerConfig,
     clear: () => Effect.void,
   });
-  const state = yield* makeEnvironmentServerConfigState({
-    environmentThemes: true,
-    usageLimitSources: true,
-  }).pipe(
+  const state = yield* makeEnvironmentServerConfigState({ environmentThemes: true }).pipe(
     Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
     Effect.provideService(Persistence.EnvironmentCacheStore, cache),
   );
@@ -524,7 +520,7 @@ describe("server state projection", () => {
       }),
   );
 
-  it.effect("saves once across transient themes, usage sources and stall updates", () =>
+  it.effect("saves once across transient themes and stall updates", () =>
     Effect.gen(function* () {
       const saved = yield* Ref.make<ReadonlyArray<ServerConfig>>([]);
       yield* Effect.scoped(
@@ -549,21 +545,6 @@ describe("server state projection", () => {
                 ],
               },
             },
-            {
-              version: 1,
-              type: "usageLimitSourcesUpdated",
-              payload: {
-                sources: [
-                  {
-                    id: UsageLimitSourceId.make("source-test"),
-                    kind: "cliproxy",
-                    label: "Test source",
-                    checkedAt: "2026-10-20T07:50:37.633Z",
-                    accounts: [],
-                  },
-                ],
-              },
-            },
             snapshotEvent({
               ...CONFIG,
               lastEventLoopStall: {
@@ -578,8 +559,6 @@ describe("server state projection", () => {
             expect(projection.latestEvent).toBe(event);
             if (event.type === "environmentThemesUpdated")
               expect(projection.config.environmentThemes).toEqual(event.payload.themes);
-            if (event.type === "usageLimitSourcesUpdated")
-              expect(projection.config.usageLimitSources).toEqual(event.payload.sources);
             yield* TestClock.adjust("10 seconds");
           }
         }),
@@ -624,7 +603,7 @@ describe("server state projection", () => {
           );
           yield* h.send(snapshotEvent(CONFIG));
           yield* TestClock.adjust("500 millis");
-          yield* h.send({ version: 1, type: "usageLimitSourcesUpdated", payload: { sources: [] } });
+          yield* h.send({ version: 1, type: "environmentThemesUpdated", payload: { themes: [] } });
           yield* TestClock.adjust("10 seconds");
         }),
       );

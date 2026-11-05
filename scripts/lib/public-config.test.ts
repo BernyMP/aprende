@@ -19,37 +19,17 @@ describe("loadRepoEnv", () => {
     const repoRoot = makeTemporaryDirectory();
     NodeFS.writeFileSync(
       NodePath.join(repoRoot, ".env"),
-      "APRENDE_CLERK_PUBLISHABLE_KEY=pk_root\nAPRENDE_CLERK_JWT_TEMPLATE=template_root\nAPRENDE_CLERK_CLI_OAUTH_CLIENT_ID=oauth_root\nAPRENDE_RELAY_URL=https://root.example.test\n",
+      "APRENDE_DEV_AUTH_TOKEN=root\nAPRENDE_HOME=/root-home\n",
     );
-    NodeFS.writeFileSync(
-      NodePath.join(repoRoot, ".env.local"),
-      "APRENDE_CLERK_PUBLISHABLE_KEY=pk_local\nAPRENDE_CLERK_JWT_TEMPLATE=template_local\nAPRENDE_CLERK_CLI_OAUTH_CLIENT_ID=oauth_local\nAPRENDE_RELAY_URL=https://local.example.test\n",
-    );
+    NodeFS.writeFileSync(NodePath.join(repoRoot, ".env.local"), "APRENDE_DEV_AUTH_TOKEN=local\n");
 
-    expect(loadRepoEnv({ baseEnv: {}, repoRoot }).APRENDE_RELAY_URL).toBe(
-      "https://local.example.test",
-    );
-    expect(
-      loadRepoEnv({
-        baseEnv: {
-          APRENDE_CLERK_PUBLISHABLE_KEY: "pk_ci",
-          APRENDE_CLERK_JWT_TEMPLATE: "template_ci",
-          APRENDE_CLERK_CLI_OAUTH_CLIENT_ID: "oauth_ci",
-          APRENDE_RELAY_URL: "https://ci.example.test",
-        },
-        repoRoot,
-      }),
-    ).toMatchObject({
-      APRENDE_CLERK_PUBLISHABLE_KEY: "pk_ci",
-      APRENDE_CLERK_CLI_OAUTH_CLIENT_ID: "oauth_ci",
-      VITE_CLERK_PUBLISHABLE_KEY: "pk_ci",
-      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_ci",
-      APRENDE_CLERK_JWT_TEMPLATE: "template_ci",
-      VITE_CLERK_JWT_TEMPLATE: "template_ci",
-      EXPO_PUBLIC_CLERK_JWT_TEMPLATE: "template_ci",
-      APRENDE_RELAY_URL: "https://ci.example.test",
-      VITE_APRENDE_RELAY_URL: "https://ci.example.test",
+    expect(loadRepoEnv({ baseEnv: {}, repoRoot })).toMatchObject({
+      APRENDE_DEV_AUTH_TOKEN: "local",
+      APRENDE_HOME: "/root-home",
     });
+    expect(loadRepoEnv({ baseEnv: { APRENDE_DEV_AUTH_TOKEN: "process" }, repoRoot })).toMatchObject(
+      { APRENDE_DEV_AUTH_TOKEN: "process", APRENDE_HOME: "/root-home" },
+    );
   });
 });
 

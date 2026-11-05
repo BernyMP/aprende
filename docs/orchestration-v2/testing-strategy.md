@@ -129,7 +129,7 @@ OpenCode replay transcript
 
 ACP replay transcript
   -> logical JSON-RPC requests/responses/notifications over a strict NDJSON peer
-  -> consumed by AcpAdapter and a provider flavor (Grok or ACP Registry)
+  -> consumed by AcpAdapter and a provider flavor (Grok or the local ACP driver)
 ```
 
 Fixtures should preserve raw provider evidence as closely as possible. Expected V2 events or projections are assertions, not fixture input.
@@ -142,7 +142,7 @@ SDK output; it does not test the SDK's own subprocess or transport parser.
 ACP fixtures run against a child-process replay peer that validates every outbound frame and
 serves recorded inbound frames. This replaces only the external ACP driver transport; the shared
 runtime, adapter normalization, orchestration, persistence, and projections remain production code.
-The generic ACP Registry harness retargets protocol-standard ACP transcripts;
+The local ACP harness retargets protocol-standard ACP transcripts;
 provider-extension transcripts remain scoped to the flavor that owns the extension.
 
 OpenCode fixtures replace the SDK client at its HTTP/SSE boundary. They must preserve races between

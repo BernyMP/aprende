@@ -9,10 +9,7 @@ import {
   ProjectScript,
   ProviderDriverKind,
   ProviderInstanceId,
-  SecretProviderId,
   ServerSettings,
-  ServerSettingsPatch,
-  UsageLimitSourceId,
 } from "@aprende/contracts";
 import { createModelSelection } from "@aprende/shared/model";
 import { assert, it } from "@effect/vitest";
@@ -26,7 +23,6 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import * as SchemaAST from "effect/SchemaAST";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ServerConfig from "./config.ts";
@@ -37,7 +33,6 @@ import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
 
 const decodeServerSettings = Schema.decodeUnknownEffect(ServerSettings);
 const decodeServerSettingsJson = Schema.decodeUnknownEffect(Schema.fromJsonString(ServerSettings));
-const decodeServerSettingsPatch = Schema.decodeUnknownEffect(ServerSettingsPatch);
 
 const layerServerSettings = (policy?: ManagedPolicyDocument) =>
   ServerSettingsModule.layer.pipe(
@@ -99,36 +94,6 @@ const recordProviderUsage = (provider: string, instanceId: string | null = provi
       )
     `;
   });
-
-/** Paths of fields typed `SettingsSecretValue` that clients decode with the settings schema itself. */
-function strictSecretReferencePaths(
-  ast: SchemaAST.AST,
-  path = "",
-  seen = new Set<SchemaAST.AST>(),
-): ReadonlyArray<string> {
-  if (seen.has(ast)) return [];
-  seen.add(ast);
-  const walk = (type: SchemaAST.AST, at: string): ReadonlyArray<string> =>
-    type.context?.annotations?.settingsSecretReference === true
-      ? [at]
-      : strictSecretReferencePaths(type, `${at}.`, seen);
-  if (SchemaAST.isObjects(ast)) {
-    return [
-      ...ast.propertySignatures.flatMap((property) =>
-        walk(property.type, `${path}${String(property.name)}`),
-      ),
-      ...ast.indexSignatures.flatMap((signature) => walk(signature.type, `${path}*`)),
-    ];
-  }
-  if (SchemaAST.isArrays(ast)) {
-    return [...ast.elements, ...ast.rest].flatMap((element) => walk(element, `${path}[]`));
-  }
-  if (SchemaAST.isUnion(ast)) {
-    return ast.types.flatMap((member) => strictSecretReferencePaths(member, path, seen));
-  }
-  if (SchemaAST.isSuspend(ast)) return strictSecretReferencePaths(ast.thunk(), path, seen);
-  return [];
-}
 
 it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings", (it) => {
   it.effect("serializes concurrent model preference edits without cancelling duplicate adds", () =>
@@ -302,40 +267,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       const settings = yield* service.getSettings;
       assert.equal(settings.idleCompaction, "onReturn");
       assert.strictEqual(settings.compactIdleThreads, false);
-    }).pipe(Effect.provide(layerServerSettings())),
-  );
-
-  it.effect("never sends clients the config of a secret provider kind it does not load", () =>
-    Effect.gen(function* () {
-      const settings = yield* decodeServerSettings({
-        secretProviders: {
-          vault: { kind: "openbao", label: "Vault", config: { token: "bao-token" } },
-        },
-      });
-      assert.deepStrictEqual<unknown>(
-        ServerSettingsModule.redactServerSettingsForClient(settings, { secretReferences: true })
-          .secretProviders,
-        { vault: { kind: "openbao", label: "Vault" } },
-      );
-    }),
-  );
-
-  it.effect("stores no secret provider of an unloaded kind or with a config its kind rejects", () =>
-    Effect.gen(function* () {
-      const service = yield* ServerSettingsModule.ServerSettingsService;
-      const write = (entry: unknown) =>
-        decodeServerSettingsPatch({ secretProviders: { personal: entry } }).pipe(
-          Effect.flatMap(service.updateSettings),
-          Effect.flip,
-        );
-      for (const entry of [
-        { kind: "one_password", label: "Personal", config: { account: "--help" } },
-        { kind: "one_password", label: "Personal" },
-        { kind: "openbao", label: "Vault", config: { address: "https://x" } },
-      ]) {
-        assert.deepInclude(yield* write(entry), { operation: "write-secret-provider" });
-      }
-      assert.deepStrictEqual((yield* service.getSettings).secretProviders, {});
     }).pipe(Effect.provide(layerServerSettings())),
   );
 
@@ -618,27 +549,14 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
 
         yield* serverSettings.updateSettings({ usagePriceOverrides: { "example-model": prices } });
         const usageModelAliases = { "example-preview": "example-model" };
-        const sourceId = UsageLimitSourceId.make("hub");
-        const usageLimitSources = {
-          [sourceId]: {
-            kind: "cliproxy" as const,
-            url: "https://hub.example.test",
-            managementKey: "",
-            enabled: true,
-          },
-        };
-        const saved = yield* serverSettings.updateSettings({
-          usageModelAliases,
-          usageLimitSources,
-        });
+        const saved = yield* serverSettings.updateSettings({ usageModelAliases });
         const updated = yield* serverSettings.updateSettings({
           storageCleanup: { browserArtifactsAfterDays: 9, logsAfterDays: 3 },
         });
-        assert.deepStrictEqual(updated.usageLimitSources, saved.usageLimitSources);
+        assert.deepStrictEqual(updated.usageModelAliases, saved.usageModelAliases);
         const persisted = yield* readPersisted;
         assert.deepStrictEqual(persisted.usagePriceOverrides, { "example-model": prices });
         assert.deepStrictEqual(persisted.usageModelAliases, usageModelAliases);
-        assert.deepStrictEqual(persisted.usageLimitSources, usageLimitSources);
         assert.equal(persisted.storageCleanup.browserArtifactsAfterDays, 9);
         assert.equal(persisted.storageCleanup.logsAfterDays, 3);
 
@@ -1180,7 +1098,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       }).pipe(Effect.provide(layerServerSettings())),
   );
 
-  it.effect("uses the same secret lifecycle for provider environment and quota keys", () =>
+  it.effect("keeps sensitive provider environment values out of the settings file", () =>
     Effect.gen(function* () {
       const service = yield* ServerSettingsModule.ServerSettingsService;
       const config = yield* ServerConfig.ServerConfig;
@@ -1197,19 +1115,9 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
             ],
           },
         },
-        usageLimitSources: {
-          [UsageLimitSourceId.make("hub")]: {
-            kind: "cliproxy",
-            url: "https://hub.example.test",
-            managementKey: "quota-secret",
-            enabled: true,
-          },
-        },
       });
-      const values = ["env-secret", "quota-secret"];
-      const client = ServerSettingsModule.redactServerSettingsForClient(saved, {
-        secretReferences: true,
-      });
+      const values = ["env-secret"];
+      const client = ServerSettingsModule.redactServerSettingsForClient(saved);
       const disk = yield* fs.readFileString(config.settingsPath);
       for (const value of values) {
         assert.include(JSON.stringify(saved), value);
@@ -1219,51 +1127,17 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       assert.include(JSON.stringify(client), "https://example.test");
       const echoed = yield* service.updateSettings({
         providerInstances: client.providerInstances,
-        usageLimitSources: client.usageLimitSources,
       });
       for (const value of values) assert.include(JSON.stringify(echoed), value);
-      const secretNames = [
-        "provider-env-Y29kZXhfc2VjcmV0cw-QVBJX1RPS0VO",
-        "usage-limit-source-aHVi",
-      ];
+      const secretNames = ["provider-env-Y29kZXhfc2VjcmV0cw-QVBJX1RPS0VO"];
       for (const name of secretNames) {
         assert.isTrue(Option.isSome(yield* store.get(name)), name);
       }
-      const secret = {
-        provider: SecretProviderId.make("personal"),
-        reference: "op://Private/Codex/token",
-      };
-      const referenced = yield* service.updateProviderInstance({
-        operation: "upsert",
-        instanceId,
-        instance: {
-          ...client.providerInstances[instanceId]!,
-          environment: [{ name: "API_TOKEN", value: secret, sensitive: true, valueRedacted: true }],
-        },
-      });
-      assert.isTrue(Option.isNone(yield* store.get(secretNames[0]!)));
-      assert.deepEqual(
-        ServerSettingsModule.redactServerSettingsForClient(referenced, { secretReferences: true })
-          .providerInstances[instanceId]?.environment,
-        [{ name: "API_TOKEN", value: secret, sensitive: true }],
-      );
-      yield* service.updateSettings({
-        providerInstances: {},
-        usageLimitSources: { [UsageLimitSourceId.make("hub")]: null },
-      });
+      yield* service.updateSettings({ providerInstances: {} });
       for (const name of secretNames) {
         assert.isTrue(Option.isNone(yield* store.get(name)));
       }
     }).pipe(Effect.provide(layerServerSettingsWithSecrets())),
-  );
-
-  it.effect("knows every strictly decoded field that can hold a secret reference", () =>
-    Effect.sync(() => {
-      // Shipped clients decode these as strings. Each must be covered by the older-client case above.
-      assert.deepEqual(strictSecretReferencePaths(ServerSettings.ast), [
-        "usageLimitSources.*.managementKey",
-      ]);
-    }),
   );
 
   it.effect("keeps the retired keys for another load when a token cannot be copied", () => {
@@ -1941,7 +1815,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         assert.equal(rejected.operation, "use-disallowed-provider");
         assert.equal(
           rejected.message,
-          "Example Corp's policy does not allow the ACP Registry provider.",
+          "Example Corp's policy does not allow the Local ACP agent provider.",
         );
         // Switching it on for one project is enabling it too.
         const perProject = yield* service

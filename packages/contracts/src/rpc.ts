@@ -40,31 +40,6 @@ import {
   ProviderSetupInput,
 } from "./providerSetup.ts";
 
-import {
-  AcpRegistryAcceptUrlAuthInput,
-  AcpRegistryAcceptUrlAuthResult,
-  AcpRegistryDeleteSessionInput,
-  AcpRegistryDeleteSessionResult,
-  AcpRegistryDisableProviderInput,
-  AcpRegistryDisableProviderResult,
-  AcpRegistryImportSessionInput,
-  AcpRegistryImportSessionResult,
-  AcpRegistryListSessionsInput,
-  AcpRegistryListSessionsResult,
-  AcpRegistryListProvidersInput,
-  AcpRegistryListProvidersResult,
-  AcpRegistryLogoutInput,
-  AcpRegistryLogoutResult,
-  AcpRegistryManagedBinaryUninstallInput,
-  AcpRegistryManagedBinaryUninstallResult,
-  AcpRegistryOperationError,
-  AcpRegistryPrepareInput,
-  AcpRegistryPrepareResult,
-  AcpRegistrySearchInput,
-  AcpRegistrySearchResult,
-  AcpRegistrySetProviderInput,
-  AcpRegistrySetProviderResult,
-} from "./acpRegistry.ts";
 import { ExternalLauncherError, LaunchEditorInput } from "./editor.ts";
 import {
   AuthAccessStreamError,
@@ -182,7 +157,6 @@ import {
   ResourceTelemetrySnapshot,
 } from "./resourceTelemetry.ts";
 import {
-  UsageLimitSourceError,
   ProviderConsumeResetCreditInput,
   ProviderConsumeResetCreditResult,
 } from "./providerUsageLimits.ts";
@@ -214,7 +188,6 @@ import {
   LearningThreadState,
   LearningTutorPrompt,
 } from "./learning.ts";
-import { SecretRequestAnswerInput, SecretRequestError } from "./secretRequest.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
 
 export const WS_METHODS = {
@@ -275,17 +248,6 @@ export const WS_METHODS = {
   serverGetStorageCleanupReport: "server.getStorageCleanupReport",
   serverGetDatabaseStorage: "server.getDatabaseStorage",
   serverUpdateSettings: "server.updateSettings",
-  serverSearchAcpRegistry: "server.searchAcpRegistry",
-  serverPrepareAcpRegistryAgent: "server.prepareAcpRegistryAgent",
-  serverUninstallAcpRegistryManagedBinary: "server.uninstallAcpRegistryManagedBinary",
-  serverAcceptAcpRegistryUrlAuth: "server.acceptAcpRegistryUrlAuth",
-  serverListAcpRegistrySessions: "server.listAcpRegistrySessions",
-  serverImportAcpRegistrySession: "server.importAcpRegistrySession",
-  serverDeleteAcpRegistrySession: "server.deleteAcpRegistrySession",
-  serverListAcpRegistryProviders: "server.listAcpRegistryProviders",
-  serverSetAcpRegistryProvider: "server.setAcpRegistryProvider",
-  serverDisableAcpRegistryProvider: "server.disableAcpRegistryProvider",
-  serverLogoutAcpRegistry: "server.logoutAcpRegistry",
   serverGetTraceDiagnostics: "server.getTraceDiagnostics",
   serverGetProcessDiagnostics: "server.getProcessDiagnostics",
   serverGetHostResources: "server.getHostResources",
@@ -311,8 +273,6 @@ export const WS_METHODS = {
   learningGetTutorPrompt: "learning.getTutorPrompt",
   learningSetTutorPrompt: "learning.setTutorPrompt",
   learningGetKnowledge: "learning.getKnowledge",
-
-  secretsAnswerRequest: "secrets.answerRequest",
 
   subscribeServerConfig: "subscribeServerConfig",
   subscribeServerLifecycle: "subscribeServerLifecycle",
@@ -351,8 +311,6 @@ export const WsServerRefreshProvidersRpc = Rpc.make(WS_METHODS.serverRefreshProv
     fresh: Schema.optional(Schema.Boolean),
     /** Bypass model caches; explicit rediscovery may open sessions, background refreshes must not. */
     refreshModels: Schema.optional(Schema.Boolean),
-    /** Read secret references again; unlocking a vault can prompt on the host, so only explicit user refreshes ask. */
-    reloadSecrets: Schema.optional(Schema.Boolean),
     /**
      * Reply without snapshots, or with only the requested instance's cwd snapshot. Snapshots then
      * reach the client only through these replies, so another client's scan shows on its next
@@ -377,7 +335,7 @@ const ProviderSetupRpcError = Schema.Union([ProviderSetupError, EnvironmentAutho
 const WsProviderConsumeResetCreditRpc = Rpc.make(WS_METHODS.providerConsumeResetCredit, {
   payload: ProviderConsumeResetCreditInput,
   success: ProviderConsumeResetCreditResult,
-  error: Schema.Union([ProviderSetupError, UsageLimitSourceError, EnvironmentAuthorizationError]),
+  error: Schema.Union([ProviderSetupError, EnvironmentAuthorizationError]),
 });
 
 const WsProviderAuthStartRpc = Rpc.make(WS_METHODS.providerAuthStart, {
@@ -510,78 +468,6 @@ const WsServerUpdateSettingsRpc = Rpc.make(WS_METHODS.serverUpdateSettings, {
   }),
   success: ServerSettings,
   error: Schema.Union([ServerSettingsError, EnvironmentAuthorizationError]),
-});
-
-const WsServerSearchAcpRegistryRpc = Rpc.make(WS_METHODS.serverSearchAcpRegistry, {
-  payload: AcpRegistrySearchInput,
-  success: AcpRegistrySearchResult,
-  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-});
-
-const WsServerPrepareAcpRegistryAgentRpc = Rpc.make(WS_METHODS.serverPrepareAcpRegistryAgent, {
-  payload: AcpRegistryPrepareInput,
-  success: AcpRegistryPrepareResult,
-  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-});
-
-const WsServerUninstallAcpRegistryManagedBinaryRpc = Rpc.make(
-  WS_METHODS.serverUninstallAcpRegistryManagedBinary,
-  {
-    payload: AcpRegistryManagedBinaryUninstallInput,
-    success: AcpRegistryManagedBinaryUninstallResult,
-    error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-  },
-);
-
-const WsServerAcceptAcpRegistryUrlAuthRpc = Rpc.make(WS_METHODS.serverAcceptAcpRegistryUrlAuth, {
-  payload: AcpRegistryAcceptUrlAuthInput,
-  success: AcpRegistryAcceptUrlAuthResult,
-  error: EnvironmentAuthorizationError,
-});
-
-const WsServerListAcpRegistrySessionsRpc = Rpc.make(WS_METHODS.serverListAcpRegistrySessions, {
-  payload: AcpRegistryListSessionsInput,
-  success: AcpRegistryListSessionsResult,
-  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-});
-
-const WsServerImportAcpRegistrySessionRpc = Rpc.make(WS_METHODS.serverImportAcpRegistrySession, {
-  payload: AcpRegistryImportSessionInput,
-  success: AcpRegistryImportSessionResult,
-  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-});
-
-const WsServerDeleteAcpRegistrySessionRpc = Rpc.make(WS_METHODS.serverDeleteAcpRegistrySession, {
-  payload: AcpRegistryDeleteSessionInput,
-  success: AcpRegistryDeleteSessionResult,
-  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-});
-
-const WsServerListAcpRegistryProvidersRpc = Rpc.make(WS_METHODS.serverListAcpRegistryProviders, {
-  payload: AcpRegistryListProvidersInput,
-  success: AcpRegistryListProvidersResult,
-  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-});
-
-const WsServerSetAcpRegistryProviderRpc = Rpc.make(WS_METHODS.serverSetAcpRegistryProvider, {
-  payload: AcpRegistrySetProviderInput,
-  success: AcpRegistrySetProviderResult,
-  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-});
-
-const WsServerDisableAcpRegistryProviderRpc = Rpc.make(
-  WS_METHODS.serverDisableAcpRegistryProvider,
-  {
-    payload: AcpRegistryDisableProviderInput,
-    success: AcpRegistryDisableProviderResult,
-    error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
-  },
-);
-
-const WsServerLogoutAcpRegistryRpc = Rpc.make(WS_METHODS.serverLogoutAcpRegistry, {
-  payload: AcpRegistryLogoutInput,
-  success: AcpRegistryLogoutResult,
-  error: Schema.Union([AcpRegistryOperationError, EnvironmentAuthorizationError]),
 });
 
 const WsServerGetTraceDiagnosticsRpc = Rpc.make(WS_METHODS.serverGetTraceDiagnostics, {
@@ -926,7 +812,6 @@ export const WsSubscribeServerConfigRpc = Rpc.make(WS_METHODS.subscribeServerCon
   payload: Schema.Struct({
     /** Opt-in protects older clients that reject unknown theme event types. */
     environmentThemes: Schema.optional(Schema.Boolean),
-    usageLimitSources: Schema.optional(Schema.Boolean),
     /** Advertise client handling before the server offers /usage-limits, or older clients send it as a prompt. */
     usageLimitsCommand: Schema.optional(Schema.Boolean),
     /** Omit per-cwd provider snapshots; the client fetches its cwd through `server.refreshProviders`. */
@@ -1022,11 +907,6 @@ const WsLearningGetKnowledgeRpc = Rpc.make(WS_METHODS.learningGetKnowledge, {
   error: LearningRpcError,
 });
 
-const WsSecretsAnswerRequestRpc = Rpc.make(WS_METHODS.secretsAnswerRequest, {
-  payload: SecretRequestAnswerInput,
-  error: Schema.Union([SecretRequestError, EnvironmentAuthorizationError]),
-});
-
 const WsSubscribeAuthAccessRpc = Rpc.make(WS_METHODS.subscribeAuthAccess, {
   payload: Schema.Struct({}),
   success: AuthAccessStreamEvent,
@@ -1075,17 +955,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetStorageCleanupReportRpc,
   WsServerGetDatabaseStorageRpc,
   WsServerUpdateSettingsRpc,
-  WsServerSearchAcpRegistryRpc,
-  WsServerPrepareAcpRegistryAgentRpc,
-  WsServerUninstallAcpRegistryManagedBinaryRpc,
-  WsServerAcceptAcpRegistryUrlAuthRpc,
-  WsServerListAcpRegistrySessionsRpc,
-  WsServerImportAcpRegistrySessionRpc,
-  WsServerDeleteAcpRegistrySessionRpc,
-  WsServerListAcpRegistryProvidersRpc,
-  WsServerSetAcpRegistryProviderRpc,
-  WsServerDisableAcpRegistryProviderRpc,
-  WsServerLogoutAcpRegistryRpc,
   WsServerGetTraceDiagnosticsRpc,
   WsServerGetProcessDiagnosticsRpc,
   WsServerGetHostResourcesRpc,
@@ -1109,7 +978,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsLearningGetTutorPromptRpc,
   WsLearningSetTutorPromptRpc,
   WsLearningGetKnowledgeRpc,
-  WsSecretsAnswerRequestRpc,
   WsServerReportClientActivityRpc,
   WsProjectsListEntriesRpc,
   WsProjectsListIgnoredFilesRpc,

@@ -43,7 +43,6 @@ import * as ThreadSearch from "../../orchestration-v2/ThreadSearch.ts";
 import * as PreviewBrowser from "../../htmlRender/PreviewBrowser.ts";
 import * as ProjectService from "../../project/ProjectService.ts";
 import * as ProviderRegistry from "../../provider/ProviderRegistry.ts";
-import * as SecretRequests from "../../secrets/SecretRequests.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import * as McpHttpServer from "../McpHttpServer.ts";
 import * as McpInvocationContext from "../McpInvocationContext.ts";
@@ -573,7 +572,6 @@ it.effect("refuses act-as-caller tools to a client caller", () =>
         Layer.provide(Layer.mock(ProviderRegistry.ProviderRegistry)({})),
         Layer.provide(Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({})),
         Layer.provide(Layer.mock(ProjectService.ProjectService)({})),
-        Layer.provide(Layer.mock(SecretRequests.SecretRequests)({})),
       ),
     ),
   ),
@@ -630,7 +628,6 @@ it.effect.each(["t3_thread_interrupt", "t3_workflow_stop"])(
           Layer.provide(Layer.mock(ProviderRegistry.ProviderRegistry)({})),
           Layer.provide(Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({})),
           Layer.provide(Layer.mock(ProjectService.ProjectService)({})),
-          Layer.provide(Layer.mock(SecretRequests.SecretRequests)({})),
         ),
       ),
     ),
@@ -721,7 +718,6 @@ it.effect("discovers workflow stop targets and requires orchestration capability
         Layer.provide(Layer.mock(ProviderRegistry.ProviderRegistry)({})),
         Layer.provide(Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({})),
         Layer.provide(Layer.mock(ProjectService.ProjectService)({})),
-        Layer.provide(Layer.mock(SecretRequests.SecretRequests)({})),
       ),
     ),
   );
@@ -828,7 +824,6 @@ it.effect(
           Layer.provide(Layer.mock(ProviderRegistry.ProviderRegistry)({})),
           Layer.provide(Layer.mock(ProviderAdapterRegistry.ProviderAdapterRegistryV2)({})),
           Layer.provide(Layer.mock(ProjectService.ProjectService)({})),
-          Layer.provide(Layer.mock(SecretRequests.SecretRequests)({})),
         ),
       ),
     );

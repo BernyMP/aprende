@@ -1,5 +1,4 @@
 import { ClaudeSettings, CodexSettings, ProviderDriverKind } from "@aprende/contracts";
-import { acpRegistryClient } from "@aprende/provider-acp-registry/client";
 import { makeProviderClientRegistry } from "@aprende/provider-core/client";
 import { modelShortName } from "@aprende/provider-core/modelShortName";
 
@@ -8,17 +7,14 @@ export const providerClients = makeProviderClientRegistry([
     driverKind: ProviderDriverKind.make("codex"),
     label: "Codex",
     modelFamilies: ["GPT-", "GPT "],
-    acpRegistryAgentIds: ["codex-acp"],
     settingsSchema: CodexSettings,
   },
   {
     driverKind: ProviderDriverKind.make("claudeAgent"),
     label: "Claude",
     modelFamilies: ["Claude "],
-    acpRegistryAgentIds: ["claude-acp"],
     settingsSchema: ClaudeSettings,
   },
-  acpRegistryClient,
 ]);
 
 export function resolveModelShortName(

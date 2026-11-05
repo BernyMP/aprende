@@ -47,10 +47,6 @@
       "types": "./src/promptLinks.ts",
       "default": "./src/promptLinks.ts"
     },
-    "./secret-request": {
-      "types": "./src/secretRequest.ts",
-      "default": "./src/secretRequest.ts"
-    },
     "./connection": {
       "types": "./src/connection/index.ts",
       "default": "./src/connection/index.ts"
@@ -110,10 +106,6 @@
     "./appToolSummary": {
       "types": "./src/appToolSummary.ts",
       "default": "./src/appToolSummary.ts"
-    },
-    "./relay": {
-      "types": "./src/relay/index.ts",
-      "default": "./src/relay/index.ts"
     },
     "./state/auth": {
       "types": "./src/state/auth.ts",
@@ -210,10 +202,6 @@
     "./state/project-grouping": {
       "types": "./src/state/projectGrouping.ts",
       "default": "./src/state/projectGrouping.ts"
-    },
-    "./state/relay": {
-      "types": "./src/state/relayDiscovery.ts",
-      "default": "./src/state/relayDiscovery.ts"
     },
     "./state/runtime": {
       "types": "./src/state/runtime.ts",
@@ -398,7 +386,6 @@
   },
   "dependencies": {
     "@aprende/contracts": "workspace:*",
-    "@aprende/provider-acp-registry": "workspace:*",
     "@aprende/provider-core": "workspace:*",
     "@aprende/shared": "workspace:*",
     "@pierre/diffs": "catalog:",

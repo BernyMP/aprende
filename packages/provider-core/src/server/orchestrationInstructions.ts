@@ -14,7 +14,6 @@ Ordinary coding tasks need no T3 tools.
   `- \`t3_thread_launch\` and \`create_threads\` make new top-level threads, only when the user asks for a new thread. "Subagent", "delegate", and "parallel" never mean one.
 - Given a thread id, \`t3_thread_read\` it before you answer about it.
 - In your reply, mention a thread by its \`link\`, verbatim. Never a plain title or bare id.
-- A login, token, PIN or pairing code only the user can give: call \`request_secret\`, not a chat ask or a handoff. Not for access you have.
 - T3 tools may load late. Try the name once before you call it absent.`,
   `### Visuals
 

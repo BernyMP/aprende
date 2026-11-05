@@ -30,7 +30,7 @@ This includes headless T3 sessions and desktop usage across machines; the same a
 once across connected environments. Without any of these, T3 shows a
 notice instead of incomplete local totals. T3 does not estimate missing tokens from conversation text.
 On macOS without a T3 sign-in, choose **Enable Cursor usage** on Usage to allow T3 to read your
-existing CLI login from Keychain. You can turn it off in **Settings → Providers → Usage providers**. macOS may ask
+existing CLI login from Keychain. macOS may ask
 you to allow access on the server Mac.
 
 Usage includes each configured account's history, including disabled accounts. Custom homes follow
@@ -115,7 +115,7 @@ setting removes it from `settings.json`.
 ## Track subscription limits
 
 **Usage → Limits** pools every subscription account it can see per provider, so with several Codex
-or Claude accounts across your enabled environments and hubs you read one number per window rather than a
+or Claude accounts across your enabled environments you read one number per window rather than a
 list. Each window card shows how much of the pool is left and a bar with one segment per account,
 kept in the same column across windows. Accounts are ordered by their next 5-hour refill, soonest
 first. For an account with no weekly quota left, this is when its session becomes usable again.
@@ -129,7 +129,7 @@ Claude resets are not available when the server runs on macOS, where Claude keep
 Keychain. On narrow screens, numbered rows below
 the bar show each account's quota, countdown, and credits. Tap a row to open its details.
 
-The same account signed in on more than one environment, or reported by a hub as well, counts once.
+The same account signed in on more than one environment counts once.
 Filter with the environment dropdown to see what a single machine has.
 
 When a Claude or Codex account has no overall weekly quota left, its pooled session contribution
@@ -140,7 +140,7 @@ model-specific weekly allowances keep their reported values.
 
 Opening Limits checks the selected connected environments automatically. Each client waits at
 least five minutes between automatic checks of an environment, including after a failed check.
-If a window still looks stale, refresh Limits to re-check every provider and hub.
+If a window still looks stale, refresh Limits to re-check every provider.
 
 Pick `/usage-limits` from the composer's command menu, or send it as a message, to check the
 current model's limits without leaving the conversation. The result opens above the composer and
@@ -172,18 +172,6 @@ or endpoint configurations do not report subscription limits.
 
 API-key accounts may not report subscription limits. This also applies to Claude connections
 using a proxy through `ANTHROPIC_AUTH_TOKEN`.
-
-## Connect a CLIProxyAPI hub
-
-To see pooled accounts, open **Settings → Providers → Usage providers → Add hub**. Choose the
-environment that will connect to the hub and enter its URL and management key.
-
-The accounts appear under **Usage → Limits**. Codex accounts show banked reset credits; select an
-account and choose **Use reset** to redeem one. No hub plugin is required.
-
-This connection supplies usage information; configure
-the provider separately to send agent requests through the hub. Remove the hub from the same
-settings section when you no longer need it.
 
 ## Subscription usage widget
 

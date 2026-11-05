@@ -278,8 +278,6 @@ function sameSidebarProviderEntries(
       other.enabled !== entry.enabled ||
       other.displayName !== entry.displayName ||
       other.accentColor !== entry.accentColor ||
-      other.acpRegistryAgentId !== entry.acpRegistryAgentId ||
-      other.acpRegistryIconUrl !== entry.acpRegistryIconUrl ||
       other.models !== entry.models
     ) {
       return false;
@@ -293,8 +291,8 @@ const sidebarProviderEntriesAtom = Atom.make((get) => {
   const providersByEnvironment = get(environmentPresentations.providersByEnvironmentAtom);
   const derived = deriveProviderEntriesByEnvironment(
     [...get(environmentPresentations.serverConfigsAtom)].map(
-      ([environmentId, config]) =>
-        [environmentId, providersByEnvironment.get(environmentId) ?? [], config.settings] as const,
+      ([environmentId]) =>
+        [environmentId, providersByEnvironment.get(environmentId) ?? []] as const,
     ),
   );
   const previous = Option.getOrNull(

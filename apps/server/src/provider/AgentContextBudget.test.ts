@@ -26,7 +26,6 @@ import { ThreadSearch } from "../orchestration-v2/ThreadSearch.ts";
 import { PreviewBrowser } from "../htmlRender/PreviewBrowser.ts";
 import { ManagedProjectFolders } from "../project/ManagedProjectFolders.ts";
 import { ProjectService } from "../project/ProjectService.ts";
-import { SecretRequests } from "../secrets/SecretRequests.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { DocumentText } from "./DocumentText.ts";
 import { ProviderRegistry } from "./ProviderRegistry.ts";
@@ -44,7 +43,6 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(ProjectService)({}),
   Layer.mock(ProviderAdapterRegistryV2)({}),
   Layer.mock(ProviderRegistry)({}),
-  Layer.mock(SecretRequests)({}),
   ServerConfig.layerTest(process.cwd(), { prefix: "t3-agent-context-budget-" }),
   Layer.mock(ServerEnvironment)({}),
   Layer.mock(ServerSecretStore)({}),
@@ -76,13 +74,13 @@ const layerAdvertisedTools = McpHttpServer.layerTools.pipe(
 );
 
 // Claude Code loads these tools up front instead of behind ToolSearch, outside this budget.
-it.effect("only request_secret asks Claude Code to load it up front", () =>
+it.effect("asks Claude Code to load no tool up front", () =>
   Effect.gen(function* () {
     const mcp = yield* McpServer.McpServer;
     const alwaysLoad = mcp.tools
       .filter(({ tool }) => tool._meta?.["anthropic/alwaysLoad"] !== undefined)
       .map(({ tool }) => [tool.name, tool._meta]);
-    expect(alwaysLoad).toEqual([["request_secret", { "anthropic/alwaysLoad": true }]]);
+    expect(alwaysLoad).toEqual([]);
   }).pipe(Effect.provide(layerAdvertisedTools)),
 );
 

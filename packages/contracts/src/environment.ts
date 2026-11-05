@@ -14,11 +14,6 @@ export const ORCHESTRATION_PROTOCOL_VERSION_TEXT = "2";
 export const ORCHESTRATION_PROTOCOL_QUERY_PARAM = "orchestrationProtocol";
 export const ORCHESTRATION_PROTOCOL_HEADER = "x-t3-orchestration-protocol";
 
-/** Wire shapes a client understands, comma-separated; a client that omits one gets the older shape. */
-export const CLIENT_CAPABILITIES_QUERY_PARAM = "clientCapabilities";
-/** Secret fields may hold a secret provider reference instead of a string. */
-export const SETTINGS_SECRET_REFERENCES_CAPABILITY = "settingsSecretReferences";
-
 export const ExecutionEnvironmentPlatformOs = Schema.Literals([
   "darwin",
   "linux",
@@ -101,7 +96,6 @@ export const ExecutionEnvironmentCapabilities = Schema.Struct({
   threadForceStop: Schema.optionalKey(Schema.Boolean),
   /** Every protocol-2 server sends this; older mobile builds still read it. */
   environmentThemes: Schema.optionalKey(Schema.Boolean),
-  usageLimitSources: Schema.optionalKey(Schema.Boolean),
   /** Honors `workspaceSnapshotsOnDemand`; older servers send every snapshot and drop them in the stream. */
   providerWorkspaceSnapshotsOnDemand: Schema.optionalKey(Schema.Boolean),
   usagePriceOverrides: Schema.optionalKey(Schema.Boolean),

@@ -42,9 +42,7 @@ import * as ProviderLatestVersions from "@aprende/provider-core/server/ProviderL
 import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
 import * as ProviderHostLive from "./provider/ProviderHostLive.ts";
 import * as DocumentText from "./provider/DocumentText.ts";
-import * as AcpRegistrySupport from "@aprende/provider-acp-registry/server/AcpRegistrySupport";
 import * as TextGeneration from "./textGeneration/TextGeneration.ts";
-import * as SecretResolver from "./secrets/SecretResolver.ts";
 import * as ProviderInstanceRegistryHydration from "./provider/ProviderInstanceRegistryHydration.ts";
 import * as ProjectSettingsOverrideSweep from "./provider/ProjectSettingsOverrideSweep.ts";
 import * as McpHttpServer from "./mcp/McpHttpServer.ts";
@@ -65,7 +63,6 @@ import * as ProviderInstanceRegistry from "./provider/ProviderInstanceRegistry.t
 import * as ProviderAdapterRegistry from "./orchestration-v2/ProviderAdapterRegistry.ts";
 import * as ProviderRegistry from "./provider/ProviderRegistry.ts";
 import * as ProviderUsageLimitsIngestion from "./provider/ProviderUsageLimitsIngestion.ts";
-import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import * as ProjectFaviconResolver from "./project/ProjectFaviconResolver.ts";
 import * as T3ProjectFileLoader from "./project/T3ProjectFileLoader.ts";
 import * as RepositoryIdentityResolver from "./project/RepositoryIdentityResolver.ts";
@@ -347,14 +344,11 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   Layer.provideMerge(layerOrchestrationV2Runtime),
   Layer.provideMerge(RuntimeLayer.layerEventInfrastructure),
   Layer.provideMerge(Layer.merge(ProjectStore.layer, ThreadSearch.layer)),
-  Layer.provideMerge(SecretResolver.layer),
   Layer.provideMerge(layerServerSettings),
   Layer.provideMerge(TextGeneration.layer),
   Layer.provideMerge(layerKnownWorkspaces),
   Layer.provideMerge(layerPersistence),
-  Layer.provideMerge(
-    Layer.mergeAll(Keybindings.layer, EnvironmentTheme.layer, UsageLimitSources.layer),
-  ),
+  Layer.provideMerge(Layer.mergeAll(Keybindings.layer, EnvironmentTheme.layer)),
   Layer.provideMerge(ProviderRegistry.layer),
   Layer.provideMerge(ProviderInstanceRegistryHydration.layer),
   Layer.provideMerge(CodexInstallation.CodexInstallation.layer),
@@ -362,7 +356,6 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
 
 const layerRuntimeCoreDependencies = layerRuntimeCoreDependenciesBase.pipe(
   Layer.provideMerge(layerPtyAdapter),
-  Layer.provideMerge(AcpRegistrySupport.layerFromHost.pipe(Layer.provide(ProviderHostLive.layer))),
   Layer.provideMerge(
     Layer.mergeAll(
       layerProviderEventLoggers,

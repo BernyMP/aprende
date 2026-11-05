@@ -513,7 +513,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "cli-command",
-    title: "t3 command",
+    title: "aprende command",
     to: "/settings/about",
     searchTerms: ["cli terminal shell path install command line"],
     desktopOnly: true,
@@ -614,15 +614,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: [
       "agents cli codex claude sign in sign out install subscription instances authentication api key models configuration binary path config directory codex_home shadow home endpoint arguments environment variables display name accent color custom favorite hidden auto compact native sessions import resume",
     ],
-  },
-  {
-    id: "usage-providers",
-    title: "Usage providers",
-    to: "/settings/providers",
-    searchTerms: [
-      "usage sources CLIProxyAPI CLI proxy hub quota subscription limits management key add remove",
-    ],
-    providerSettingsOnly: true,
   },
   {
     id: "provider-health-check-interval",

@@ -11,27 +11,17 @@ import { ChevronDownIcon } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../ui/collapsible";
 import { EnvironmentSubagentAvatar, SubagentElapsed, V2LifecycleRow } from "./V2LifecycleRow";
-import { SecretRequestCard } from "./SecretRequestCard";
 import { TimelineRowCtx, type TimelineRow } from "./timelineRowContext";
 import { subagentGroupTiming } from "./TimelineV2EventRow.logic";
 
 export function V2EventTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "event" }> }) {
   const ctx = use(TimelineRowCtx);
-  const { item, visibility } = row.projectedItem;
+  const { item } = row.projectedItem;
   if (item.type === "subagent" && (row.subagents?.length ?? 1) > 1) {
     return <V2SubagentGroup key={row.id} row={row} />;
   }
-  if (item.type === "secret_request") {
-    return (
-      <SecretRequestCard
-        environmentId={ctx.activeThreadEnvironmentId}
-        item={item}
-        visibility={visibility}
-      />
-    );
-  }
-  // Linking other environments was removed; past requests have nothing left to act on.
-  if (item.type === "link_request") return null;
+  // Secret requests and environment links were removed; past requests have nothing left to act on.
+  if (item.type === "secret_request" || item.type === "link_request") return null;
   return (
     <V2LifecycleRow
       environmentId={ctx.activeThreadEnvironmentId}
