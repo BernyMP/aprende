@@ -1,5 +1,4 @@
 import type { CodeViewScrollTarget } from "@pierre/diffs";
-import { useState } from "react";
 
 interface FileRevealHandle {
   getInstance(): object | undefined;
@@ -34,9 +33,4 @@ export function createCodeViewFileReveal() {
     },
     flush,
   };
-}
-
-export function useCodeViewFileReveal() {
-  const [reveal] = useState(createCodeViewFileReveal);
-  return reveal;
 }

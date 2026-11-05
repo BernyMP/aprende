@@ -44,14 +44,6 @@ export interface SecretProviderDraft {
   readonly account: string;
 }
 
-export function draftFromSecretProvider(provider: SecretProviderConfig): SecretProviderDraft {
-  const classified = classifySecretProvider(provider);
-  return {
-    name: provider.label,
-    account: classified.kind === "one_password" ? classified.account : "",
-  };
-}
-
 export type SecretProviderTarget =
   | { readonly mode: "add" }
   | { readonly mode: "edit"; readonly id: SecretProviderId };

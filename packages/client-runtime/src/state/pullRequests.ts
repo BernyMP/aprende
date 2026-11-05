@@ -22,7 +22,6 @@ import {
   type PullRequestMergeMethod,
   PullRequestOperationError,
   type PullRequestSummary,
-  type VcsStatusResult,
 } from "@aprende/contracts";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -165,36 +164,6 @@ export interface PullRequestAnswerHandlers {
   readonly detail?: QueryAnswerHandler<PullRequestRef, PullRequestDetail>;
   readonly checks?: QueryAnswerHandler<PullRequestRef, PullRequestChecks | null>;
   readonly reviewGuide?: QueryAnswerHandler<PullRequestRef, PullRequestReviewGuideResult>;
-}
-
-export function createPullRequestStackAtomFamily<R, E>(
-  runtime: Atom.AtomRuntime<EnvironmentRegistry | R, E>,
-  refreshes = createPullRequestRefreshAtomFamily(runtime),
-) {
-  const routedRequest = createPullRequestRouter();
-  return createEnvironmentRpcQueryAtomFamily(runtime, {
-    label: "environment-data:pull-requests:stack",
-    tag: WS_METHODS.pullRequestsStack,
-    execute: (input) => routedRequest(WS_METHODS.pullRequestsStack, input),
-    staleTimeMs: 60_000,
-    idleTtlMs: LINKED_PULL_REQUEST_IDLE_TTL_MS,
-    refreshTrigger: ({ environmentId }) => refreshes({ environmentId, input: {} }),
-  });
-}
-
-export function pullRequestDetailToVcsStatus(
-  detail: PullRequestDetail | PullRequestSummary,
-): NonNullable<VcsStatusResult["pr"]> {
-  return {
-    number: detail.number,
-    title: detail.title,
-    url: detail.url,
-    baseRef: detail.baseBranch,
-    headRef: detail.headBranch,
-    state: detail.state,
-    ...(detail.isDraft === true ? { isDraft: true } : {}),
-    updatedAt: detail.updatedAt,
-  };
 }
 
 export function createPullRequestEnvironmentAtoms<R, E>(

@@ -3,11 +3,11 @@ import { isScratchProject } from "@aprende/client-runtime/state/projects";
 import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 import {
   type EnvironmentId,
+  type EnvironmentMachineKind,
   type ProjectId,
   resolveEnvironmentMachineKind,
 } from "@aprende/contracts";
 
-import type { EnvironmentOption } from "../components/BranchToolbar.logic";
 import {
   deriveLogicalProjectKeyFromSettings,
   selectProjectGroupingSettings,
@@ -15,6 +15,14 @@ import {
 import { useProjects } from "../state/entities";
 import { useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
 import { useClientSettings } from "./useSettings";
+
+export interface EnvironmentOption {
+  environmentId: EnvironmentId;
+  projectId: ProjectId | null;
+  label: string;
+  isPrimary: boolean;
+  machine: EnvironmentMachineKind;
+}
 
 export function useLogicalProjectEnvironments(
   activeProject: EnvironmentProject | null,
@@ -72,4 +80,21 @@ export function useLogicalProjectEnvironments(
     return a.label.localeCompare(b.label);
   });
   return envs;
+}
+
+const GENERIC_LOCAL_ENVIRONMENT_LABELS = new Set(["local", "local environment"]);
+
+/** A primary environment's generic runtime label reads as "This device". */
+export function resolveEnvironmentOptionLabel(input: {
+  isPrimary: boolean;
+  environmentId: EnvironmentId;
+  runtimeLabel?: string | null;
+}): string {
+  const runtimeLabel = input.runtimeLabel?.trim() || null;
+  if (input.isPrimary) {
+    return runtimeLabel && !GENERIC_LOCAL_ENVIRONMENT_LABELS.has(runtimeLabel.toLowerCase())
+      ? runtimeLabel
+      : "This device";
+  }
+  return runtimeLabel ?? input.environmentId;
 }

@@ -9,7 +9,7 @@ import { resolveDiffPathForWorkspace } from "./diffFileActions";
 import {
   revealInFileExplorerLabelForKind,
   revealInFileExplorerLabelForOs,
-} from "~/components/preview/fileExplorerLabel";
+} from "~/components/files/fileExplorerLabel";
 import { readLocalApi } from "./localApi";
 import { serverEnvironment } from "./state/server";
 import { shellEnvironment } from "./state/shell";
@@ -160,12 +160,5 @@ export function useFileContextMenu(environmentId: EnvironmentId | null) {
     capabilities,
     activate,
     show,
-  };
-}
-
-export function useFileContextMenuHandler(environmentId: EnvironmentId | null) {
-  const contextMenu = useFileContextMenu(environmentId);
-  return (target: FileContextMenuTarget, event?: { clientX: number; clientY: number }) => {
-    void contextMenu.show(target, event ? { x: event.clientX, y: event.clientY } : undefined);
   };
 }

@@ -48,7 +48,6 @@ import {
   canPickExternalProjectFavicon,
   ProjectFaviconPickerDialog,
 } from "./ProjectFaviconPickerDialog";
-import { ProjectActionsSettings } from "./ProjectActionsSettings";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import {
   defaultProjectIcon,
@@ -138,7 +137,7 @@ function CheckoutGroupingSelect({ member }: { member: SidebarProjectGroupMember 
   );
 }
 
-export type ProjectSettingsCategory = "general" | "source-control" | "project";
+export type ProjectSettingsCategory = "general" | "project";
 
 interface ProjectSelection {
   readonly key: string;
@@ -654,7 +653,6 @@ function ProjectDetail({
           ) : null}
         </SettingsSection>
         <ProjectDefaultsSettings category="project" />
-        <ProjectActionsSettings />
         {checkoutChoices}
         <SettingsSection title="Danger">
           <SettingsRow

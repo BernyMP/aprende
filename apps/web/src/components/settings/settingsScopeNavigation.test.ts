@@ -1,4 +1,4 @@
-import { EnvironmentId, ProviderInstanceId, ScheduledTaskId } from "@aprende/contracts";
+import { EnvironmentId, ProviderInstanceId } from "@aprende/contracts";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -10,8 +10,6 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { resolveSettingsScope } from "./settingsScope";
 import { retainSettingsScope, validateSettingsRouteSearch } from "./settingsScopeNavigation";
-
-import { validateScheduledTasksSearch } from "./scheduledTasksSettings.logic";
 
 const checkoutSearch = {
   project: "repository:aprende",
@@ -34,8 +32,8 @@ function createSettingsRouter(initialEntry = "/settings/general") {
   });
   const general = createRoute({ getParentRoute: () => settings, path: "general" });
   const projects = createRoute({ getParentRoute: () => settings, path: "projects" });
-  const integrations = createRoute({ getParentRoute: () => settings, path: "integrations" });
-  const sourceControl = createRoute({ getParentRoute: () => settings, path: "source-control" });
+  const appearance = createRoute({ getParentRoute: () => settings, path: "appearance" });
+  const threads = createRoute({ getParentRoute: () => settings, path: "threads" });
   const providers = createRoute({
     getParentRoute: () => settings,
     path: "providers",
@@ -47,11 +45,6 @@ function createSettingsRouter(initialEntry = "/settings/general") {
         ? { instanceId: ProviderInstanceId.make(raw.instanceId) }
         : {}),
     }),
-  });
-  const scheduledTasks = createRoute({
-    getParentRoute: () => settings,
-    path: "scheduled-tasks",
-    validateSearch: validateScheduledTasksSearch,
   });
   const legacyProject = createRoute({
     getParentRoute: () => root,
@@ -66,14 +59,7 @@ function createSettingsRouter(initialEntry = "/settings/general") {
   });
   return createRouter({
     routeTree: root.addChildren([
-      settings.addChildren([
-        general,
-        projects,
-        integrations,
-        sourceControl,
-        providers,
-        scheduledTasks,
-      ]),
+      settings.addChildren([general, projects, appearance, threads, providers]),
       legacyProject,
     ]),
     history: createMemoryHistory({ initialEntries: [initialEntry] }),
@@ -96,17 +82,17 @@ describe("settings scope navigation", () => {
   it("preserves the checkout through category and settings-search navigation", async () => {
     const router = createSettingsRouter();
     await router.navigate({ to: "/settings/general", search: checkoutSearch, hash: "new-threads" });
-    await router.navigate({ to: "/settings/integrations", hash: "", replace: true });
+    await router.navigate({ to: "/settings/appearance", hash: "", replace: true });
     expect(router.state.location.search).toEqual(checkoutSearch);
     expect(router.state.location.hash).toBe("");
-    await router.navigate({ to: "/settings/source-control", hash: "source-control-writing-style" });
+    await router.navigate({ to: "/settings/threads", hash: "thread-title-instructions" });
     expect(router.state.location.search).toEqual(checkoutSearch);
-    expect(router.state.location.hash).toBe("source-control-writing-style");
+    expect(router.state.location.hash).toBe("thread-title-instructions");
     await router.navigate({ to: "/settings/projects", hash: "project-defaults" });
     expect(router.state.location.search).toEqual(checkoutSearch);
   });
 
-  it.each(["/settings/projects", "/settings/scheduled-tasks"] as const)(
+  it.each(["/settings/projects"] as const)(
     "keeps %s when regrouping or selecting a target from the shared settings layout",
     async (to) => {
       const router = createSettingsRouter();
@@ -209,7 +195,7 @@ describe("settings scope navigation", () => {
     const reloaded = createSettingsRouter(checkoutHref);
     await reloaded.load();
     expect(reloaded.state.location.search).toEqual(checkoutSearch);
-    await reloaded.navigate({ to: "/settings/integrations", hash: "agent-browser-access" });
+    await reloaded.navigate({ to: "/settings/appearance", hash: "chat-width" });
     expect(reloaded.state.location.search).toEqual(checkoutSearch);
   });
 
@@ -233,29 +219,5 @@ describe("settings scope navigation", () => {
     await router.navigate(router.state.redirect!.options);
     expect(router.state.location.pathname).toBe("/settings/general");
     expect(router.state.location.search).toEqual({ machine: "remote-server" });
-  });
-});
-
-describe("scheduled task scope navigation", () => {
-  it("opens a task link on its owning environment, then clears the task when changing filters", async () => {
-    const router = createSettingsRouter();
-    await router.navigate({
-      to: "/settings/scheduled-tasks",
-      search: {
-        environmentId: EnvironmentId.make("remote-server"),
-        taskId: ScheduledTaskId.make("task-1"),
-      },
-    });
-    expect(router.state.matches.at(-1)?.search).toEqual({
-      machine: "remote-server",
-      environmentId: "remote-server",
-      taskId: "task-1",
-    });
-    await router.navigate({
-      from: "/settings",
-      to: router.state.location.pathname,
-      search: () => ({ machine: undefined, project: undefined, checkout: undefined }),
-    });
-    expect(router.state.matches.at(-1)?.search).toEqual({});
   });
 });

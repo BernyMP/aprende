@@ -10,10 +10,7 @@ import { APPEARANCE_OPTIONS, notifyThemeSaveFailure } from "../components/Comman
 import { toggleThemeEditorForTheme } from "../components/settings/themeEditorStore";
 import { toastManager } from "../components/ui/toast";
 import { getThemeSnapshot, setAppearanceMode } from "../hooks/useTheme";
-import { selectActiveRightPanel, useRightPanelStore } from "../rightPanelStore";
 import { type CommandHandler, type CommandScopeOptions, registerCommands } from "./dispatcher";
-import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
-import { resolveThreadRouteTarget } from "../threadRoutes";
 
 function consume(event: KeyboardEvent): void {
   event.preventDefault();
@@ -37,11 +34,6 @@ export function installCommandPaletteCommands(
   router: AnyRouter,
   options: Pick<CommandScopeOptions, "keybindings"> = {},
 ): () => void {
-  const readRouteThreadRef = () => {
-    const target = resolveThreadRouteTarget(router.state.matches.at(-1)?.params ?? {});
-    return target?.kind === "server" ? target.threadRef : null;
-  };
-
   // A child search (files, contents) goes back to the palette on Escape before
   // its own widgets or the dialog can treat the key as a close.
   const disposeEscape = registerCommands(
@@ -104,22 +96,7 @@ export function installCommandPaletteCommands(
     {
       ...options,
       when: isCommandPaletteMounted,
-      context: () => {
-        const threadRef = readRouteThreadRef();
-        return {
-          terminalOpen: threadRef
-            ? selectThreadTerminalUiState(
-                useTerminalUiStateStore.getState().terminalUiStateByThreadKey,
-                threadRef,
-              ).terminalOpen
-            : false,
-          previewOpen: threadRef
-            ? selectActiveRightPanel(useRightPanelStore.getState().byThreadKey, threadRef) ===
-              "preview"
-            : false,
-          usagePageOpen: router.state.location.pathname === "/usage",
-        };
-      },
+      context: () => ({ usagePageOpen: router.state.location.pathname === "/usage" }),
     },
   );
 

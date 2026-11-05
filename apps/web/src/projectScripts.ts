@@ -18,24 +18,6 @@ export interface ProjectScriptInput {
   readonly autoOpenPreview: boolean;
 }
 
-export function buildProjectScript(id: string, input: ProjectScriptInput): ProjectScript {
-  return {
-    id,
-    name: input.name,
-    command: input.command,
-    icon: input.icon,
-    runOnWorktreeCreate: input.runOnWorktreeCreate,
-    ...(input.runOnWorktreeCreate && input.waitForSetup ? { async: false } : {}),
-    ...(input.runOnSettle ? { runOnSettle: true } : {}),
-    ...(input.previewUrl === null
-      ? {}
-      : {
-          previewUrl: input.previewUrl,
-          autoOpenPreview: input.autoOpenPreview,
-        }),
-  };
-}
-
 export function releaseClaimedRoles(
   script: ProjectScript,
   saved: ProjectScriptInput,

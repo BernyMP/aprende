@@ -252,6 +252,7 @@ export function buildKeybindingRows(
 ): ReadonlyArray<KeybindingRow> {
   const rowsById = new Map<string, KeybindingRow>();
   for (const binding of keybindings) {
+    if (isRetiredKeybindingCommand(binding.command)) continue;
     const defaultBinding = defaultBindingForBinding(binding);
     const key = shortcutToKeybindingInput(binding.shortcut);
     const when = whenAstToExpression(binding.whenAst);
@@ -357,6 +358,30 @@ export function buildWhenVariableOptions(): ReadonlyArray<WhenVariableOption> {
   });
 }
 
+/** Commands whose surfaces aprende removed. Their ids stay valid in saved keybindings files. */
+const RETIRED_KEYBINDING_COMMANDS: ReadonlySet<KeybindingCommand> = new Set([
+  "terminal.toggle",
+  "terminal.split",
+  "terminal.splitVertical",
+  "terminal.new",
+  "terminal.close",
+  "pullRequest.copyNumber",
+  "diff.toggle",
+  "preview.toggle",
+  "preview.refresh",
+  "preview.focusUrl",
+  "preview.zoomIn",
+  "preview.zoomOut",
+  "preview.resetZoom",
+  "composer.host",
+  "composer.workspace",
+  "composer.previousWorktree",
+  "composer.branch",
+]);
+
+export const isRetiredKeybindingCommand = (command: KeybindingCommand) =>
+  RETIRED_KEYBINDING_COMMANDS.has(command);
+
 export function buildKeybindingCommandOptions(
   keybindings: ResolvedKeybindingsConfig,
 ): ReadonlyArray<KeybindingCommandOption> {
@@ -364,7 +389,9 @@ export function buildKeybindingCommandOptions(
   for (const binding of keybindings) {
     commands.add(binding.command);
   }
-  return [...commands].toSorted((left, right) => compareCommands(left, right, commandLabel));
+  return [...commands]
+    .filter((command) => !isRetiredKeybindingCommand(command))
+    .toSorted((left, right) => compareCommands(left, right, commandLabel));
 }
 
 export function commandLabel(command: KeybindingCommand): string {

@@ -1,6 +1,5 @@
 import {
   AuthOrchestrationOperateScope,
-  AuthSourceControlWriteScope,
   EnvironmentId,
   ProjectId,
   ThreadId,
@@ -11,8 +10,6 @@ import { AsyncResult } from "effect/reactivity";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { scopedThreadKey } from "@aprende/client-runtime/environment";
-import { useDiffPanelStore } from "../diffPanelStore";
-import { browserMiniPlayerSource, usePreviewMiniPlayerStore } from "../previewMiniPlayerStore";
 import { useRightPanelStore } from "../rightPanelStore";
 
 function deferred<T>() {
@@ -39,7 +36,6 @@ const state = vi.hoisted(() => ({
   confirm: vi.fn<(message: string) => Promise<boolean>>(),
   toasts: [] as string[],
   afterRequest: undefined as ((action: string) => void) | undefined,
-  sessionLookupFails: false,
 }));
 
 vi.mock("react", () => ({
@@ -60,24 +56,12 @@ vi.mock("../state/use-atom-command", () => ({
     (action: string) =>
     async (request: { environmentId: string; input: { threadId?: string } }) => {
       state.requests.push({ action, ...request });
-      const scope =
-        action === "removeWorktree" ? AuthSourceControlWriteScope : AuthOrchestrationOperateScope;
-      if (!state.scopes.get(request.environmentId)?.has(scope)) {
+      if (!state.scopes.get(request.environmentId)?.has(AuthOrchestrationOperateScope)) {
         return AsyncResult.failure(Cause.fail(new Error("Server denied the request")));
       }
       state.afterRequest?.(action);
       return AsyncResult.success(undefined);
     },
-}));
-vi.mock("../state/use-atom-query-runner", () => ({
-  useAtomQueryRunner: () => async (environmentId: string) =>
-    state.sessionLookupFails
-      ? AsyncResult.failure(Cause.fail(new Error("Session lookup failed")))
-      : AsyncResult.success({
-          authenticated: true,
-          scopes: [...(state.scopes.get(environmentId) ?? [])],
-          auth: { serverUpdateScope: "environment:maintain" },
-        }),
 }));
 vi.mock("../state/threads", () => ({
   threadEnvironment: Object.fromEntries(
@@ -123,12 +107,6 @@ vi.mock("../composerDraftStore", () => ({
       clearProjectDraftThreadById: () => state.localEffects.push("clear-project-draft"),
     }),
 }));
-vi.mock("../terminalUiStateStore", () => ({
-  useTerminalUiStateStore: (select: (store: unknown) => unknown) =>
-    select({
-      clearTerminalUiState: () => state.localEffects.push("clear-terminal-ui"),
-    }),
-}));
 vi.mock("../uiStateStore", () => ({
   useUiStateStore: (select: (store: unknown) => unknown) =>
     select({
@@ -170,20 +148,16 @@ import { useThreadActions } from "./useThreadActions";
 
 function seedThreadPanelState(ref: ScopedThreadRef) {
   useRightPanelStore.getState().show(ref);
-  useDiffPanelStore.getState().selectGitScope(ref, "branch");
-  usePreviewMiniPlayerStore.getState().open(ref, browserMiniPlayerSource("tab"));
 }
 
 function threadPanelStatePresence(ref: ScopedThreadRef) {
   const key = scopedThreadKey(ref);
   return {
     rightPanel: key in useRightPanelStore.getState().byThreadKey,
-    diffPanel: key in useDiffPanelStore.getState().byThreadKey,
-    miniPlayer: key in usePreviewMiniPlayerStore.getState().byThreadKey,
   };
 }
-const panelStateKept = { rightPanel: true, diffPanel: true, miniPlayer: true };
-const panelStateCleared = { rightPanel: false, diffPanel: false, miniPlayer: false };
+const panelStateKept = { rightPanel: true };
+const panelStateCleared = { rightPanel: false };
 
 const primary = EnvironmentId.make("primary");
 const secondary = EnvironmentId.make("secondary");
@@ -247,10 +221,7 @@ beforeEach(() => {
   state.confirm.mockReset().mockResolvedValue(true);
   state.toasts = [];
   state.afterRequest = undefined;
-  state.sessionLookupFails = false;
   useRightPanelStore.setState(useRightPanelStore.getInitialState(), true);
-  useDiffPanelStore.setState(useDiffPanelStore.getInitialState(), true);
-  usePreviewMiniPlayerStore.setState(usePreviewMiniPlayerStore.getInitialState(), true);
 });
 
 describe("thread action permissions", () => {
@@ -331,39 +302,5 @@ describe("thread action permissions", () => {
     expect(state.requests.map((request) => request.action)).toEqual(["stopSession"]);
     expect(state.localEffects).toEqual([]);
     expect(threadPanelStatePresence(target)).toEqual(panelStateKept);
-  });
-
-  it.each([
-    { reason: "without source-control permission", sessionLookupFails: false },
-    { reason: "when the permission lookup fails", sessionLookupFails: true },
-  ])("deletes a worktree thread and keeps its worktree $reason", async ({ sessionLookupFails }) => {
-    state.scopes.get(secondary)!.add(AuthOrchestrationOperateScope);
-    state.threads[0]!.worktreePath = "/worktrees/thread";
-    state.sessionLookupFails = sessionLookupFails;
-    seedThreadPanelState(target);
-    expect((await useThreadActions().deleteThread(target))._tag).toBe("Success");
-    expect(state.confirm).not.toHaveBeenCalled();
-    expect(state.requests.map((request) => request.action)).toEqual(["stopSession", "delete"]);
-    expect(state.localEffects).toContain("clear-terminal-ui");
-    expect(threadPanelStatePresence(target)).toEqual(panelStateCleared);
-  });
-
-  it("does not request worktree removal after its grant is revoked during delete", async () => {
-    state.scopes
-      .get(secondary)!
-      .add(AuthOrchestrationOperateScope)
-      .add(AuthSourceControlWriteScope);
-    state.threads[0]!.worktreePath = "/worktrees/thread";
-    state.afterRequest = () => state.scopes.get(secondary)!.delete(AuthSourceControlWriteScope);
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      const result = await useThreadActions().deleteThread(target);
-      expect(result._tag).toBe("Success");
-      expect(state.requests.map((request) => request.action)).toEqual(["stopSession", "delete"]);
-      expect(state.toasts).toContain("Failed to delete worktree");
-      expect(state.localEffects).toContain("clear-terminal-ui");
-    } finally {
-      consoleError.mockRestore();
-    }
   });
 });

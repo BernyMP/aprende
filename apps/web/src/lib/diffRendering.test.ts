@@ -1,6 +1,5 @@
 import { hydratePartialDiff } from "@pierre/diffs";
 import { describe, expect, it } from "vite-plus/test";
-import { resolveDiffReviewPosition } from "../reviewCommentContext";
 import {
   buildFileDiffContentVersion,
   buildFileDiffIdentityKey,
@@ -46,35 +45,11 @@ describe("getRenderablePatch", () => {
     expect(file.additionLines).toEqual(shown.files[0]!.additionLines);
     expect(file.deletionLines).toEqual(shown.files[0]!.deletionLines);
     expect(file.cacheKey).not.toBe(shown.files[0]!.cacheKey);
-    expect(resolveDiffReviewPosition(hidden.sourceFiles[0]!, 43, "additions")).toEqual({
-      kind: "added",
-      newLine: 43,
-    });
-    expect(resolveDiffReviewPosition(hidden.sourceFiles[0]!, 42, "deletions")).toEqual({
-      kind: "deleted",
-      oldLine: 42,
-    });
     expect(file.hunks[0]?.hunkContent).toContainEqual({
       type: "context",
       lines: 3,
       additionLineIndex: 2,
       deletionLineIndex: 1,
-    });
-    expect(resolveDiffReviewPosition(file, 41, "additions")).toEqual({
-      kind: "added",
-      newLine: 41,
-    });
-    expect(resolveDiffReviewPosition(file, 43, "additions")).toEqual({
-      kind: "context",
-      oldLine: 42,
-      newLine: 43,
-      side: "right",
-    });
-    expect(resolveDiffReviewPosition(file, 42, "deletions")).toEqual({
-      kind: "context",
-      oldLine: 42,
-      newLine: 43,
-      side: "left",
     });
     expect(file.hunks[1]).toMatchObject({
       additionStart: 82,
@@ -95,9 +70,6 @@ describe("getRenderablePatch", () => {
       },
     });
     expect(getDiffLineStat([hydrated])).toEqual({ additions: 3, deletions: 1 });
-    expect(resolveDiffReviewPosition(hydrated, 43, "additions")).toEqual(
-      resolveDiffReviewPosition(file, 43, "additions"),
-    );
   });
 
   it.each([

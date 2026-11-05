@@ -1,15 +1,8 @@
-import {
-  DEFAULT_CLIENT_SETTINGS,
-  type PreviewSessionSnapshot,
-  type ScopedThreadRef,
-} from "@aprende/contracts";
-import * as Cause from "effect/Cause";
-import { AsyncResult } from "effect/reactivity";
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { DEFAULT_CLIENT_SETTINGS, type ScopedThreadRef } from "@aprende/contracts";
+import { beforeEach, describe, expect, it } from "vite-plus/test";
 
 import { type ClosedViewEntry, useClosedViewStore } from "./closedViewStore";
 import { __setClientSettingsForTests } from "./hooks/useSettings";
-import { readThreadPreviewState, resetPreviewStateForTests } from "./previewStateStore";
 import { planNextReopen, type ReopenOwnerState, reopenClosedView } from "./reopenClosedView";
 import {
   selectThreadRightPanelState,
@@ -21,28 +14,15 @@ const threadRef = {
   environmentId: "local" as ScopedThreadRef["environmentId"],
   threadId: "thread-1" as ScopedThreadRef["threadId"],
 };
-const snapshot: PreviewSessionSnapshot = {
-  threadId: threadRef.threadId,
-  tabId: "old-tab",
-  navStatus: { _tag: "Success", url: "https://example.com", title: "Example" },
-  canGoBack: false,
-  canGoForward: false,
-  viewport: { _tag: "freeform", width: 1200, height: 800 },
-  profileId: "work",
-  updatedAt: "2026-09-22T12:00:00.000Z",
-};
-
 beforeEach(() => {
   __setClientSettingsForTests(DEFAULT_CLIENT_SETTINGS);
-  resetPreviewStateForTests();
   useClosedViewStore.setState({ entries: [] });
   useRightPanelStore.setState({ byThreadKey: {}, userActionRevisionByThreadKey: {} });
 });
 
 describe("reopenClosedView", () => {
-  it("restores a file tab at its line without creating a browser session", async () => {
-    const openPreview = vi.fn();
-    const reopened = await reopenClosedView(
+  it("restores a file tab at its line", () => {
+    const reopened = reopenClosedView(
       {
         kind: "panel-tab",
         threadRef,
@@ -54,20 +34,16 @@ describe("reopenClosedView", () => {
           revealRequestId: 1,
         },
       },
-      { openPreview, workspaceAvailable: true },
+      { workspaceAvailable: true },
     );
     expect(reopened).toBe(true);
     const state = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, threadRef);
     expect(state.isOpen).toBe(true);
     expect(state.surfaces).toMatchObject([{ id: "file:src/app.ts", revealLine: 18 }]);
-    expect(openPreview).not.toHaveBeenCalled();
   });
 
-  it("does not reopen workspace tabs without an available project", async () => {
-    const options = {
-      openPreview: vi.fn(),
-      workspaceAvailable: false,
-    };
+  it("does not reopen workspace tabs without an available project", () => {
+    const options = { workspaceAvailable: false };
     for (const surface of [
       { kind: "files", id: "files" },
       {
@@ -78,47 +54,8 @@ describe("reopenClosedView", () => {
         revealRequestId: 0,
       },
     ] as const) {
-      expect(await reopenClosedView({ kind: "panel-tab", threadRef, surface }, options)).toBe(
-        false,
-      );
+      expect(reopenClosedView({ kind: "panel-tab", threadRef, surface }, options)).toBe(false);
     }
-    expect(
-      selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, threadRef).surfaces,
-    ).toEqual([]);
-  });
-
-  it("recreates a browser tab with saved URL, viewport and profile, then selects its new ID", async () => {
-    const openPreview = vi.fn(async () => AsyncResult.success({ ...snapshot, tabId: "new-tab" }));
-    const result = await reopenClosedView(
-      { kind: "browser", threadRef, snapshot },
-      { openPreview, workspaceAvailable: false },
-    );
-    expect(result).toBe(true);
-    expect(openPreview).toHaveBeenCalledWith({
-      environmentId: threadRef.environmentId,
-      input: {
-        threadId: threadRef.threadId,
-        url: "https://example.com",
-        viewport: snapshot.viewport,
-        profileId: "work",
-      },
-    });
-    expect(readThreadPreviewState(threadRef).snapshot?.tabId).toBe("new-tab");
-    expect(
-      selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, threadRef)
-        .activeSurfaceId,
-    ).toBe("browser:new-tab");
-  });
-
-  it("leaves the panel unchanged when a browser resource fails to reopen", async () => {
-    const result = await reopenClosedView(
-      { kind: "browser", threadRef, snapshot },
-      {
-        openPreview: async () => AsyncResult.failure(Cause.fail(new Error("offline"))),
-        workspaceAvailable: false,
-      },
-    );
-    expect(result).toBe(false);
     expect(
       selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, threadRef).surfaces,
     ).toEqual([]);
@@ -127,7 +64,18 @@ describe("reopenClosedView", () => {
 
 describe("planNextReopen", () => {
   const entries: ClosedViewEntry[] = [
-    { id: "a", kind: "panel-tab", threadRef, surface: { kind: "diff", id: "diff" } },
+    {
+      id: "a",
+      kind: "panel-tab",
+      threadRef,
+      surface: {
+        kind: "file",
+        id: "file:a.ts",
+        relativePath: "a.ts",
+        revealLine: null,
+        revealRequestId: 0,
+      },
+    },
     { id: "b", kind: "panel-tab", threadRef, surface: { kind: "files", id: "files" } },
   ];
   const known: ReopenOwnerState = {
@@ -138,10 +86,12 @@ describe("planNextReopen", () => {
     shellLive: true,
     panel: { isOpen: false, activeSurfaceId: null, surfaces: [] },
   };
-  const openDiff: ThreadRightPanelState = {
+  const openFilePanel: ThreadRightPanelState = {
     isOpen: true,
-    activeSurfaceId: "diff",
-    surfaces: [{ kind: "diff", id: "diff" }],
+    activeSurfaceId: "file:a.ts",
+    surfaces: [
+      { kind: "file", id: "file:a.ts", relativePath: "a.ts", revealLine: null, revealRequestId: 0 },
+    ],
   };
 
   it.each([
@@ -182,10 +132,10 @@ describe("planNextReopen", () => {
       [],
       null,
     ],
-    ["drops a tab that is already open", [{ ...known, panel: openDiff }, known], ["a"], "b"],
+    ["drops a tab that is already open", [{ ...known, panel: openFilePanel }, known], ["a"], "b"],
     [
       "restores a tab whose panel is hidden",
-      [{ ...known, panel: { ...openDiff, isOpen: false } }],
+      [{ ...known, panel: { ...openFilePanel, isOpen: false } }],
       [],
       "a",
     ],

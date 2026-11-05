@@ -1,4 +1,4 @@
-import { useAuth } from "@clerk/react";
+import type { EnvironmentConnectionPresentation } from "@aprende/client-runtime/connection";
 import { useAtomValue } from "@effect/atom-react";
 import type {
   AgentSessionProjectCandidate,
@@ -9,38 +9,24 @@ import type {
   ServerConfig,
   ServerProvider,
 } from "@aprende/contracts";
-import { scopeProjectRef, scopeThreadRef } from "@aprende/client-runtime/environment";
+import { scopeProjectRef } from "@aprende/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@aprende/client-runtime/state/runtime";
 import {
   AgentSessionSource,
-  AuthTerminalOperateScope,
   CommandId,
   defaultInstanceIdForDriver,
   AuthOrchestrationOperateScope,
   isManagedDriverAllowed,
   ProviderDriverKind,
-  ThreadId,
 } from "@aprende/contracts";
-import * as Schema from "effect/Schema";
-import {
-  ArrowRightIcon,
-  CheckIcon,
-  ChevronRightIcon,
-  CloudIcon,
-  LinkIcon,
-  MonitorIcon,
-  TerminalIcon,
-} from "lucide-react";
+import { ArrowRightIcon, CheckIcon, ChevronRightIcon, LinkIcon, MonitorIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { hasCloudPublicConfig } from "../../cloud/publicConfig";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
-import { useT3ConnectAuthPrompt } from "../clerk/useT3ConnectAuthPrompt";
 import { completeOnboarding } from "../../onboarding/firstRun";
 import {
   groupOnboardingProjects,
@@ -57,24 +43,16 @@ import {
   resolveOnboardingProviderLoginCommand,
   selectOnboardingProvidersByDriver,
 } from "../../onboarding/providerReadiness.logic";
-import { newProjectId, randomUUID } from "../../lib/utils";
+import { newProjectId } from "../../lib/utils";
 import { agentSessionImport } from "../../state/agentSessions";
 import { readProjects, waitForProject } from "../../state/entities";
 import { useEnvironments, usePrimaryEnvironment } from "../../state/environments";
 import { managedInstanceLocks } from "../../state/managedPolicy";
-import {
-  isOnboardingRelayEnvironment,
-  resolveOnboardingSetup,
-} from "../../onboarding/targetEnvironment.logic";
+import { resolveOnboardingSetup } from "../../onboarding/targetEnvironment.logic";
 import { useProjectScans } from "../../onboarding/useProjectScans";
 import { projectEnvironment } from "../../state/projects";
 import { serverEnvironment } from "../../state/server";
-import {
-  readEnvironmentScope,
-  useEnvironmentScope,
-  useEnvironmentsWithScope,
-} from "../../state/session";
-import { terminalEnvironment } from "../../state/terminal";
+import { readEnvironmentScope, useEnvironmentsWithScope } from "../../state/session";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { connectPairing } from "../../connection/onboarding";
 import { getProviderSummary } from "../settings/providerStatus";
@@ -83,9 +61,6 @@ import { ChatGptWelcomeCoordinator } from "../settings/ChatGptWelcomeCoordinator
 import { AddManagedCodexAccountDialog, CodexSetupSection } from "../settings/CodexSetupSection";
 import { readCodexSetupMode } from "../settings/CodexSetupSection.logic";
 import { buildProviderInstanceUpdatePatch } from "../settings/SettingsPanels.logic";
-import { TerminalViewport } from "../ThreadTerminalDrawer";
-import { CloudEnvironmentConnectRows } from "../cloud/CloudEnvironmentConnectList";
-import { presentSavedCloudEnvironmentConnection } from "../cloud/cloudEnvironmentConnectionPresentation";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { AppMark } from "../AppMark";
 import { Alert, AlertDescription } from "../ui/alert";
@@ -106,7 +81,6 @@ import { formatRelativeTime } from "../../timestampFormat";
 type WizardStep = "connection" | "agents" | "import";
 const NO_ENVIRONMENTS: readonly EnvironmentId[] = [];
 
-const AGENT_ONBOARDING_THREAD_ID = ThreadId.make("onboarding-agent-setup");
 const ONBOARDING_STAGES = ["Connect", "Agents", "Projects"] as const;
 const SCAN_LIMIT_MESSAGE = "Scan limit reached. Some projects or conversations may be missing.";
 
@@ -259,18 +233,9 @@ export function WelcomeWizard({
         <WizardPanel holdHeight={isLoadingProjects}>
           {step === "connection" ? (
             <ConnectionStep
-              expandPairingInitially={!localAvailable && !hasCloudPublicConfig()}
+              expandPairingInitially={!localAvailable}
               selectedIds={selectedIds}
-              autoSelectedComputers={autoSelectedComputers}
               onSelectionChange={setSelection}
-              onToggleEnvironment={(environmentId, checked) =>
-                setSelection((current) => {
-                  const next = new Set(current ?? selectedIds);
-                  if (checked) next.add(environmentId);
-                  else next.delete(environmentId);
-                  return next;
-                })
-              }
               onContinue={() =>
                 startSetup(resolveOnboardingSetup(environments, selectedIds).environmentIds)
               }
@@ -298,27 +263,19 @@ export function WelcomeWizard({
 }
 
 function ConnectionStep({
-  autoSelectedComputers,
   expandPairingInitially,
   selectedIds,
   onSelectionChange,
-  onToggleEnvironment,
   onContinue,
   onPaired,
 }: {
-  readonly autoSelectedComputers: Set<EnvironmentId>;
   readonly expandPairingInitially: boolean;
   readonly selectedIds: ReadonlySet<EnvironmentId>;
   readonly onSelectionChange: (ids: ReadonlySet<EnvironmentId>) => void;
-  readonly onToggleEnvironment: (environmentId: EnvironmentId, checked: boolean) => void;
   readonly onContinue: () => void;
   readonly onPaired: (environmentId: EnvironmentId) => void;
 }) {
   const { environments } = useEnvironments();
-  const cloudEnabled = hasCloudPublicConfig();
-  const directEnvironments = environments.filter(
-    (environment) => !cloudEnabled || !isOnboardingRelayEnvironment(environment),
-  );
   const [pairingOpen, setPairingOpen] = useState(expandPairingInitially);
   const [isPairing, setIsPairing] = useState(false);
   const { ready, skippedIds } = resolveOnboardingSetup(environments, selectedIds);
@@ -344,10 +301,10 @@ function ConnectionStep({
       <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">
         Choose one or more computers. We’ll set up agents and projects on each.
       </p>
-      {directEnvironments.length > 0 ? (
+      {environments.length > 0 ? (
         <fieldset className="mt-5 space-y-2">
           <legend className="sr-only">Computers to set up</legend>
-          {directEnvironments.map((environment) => (
+          {environments.map((environment) => (
             <label
               key={environment.environmentId}
               className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-background px-3 py-3"
@@ -370,7 +327,7 @@ function ConnectionStep({
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {!environment.entry.enabled && environment.connection.phase !== "unsupported"
                       ? "Off"
-                      : presentSavedCloudEnvironmentConnection(environment.connection).buttonLabel}
+                      : connectionLabel(environment.connection.phase)}
                   </span>
                 </span>
                 {environment.displayUrl ? (
@@ -389,14 +346,6 @@ function ConnectionStep({
         </fieldset>
       ) : null}
       <div className="mt-4 space-y-2">
-        {cloudEnabled ? (
-          <ConnectAccountOption
-            autoSelectedComputers={autoSelectedComputers}
-            disabled={isPairing}
-            selectedIds={selectedIds}
-            onToggleEnvironment={onToggleEnvironment}
-          />
-        ) : null}
         <div className="rounded-lg border border-border bg-background">
           <Collapsible open={pairingOpen} onOpenChange={setPairingOpen}>
             <CollapsibleTrigger
@@ -465,84 +414,18 @@ function ConnectionStep({
   );
 }
 
-function ConnectAccountOption({
-  autoSelectedComputers,
-  disabled,
-  selectedIds,
-  onToggleEnvironment,
-}: {
-  readonly autoSelectedComputers: Set<EnvironmentId>;
-  readonly disabled: boolean;
-  readonly selectedIds: ReadonlySet<EnvironmentId>;
-  readonly onToggleEnvironment: (environmentId: EnvironmentId, checked: boolean) => void;
-}) {
-  const { environments } = useEnvironments();
-  const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
-  const { openAuthPrompt } = useT3ConnectAuthPrompt();
-  const [expanded, setExpanded] = useState(true);
-  const [discoveryReady, setDiscoveryReady] = useState(false);
-  const onDiscoveryReady = () => setDiscoveryReady(true);
+const CONNECTION_LABELS: Record<EnvironmentConnectionPresentation["phase"], string> = {
+  connected: "Connected",
+  connecting: "Connecting…",
+  reconnecting: "Reconnecting…",
+  unsupported: "Client not supported",
+  error: "Connection failed",
+  offline: "Offline",
+  available: "Not connected",
+};
 
-  return (
-    <div className="rounded-lg border border-border bg-background">
-      <Collapsible open={expanded && !!isSignedIn && discoveryReady} onOpenChange={setExpanded}>
-        <CollapsibleTrigger
-          disabled={disabled || !isLoaded}
-          onClick={(event) => {
-            if (!isSignedIn) {
-              event.preventDefault();
-              setExpanded(true);
-              openAuthPrompt();
-            }
-          }}
-          render={
-            <Button variant="ghost" size="sm-multiline" className="min-h-14 w-full justify-start" />
-          }
-        >
-          <CloudIcon className="size-4 text-muted-foreground" />
-          <span className="flex-1 text-left">T3 Connect</span>
-          <span className="text-xs text-muted-foreground">
-            {!isLoaded
-              ? "Loading sign-in…"
-              : !isSignedIn
-                ? "Sign in"
-                : !discoveryReady
-                  ? "Loading computers…"
-                  : null}
-          </span>
-          <ChevronRightIcon
-            className={cn("size-4 text-muted-foreground", expanded && isSignedIn && "rotate-90")}
-          />
-        </CollapsibleTrigger>
-        <CollapsiblePanel keepMounted>
-          <div className="px-3 pb-3">
-            <div className="mb-3 space-y-1.5">
-              {isSignedIn ? (
-                <CloudEnvironmentConnectRows
-                  primaryEnvironmentId={null}
-                  savedEnvironments={environments}
-                  showSavedEnvironments
-                  onDiscoveryReady={onDiscoveryReady}
-                  selection={{ selectedIds, onChange: onToggleEnvironment, autoSelectedComputers }}
-                  refreshWhileEmpty
-                  empty={
-                    <p className="py-3 text-sm text-muted-foreground">No computers linked yet.</p>
-                  }
-                />
-              ) : null}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Run this on each computer you want to connect.
-            </p>
-            <CommandBlock command="npx aprende connect" className="mt-3" />
-            <p className="mt-3 text-xs text-muted-foreground">
-              Keep aprende running. Select the computers you want to set up above.
-            </p>
-          </div>
-        </CollapsiblePanel>
-      </Collapsible>
-    </div>
-  );
+function connectionLabel(phase: EnvironmentConnectionPresentation["phase"]): string {
+  return CONNECTION_LABELS[phase];
 }
 
 function PairingForm({
@@ -660,13 +543,9 @@ function PairingForm({
 const PRIMARY_AGENT_DRIVERS = ["codex", "claudeAgent"] as const;
 type OnboardingAgentDriver = (typeof PRIMARY_AGENT_DRIVERS)[number];
 
-interface AgentTerminalSession {
-  readonly environmentId: EnvironmentId;
+interface AgentSetupSession {
   readonly driver: OnboardingAgentDriver;
-  readonly providerInstanceId: ServerProvider["instanceId"];
-  readonly cwd: string;
   readonly command: string;
-  readonly keybindings: ServerConfig["keybindings"];
 }
 
 function AgentsStep({
@@ -718,14 +597,13 @@ function ConnectedAgentsStep({
     reportFailure: false,
   });
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
-  const [terminalSession, setTerminalSession] = useState<AgentTerminalSession | null>(null);
+  const [setupSession, setSetupSession] = useState<AgentSetupSession | null>(null);
   const [addingAccount, setAddingAccount] = useState(false);
   const [createdAccount, setCreatedAccount] = useState<{
     instanceId: ProviderInstanceId;
     displayName: string;
     autoStart: boolean;
   } | null>(null);
-  const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
 
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- asks the environment to refresh its provider list when the environment changes
   useEffect(() => {
@@ -765,11 +643,6 @@ function ConnectedAgentsStep({
   return (
     <section>
       <h2 className="mb-2 text-sm font-medium">{machineLabel}</h2>
-      {!canOperateTerminal ? (
-        <p className="mb-2 text-sm text-muted-foreground">
-          This connection cannot control terminals.
-        </p>
-      ) : null}
       <div className="space-y-1.5">
         {primaryAgents.map(({ driver, provider, instanceId }) =>
           driver === "codex" && serverConfig !== null ? (
@@ -782,18 +655,11 @@ function ConnectedAgentsStep({
               onAutoStartConsumed={() =>
                 setCreatedAccount((account) => (account ? { ...account, autoStart: false } : null))
               }
-              terminalOpen={terminalSession?.driver === driver}
-              onOpenTerminal={() => {
-                if (
-                  provider === undefined ||
-                  !readEnvironmentScope(environmentId, AuthTerminalOperateScope)
-                )
-                  return;
-                setTerminalSession({
-                  environmentId,
+              setupOpen={setupSession?.driver === driver}
+              onShowSetup={() => {
+                if (provider === undefined) return;
+                setSetupSession({
                   driver,
-                  providerInstanceId: provider.instanceId,
-                  cwd: serverConfig.cwd,
                   command: provider.installed
                     ? resolveOnboardingProviderLoginCommand(
                         provider,
@@ -804,7 +670,6 @@ function ConnectedAgentsStep({
                         driver,
                         serverConfig.environment.platform.os,
                       ),
-                  keybindings: serverConfig.keybindings,
                 });
               }}
             />
@@ -813,20 +678,12 @@ function ConnectedAgentsStep({
               key={driver}
               driver={driver}
               provider={provider}
-              terminalOpen={terminalSession?.driver === driver}
-              terminalAvailable={serverConfig !== null && canOperateTerminal}
-              onOpenTerminal={() => {
-                if (
-                  provider === undefined ||
-                  serverConfig === null ||
-                  !readEnvironmentScope(environmentId, AuthTerminalOperateScope)
-                )
-                  return;
-                setTerminalSession({
-                  environmentId,
+              setupOpen={setupSession?.driver === driver}
+              setupAvailable={serverConfig !== null}
+              onShowSetup={() => {
+                if (provider === undefined || serverConfig === null) return;
+                setSetupSession({
                   driver,
-                  providerInstanceId: provider.instanceId,
-                  cwd: serverConfig.cwd,
                   command: provider.installed
                     ? resolveOnboardingProviderLoginCommand(
                         provider,
@@ -837,7 +694,6 @@ function ConnectedAgentsStep({
                         driver,
                         serverConfig.environment.platform.os,
                       ),
-                  keybindings: serverConfig.keybindings,
                 });
               }}
             />
@@ -864,12 +720,12 @@ function ConnectedAgentsStep({
           }
         />
       ) : null}
-      {terminalSession !== null ? (
-        <AgentInstallTerminal
-          key={`${terminalSession.environmentId}:${terminalSession.providerInstanceId}:${terminalSession.driver}`}
-          session={terminalSession}
+      {setupSession !== null ? (
+        <AgentSetupCommand
+          session={setupSession}
+          onCheckAgain={() => void refreshProviders({ environmentId, input: {} })}
           onClose={() => {
-            setTerminalSession(null);
+            setSetupSession(null);
             void refreshProviders({ environmentId, input: {} });
           }}
         />
@@ -884,14 +740,14 @@ function OnboardingCodexSetup({
   environmentId,
   provider,
   serverConfig,
-  terminalOpen,
-  onOpenTerminal,
+  setupOpen,
+  onShowSetup,
 }: {
   readonly environmentId: EnvironmentId;
   readonly provider: ServerProvider | undefined;
   readonly serverConfig: ServerConfig;
-  readonly terminalOpen: boolean;
-  readonly onOpenTerminal: () => void;
+  readonly setupOpen: boolean;
+  readonly onShowSetup: () => void;
   readonly createdAccount: {
     instanceId: ProviderInstanceId;
     displayName: string;
@@ -899,7 +755,6 @@ function OnboardingCodexSetup({
   } | null;
   readonly onAutoStartConsumed: () => void;
 }) {
-  const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
   const update = useAtomCommand(serverEnvironment.updateSettings, "Codex setup settings");
   const instanceId =
     createdAccount?.instanceId ??
@@ -943,9 +798,9 @@ function OnboardingCodexSetup({
     <AgentCard
       driver="codex"
       provider={provider}
-      terminalOpen={terminalOpen}
-      terminalAvailable={canOperateTerminal}
-      onOpenTerminal={onOpenTerminal}
+      setupOpen={setupOpen}
+      setupAvailable
+      onShowSetup={onShowSetup}
     />
   ) : (
     <CodexSetupSection
@@ -966,15 +821,15 @@ function OnboardingCodexSetup({
 function AgentCard({
   driver,
   provider,
-  terminalOpen,
-  terminalAvailable,
-  onOpenTerminal,
+  setupOpen,
+  setupAvailable,
+  onShowSetup,
 }: {
   readonly driver: OnboardingAgentDriver;
   readonly provider: ServerProvider | undefined;
-  readonly terminalOpen: boolean;
-  readonly terminalAvailable: boolean;
-  readonly onOpenTerminal: () => void;
+  readonly setupOpen: boolean;
+  readonly setupAvailable: boolean;
+  readonly onShowSetup: () => void;
 }) {
   const meta = providerClients.get(ProviderDriverKind.make(driver));
   const displayName =
@@ -1012,10 +867,9 @@ function AgentCard({
           <Button
             size="xs"
             variant="ghost"
-            onClick={onOpenTerminal}
-            disabled={terminalOpen || !terminalAvailable}
+            onClick={onShowSetup}
+            disabled={setupOpen || !setupAvailable}
           >
-            <TerminalIcon className="size-3.5" />
             {providerState === "signIn" ? "Sign in" : "Install"}
           </Button>
         )}
@@ -1024,162 +878,35 @@ function AgentCard({
   );
 }
 
-function AgentInstallTerminal({
+/** The install or sign-in command, for the learner to run in their own terminal. */
+function AgentSetupCommand({
   session,
+  onCheckAgain,
   onClose,
 }: {
-  readonly session: AgentTerminalSession;
+  readonly session: AgentSetupSession;
+  readonly onCheckAgain: () => void;
   readonly onClose: () => void;
 }) {
-  const { command, cwd, driver, environmentId, keybindings, providerInstanceId } = session;
-  const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
-  const [advancedTypography] = useLocalStorage(
-    TYPOGRAPHY_ADVANCED_STORAGE_KEY,
-    false,
-    Schema.Boolean,
-  );
-  const openTerminal = useAtomCommand(terminalEnvironment.open, { reportFailure: false });
-  const writeTerminal = useAtomCommand(terminalEnvironment.write, { reportFailure: false });
-  const closeTerminal = useAtomCommand(terminalEnvironment.close, { reportFailure: false });
-  const setupQueueRef = useRef(Promise.resolve());
-  const setupGenerationRef = useRef(0);
-  const activeSetupGenerationRef = useRef<number | null>(null);
-  const [terminalId] = useState(() => `onboarding-${driver}-${randomUUID()}`);
-  const threadRef = scopeThreadRef(environmentId, AGENT_ONBOARDING_THREAD_ID);
-  const [setupAttempt, setSetupAttempt] = useState(0);
-  const [setupState, setSetupState] = useState<
-    "preparing" | "ready" | "openFailed" | "writeFailed"
-  >("preparing");
-  const terminalReady = setupState === "ready" || setupState === "writeFailed";
-
-  // StrictMode can finish a cancelled open after replacement setup; it must not close or pre-type into that
-  // session.
-  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- opens the setup PTY, types the command into it, and closes it on cleanup
-  useEffect(() => {
-    const generation = setupGenerationRef.current + 1;
-    setupGenerationRef.current = generation;
-    activeSetupGenerationRef.current = generation;
-    // oxlint-disable-next-line react/set-state-in-effect -- A retry or a new command reopens the terminal, which shows as preparing until the open settles.
-    setSetupState("preparing");
-
-    setupQueueRef.current = setupQueueRef.current.then(async () => {
-      if (activeSetupGenerationRef.current !== generation) return;
-      if (!readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
-        setSetupState("openFailed");
-        return;
-      }
-      const opened = await openTerminal({
-        environmentId,
-        input: {
-          threadId: AGENT_ONBOARDING_THREAD_ID,
-          terminalId,
-          cwd,
-          providerInstanceId,
-        },
-      });
-      if (opened._tag !== "Success") {
-        if (activeSetupGenerationRef.current === generation) setSetupState("openFailed");
-        return;
-      }
-
-      if (activeSetupGenerationRef.current !== generation) return;
-      if (!readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
-        setSetupState("writeFailed");
-        return;
-      }
-
-      const wrote = await writeTerminal({
-        environmentId,
-        input: { threadId: AGENT_ONBOARDING_THREAD_ID, terminalId, data: command },
-      });
-      if (activeSetupGenerationRef.current !== generation) return;
-      setSetupState(wrote._tag === "Success" ? "ready" : "writeFailed");
-    });
-
-    // Revocation leaves the PTY running; close only while terminal access remains.
-    return () => {
-      if (activeSetupGenerationRef.current === generation) {
-        activeSetupGenerationRef.current = null;
-      }
-      setupQueueRef.current = setupQueueRef.current.then(async () => {
-        if (!readEnvironmentScope(environmentId, AuthTerminalOperateScope)) return;
-        await closeTerminal({
-          environmentId,
-          input: { threadId: AGENT_ONBOARDING_THREAD_ID, terminalId, deleteHistory: true },
-        });
-      });
-    };
-  }, [
-    closeTerminal,
-    command,
-    cwd,
-    environmentId,
-    openTerminal,
-    providerInstanceId,
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Retry bumps setupAttempt to open the terminal again.
-    setupAttempt,
-    terminalId,
-    writeTerminal,
-  ]);
-
+  const { copyToClipboard, isCopied } = useCopyToClipboard();
   return (
-    <div
-      data-thread-terminal-drawer
-      className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground"
-    >
-      <div className="flex items-center justify-between border-b border-border/60 bg-background/60 px-3 py-1.5">
-        <span className="text-2xs font-medium text-muted-foreground">
-          {!canOperateTerminal ? (
-            "This connection cannot control terminals."
-          ) : setupState === "writeFailed" ? (
-            <>
-              Run <code className="rounded bg-muted px-1 font-mono">{command}</code> in this
-              terminal.
-            </>
-          ) : setupState === "ready" ? (
-            "Review the command, then press Enter to run it."
-          ) : setupState === "openFailed" ? (
-            "Could not open the setup terminal."
-          ) : (
-            "Preparing command..."
-          )}
-        </span>
-        <div className="flex items-center gap-1">
-          {setupState === "openFailed" ? (
-            <Button
-              size="xs"
-              variant="ghost"
-              disabled={!canOperateTerminal}
-              onClick={() => {
-                if (readEnvironmentScope(environmentId, AuthTerminalOperateScope)) {
-                  setSetupAttempt((value) => value + 1);
-                }
-              }}
-            >
-              Retry
-            </Button>
-          ) : null}
-          <Button size="xs" variant="ghost-muted" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-      </div>
-      <div className="h-64">
-        {terminalReady ? (
-          <TerminalViewport
-            threadRef={threadRef}
-            threadId={AGENT_ONBOARDING_THREAD_ID}
-            terminalId={terminalId}
-            terminalLabel={`Install ${driver}`}
-            cwd={cwd}
-            providerInstanceId={providerInstanceId}
-            advancedTypography={advancedTypography}
-            onSessionExited={onClose}
-            autoFocus
-            visible
-            keybindings={keybindings}
-          />
-        ) : null}
+    <div className="mt-4 rounded-lg border border-border/70 bg-background px-3 py-2.5">
+      <p className="text-xs text-muted-foreground">
+        Run this in a terminal on this computer, then check again.
+      </p>
+      <code className="mt-2 block rounded bg-muted px-2 py-1.5 font-mono text-xs break-all">
+        {session.command}
+      </code>
+      <div className="mt-2 flex justify-end gap-1">
+        <Button size="xs" variant="ghost" onClick={() => copyToClipboard(session.command)}>
+          {isCopied ? "Copied" : "Copy"}
+        </Button>
+        <Button size="xs" variant="ghost" onClick={onCheckAgain}>
+          Check again
+        </Button>
+        <Button size="xs" variant="ghost-muted" onClick={onClose}>
+          Close
+        </Button>
       </div>
     </div>
   );

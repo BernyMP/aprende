@@ -97,10 +97,6 @@ function parsePromptLinkPullRequest(value: string): PromptLinkPullRequest | null
     : null;
 }
 
-export function promptLinkPullRequestUrl(pullRequest: PromptLinkPullRequest): string {
-  return `https://github.com/${pullRequest.owner}/${pullRequest.name}/pull/${pullRequest.number}`;
-}
-
 function readPrompt(params: URLSearchParams): PromptLinkResult<LinkedPrompt | null> {
   const raw = params.get("prompt");
   if (raw === null) return { ok: true, value: null };

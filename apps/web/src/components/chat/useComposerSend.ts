@@ -184,10 +184,6 @@ interface ComposerSendInput {
   readonly runtimeMode: RuntimeMode;
   readonly sendEnvMode: DraftThreadEnvMode;
   readonly startFromOrigin: boolean;
-  readonly localCheckoutBranchMismatch: {
-    readonly threadBranch: string;
-    readonly currentBranch: string;
-  } | null;
   readonly logicalProjectEnvironments: ReturnType<typeof useLogicalProjectEnvironments>;
   readonly providerInstanceEntries: ReadonlyArray<ProviderInstanceEntry>;
   readonly composerRef: ComposerHandleRef;
@@ -249,7 +245,6 @@ interface ComposerSendInput {
   readonly persistThreadSettingsForNextTurn: (input: {
     threadId: ThreadId;
     createdAt: string;
-    branch?: string;
     runtimeMode: RuntimeMode;
     interactionMode: ProviderInteractionMode;
   }) => Promise<AtomCommandResult<void, unknown>>;
@@ -282,7 +277,6 @@ export function useComposerSend(input: ComposerSendInput) {
     runtimeMode,
     sendEnvMode,
     startFromOrigin,
-    localCheckoutBranchMismatch,
     logicalProjectEnvironments,
     providerInstanceEntries,
     composerRef,
@@ -384,7 +378,6 @@ export function useComposerSend(input: ComposerSendInput) {
     beginLocalDispatch,
     resetLocalDispatch,
     runtimeMode,
-    localCheckoutBranchMismatch,
     setOptimisticUserMessages,
     setThreadError,
     anchorNewTurn,
@@ -1262,9 +1255,6 @@ export function useComposerSend(input: ComposerSendInput) {
       const settingsResult = await persistThreadSettingsForNextTurn({
         threadId: threadIdForSend,
         createdAt: messageCreatedAt,
-        ...(localCheckoutBranchMismatch
-          ? { branch: localCheckoutBranchMismatch.currentBranch }
-          : {}),
         runtimeMode,
         interactionMode: sendInteractionMode,
       });

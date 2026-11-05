@@ -105,7 +105,6 @@ import {
 } from "./lib/copiedComposerAttachments";
 import { formatTerminalContextReference, type TerminalContextDraft } from "./lib/terminalContext";
 import { createDeferredStorage } from "./lib/storage";
-import { applyPreviewServerSnapshot, resetPreviewStateForTests } from "./previewStateStore";
 
 function makeImage(input: {
   id: string;
@@ -973,28 +972,6 @@ describe("composerDraftStore project draft thread mapping", () => {
     );
     expect(useComposerDraftStore.getState().getDraftThread(draftId)).toBeNull();
     expect(draftByKey(draftId)).toBeUndefined();
-  });
-
-  it("keeps a draft with an open page when remapping a project to a new draft thread", () => {
-    const store = useComposerDraftStore.getState();
-    store.setProjectDraftThreadId(projectRef, draftId, { threadId });
-    applyPreviewServerSnapshot(scopeThreadRef(TEST_ENVIRONMENT_ID, threadId), {
-      threadId,
-      tabId: "tab-link",
-      navStatus: { _tag: "Success", url: "https://example.com/", title: "Example" },
-      canGoBack: false,
-      canGoForward: false,
-      updatedAt: "2026-10-09T00:00:00.000Z",
-    });
-    try {
-      store.setProjectDraftThreadId(projectRef, otherDraftId, { threadId: otherThreadId });
-
-      expect(useComposerDraftStore.getState().getDraftThread(draftId)?.threadId).toBe(threadId);
-      const persisted = partializeComposerDraftStoreState(useComposerDraftStore.getState());
-      expect(persisted.draftThreadsByThreadKey[draftId]?.threadId).toBe(threadId);
-    } finally {
-      resetPreviewStateForTests();
-    }
   });
 
   it("keeps invested composer drafts alive unmapped when remapping a project to a new draft thread", () => {

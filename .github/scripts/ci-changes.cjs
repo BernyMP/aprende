@@ -24,7 +24,6 @@ const EXTRA_OWNERS = [
   [/^scripts\/lib\//, ["@aprende/desktop", "@aprende/mobile", "@aprende/web", "aprende"]],
   // scripts/build-desktop-artifact.ts reads the GNOME extension manifest.
   [/^apps\/desktop\/gnome-extension\//, ["@aprende/scripts"]],
-  [/^native\/browser-secret\//, ["@aprende/desktop"]],
   [/^native\/kde-snap-shot\//, ["@aprende/desktop"]],
   [/^native\/libghostty-vt\//, ["@aprende/web"]],
   // apps/server/src/cloud/ConnectReachability.test.ts checks the guide's headings.

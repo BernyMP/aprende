@@ -111,7 +111,7 @@ const open = () =>
 it("does not reopen a superseded helper when its initial probe completes", async () => {
   const pending = Promise.withResolvers<boolean>();
   const first = helper.show(
-    "full-disk-access",
+    "screen-recording",
     "/bundle/mac-permission-preload.cjs",
     null,
     iconPaths,

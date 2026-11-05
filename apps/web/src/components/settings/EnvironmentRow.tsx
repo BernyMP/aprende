@@ -14,7 +14,7 @@ import { usePreparedConnection } from "~/state/session";
 import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 
-export function formatDesktopSshTarget(target: DesktopSshEnvironmentTarget): string {
+function formatDesktopSshTarget(target: DesktopSshEnvironmentTarget): string {
   const authority = target.username ? `${target.username}@${target.hostname}` : target.hostname;
   return target.port ? `${authority}:${target.port}` : authority;
 }
@@ -49,7 +49,7 @@ export function environmentTransportLabel(
   return environment.displayUrl ?? "Remote link";
 }
 
-export function useEnvironmentTransportLabel(environment: EnvironmentPresentation): string {
+function useEnvironmentTransportLabel(environment: EnvironmentPresentation): string {
   const prepared = usePreparedConnection(environment.environmentId);
   return environmentTransportLabel(
     environment,

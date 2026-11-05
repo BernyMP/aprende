@@ -13,18 +13,7 @@ import {
   getAdvertisedEndpoints,
   getServerExposureState,
   setServerExposureMode,
-  setTailscaleServeEnabled,
 } from "./methods/serverExposure.ts";
-import {
-  bootstrapSshBearerSession,
-  disconnectSshEnvironment,
-  discoverSshHosts,
-  ensureSshEnvironment,
-  fetchSshEnvironmentDescriptor,
-  fetchSshSessionState,
-  resolveSshHost,
-  resolveSshPasswordPrompt,
-} from "./methods/sshEnvironment.ts";
 import {
   checkForUpdate,
   downloadUpdate,
@@ -41,8 +30,6 @@ import {
   getWindowFullscreenState,
   openExternal,
   readMedia,
-  openSystemSettings,
-  checkSystemPermission,
   pasteAsText,
   probeRemoteEditors,
   revealWindow,
@@ -66,7 +53,6 @@ import {
   setSnapShotAnimationDestination,
   setSnapShotShortcutSuppressed,
 } from "./methods/snapShot.ts";
-import * as PreviewIpc from "./methods/preview.ts";
 import * as AppActivationIpc from "./methods/appActivation.ts";
 import * as WebLinksIpc from "./methods/webLinks.ts";
 import {
@@ -83,7 +69,6 @@ import {
 export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers")(function* () {
   const ipc = yield* DesktopIpc.DesktopIpc;
   yield* installNotificationBadge();
-  yield* PreviewIpc.installPreviewEventForwarding();
 
   yield* ipc.handle(AppActivationIpc.setReady);
   yield* ipc.handle(AppActivationIpc.complete);
@@ -117,18 +102,8 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(acknowledgeSnapShot);
   yield* ipc.handle(setConnectionCatalog);
 
-  yield* ipc.handle(discoverSshHosts);
-  yield* ipc.handle(resolveSshHost);
-  yield* ipc.handle(ensureSshEnvironment);
-  yield* ipc.handle(disconnectSshEnvironment);
-  yield* ipc.handle(fetchSshEnvironmentDescriptor);
-  yield* ipc.handle(bootstrapSshBearerSession);
-  yield* ipc.handle(fetchSshSessionState);
-  yield* ipc.handle(resolveSshPasswordPrompt);
-
   yield* ipc.handle(getServerExposureState);
   yield* ipc.handle(setServerExposureMode);
-  yield* ipc.handle(setTailscaleServeEnabled);
   yield* ipc.handle(getAdvertisedEndpoints);
 
   yield* ipc.handle(getWslState);
@@ -145,8 +120,6 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(readMedia);
   yield* ipc.handle(receiveProviderAuthCallback);
   yield* ipc.handle(cancelProviderAuthCallback);
-  yield* ipc.handle(openSystemSettings);
-  yield* ipc.handle(checkSystemPermission);
   yield* ipc.handle(pasteAsText);
   yield* ipc.handle(revealWindow);
   yield* ipc.handle(probeRemoteEditors);
@@ -158,13 +131,4 @@ export const installDesktopIpcHandlers = Effect.fn("desktop.ipc.installHandlers"
   yield* ipc.handle(getCliCommandState);
   yield* ipc.handle(installCliCommand);
   yield* ipc.handle(uninstallCliCommand);
-  for (const previewMethod of PreviewIpc.methods) {
-    // Explicit types preserve the error/service union of these heterogeneous preview methods.
-    yield* ipc.handle<
-      Effect.Error<ReturnType<(typeof PreviewIpc.methods)[number]["handler"]>>,
-      Effect.Services<ReturnType<(typeof PreviewIpc.methods)[number]["handler"]>>
-    >(previewMethod);
-  }
-  yield* ipc.handle(PreviewIpc.listBrowserImportSources);
-  yield* ipc.handle(PreviewIpc.importBrowserCookies);
 });

@@ -3,7 +3,6 @@ import {
   deriveLatestThreadRun,
   deriveThreadRuntime,
 } from "@aprende/client-runtime/state/thread-execution";
-import { checkpointFileTotals } from "@aprende/client-runtime/state/thread-checkpoints";
 import { COMPACT_COMMAND_PATTERN } from "@aprende/client-runtime/state/context-window";
 import { derivePendingBackgroundWork } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
 import {
@@ -42,7 +41,6 @@ import {
   type ThreadContextRecord,
   type EnvironmentContextRecord,
   type ThreadId,
-  type ThreadLinkedPullRequest,
   type RunId,
   type WorktreeSetupSnapshot,
 } from "@aprende/contracts";
@@ -60,13 +58,7 @@ import {
   type CodexArtifactTemplate,
 } from "@aprende/shared/codexArtifactTemplates";
 import { presentThreadShell } from "@aprende/client-runtime/state/shell";
-import {
-  type ChatMessage,
-  isImageAttachment,
-  type SessionPhase,
-  type Thread,
-  type TurnDiffSummary,
-} from "../types";
+import { type ChatMessage, isImageAttachment, type SessionPhase, type Thread } from "../types";
 import {
   type ComposerFileAttachment,
   type ComposerImageAttachment,
@@ -96,9 +88,6 @@ import type { DraftThreadEnvMode } from "../composerDraftStore";
 import { collapseExpandedComposerCursor, type ComposerSubmissionIntent } from "../composer-logic";
 import type { ReviewCommentContext } from "../reviewCommentContext";
 import { derivePhase, type TimelineEntry } from "../session-logic";
-import type { PreviewMiniPlayerSource } from "../previewMiniPlayerStore";
-import type { DesktopPreviewOverlay } from "../previewStateStore";
-import type { RightPanelSurface } from "../rightPanelStore";
 import {
   NO_PROVIDER_MODEL_SELECTION,
   resolveSelectableProviderInstanceEntry,
@@ -108,142 +97,7 @@ import {
 type ThreadProjection = EnvironmentThread["projection"];
 type ThreadStructureRow = ThreadStructure["visibleTurnItems"][number];
 
-export const LAST_INVOKED_SCRIPT_BY_PROJECT_KEY = "aprende:last-invoked-script-by-project";
-export const MAX_HIDDEN_MOUNTED_TERMINAL_THREADS = 10;
-
 export const ENVIRONMENT_RECONNECT_WARNING_GRACE_MS = 2_000;
-
-export function agentControlledBrowserCloseConfirmation(
-  surfaces: readonly RightPanelSurface[],
-  desktopByTabId: Readonly<Record<string, Pick<DesktopPreviewOverlay, "controller"> | undefined>>,
-): string | null {
-  const activeBrowserCount = surfaces.filter(
-    (surface) =>
-      surface.kind === "preview" &&
-      surface.resourceId !== null &&
-      desktopByTabId[surface.resourceId]?.controller === "agent",
-  ).length;
-  if (activeBrowserCount === 0) return null;
-  if (activeBrowserCount === 1) {
-    return [
-      "Close browser while the agent is using it?",
-      "The agent is actively controlling this browser. Closing it may interrupt the current browser action.",
-    ].join("\n");
-  }
-  return [
-    `Close ${activeBrowserCount} browsers while the agent is using them?`,
-    "The agent is actively controlling these browsers. Closing them may interrupt the current browser actions.",
-  ].join("\n");
-}
-
-export function shouldRenderPreviewMiniPlayer(
-  source: PreviewMiniPlayerSource | null,
-  renderedRightPanelSurface: RightPanelSurface | null,
-): boolean {
-  if (source === null) return false;
-  if (source.kind === "browser") {
-    return !(
-      renderedRightPanelSurface?.kind === "preview" &&
-      renderedRightPanelSurface.resourceId === source.tabId
-    );
-  }
-  return !(
-    renderedRightPanelSurface?.kind === "device" &&
-    renderedRightPanelSurface.target?.hostId === source.hostId &&
-    renderedRightPanelSurface.target.deviceId === source.deviceId
-  );
-}
-
-export function shouldOpenProactivePullRequest(
-  previousTargetKey: string | null | undefined,
-  targetKey: string | null,
-): boolean {
-  return targetKey !== null && targetKey !== previousTargetKey;
-}
-
-interface ProactivePanelObservation {
-  threadKey: string;
-  runningTurnId: RunId | null | undefined;
-  targetKey: string | null | undefined;
-  userActionTurnId: RunId | null;
-  userActionRevision: number;
-}
-
-export function observeProactivePanelUserChoice(
-  previous: ProactivePanelObservation | null,
-  input: { threadKey: string; runningTurnId: RunId | null; userActionRevision: number },
-): ProactivePanelObservation {
-  const sameThread = previous?.threadKey === input.threadKey;
-  const newTurn =
-    sameThread && input.runningTurnId !== null && input.runningTurnId !== previous.userActionTurnId;
-  return {
-    threadKey: input.threadKey,
-    runningTurnId: sameThread ? previous.runningTurnId : undefined,
-    targetKey: sameThread ? previous.targetKey : undefined,
-    userActionTurnId: input.runningTurnId ?? (sameThread ? previous.userActionTurnId : null),
-    userActionRevision:
-      !sameThread || newTurn ? input.userActionRevision : previous.userActionRevision,
-  };
-}
-
-export function shouldRetargetThreadPullRequestPanel(
-  previous: ThreadLinkedPullRequest | null,
-  current: ThreadLinkedPullRequest | null,
-  surface: RightPanelSurface | null,
-): boolean {
-  if (previous === null || current === null || surface?.kind !== "pull-request") return false;
-  const previousRepository = previous.repository.toLowerCase();
-  return (
-    (previous.projectId !== current.projectId ||
-      previousRepository !== current.repository.toLowerCase() ||
-      previous.number !== current.number) &&
-    surface.projectId === previous.projectId &&
-    surface.repository.toLowerCase() === previousRepository &&
-    surface.number === previous.number
-  );
-}
-
-export function shouldOpenProactiveTurnDiff(input: {
-  previousRunningTurnId: RunId | null | undefined;
-  runningTurnId: RunId | null;
-  settledTurnId: RunId | null;
-  turnCompleted: boolean;
-}): boolean {
-  return (
-    input.runningTurnId === null &&
-    input.turnCompleted &&
-    input.settledTurnId !== null &&
-    (input.previousRunningTurnId === undefined ||
-      input.settledTurnId === input.previousRunningTurnId)
-  );
-}
-
-export function resolveProactiveTurnDiffAction(input: {
-  checkpoint: Pick<TurnDiffSummary, "status" | "files" | "filesTotal"> | undefined;
-  isGitRepo: boolean | undefined;
-}): "defer" | "ignore" | "open" {
-  if (input.checkpoint === undefined || input.checkpoint.status === "missing") return "defer";
-  if (input.isGitRepo === undefined) return "defer";
-  if (
-    !input.isGitRepo ||
-    input.checkpoint.status !== "ready" ||
-    input.checkpoint.files.length === 0
-  ) {
-    return "ignore";
-  }
-  const totals = checkpointFileTotals(input.checkpoint);
-  return totals.count >= 3 || totals.additions + totals.deletions >= 50 ? "open" : "ignore";
-}
-
-/** Mark reactivated Diff tabs to preserve review scope. Already-active tabs must not leave a marker for
- * the next open. */
-export function resolveExplicitDiffOpenOnActivate(input: {
-  readonly surfaceKind: RightPanelSurface["kind"];
-  readonly diffOpen: boolean;
-  readonly activeThreadRef: ScopedThreadRef;
-}): ScopedThreadRef | null {
-  return input.surfaceKind === "diff" && !input.diffOpen ? input.activeThreadRef : null;
-}
 
 export function codexArtifactTemplatePromptToAppend(
   currentDraft: string,
@@ -416,33 +270,6 @@ export function startNewThreadForProject(
   return true;
 }
 
-export function resolveThreadMetadataUpdateForNextTurn(input: {
-  currentModelSelection: ModelSelection;
-  nextModelSelection?: ModelSelection;
-  currentBranch: string | null;
-  nextBranch?: string;
-}): {
-  modelSelection?: ModelSelection;
-  branch?: string;
-  worktreePath?: null;
-} | null {
-  const nextModelSelection = input.nextModelSelection;
-  const modelSelectionChanged =
-    nextModelSelection !== undefined &&
-    (nextModelSelection.model !== input.currentModelSelection.model ||
-      nextModelSelection.instanceId !== input.currentModelSelection.instanceId ||
-      JSON.stringify(nextModelSelection.options ?? null) !==
-        JSON.stringify(input.currentModelSelection.options ?? null));
-  const branchChanged = input.nextBranch !== undefined && input.nextBranch !== input.currentBranch;
-  if (!modelSelectionChanged && !branchChanged) {
-    return null;
-  }
-  return {
-    ...(modelSelectionChanged ? { modelSelection: nextModelSelection } : {}),
-    ...(branchChanged ? { branch: input.nextBranch, worktreePath: null } : {}),
-  };
-}
-
 export function buildLocalDraftThread(
   threadId: ThreadId,
   draftThread: DraftThreadState,
@@ -547,48 +374,6 @@ export function resolveComposerInteractionMode(input: {
   };
 }
 
-export function reconcileMountedTerminalThreadIds(input: {
-  currentThreadIds: ReadonlyArray<string>;
-  openThreadIds: ReadonlyArray<string>;
-  activeThreadId: string | null;
-  activeThreadTerminalOpen: boolean;
-  maxHiddenThreadCount?: number;
-}): string[] {
-  const openThreadIdSet = new Set(input.openThreadIds);
-  const hiddenThreadIds = input.currentThreadIds.filter(
-    (threadId) => threadId !== input.activeThreadId && openThreadIdSet.has(threadId),
-  );
-  const maxHiddenThreadCount = Math.max(
-    0,
-    input.maxHiddenThreadCount ?? MAX_HIDDEN_MOUNTED_TERMINAL_THREADS,
-  );
-  const nextThreadIds =
-    hiddenThreadIds.length > maxHiddenThreadCount
-      ? hiddenThreadIds.slice(-maxHiddenThreadCount)
-      : hiddenThreadIds;
-
-  if (
-    input.activeThreadId &&
-    input.activeThreadTerminalOpen &&
-    !nextThreadIds.includes(input.activeThreadId)
-  ) {
-    nextThreadIds.push(input.activeThreadId);
-  }
-
-  return nextThreadIds;
-}
-
-// Null identifies the project checkout when a launch or session is known.
-export function resolveTerminalWorktreePath(input: {
-  launchContext: { readonly worktreePath: string | null } | null;
-  summary: { readonly worktreePath: string | null } | null;
-  threadWorktreePath: string | null;
-}): string | null {
-  if (input.launchContext !== null) return input.launchContext.worktreePath;
-  if (input.summary !== null) return input.summary.worktreePath;
-  return input.threadWorktreePath;
-}
-
 export async function resolveFileAttachmentUrl(input: {
   attachment: ChatFileAttachment;
   environmentId: EnvironmentId;
@@ -674,8 +459,6 @@ export function collectUserMessageBlobPreviewUrls(message: ChatMessage): string[
 
 export { readFileAsDataUrl } from "../lib/imageCompression";
 
-export { resolveSendEnvMode } from "@aprende/shared/projectSettings";
-
 export function resolveBackgroundDraftWorkspaceOptions(input: {
   envMode: DraftThreadEnvMode;
   branch: string | null;
@@ -759,29 +542,6 @@ export function buildExpiredTerminalContextToastCopy(
   };
 }
 
-export function branchMismatchKey(
-  threadId: string | null,
-  mismatch: { threadBranch: string; currentBranch: string } | null,
-): string | null {
-  if (!threadId || !mismatch) {
-    return null;
-  }
-  return `${threadId}:${mismatch.threadBranch}:${mismatch.currentBranch}`;
-}
-
-// Composer autofocus makes focus unreliable as draft intent.
-export function shouldShowBranchMismatchBanner(input: {
-  hasMismatch: boolean;
-  isDismissed: boolean;
-  composerHasContent: boolean;
-  wasShownForCurrentMismatch: boolean;
-}): boolean {
-  if (!input.hasMismatch || input.isDismissed) {
-    return false;
-  }
-  return input.composerHasContent || input.wasShownForCurrentMismatch;
-}
-
 export function shouldShowPlanFollowUpPrompt(input: {
   pendingUserInputCount: number;
   interactionMode: ProviderInteractionMode;
@@ -796,16 +556,6 @@ export function shouldShowPlanFollowUpPrompt(input: {
     input.hasActionableProposedPlan &&
     !input.hasComposerAttachments
   );
-}
-
-const sessionDismissedBranchMismatchKeys = new Set<string>();
-
-export function dismissBranchMismatchForSession(key: string): void {
-  sessionDismissedBranchMismatchKeys.add(key);
-}
-
-export function isBranchMismatchDismissedForSession(key: string | null): boolean {
-  return key !== null && sessionDismissedBranchMismatchKeys.has(key);
 }
 
 // Remember non-Git checkouts to avoid flashing the branch strip before delayed Git status arrives.
@@ -1242,10 +992,6 @@ export type LocalThreadErrorEntry = {
   readonly message: string | null;
   readonly at: number;
 };
-
-export function chatActionErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "An error occurred.";
-}
 
 export function releaseChatTimelineAnchor<T extends { readonly messageId: MessageId | null }>(
   current: T,

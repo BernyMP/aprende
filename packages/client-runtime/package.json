@@ -31,18 +31,6 @@
       "types": "./src/handoff.ts",
       "default": "./src/handoff.ts"
     },
-    "./device/stream": {
-      "types": "./src/device/stream.ts",
-      "default": "./src/device/stream.ts"
-    },
-    "./device/hub-access": {
-      "types": "./src/device/hubAccess.ts",
-      "default": "./src/device/hubAccess.ts"
-    },
-    "./preview/server-browser-stream": {
-      "types": "./src/preview/serverBrowserStream.ts",
-      "default": "./src/preview/serverBrowserStream.ts"
-    },
     "./worktree-setup": {
       "types": "./src/worktreeSetup.ts",
       "default": "./src/worktreeSetup.ts"
@@ -70,10 +58,6 @@
     "./link-request": {
       "types": "./src/linkRequest.ts",
       "default": "./src/linkRequest.ts"
-    },
-    "./scheduled-task-webhook": {
-      "types": "./src/scheduledTaskWebhook.ts",
-      "default": "./src/scheduledTaskWebhook.ts"
     },
     "./connection": {
       "types": "./src/connection/index.ts",
@@ -155,10 +139,6 @@
       "types": "./src/textPaste.ts",
       "default": "./src/textPaste.ts"
     },
-    "./webhook-address": {
-      "types": "./src/webhookAddress.ts",
-      "default": "./src/webhookAddress.ts"
-    },
     "./queued-run-edit": {
       "types": "./src/queuedRunEdit.ts",
       "default": "./src/queuedRunEdit.ts"
@@ -215,14 +195,6 @@
       "types": "./src/state/presentation.ts",
       "default": "./src/state/presentation.ts"
     },
-    "./state/device": {
-      "types": "./src/state/device.ts",
-      "default": "./src/state/device.ts"
-    },
-    "./state/deviceHubAccess": {
-      "types": "./src/state/deviceHubAccess.ts",
-      "default": "./src/state/deviceHubAccess.ts"
-    },
     "./state/peerLinks": {
       "types": "./src/state/peerLinks.ts",
       "default": "./src/state/peerLinks.ts"
@@ -234,10 +206,6 @@
     "./state/peerPairingCode": {
       "types": "./src/state/peerPairingCode.ts",
       "default": "./src/state/peerPairingCode.ts"
-    },
-    "./state/preview": {
-      "types": "./src/state/preview.ts",
-      "default": "./src/state/preview.ts"
     },
     "./state/projects": {
       "types": "./src/state/projects.ts",
@@ -258,10 +226,6 @@
     "./state/relay": {
       "types": "./src/state/relayDiscovery.ts",
       "default": "./src/state/relayDiscovery.ts"
-    },
-    "./state/review": {
-      "types": "./src/state/review.ts",
-      "default": "./src/state/review.ts"
     },
     "./state/runtime": {
       "types": "./src/state/runtime.ts",
@@ -302,10 +266,6 @@
     "./state/source-control": {
       "types": "./src/state/sourceControl.ts",
       "default": "./src/state/sourceControl.ts"
-    },
-    "./state/terminal": {
-      "types": "./src/state/terminal.ts",
-      "default": "./src/state/terminal.ts"
     },
     "./state/threads": {
       "types": "./src/state/threads.ts",
@@ -411,65 +371,13 @@
       "types": "./src/work-log/scrollAnchor.ts",
       "default": "./src/work-log/scrollAnchor.ts"
     },
-    "./pull-request-link-input": {
-      "types": "./src/pullRequestLinkInput.ts",
-      "default": "./src/pullRequestLinkInput.ts"
-    },
-    "./change-request-links": {
-      "types": "./src/changeRequestLinks.ts",
-      "default": "./src/changeRequestLinks.ts"
-    },
-    "./thread-pull-requests": {
-      "types": "./src/threadPullRequests.ts",
-      "default": "./src/threadPullRequests.ts"
-    },
     "./thread-reference": {
       "types": "./src/threadReference.ts",
       "default": "./src/threadReference.ts"
     },
-    "./pull-request-project-filter": {
-      "types": "./src/pullRequestProjectFilter.ts",
-      "default": "./src/pullRequestProjectFilter.ts"
-    },
-    "./thread-pull-request-compatibility": {
-      "types": "./src/threadPullRequestCompatibility.ts",
-      "default": "./src/threadPullRequestCompatibility.ts"
-    },
     "./file-preview": {
       "types": "./src/filePreview.ts",
       "default": "./src/filePreview.ts"
-    },
-    "./device/frame": {
-      "types": "./src/device/frame.ts",
-      "default": "./src/device/frame.ts"
-    },
-    "./device/phone-viewer": {
-      "types": "./src/device/phoneViewer.ts",
-      "default": "./src/device/phoneViewer.ts"
-    },
-    "./device/phone-interaction": {
-      "types": "./src/device/phoneInteraction.ts",
-      "default": "./src/device/phoneInteraction.ts"
-    },
-    "./device/shape-profile": {
-      "types": "./src/device/shapeProfile.ts",
-      "default": "./src/device/shapeProfile.ts"
-    },
-    "./device/screenshot": {
-      "types": "./src/device/screenshot.ts",
-      "default": "./src/device/screenshot.ts"
-    },
-    "./device/model": {
-      "types": "./src/device/model.ts",
-      "default": "./src/device/model.ts"
-    },
-    "./device/duo-viewer": {
-      "types": "./src/device/duoViewer.ts",
-      "default": "./src/device/duoViewer.ts"
-    },
-    "./device/duo-control": {
-      "types": "./src/device/duoControl.ts",
-      "default": "./src/device/duoControl.ts"
     },
     "./diff-count": {
       "types": "./src/diffCount.ts",
@@ -487,33 +395,9 @@
       "types": "./src/sourceControlClients.ts",
       "default": "./src/sourceControlClients.ts"
     },
-    "./review-guide-tour": {
-      "types": "./src/reviewGuideTour.ts",
-      "default": "./src/reviewGuideTour.ts"
-    },
     "./state/query-persistence": {
       "types": "./src/state/queryPersistence.ts",
       "default": "./src/state/queryPersistence.ts"
-    },
-    "./pull-request-markdown": {
-      "types": "./src/pullRequestMarkdown.ts",
-      "default": "./src/pullRequestMarkdown.ts"
-    },
-    "./pull-request-checks": {
-      "types": "./src/pullRequestChecks.ts",
-      "default": "./src/pullRequestChecks.ts"
-    },
-    "./pull-request-editing": {
-      "types": "./src/pullRequestEditing.ts",
-      "default": "./src/pullRequestEditing.ts"
-    },
-    "./pull-request-reactions": {
-      "types": "./src/pullRequestReactions.ts",
-      "default": "./src/pullRequestReactions.ts"
-    },
-    "./pull-request-query": {
-      "types": "./src/pullRequestQuery.ts",
-      "default": "./src/pullRequestQuery.ts"
     },
     "./model-traits": {
       "types": "./src/modelTraits.ts",
@@ -541,12 +425,10 @@
     "@aprende/source-control-definitions": "workspace:*",
     "@pierre/diffs": "catalog:",
     "effect": "catalog:",
-    "jszip": "3.10.1",
-    "three": "0.180.0"
+    "jszip": "3.10.1"
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
-    "@types/three": "0.180.0",
     "vite-plus": "catalog:"
   }
 }

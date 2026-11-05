@@ -1,15 +1,12 @@
 import { builtInSourceControlDefinitions } from "@aprende/source-control-definitions/registry";
 import {
-  HostCredentialSettings,
-  readSourceControlHostSettings,
   type SourceControlAppSignIn,
   type SourceControlDefinition,
 } from "@aprende/source-control-core/shared/definition";
-import type { ServerSettings, SourceControlAppAccessInput } from "@aprende/contracts";
+import type { SourceControlAppAccessInput } from "@aprende/contracts";
 import { parseGitRemoteRepository } from "@aprende/shared/git";
 
 export {
-  UNKNOWN_SOURCE_CONTROL_CLIENT,
   type ChangeRequestLink,
   type ChangeRequestTerminology,
   type HostAccountChoice,
@@ -23,14 +20,6 @@ export {
 } from "@aprende/source-control-core/shared/definition";
 
 export const sourceControlClients = builtInSourceControlDefinitions;
-
-/** The saved per-hostname accounts and tokens of a host whose definition has `credentials`. */
-export function readHostCredentialSettings(
-  settings: Pick<ServerSettings, "sourceControlHosts">,
-  kind: string,
-): HostCredentialSettings {
-  return readSourceControlHostSettings(HostCredentialSettings, settings.sourceControlHosts[kind]);
-}
 
 /** A host's change request term where it opens a sentence: "Merge request merged". */
 export function capitalizeTerm(term: string): string {

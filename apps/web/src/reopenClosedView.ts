@@ -1,14 +1,5 @@
-import type { EnvironmentId, ProjectId } from "@aprende/contracts";
-
-import type { OpenPreviewMutation } from "./browser/openFileInPreview";
 import type { ClosedView, ClosedViewEntry } from "./closedViewStore";
-import type { PullRequestListPreferences } from "./components/pullRequest/pullRequestListPreferences";
-import { openPreviewSession } from "./components/preview/openPreviewSession";
-import {
-  type RightPanelSurface,
-  type ThreadRightPanelState,
-  useRightPanelStore,
-} from "./rightPanelStore";
+import { type ThreadRightPanelState, useRightPanelStore } from "./rightPanelStore";
 
 export interface ReopenOwnerState {
   environmentKnown: boolean;
@@ -37,11 +28,7 @@ export function planNextReopen(
       break;
     }
     const alreadyOpen =
-      entry.kind === "panel-tab"
-        ? owner.panel.isOpen && owner.panel.surfaces.some((s) => s.id === entry.surface.id)
-        : owner.panel.surfaces.some(
-            (s) => s.kind === "preview" && s.resourceId === entry.snapshot.tabId,
-          );
+      owner.panel.isOpen && owner.panel.surfaces.some((s) => s.id === entry.surface.id);
     if (alreadyOpen) {
       drop.push(entry);
       continue;
@@ -51,67 +38,13 @@ export function planNextReopen(
   return { drop, restore: null };
 }
 
-type PullRequestsSearchLike = Partial<PullRequestListPreferences> & {
-  repository?: string;
-  number?: number;
-  selectedProjectId?: ProjectId;
-  selectedHost?: string;
-  selectedEnvironmentId?: EnvironmentId;
-};
-
-export function pullRequestsSearchForRestore<S extends PullRequestsSearchLike>(
-  previous: S,
-  selected: RightPanelSurface | null,
-): S & PullRequestListPreferences {
-  const {
-    repository: _repository,
-    number: _number,
-    selectedProjectId: _projectId,
-    selectedHost: _host,
-    selectedEnvironmentId: _environmentId,
-    ...filters
-  } = previous;
-  return {
-    ...filters,
-    involvement: previous.involvement ?? "all",
-    state: previous.state ?? "open",
-    ...(selected?.kind === "pull-request"
-      ? {
-          repository: selected.repository,
-          number: selected.number,
-          selectedProjectId: selected.projectId as ProjectId,
-          ...(selected.host === undefined ? {} : { selectedHost: selected.host }),
-          ...(selected.environmentId === undefined
-            ? {}
-            : { selectedEnvironmentId: selected.environmentId as EnvironmentId }),
-        }
-      : {}),
-  } as S & PullRequestListPreferences;
-}
-
-export async function reopenClosedView(
+export function reopenClosedView(
   view: ClosedView,
-  options: {
-    openPreview: OpenPreviewMutation;
-    workspaceAvailable: boolean;
-  },
-): Promise<boolean> {
+  options: { workspaceAvailable: boolean },
+): boolean {
   const panels = useRightPanelStore.getState();
   const ref = view.threadRef;
 
-  if (view.kind === "browser") {
-    const url = view.snapshot.navStatus._tag === "Idle" ? undefined : view.snapshot.navStatus.url;
-    const result = await openPreviewSession({
-      openPreview: options.openPreview,
-      threadRef: ref,
-      ...(url === undefined ? {} : { url }),
-      ...(view.snapshot.viewport === undefined ? {} : { viewport: view.snapshot.viewport }),
-      ...(view.snapshot.profileId === undefined ? {} : { profileId: view.snapshot.profileId }),
-    });
-    if (result._tag === "Failure") return false;
-    panels.openBrowser(ref, result.value.tabId);
-    return true;
-  }
   const surface = view.surface;
   if (
     !options.workspaceAvailable &&
@@ -119,22 +52,9 @@ export async function reopenClosedView(
   )
     return false;
   switch (surface.kind) {
-    case "preview":
-      if (surface.resourceId !== null) return false;
-      panels.openBrowser(ref, null);
-      break;
     case "file":
       if (surface.attachment) panels.openAttachment(ref, surface.attachment);
       else panels.openFile(ref, surface.relativePath, surface.revealLine ?? undefined);
-      break;
-    case "device":
-      if (surface.target) {
-        panels.openDevice(ref, surface.target);
-        if (surface.title) panels.renameDevice(ref, surface.id, surface.title);
-      } else panels.open(ref, "device");
-      break;
-    case "pull-request":
-      panels.openPullRequest(ref, surface);
       break;
     case "side-chat":
       panels.openSideChat(ref, surface.threadId);

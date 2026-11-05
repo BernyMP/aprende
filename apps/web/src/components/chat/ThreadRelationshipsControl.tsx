@@ -5,7 +5,7 @@ import { ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { ThreadDetailsSection } from "./ThreadDetailsSection";
 import { SectionHeaderStatus } from "../ui/collapsible-section-header";
 import { SubagentTooltipContent } from "./SubagentTooltipContent";
-import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
+import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { scopedThreadKey, scopeThreadRef } from "@aprende/client-runtime/environment";
 import {
   deriveWorkflowGroups,

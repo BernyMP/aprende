@@ -1,6 +1,4 @@
 import type { ElementType } from "react";
-import type { SourceControlProviderInfo } from "@aprende/contracts";
-import { sourceControlClients } from "@aprende/client-runtime/source-control-clients";
 import type {
   ChangeRequestTerminology,
   SourceControlDefinition,
@@ -33,28 +31,4 @@ export interface SourceControlPresentation {
   readonly providerName: string;
   readonly terminology: ChangeRequestTerminology;
   readonly Icon: SourceControlIcon;
-}
-
-function presentDefinition(
-  definition: SourceControlDefinition,
-  providerName: string,
-): SourceControlPresentation {
-  return {
-    definition,
-    providerName,
-    terminology: definition.changeRequest,
-    Icon: sourceControlIcon(definition),
-  };
-}
-
-export function getSourceControlPresentation(
-  provider: SourceControlProviderInfo | null | undefined,
-): SourceControlPresentation {
-  const definition = sourceControlClients.get(provider?.kind);
-  return presentDefinition(definition, provider?.name || definition.label);
-}
-
-export function getSourceControlPresentationForKind(kind: string): SourceControlPresentation {
-  const definition = sourceControlClients.get(kind);
-  return presentDefinition(definition, definition.label);
 }
