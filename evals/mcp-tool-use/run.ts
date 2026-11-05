@@ -452,13 +452,14 @@ const claudeQueryOptions = (model: Model) => {
   return makeClaudeQueryOptions(input);
 };
 
-/** Text T3 appends to Claude Code's system prompt. Delegated children get the same text. */
+/** T3's text in Claude Code's system prompt: the tutor prompt, or a preset's append. */
 export const t3SystemAppend = (model: Model) => {
   const { systemPrompt } = claudeQueryOptions(model);
+  if (typeof systemPrompt === "string") return systemPrompt;
   if (isRecord(systemPrompt) && systemPrompt.type === "preset" && systemPrompt.append) {
     return systemPrompt.append;
   }
-  throw new Error("makeClaudeQueryOptions no longer appends T3 text to a preset prompt.");
+  throw new Error("makeClaudeQueryOptions sets no T3 system prompt text.");
 };
 
 /**

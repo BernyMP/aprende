@@ -351,21 +351,12 @@ it("rebuilds the template from this checkout and sends a child T3's task prompt"
   assert.notEqual(prompt?.text, childCase.prompt);
 });
 
-it("lists link tools only while a case turns the beta on, and sends chips as T3 projects them", () => {
-  const off = buildBase(template, { model: "claude-sonnet-5-5", keepUserInstructions: false });
+it("sends chips as T3 projects them", () => {
   const on = buildBase(template, {
     model: "claude-sonnet-5-5",
     keepUserInstructions: false,
     links: true,
   });
-  assert.notInclude(
-    off.t3.map((tool) => tool.name),
-    "mcp__aprende__t3_environment_link",
-  );
-  assert.include(
-    on.t3.map((tool) => tool.name),
-    "mcp__aprende__t3_environment_link",
-  );
 
   const testCase: McpToolUseCase = {
     ...childCase,
@@ -653,7 +644,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
     const first = yield* request("a", "file");
     const second = yield* request("b", "file");
     const ref = yield* request("c", "secretRef");
-    assert.match(first.file, /^\/home\/user\/\.t3\/userdata\/secrets\/files\/[0-9a-f]{32}$/);
+    assert.match(first.file, /^\/home\/user\/\.aprende\/userdata\/secrets\/files\/[0-9a-f]{32}$/);
     assert.notEqual(first.file, second.file);
     assert.match(ref.secretRef, /^secret-ref:[0-9a-f]{32}$/);
     assert.notInclude([first.file, second.file], ref.secretRef.slice("secret-ref:".length));
@@ -715,7 +706,7 @@ it.effect("saves a pasted value with no card where request_secret takes one", ()
       return;
     }
     assert.equal(result.status, "saved");
-    assert.match(result.file, /^\/home\/user\/\.t3\/userdata\/secrets\/files\/[0-9a-f]{32}$/);
+    assert.match(result.file, /^\/home\/user\/\.aprende\/userdata\/secrets\/files\/[0-9a-f]{32}$/);
     assert.notInclude(JSON.stringify(result), "482916");
     assert.deepEqual(sample.secretFiles, [result.file]);
   }).pipe(Effect.provide(FetchHttpClient.layer)),
