@@ -86,6 +86,7 @@ import Migration0079 from "./Migrations/079_DelegatedRecoveryIndexes.ts";
 import Migration0080 from "./Migrations/080_Learning.ts";
 import Migration0081 from "./Migrations/081_LearningProblems.ts";
 import Migration0082 from "./Migrations/082_DropRetiredCleanupEffects.ts";
+import Migration0083 from "./Migrations/083_LearningProblemWorkspaces.ts";
 
 const migrationEntries = [
   [1, "OrchestrationEvents", Migration0001],
@@ -171,6 +172,7 @@ const migrationEntries = [
   [80, "Learning", Migration0080],
   [81, "LearningProblems", Migration0081],
   [82, "DropRetiredCleanupEffects", Migration0082],
+  [83, "LearningProblemWorkspaces", Migration0083],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

@@ -87,6 +87,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.learningAnswer]: "learning",
   [WS_METHODS.learningRevealHint]: "learning",
   [WS_METHODS.learningSubmitSolution]: "learning",
+  [WS_METHODS.learningRunCheck]: "learning",
   [WS_METHODS.learningGetTutorPrompt]: "learning",
   [WS_METHODS.learningSetTutorPrompt]: "learning",
   [WS_METHODS.learningGetKnowledge]: "learning",

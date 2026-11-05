@@ -1,13 +1,18 @@
 import {
+  LEARNING_CHECK_TIMEOUT_SECONDS,
   LEARNING_MAX_OPTIONS,
+  LEARNING_MAX_WORKSPACE_FILE_CHARS,
+  LEARNING_MAX_WORKSPACE_FILES,
   learningAnswerMessageHeader,
   learningSolutionMessageHeader,
   type LearningAnswer,
+  type LearningCheckRun,
   type LearningMissType,
   type LearningProblemAttempt,
   type LearningProblemMode,
   type LearningProblemOutcome,
   type LearningProblemTarget,
+  type LearningProblemWorkspace,
   type LearningPlanEdge,
   type LearningPlanNode,
   type LearningQuestionFormat,
@@ -220,6 +225,12 @@ export function formatAnswerMessage(question: StoredQuestion, answer: LearningAn
 
 const LEARNING_MAX_HINTS = 3;
 
+export interface WorkspaceDraft {
+  readonly name?: string | undefined;
+  readonly files: ReadonlyArray<{ readonly path: string; readonly contents: string }>;
+  readonly checkCommand?: string | undefined;
+}
+
 export interface ProblemDraft {
   readonly mode: LearningProblemMode;
   readonly statement: string;
@@ -227,6 +238,72 @@ export interface ProblemDraft {
   readonly modelSolution: string;
   readonly hints: ReadonlyArray<string>;
   readonly retestOf?: string | undefined;
+  readonly workspace?: WorkspaceDraft | undefined;
+}
+
+const LEARNING_MAX_PATH_CHARS = 200;
+const LEARNING_MAX_CHECK_COMMAND_CHARS = 1_000;
+
+/** The reason a starter file cannot be written at this path inside its practice folder, or undefined. */
+function workspacePathProblem(path: string): string | undefined {
+  if (path.length === 0 || path.length > LEARNING_MAX_PATH_CHARS)
+    return `File path "${path}" must be 1 to ${LEARNING_MAX_PATH_CHARS} characters.`;
+  if (path.startsWith("/") || /^[A-Za-z]:/.test(path))
+    return `File path "${path}" must be relative to the practice folder.`;
+  if (path.includes("\\")) return `File path "${path}" must separate folders with /.`;
+  // Characters Windows cannot store in a file name, and control characters anywhere.
+  if (/[<>:"|?*]/.test(path) || [...path].some((char) => char.charCodeAt(0) < 32))
+    return `File path "${path}" has a character files cannot use.`;
+  if (path.split("/").some((part) => part === "" || part === "." || part === ".."))
+    return `File path "${path}" must not have empty, "." or ".." parts.`;
+  return undefined;
+}
+
+/** The reason a coding workspace cannot be created, or undefined when it is valid. */
+function workspaceDraftProblem(workspace: WorkspaceDraft): string | undefined {
+  const { files } = workspace;
+  if (files.length === 0 || files.length > LEARNING_MAX_WORKSPACE_FILES)
+    return `Give 1 to ${LEARNING_MAX_WORKSPACE_FILES} starter files.`;
+  const seen: Array<string> = [];
+  for (const file of files) {
+    const problem = workspacePathProblem(file.path);
+    if (problem !== undefined) return problem;
+    if (file.contents.length > LEARNING_MAX_WORKSPACE_FILE_CHARS)
+      return `File "${file.path}" is longer than ${LEARNING_MAX_WORKSPACE_FILE_CHARS} characters.`;
+    // Compare without case, since the learner's file system may ignore it.
+    const key = file.path.toLowerCase();
+    if (
+      seen.some(
+        (other) => other === key || other.startsWith(`${key}/`) || key.startsWith(`${other}/`),
+      )
+    )
+      return `File "${file.path}" clashes with another starter file.`;
+    seen.push(key);
+  }
+  const command = workspace.checkCommand;
+  if (
+    command !== undefined &&
+    (command.trim().length === 0 || command.length > LEARNING_MAX_CHECK_COMMAND_CHARS)
+  )
+    return `checkCommand must be 1 to ${LEARNING_MAX_CHECK_COMMAND_CHARS} characters, or omitted.`;
+  return undefined;
+}
+
+/** A readable, unique folder name for a problem's workspace, such as `fizzbuzz-1a2b3c4d`. */
+export function practiceFolderName(name: string, problemId: string): string {
+  const slug =
+    name
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .slice(0, 40)
+      .replace(/^-+|-+$/g, "") || "problem";
+  const shortId = problemId
+    .replace(/^prob-/, "")
+    .replaceAll("-", "")
+    .slice(0, 8);
+  return `${slug}-${shortId}`;
 }
 
 /** The reason a problem cannot be shown, or undefined when it is valid. */
@@ -239,7 +316,7 @@ export function problemDraftProblem(draft: ProblemDraft): string | undefined {
   if (draft.hints.length === 0 || draft.hints.length > LEARNING_MAX_HINTS)
     return `Give 1 to ${LEARNING_MAX_HINTS} hints, gentlest first.`;
   if (draft.hints.some((hint) => hint.trim().length === 0)) return "A hint is empty.";
-  return undefined;
+  return draft.workspace === undefined ? undefined : workspaceDraftProblem(draft.workspace);
 }
 
 /** The reason a verdict cannot be recorded, or undefined. */
@@ -252,12 +329,15 @@ export function conclusionProblem(input: {
     : undefined;
 }
 
-/** The reason the learner's work cannot be accepted, or undefined. */
-export function solutionProblem(input: {
-  readonly text?: string | undefined;
-  readonly gaveUp: boolean;
-}): string | undefined {
-  return !input.gaveUp && (input.text ?? "").trim().length === 0
+/** The reason the learner's work cannot be accepted, or undefined. Workspace work lives in its files. */
+export function solutionProblem(
+  input: {
+    readonly text?: string | undefined;
+    readonly gaveUp: boolean;
+  },
+  hasWorkspace: boolean,
+): string | undefined {
+  return !hasWorkspace && !input.gaveUp && (input.text ?? "").trim().length === 0
     ? "Write your work, or give up."
     : undefined;
 }
@@ -269,13 +349,37 @@ export interface StoredProblem {
   readonly targets: ReadonlyArray<LearningProblemTarget>;
   readonly hintCount: number;
   readonly retestOf: string | null;
+  readonly workspace: LearningProblemWorkspace | null;
 }
+
+const MESSAGE_OUTPUT_CHARS = 16_000;
+
+const describeCheck = (command: string, run: LearningCheckRun) => {
+  const ending = run.timedOut
+    ? `timed out after ${LEARNING_CHECK_TIMEOUT_SECONDS} s`
+    : run.exitCode === null
+      ? "could not start"
+      : `exited with code ${run.exitCode}`;
+  const output = run.output.trimEnd();
+  if (output.length === 0) return [`Check \`${command}\` ${ending}, with no output.`];
+  const shown = output.length > MESSAGE_OUTPUT_CHARS ? output.slice(-MESSAGE_OUTPUT_CHARS) : output;
+  const cut = run.truncated || shown.length < output.length;
+  const longestTicks = Math.max(0, ...(shown.match(/`+/g) ?? []).map((ticks) => ticks.length));
+  const fence = "`".repeat(Math.max(3, longestTicks + 1));
+  return [
+    `Check \`${command}\` ${ending}. Output${cut ? " (cut to fit)" : ""}:`,
+    fence,
+    shown,
+    fence,
+  ];
+};
 
 /** The message that hands the learner's work on a problem back to the tutor as their next turn. */
 export function formatSolutionMessage(
   problem: StoredProblem,
   attempt: LearningProblemAttempt,
   hintsUsed: number,
+  check?: LearningCheckRun,
 ): string {
   const lines = [
     learningSolutionMessageHeader(problem.id),
@@ -288,12 +392,24 @@ export function formatSolutionMessage(
   ];
   if (problem.retestOf !== null) lines.push(`Retest of: ${problem.retestOf}`);
   const work = attempt.text?.trim();
+  const { workspace } = problem;
   if (attempt.gaveUp) {
     lines.push(
-      work ? `They gave up. Their work so far: ${work}` : "They gave up without an attempt.",
+      work
+        ? `They gave up. Their work so far: ${work}`
+        : workspace !== null
+          ? "They gave up. Their code so far is in the practice folder."
+          : "They gave up without an attempt.",
     );
-  } else {
+  } else if (work || workspace === null) {
     lines.push(`Their work: ${work ?? ""}`);
+  }
+  if (workspace !== null) {
+    lines.push(
+      `Practice folder: ${workspace.folder}/ (starter files: ${workspace.files.join(", ")}). Read their files there before you judge it, and do not change them.`,
+    );
+    if (workspace.checkCommand !== null && check !== undefined)
+      lines.push(...describeCheck(workspace.checkCommand, check));
   }
   lines.push(`Hints used: ${hintsUsed} of ${problem.hintCount}`);
   if (attempt.confidence !== undefined) lines.push(`Confidence: ${attempt.confidence}%`);

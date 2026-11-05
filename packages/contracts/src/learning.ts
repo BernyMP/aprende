@@ -140,8 +140,41 @@ export const LearningProblemTarget = Schema.Struct({
 });
 export type LearningProblemTarget = typeof LearningProblemTarget.Type;
 
+/** Caps on a practice workspace and its check runs. */
+export const LEARNING_MAX_WORKSPACE_FILES = 20;
+export const LEARNING_MAX_WORKSPACE_FILE_CHARS = 100_000;
+export const LEARNING_CHECK_TIMEOUT_SECONDS = 30;
+export const LEARNING_CHECK_MAX_OUTPUT_BYTES = 64 * 1024;
+
+/** A coding problem's files. `folder` is relative to the session's folder and `files` to `folder`, both with `/`. */
+export const LearningProblemWorkspace = Schema.Struct({
+  folder: Schema.String,
+  files: Schema.Array(Schema.String),
+  /** Run in `folder` by the learner's Run button and on submit; null when the tutor gave none. */
+  checkCommand: Schema.NullOr(Schema.String),
+});
+export type LearningProblemWorkspace = typeof LearningProblemWorkspace.Type;
+
+/** How a check command ended. */
+export const LearningCheckOutcome = Schema.Struct({
+  /** null when the command timed out or could not start. */
+  exitCode: Schema.NullOr(Schema.Int),
+  timedOut: Schema.Boolean,
+});
+export type LearningCheckOutcome = typeof LearningCheckOutcome.Type;
+
+/** One run of a workspace's check command. Output is stdout and stderr together, capped. */
+export const LearningCheckRun = Schema.Struct({
+  ...LearningCheckOutcome.fields,
+  output: Schema.String,
+  truncated: Schema.Boolean,
+});
+export type LearningCheckRun = typeof LearningCheckRun.Type;
+
 export const LearningProblemAttempt = Schema.Struct({
   text: Schema.optional(Schema.String),
+  /** How the check ran on submit. */
+  check: Schema.optional(LearningCheckOutcome),
   gaveUp: Schema.Boolean,
   confidence: Schema.optional(LearningConfidence),
   thinking: Schema.optional(Schema.String),
@@ -175,6 +208,7 @@ export const LearningProblemView = Schema.Struct({
   attempt: Schema.NullOr(LearningProblemAttempt),
   conclusion: Schema.NullOr(LearningProblemConclusion),
   modelSolution: Schema.NullOr(Schema.String),
+  workspace: Schema.NullOr(LearningProblemWorkspace),
 });
 export type LearningProblemView = typeof LearningProblemView.Type;
 
@@ -252,6 +286,9 @@ export type LearningSubmitSolutionInput = typeof LearningSubmitSolutionInput.Typ
 
 export const LearningProblemResult = Schema.Struct({ problem: LearningProblemView });
 export type LearningProblemResult = typeof LearningProblemResult.Type;
+
+export const LearningRunCheckInput = LearningRevealHintInput;
+export type LearningRunCheckInput = typeof LearningRunCheckInput.Type;
 
 export const LearningTutorPrompt = Schema.Struct({
   prompt: Schema.String,

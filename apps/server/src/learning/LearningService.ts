@@ -1,5 +1,7 @@
 import {
   CommandId,
+  LEARNING_CHECK_MAX_OUTPUT_BYTES,
+  LEARNING_CHECK_TIMEOUT_SECONDS,
   LearningAnswer,
   LearningAssessment,
   LearningError,
@@ -7,10 +9,12 @@ import {
   LearningProblemAttempt,
   LearningProblemConclusion,
   LearningProblemTarget,
+  LearningProblemWorkspace,
   MessageId,
   type LearningAnswerInput,
   type LearningAnswerResult,
   type LearningChain,
+  type LearningCheckRun,
   type LearningKnowledge,
   type LearningKnowledgeView,
   type LearningMissType,
@@ -22,6 +26,7 @@ import {
   type LearningProposition,
   type LearningQuestionView,
   type LearningRevealHintInput,
+  type LearningRunCheckInput,
   type LearningSetTutorPromptInput,
   type LearningStrand,
   type LearningSubmitSolutionInput,
@@ -30,12 +35,14 @@ import {
   type ProjectId,
   type ThreadId,
 } from "@aprende/contracts";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PubSub from "effect/PubSub";
 import * as Schema from "effect/Schema";
@@ -45,6 +52,8 @@ import type { SqlError } from "effect/sql/SqlError";
 
 import { ServerConfig } from "../config.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
+import * as ProcessRunner from "../processRunner.ts";
+import * as ProjectService from "../project/ProjectService.ts";
 import {
   answerProblem,
   conclusionProblem,
@@ -52,6 +61,7 @@ import {
   formatSolutionMessage,
   gradeAnswer,
   planProblem,
+  practiceFolderName,
   problemDraftProblem,
   questionDraftProblem,
   shuffleOptions,
@@ -60,6 +70,7 @@ import {
   type QuestionDraft,
   type StoredProblem,
   type StoredQuestion,
+  type WorkspaceDraft,
 } from "./learningLogic.ts";
 import { DEFAULT_TUTOR_PROMPT, readTutorPrompt, writeTutorPrompt } from "./tutorPrompt.ts";
 
@@ -140,6 +151,10 @@ export class LearningService extends Context.Service<
     readonly submitSolution: (
       input: LearningSubmitSolutionInput,
     ) => Effect.Effect<LearningProblemResult, LearningError>;
+    /** Runs a coding problem's check command in its practice folder, as the learner's own terminal would. */
+    readonly runCheck: (
+      input: LearningRunCheckInput,
+    ) => Effect.Effect<LearningCheckRun, LearningError>;
     readonly getTutorPrompt: () => Effect.Effect<LearningTutorPrompt, LearningError>;
     readonly setTutorPrompt: (
       input: LearningSetTutorPromptInput,
@@ -178,6 +193,7 @@ interface ProblemRow {
   readonly status: string;
   readonly attempt_json: string | null;
   readonly conclusion_json: string | null;
+  readonly workspace_json: string | null;
   readonly created_at: string;
 }
 
@@ -223,6 +239,8 @@ const decodeAttempt = Schema.decodeUnknownSync(Schema.fromJsonString(LearningPro
 const encodeAttempt = Schema.encodeSync(Schema.fromJsonString(LearningProblemAttempt));
 const decodeConclusion = Schema.decodeUnknownSync(Schema.fromJsonString(LearningProblemConclusion));
 const encodeConclusion = Schema.encodeSync(Schema.fromJsonString(LearningProblemConclusion));
+const decodeWorkspace = Schema.decodeUnknownSync(Schema.fromJsonString(LearningProblemWorkspace));
+const encodeWorkspace = Schema.encodeSync(Schema.fromJsonString(LearningProblemWorkspace));
 
 const fail = (message: string, cause?: unknown) =>
   new LearningError(cause === undefined ? { message } : { message, cause });
@@ -273,6 +291,7 @@ const storedProblem = (row: ProblemRow): StoredProblem => ({
   targets: decodeTargets(row.targets_json),
   hintCount: decodeStrings(row.hints_json).length,
   retestOf: row.retest_of,
+  workspace: row.workspace_json === null ? null : decodeWorkspace(row.workspace_json),
 });
 
 const problemView = (row: ProblemRow): LearningProblemView => {
@@ -295,8 +314,33 @@ const problemView = (row: ProblemRow): LearningProblemView => {
     attempt: row.attempt_json === null ? null : decodeAttempt(row.attempt_json),
     conclusion: row.conclusion_json === null ? null : decodeConclusion(row.conclusion_json),
     modelSolution: concluded ? row.model_solution : null,
+    workspace: problem.workspace,
   };
 };
+
+/** Collects output up to a byte cap, remembering whether more arrived. */
+const cappedOutput = (maxBytes: number) => {
+  const chunks: Array<Uint8Array> = [];
+  let bytes = 0;
+  let truncated = false;
+  return {
+    push: (chunk: Uint8Array) => {
+      const room = maxBytes - bytes;
+      if (chunk.byteLength > room) truncated = true;
+      if (room <= 0) return;
+      const kept = chunk.byteLength > room ? chunk.subarray(0, room) : chunk;
+      chunks.push(kept);
+      bytes += kept.byteLength;
+    },
+    read: () => ({ output: Buffer.concat(chunks).toString("utf8"), truncated }),
+  };
+};
+
+// stderr joins stdout in the shell, so the learner reads both in the order they were written.
+const checkInvocation = (platform: NodeJS.Platform, command: string) =>
+  platform === "win32"
+    ? { command: "cmd.exe", args: ["/d", "/s", "/c", `(${command}) 2>&1`] }
+    : { command: "/bin/sh", args: ["-c", `exec 2>&1\n${command}`] };
 
 const propositionView = (row: PropositionRow): LearningProposition => ({
   id: row.proposition_id,
@@ -322,6 +366,8 @@ export const layer = Layer.effect(
     const sql = yield* SqlClient.SqlClient;
     const random = yield* SecureRandom.SecureRandom;
     const threads = yield* ThreadManagementService.ThreadManagementService;
+    const projects = yield* ProjectService.ProjectService;
+    const processRunner = yield* ProcessRunner.ProcessRunner;
     const serverConfig = yield* ServerConfig;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -690,6 +736,84 @@ export const layer = Layer.effect(
         ),
       );
 
+    // The folder the session's CLI runs in, which practice folders live under.
+    const sessionRoot = Effect.fn("LearningService.sessionRoot")(function* (threadId: ThreadId) {
+      const shell = yield* threads
+        .getThreadShell(threadId)
+        .pipe(Effect.mapError(dbError("Could not find the session.")));
+      if (shell === null) return yield* fail("Could not find the session.");
+      if (shell.worktreePath !== null) return shell.worktreePath;
+      const project = yield* projects
+        .getById(shell.projectId)
+        .pipe(Effect.mapError(dbError("Could not find the session's project.")));
+      if (Option.isNone(project)) return yield* fail("Could not find the session's project.");
+      return project.value.workspaceRoot;
+    });
+
+    const createWorkspace = Effect.fn("LearningService.createWorkspace")(function* (
+      threadId: ThreadId,
+      problemId: string,
+      name: string,
+      draft: WorkspaceDraft,
+    ) {
+      const root = yield* sessionRoot(threadId);
+      const folder = `practice/${practiceFolderName(name, problemId)}`;
+      const absolute = path.join(root, ...folder.split("/"));
+      yield* Effect.gen(function* () {
+        yield* fileSystem.makeDirectory(path.join(root, "practice"), { recursive: true });
+        // Neither the folder nor its files may exist yet, so nothing of the learner's is overwritten.
+        yield* fileSystem.makeDirectory(absolute);
+        for (const file of draft.files) {
+          const target = path.join(absolute, ...file.path.split("/"));
+          yield* fileSystem.makeDirectory(path.dirname(target), { recursive: true });
+          yield* fileSystem.writeFileString(target, file.contents, { flag: "wx" });
+        }
+      }).pipe(Effect.mapError(dbError(`Could not create the practice folder ${folder}.`)));
+      const workspace: LearningProblemWorkspace = {
+        folder,
+        files: draft.files.map((file) => file.path),
+        checkCommand: draft.checkCommand?.trim() || null,
+      };
+      return { workspace, absolute };
+    });
+
+    const runWorkspaceCheck = Effect.fn("LearningService.runWorkspaceCheck")(function* (
+      threadId: ThreadId,
+      workspace: LearningProblemWorkspace & { readonly checkCommand: string },
+    ) {
+      const cwd = path.join(yield* sessionRoot(threadId), ...workspace.folder.split("/"));
+      const failed = (output: string): LearningCheckRun => ({
+        exitCode: null,
+        output,
+        truncated: false,
+        timedOut: false,
+      });
+      if (!(yield* fileSystem.exists(cwd).pipe(Effect.orElseSucceed(() => false))))
+        return failed(`The practice folder ${workspace.folder} is gone.`);
+      const output = cappedOutput(LEARNING_CHECK_MAX_OUTPUT_BYTES);
+      const result = yield* processRunner
+        .run({
+          ...checkInvocation(yield* HostProcess.Platform, workspace.checkCommand),
+          cwd,
+          // Unbuffered, so Python's prints and tracebacks arrive in order and survive a timeout.
+          env: { PYTHONUNBUFFERED: "1" },
+          timeout: `${LEARNING_CHECK_TIMEOUT_SECONDS} seconds`,
+          timeoutBehavior: "timedOutResult",
+          maxOutputBytes: LEARNING_CHECK_MAX_OUTPUT_BYTES,
+          outputMode: "truncate",
+          onStdoutChunk: output.push,
+        })
+        .pipe(Effect.result);
+      if (result._tag === "Failure") return failed(result.failure.message);
+      const run = result.success;
+      if (run.stderr.length > 0) output.push(Buffer.from(run.stderr));
+      return {
+        exitCode: run.timedOut || run.code === null ? null : Number(run.code),
+        timedOut: run.timedOut,
+        ...output.read(),
+      } satisfies LearningCheckRun;
+    });
+
     const poseProblem: LearningService["Service"]["poseProblem"] = Effect.fn(
       "LearningService.poseProblem",
     )(function* (threadId, draft) {
@@ -724,6 +848,15 @@ export const layer = Layer.effect(
       });
       const problemId = yield* newId("prob");
       const createdAt = yield* nowIso;
+      const created =
+        draft.workspace === undefined
+          ? null
+          : yield* createWorkspace(
+              threadId,
+              problemId,
+              draft.workspace.name ?? targets[0]!.name,
+              draft.workspace,
+            );
       yield* sql
         .withTransaction(
           skipOpenItems(threadId).pipe(
@@ -741,12 +874,20 @@ export const layer = Layer.effect(
                 status: "open",
                 attempt_json: null,
                 conclusion_json: null,
+                workspace_json: created === null ? null : encodeWorkspace(created.workspace),
                 created_at: createdAt,
               })}`,
             ),
           ),
         )
-        .pipe(Effect.mapError(dbError("Could not save the problem.")));
+        .pipe(
+          Effect.mapError(dbError("Could not save the problem.")),
+          Effect.onError(() =>
+            created === null
+              ? Effect.void
+              : fileSystem.remove(created.absolute, { recursive: true }).pipe(Effect.ignore),
+          ),
+        );
       yield* changed(threadId);
       return { problemId };
     });
@@ -776,10 +917,22 @@ export const layer = Layer.effect(
     const submitSolution: LearningService["Service"]["submitSolution"] = Effect.fn(
       "LearningService.submitSolution",
     )(function* (input) {
-      const problem = solutionProblem(input);
+      const current = yield* readProblem(input.threadId, input.problemId);
+      if (current.status !== "open")
+        return yield* fail("That problem was already submitted or replaced.");
+      const { workspace } = storedProblem(current);
+      const problem = solutionProblem(input, workspace !== null);
       if (problem !== undefined) return yield* fail(problem);
+      const checkCommand = workspace?.checkCommand ?? null;
+      const check =
+        workspace === null || checkCommand === null || input.gaveUp
+          ? undefined
+          : yield* runWorkspaceCheck(input.threadId, { ...workspace, checkCommand });
       const attempt: LearningProblemAttempt = {
         ...(input.text?.trim() ? { text: input.text.trim() } : {}),
+        ...(check === undefined
+          ? {}
+          : { check: { exitCode: check.exitCode, timedOut: check.timedOut } }),
         gaveUp: input.gaveUp,
         ...(input.confidence === undefined || input.gaveUp ? {} : { confidence: input.confidence }),
         ...(input.thinking?.trim() ? { thinking: input.thinking.trim() } : {}),
@@ -792,10 +945,7 @@ export const layer = Layer.effect(
       `.pipe(Effect.mapError(dbError("Could not save your work.")));
       const row = claimed[0];
       // Two submits can race; only the one that flipped the row sends the message.
-      if (row === undefined) {
-        yield* readProblem(input.threadId, input.problemId);
-        return yield* fail("That problem was already submitted or replaced.");
-      }
+      if (row === undefined) return yield* fail("That problem was already submitted or replaced.");
       const reopen = sql`
         UPDATE learning_problems SET status = 'open', attempt_json = NULL
         WHERE problem_id = ${row.problem_id} AND status = 'submitted'
@@ -803,11 +953,21 @@ export const layer = Layer.effect(
       yield* sendToTutor(
         input.threadId,
         "learning-solution",
-        formatSolutionMessage(storedProblem(row), attempt, row.hints_used),
+        formatSolutionMessage(storedProblem(row), attempt, row.hints_used, check),
       ).pipe(Effect.onError(() => reopen));
       yield* changed(input.threadId);
       return { problem: problemView(row) };
     });
+
+    const runCheck: LearningService["Service"]["runCheck"] = Effect.fn("LearningService.runCheck")(
+      function* (input) {
+        const { workspace } = storedProblem(yield* readProblem(input.threadId, input.problemId));
+        const checkCommand = workspace?.checkCommand ?? null;
+        if (workspace === null || checkCommand === null)
+          return yield* fail("This problem has no check to run.");
+        return yield* runWorkspaceCheck(input.threadId, { ...workspace, checkCommand });
+      },
+    );
 
     const concludeProblem: LearningService["Service"]["concludeProblem"] = Effect.fn(
       "LearningService.concludeProblem",
@@ -890,6 +1050,7 @@ export const layer = Layer.effect(
       answer,
       revealHint,
       submitSolution,
+      runCheck,
       getTutorPrompt,
       setTutorPrompt,
       getKnowledge,
