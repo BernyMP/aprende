@@ -195,9 +195,10 @@ it.effect("links propositions across sessions instead of duplicating them", () =
       );
       assert.equal(knowledge.chains.length, 1);
       const found = yield* learning.searchGraph({ query: "prerequisites order" });
+      // The chain into "Order" brings its premise along.
       assert.deepEqual(
         found.propositions.map((entry) => entry.name),
-        ["Order"],
+        ["Order", "Edges"],
       );
     }).pipe(Effect.provide(makeLayer(sent)));
   }),

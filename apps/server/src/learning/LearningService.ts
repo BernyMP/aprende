@@ -408,9 +408,16 @@ export const layer = Layer.effect(
     )(
       function* (input) {
         const words = (input.query ?? "").split(/\s+/).filter((word) => word.length > 0);
-        const propositions = yield* listPropositions({ words, limit: input.limit ?? 50 });
-        const chains = yield* chainsAmong(new Set(propositions.map((entry) => entry.id)));
-        return { propositions, chains };
+        const matches = yield* listPropositions({ words, limit: input.limit ?? 50 });
+        const chains = yield* chainsAmong(new Set(matches.map((entry) => entry.id)));
+        // Chains name their premises by id; return those propositions so the tutor can read them.
+        const found = new Set(matches.map((entry) => entry.id));
+        const premiseIds = new Set(chains.flatMap((chain) => chain.premises));
+        const premises = (yield* listPropositions({
+          words: [],
+          limit: Number.MAX_SAFE_INTEGER,
+        })).filter((entry) => premiseIds.has(entry.id) && !found.has(entry.id));
+        return { propositions: [...matches, ...premises], chains };
       },
       Effect.mapError(dbError("Could not search the knowledge graph.")),
     );

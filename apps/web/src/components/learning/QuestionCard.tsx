@@ -206,6 +206,7 @@ function AnsweredQuestion(props: {
   const answer = question.answer;
   if (answer === null) return null;
   const correctOptions = question.reveal?.correctOptions ?? [];
+  const graded = correctOptions.length > 0;
   return (
     <div className="mt-3 flex flex-col gap-3 text-sm">
       {question.format === "choice" ? (
@@ -219,14 +220,14 @@ function AnsweredQuestion(props: {
                 className={cn(
                   "flex items-start gap-2.5 rounded-lg border px-3 py-2",
                   correct && "border-success/50 bg-success/8",
-                  chosen && !correct && "border-destructive/50 bg-destructive/8",
+                  graded && chosen && !correct && "border-destructive/50 bg-destructive/8",
                   !chosen && !correct && "text-muted-foreground",
                 )}
               >
                 <span className="mt-px font-medium tabular-nums">{optionLabel(index)}</span>
                 <span className="min-w-0 flex-1">{option}</span>
                 {chosen ? (
-                  correct || correctOptions.length === 0 ? (
+                  correct || !graded ? (
                     <CheckIcon aria-label="Your answer" className="size-4 text-success" />
                   ) : (
                     <XIcon aria-label="Your answer" className="size-4 text-destructive" />
