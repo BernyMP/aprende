@@ -41,9 +41,13 @@ for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
   });
 }
 
-const projectRoot = process.env.APRENDE_PROJECT_ROOT;
+// aprende's own runner sets APRENDE_PROJECT_ROOT; T3 Code, which maintainers run t3.json with,
+// sets T3CODE_PROJECT_ROOT.
+const projectRoot = process.env.APRENDE_PROJECT_ROOT || process.env.T3CODE_PROJECT_ROOT;
 if (!projectRoot) {
-  throw new Error("APRENDE_PROJECT_ROOT is not set. Run this through the t3.json setup action.");
+  throw new Error(
+    "APRENDE_PROJECT_ROOT (or T3CODE_PROJECT_ROOT) is not set. Run this through the t3.json setup action.",
+  );
 }
 
 // Use the shell for Windows vp shims. Unattended installs need pnpm's confirmation
