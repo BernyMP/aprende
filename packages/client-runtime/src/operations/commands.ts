@@ -23,7 +23,6 @@ import {
   type RuntimeMode,
   type RuntimeRequestId,
   type ThreadId,
-  type ThreadEnvMode,
   type UploadChatAttachment,
 } from "@aprende/contracts";
 import { derivePendingBackgroundWork } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
@@ -52,10 +51,8 @@ export interface UpdateProjectInput extends CommandMetadata {
   readonly title?: string;
   readonly workspaceRoot?: string;
   readonly defaultModelSelection?: ModelSelection | null;
-  readonly autoPull?: boolean;
   readonly projectIcon?: ProjectIconOverride | null;
   readonly faviconPath?: string | null;
-  readonly defaultThreadEnvMode?: ThreadEnvMode | null;
   readonly scripts?: ReadonlyArray<ProjectScript>;
   readonly pinned?: boolean;
   readonly archived?: boolean;
@@ -204,7 +201,6 @@ export interface DismissThreadUserInputInput extends ThreadCommandInput {
 }
 
 export interface RevertThreadCheckpointInput extends ThreadCommandInput {
-  readonly restoreFiles?: boolean;
   readonly checkpointId?: string;
   readonly scopeId?: string;
   readonly turnCount?: number;
@@ -366,12 +362,8 @@ export const updateProject = Effect.fn("EnvironmentCommands.updateProject")(func
     ...(input.defaultModelSelection === undefined
       ? {}
       : { defaultModelSelection: input.defaultModelSelection }),
-    ...(input.autoPull === undefined ? {} : { autoPull: input.autoPull }),
     ...(input.projectIcon === undefined ? {} : { projectIcon: input.projectIcon }),
     ...(input.faviconPath === undefined ? {} : { faviconPath: input.faviconPath }),
-    ...(input.defaultThreadEnvMode === undefined
-      ? {}
-      : { defaultThreadEnvMode: input.defaultThreadEnvMode }),
     ...(input.scripts === undefined ? {} : { scripts: input.scripts }),
     ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
     ...(input.archived === undefined ? {} : { archived: input.archived }),
@@ -851,7 +843,6 @@ export const revertThreadCheckpoint = Effect.fn("EnvironmentCommands.revertThrea
     if (input.checkpointId !== undefined && input.scopeId !== undefined) {
       return yield* dispatch({
         type: "checkpoint.rollback",
-        ...(input.restoreFiles === undefined ? {} : { restoreFiles: input.restoreFiles }),
         commandId: yield* allocateCommandId(input),
         threadId: input.threadId,
         scopeId: CheckpointScopeId.make(input.scopeId),
@@ -863,12 +854,15 @@ export const revertThreadCheckpoint = Effect.fn("EnvironmentCommands.revertThrea
       projection.checkpoints.find(
         (candidate) => candidate.id === input.checkpointId && candidate.scopeId === input.scopeId,
       ) ??
-      projection.checkpoints.findLast((candidate) =>
-        input.turnCount === 0
-          ? candidate.ordinalWithinScope === 0 && candidate.appRunOrdinal === null
-          : candidate.appRunOrdinal === input.turnCount,
+      projection.checkpoints.findLast(
+        (candidate) =>
+          candidate.status !== "stale" &&
+          (input.turnCount === 0
+            ? candidate.ordinalWithinScope === 0 && candidate.appRunOrdinal === null
+            : candidate.appRunOrdinal === input.turnCount),
       );
-    if (checkpoint === undefined || checkpoint.status !== "ready") {
+    // Only a rolled-back (stale) checkpoint is gone; the rest mark a turn the conversation can return to.
+    if (checkpoint === undefined || checkpoint.status === "stale") {
       const target =
         input.checkpointId === undefined
           ? `run ordinal ${input.turnCount ?? "unknown"}`
@@ -880,7 +874,6 @@ export const revertThreadCheckpoint = Effect.fn("EnvironmentCommands.revertThrea
     }
     return yield* dispatch({
       type: "checkpoint.rollback",
-      ...(input.restoreFiles === undefined ? {} : { restoreFiles: input.restoreFiles }),
       commandId: yield* allocateCommandId(input),
       threadId: input.threadId,
       scopeId: checkpoint.scopeId,

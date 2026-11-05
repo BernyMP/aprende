@@ -214,8 +214,6 @@ function summarizeDeltaItem(item: OrchestrationV2TurnItem): string | null {
       return `- Command: ${compactText(item.input)}`;
     case "file_change":
       return `- File change: ${compactText(item.changes?.map((change) => change.path).join(", ") ?? item.fileName)}`;
-    case "checkpoint":
-      return `- Checkpoint: ${item.files.length} files`;
     case "handoff":
       return `- Handoff: ${compactText(item.summary ?? item.strategy)}`;
     default:

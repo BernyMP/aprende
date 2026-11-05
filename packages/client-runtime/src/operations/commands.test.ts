@@ -169,48 +169,50 @@ describe("V2 environment commands", () => {
     }).pipe(Effect.provide(layerTestRandom)),
   );
 
-  it.effect("resolves run ordinal zero to the persisted thread-start checkpoint", () =>
-    Effect.gen(function* () {
-      const scopeId = CheckpointScopeId.make("checkpoint-scope-root");
-      const checkpointId = CheckpointId.make("checkpoint-thread-start");
-      const projection: OrchestrationV2ThreadProjection = {
-        ...v2Projection,
-        checkpoints: [
+  it.effect(
+    "resolves run ordinal zero to the thread-start checkpoint without a file snapshot",
+    () =>
+      Effect.gen(function* () {
+        const scopeId = CheckpointScopeId.make("checkpoint-scope-root");
+        const checkpointId = CheckpointId.make("checkpoint-thread-start");
+        const projection: OrchestrationV2ThreadProjection = {
+          ...v2Projection,
+          checkpoints: [
+            {
+              id: checkpointId,
+              threadId: v2ThreadId,
+              scopeId,
+              runId: null,
+              nodeId: NodeId.make("node-run-1"),
+              parentCheckpointId: null,
+              ordinalWithinScope: 0,
+              appRunOrdinal: null,
+              ref: CheckpointRef.make("refs/t3/thread-start"),
+              status: "missing",
+              files: [],
+              capturedAt: v2Now,
+            },
+          ],
+        };
+        const commands: OrchestrationV2Command[] = [];
+        const supervisor = yield* makeSupervisor({ commands, projects: [], projection });
+
+        yield* revertThreadCheckpoint({
+          commandId: CommandId.make("rollback-thread-start"),
+          threadId: v2ThreadId,
+          turnCount: 0,
+        }).pipe(Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor));
+
+        expect(commands).toEqual([
           {
-            id: checkpointId,
+            type: "checkpoint.rollback",
+            commandId: "rollback-thread-start",
             threadId: v2ThreadId,
             scopeId,
-            runId: null,
-            nodeId: NodeId.make("node-run-1"),
-            parentCheckpointId: null,
-            ordinalWithinScope: 0,
-            appRunOrdinal: null,
-            ref: CheckpointRef.make("refs/t3/thread-start"),
-            status: "ready",
-            files: [],
-            capturedAt: v2Now,
+            checkpointId,
           },
-        ],
-      };
-      const commands: OrchestrationV2Command[] = [];
-      const supervisor = yield* makeSupervisor({ commands, projects: [], projection });
-
-      yield* revertThreadCheckpoint({
-        commandId: CommandId.make("rollback-thread-start"),
-        threadId: v2ThreadId,
-        turnCount: 0,
-      }).pipe(Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor));
-
-      expect(commands).toEqual([
-        {
-          type: "checkpoint.rollback",
-          commandId: "rollback-thread-start",
-          threadId: v2ThreadId,
-          scopeId,
-          checkpointId,
-        },
-      ]);
-    }).pipe(Effect.provide(layerTestRandom)),
+        ]);
+      }).pipe(Effect.provide(layerTestRandom)),
   );
 
   it.effect("preserves an existing worktree and branch during first-message launch", () =>

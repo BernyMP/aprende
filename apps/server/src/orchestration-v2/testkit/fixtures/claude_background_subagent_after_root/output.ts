@@ -96,11 +96,13 @@ export function assertClaudeBackgroundSubagentAfterRootOutput(
       `subagent command ${command} must be in the child thread`,
     );
   }
+  // The wake prompt is queued up front, so it starts as soon as the first turn settles; the
+  // root wakes when the provider runs it.
   const continuationStartIndex = result.domainEvents.findIndex(
     (event) =>
       event.type === "run.updated" &&
       event.payload.id === projection.runs[1]?.id &&
-      event.payload.status === "starting",
+      event.payload.status === "running",
   );
   assert.isAtLeast(continuationStartIndex, 0);
   const assertStoredWhileIdle = (

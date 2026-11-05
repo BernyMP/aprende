@@ -148,7 +148,6 @@ function forkDeltaSummary(input: {
     "Fork delta:",
     `- User: ${compactExpectedText(input.forkUserText)}`,
     `- Assistant: ${compactExpectedText(input.forkAssistantText)}`,
-    "- Checkpoint: 0 files",
   ].join("\n");
 }
 

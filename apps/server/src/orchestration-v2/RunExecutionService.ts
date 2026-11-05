@@ -40,7 +40,6 @@ import * as Stream from "effect/Stream";
 import * as McpSessionRegistry from "../mcp/McpSessionRegistry.ts";
 import * as McpAppModelContext from "../mcpApps/McpAppModelContext.ts";
 import * as ServerSettings from "../serverSettings.ts";
-import * as CheckpointService from "./CheckpointService.ts";
 import * as EventSink from "./EventSink.ts";
 import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
@@ -584,7 +583,6 @@ export class RunExecutionServiceV2 extends Context.Service<
 export const layer: Layer.Layer<
   RunExecutionServiceV2,
   never,
-  | CheckpointService.CheckpointServiceV2
   | EventSink.EventSinkV2
   | IdAllocator.IdAllocatorV2
   | ProviderEventIngestor.ProviderEventIngestorV2
@@ -595,7 +593,6 @@ export const layer: Layer.Layer<
   RunExecutionServiceV2,
   Effect.gen(function* () {
     const scope = yield* Effect.scope;
-    const checkpointService = yield* CheckpointService.CheckpointServiceV2;
     const eventSink = yield* EventSink.EventSinkV2;
     const idAllocator = yield* IdAllocator.IdAllocatorV2;
     const providerEventIngestor = yield* ProviderEventIngestor.ProviderEventIngestorV2;
@@ -886,24 +883,6 @@ export const layer: Layer.Layer<
               (settings) =>
                 resolveProjectSettings(settings, input.appThread.projectId).settings
                   .responseStreamingMode,
-            ),
-          );
-          // Side chats share the parent's worktree; a snapshot would capture the parent's edits.
-          yield* (
-            input.appThread.lineage.sideChat === true
-              ? Effect.void
-              : checkpointService.captureBaseline({
-                  scope: input.checkpointScope,
-                  ordinalWithinScope: Math.max(0, input.run.ordinal - 1),
-                })
-          ).pipe(
-            Effect.catchCauseIf(
-              (cause) => !Cause.hasInterruptsOnly(cause),
-              (_cause) =>
-                Effect.logWarning(
-                  "orchestration V2 checkpoint baseline capture failed; starting provider without a baseline",
-                  { runId: input.run.id },
-                ),
             ),
           );
           if (
