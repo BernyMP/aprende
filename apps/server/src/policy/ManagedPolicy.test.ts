@@ -43,6 +43,9 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
           settings: {
             "storageCleanup.logsAfterDays": { value: 30, locked: true },
             defaultRuntimeMode: { value: "approval-required", locked: false },
+            // Settings of removed features still load, and have no effect.
+            reviewGuidesEnabled: { value: false, locked: true },
+            "sourceControlWritingStyle.mode": { value: "plain", locked: true },
           },
         }),
       );

@@ -27,6 +27,36 @@ const UNMANAGEABLE_KEYS: ReadonlySet<string> = new Set([
   "projectScriptOverrides",
 ]);
 
+/** Settings of removed features. Policies written for older releases still load; these have no effect. */
+const RETIRED_KEYS: ReadonlySet<string> = new Set([
+  "branchNameInstructions",
+  "branchNamePrefix",
+  "branchNamingMode",
+  "cursorKeychainUsageEnabled",
+  "deviceHosts",
+  "deviceOnboardingCompleted",
+  "easDeviceHosts",
+  "enableAgentBrowserAccess",
+  "enableAgentDeviceAccess",
+  "enableDeviceSupport",
+  "ghqCloneLayout",
+  "guestSharingEnabled",
+  "linkedEnvironmentsEnabled",
+  "projectAgentBrowserAccessOverrides",
+  "pullRequestMergeMethod",
+  "removeAgentCreditsOnMerge",
+  "reviewGuideInstructions",
+  "reviewGuideModelSelection",
+  "reviewGuidesEnabled",
+  "sidebarAutoSettleKeepPullRequests",
+  "sidebarAutoSettleOnMerge",
+  "simlockDeviceHosts",
+  "simlockDeviceHostsEnabled",
+  "sourceControlHosts",
+  "sourceControlWriterModelSelection",
+  "sourceControlWritingStyle",
+]);
+
 /** Legacy settings the server derives from another on every write; manage that one instead. */
 const DERIVED_FROM: ReadonlyMap<string, string> = new Map([
   ["compactIdleThreads", "idleCompaction"],
@@ -249,6 +279,7 @@ export function makeManagedSettings(
     if (head === undefined || segments.some((segment) => segment.length === 0)) {
       return { _tag: "Invalid", reason: `"${path}" is not a settings path` };
     }
+    if (RETIRED_KEYS.has(head)) continue;
     if (!(head in ServerSettings.fields) || UNMANAGEABLE_KEYS.has(head)) {
       return { _tag: "Invalid", reason: `"${path}" is not a setting this version can manage` };
     }
