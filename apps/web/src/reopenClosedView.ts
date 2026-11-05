@@ -59,6 +59,9 @@ export function reopenClosedView(
     case "side-chat":
       panels.openSideChat(ref, surface.threadId);
       break;
+    case "practice-terminal":
+      panels.openPracticeTerminal(ref, surface);
+      break;
     default:
       panels.open(ref, surface.kind);
   }

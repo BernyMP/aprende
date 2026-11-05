@@ -10,6 +10,7 @@ import type { DraftId } from "../../composerDraftStore";
 import { type RightPanelSurface, useRightPanelStore } from "../../rightPanelStore";
 
 const FilePreviewPanel = lazy(() => import("../files/FilePreviewPanel"));
+const PracticeTerminalPanel = lazy(() => import("../learning/PracticeTerminalPanel"));
 
 interface RightPanelFileProps {
   readonly projectName: string | null;
@@ -44,6 +45,17 @@ export function RightPanelSurfaceContent(props: {
           threadId={surface.threadId}
           onClose={() => onCloseSurface(surface)}
         />
+      );
+    case "practice-terminal":
+      return (
+        <Suspense fallback={null}>
+          <PracticeTerminalPanel
+            key={surface.id}
+            environmentId={props.environmentId}
+            terminal={surface}
+            visible={visible}
+          />
+        </Suspense>
       );
     case "files":
     case "file": {

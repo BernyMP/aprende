@@ -21,7 +21,14 @@ import {
 import { restrictToFirstScrollableAncestor, restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import { horizontalListSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronLeft, ChevronRight, Files, MessagesSquare, Plus } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Files,
+  MessagesSquare,
+  Plus,
+  SquareTerminal,
+} from "lucide-react";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -345,6 +352,8 @@ function surfaceTitle(surface: RightPanelSurface): string {
       );
     case "side-chat":
       return "Side chat";
+    case "practice-terminal":
+      return `Terminal · ${surface.folder.slice(surface.folder.lastIndexOf("/") + 1)}`;
   }
 }
 
@@ -371,6 +380,8 @@ function SurfaceIcon({
       );
     case "side-chat":
       return <SideChatTabIcon environmentId={environmentId} threadId={surface.threadId} />;
+    case "practice-terminal":
+      return <SquareTerminal className="size-3 shrink-0" />;
   }
 }
 

@@ -7,7 +7,7 @@ import {
   type ScopedThreadRef,
 } from "@aprende/contracts";
 import { useAtomValue } from "@effect/atom-react";
-import { FolderOpenIcon, PlayIcon } from "lucide-react";
+import { FolderOpenIcon, PlayIcon, SquareTerminalIcon } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "~/lib/utils";
@@ -170,6 +170,9 @@ function Workspace(props: {
     serverEnvironment.runLearningCheck.permissionAtom(threadRef.environmentId),
   );
   const runCheck = useAtomCommand(serverEnvironment.runLearningCheck, { label: "run the check" });
+  const canOpenTerminal = useAtomValue(
+    serverEnvironment.openPracticeTerminal.permissionAtom(threadRef.environmentId),
+  );
   const first = workspace.files[0];
 
   const runIt = async () => {
@@ -206,6 +209,21 @@ function Workspace(props: {
         >
           <FolderOpenIcon />
           Open {workspace.folder}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={canOpenTerminal === false}
+          onClick={() =>
+            useRightPanelStore.getState().openPracticeTerminal(threadRef, {
+              threadId: threadRef.threadId,
+              problemId: problem.id,
+              folder: workspace.folder,
+            })
+          }
+        >
+          <SquareTerminalIcon />
+          Terminal
         </Button>
         {workspace.checkCommand !== null ? (
           <Button

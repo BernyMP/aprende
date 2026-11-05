@@ -159,6 +159,10 @@
       "types": "./src/state/commandOutput.ts",
       "default": "./src/state/commandOutput.ts"
     },
+    "./state/practice-terminal": {
+      "types": "./src/state/practiceTerminal.ts",
+      "default": "./src/state/practiceTerminal.ts"
+    },
     "./state/item-support": {
       "types": "./src/state/itemSupport.ts",
       "default": "./src/state/itemSupport.ts"
