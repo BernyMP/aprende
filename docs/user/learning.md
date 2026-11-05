@@ -49,6 +49,10 @@ stopping it after 30 seconds. It runs on your computer with your permissions, as
 would, so read the command before you run it. **Submit** runs the check once more and sends your code
 to the tutor. The folder stays after the problem ends.
 
+**Terminal** opens a shell in the practice folder for programs that read what you type, running on
+your computer with your permissions like **Run check**. Hiding the panel keeps it running with its
+recent output; closing its tab ends the shell.
+
 ## Files
 
 Mention files with `@` or by path, such as a PDF of lecture notes or a photo of a worked problem.
