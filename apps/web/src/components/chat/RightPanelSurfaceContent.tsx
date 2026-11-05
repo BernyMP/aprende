@@ -28,7 +28,6 @@ import { ThreadPullRequestsPanel } from "../pullRequest/ThreadPullRequestsPanel"
 const PreviewPanel = lazy(() =>
   import("../preview/PreviewPanel").then((module) => ({ default: module.PreviewPanel })),
 );
-const DiffPanel = lazy(() => import("../DiffPanel"));
 const DevicePanel = lazy(() =>
   import("../device/DevicePanel").then((module) => ({ default: module.DevicePanel })),
 );
@@ -103,18 +102,6 @@ export function RightPanelSurfaceContent(props: {
           threadRef={threadRef}
           surface={surface}
         />
-      );
-    case "diff":
-      return (
-        <Suspense fallback={null}>
-          <DiffPanel
-            key={scopedThreadKey(threadRef)}
-            mode="embedded"
-            composerDraftTarget={props.composerDraftTarget}
-            workspaceMutationId={props.workspaceMutationId}
-            visible={visible}
-          />
-        </Suspense>
       );
     case "pull-request": {
       const pullRequest = props.pullRequest;

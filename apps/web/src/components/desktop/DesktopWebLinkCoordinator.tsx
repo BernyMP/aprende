@@ -224,12 +224,7 @@ export function DesktopWebLinkCoordinator() {
       sourceControlClients.parseCommitUrl(url, activeProject?.repositoryIdentity?.provider) !== null
         ? activeThreadRef
         : undefined;
-    // A commit the thread's workspace lacks continues here, after its lookup.
-    const openUnavailableCommit = () => {
-      queueRef.current = queueRef.current.then(() => openInBrowser(url)).catch(() => undefined);
-    };
-    if (openChangeRequest(externalClick, url, commitThreadRef, undefined, openUnavailableCommit))
-      return;
+    if (openChangeRequest(externalClick, url, commitThreadRef)) return;
     await openInBrowser(url);
   });
 

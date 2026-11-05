@@ -11,7 +11,6 @@ import { AsyncResult } from "effect/reactivity";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { scopedThreadKey } from "@aprende/client-runtime/environment";
-import { useDiffPanelStore } from "../diffPanelStore";
 import { browserMiniPlayerSource, usePreviewMiniPlayerStore } from "../previewMiniPlayerStore";
 import { useRightPanelStore } from "../rightPanelStore";
 
@@ -170,7 +169,6 @@ import { useThreadActions } from "./useThreadActions";
 
 function seedThreadPanelState(ref: ScopedThreadRef) {
   useRightPanelStore.getState().show(ref);
-  useDiffPanelStore.getState().selectGitScope(ref, "branch");
   usePreviewMiniPlayerStore.getState().open(ref, browserMiniPlayerSource("tab"));
 }
 
@@ -178,12 +176,11 @@ function threadPanelStatePresence(ref: ScopedThreadRef) {
   const key = scopedThreadKey(ref);
   return {
     rightPanel: key in useRightPanelStore.getState().byThreadKey,
-    diffPanel: key in useDiffPanelStore.getState().byThreadKey,
     miniPlayer: key in usePreviewMiniPlayerStore.getState().byThreadKey,
   };
 }
-const panelStateKept = { rightPanel: true, diffPanel: true, miniPlayer: true };
-const panelStateCleared = { rightPanel: false, diffPanel: false, miniPlayer: false };
+const panelStateKept = { rightPanel: true, miniPlayer: true };
+const panelStateCleared = { rightPanel: false, miniPlayer: false };
 
 const primary = EnvironmentId.make("primary");
 const secondary = EnvironmentId.make("secondary");
@@ -249,7 +246,6 @@ beforeEach(() => {
   state.afterRequest = undefined;
   state.sessionLookupFails = false;
   useRightPanelStore.setState(useRightPanelStore.getInitialState(), true);
-  useDiffPanelStore.setState(useDiffPanelStore.getInitialState(), true);
   usePreviewMiniPlayerStore.setState(usePreviewMiniPlayerStore.getInitialState(), true);
 });
 

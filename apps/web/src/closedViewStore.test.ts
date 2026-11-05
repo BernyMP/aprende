@@ -11,8 +11,8 @@ import { type ClosedViewEntry, useClosedViewStore } from "./closedViewStore";
 
 const refA = scopeThreadRef("env-1" as EnvironmentId, ThreadId.make("thread-A"));
 const refB = scopeThreadRef("env-2" as EnvironmentId, ThreadId.make("thread-A"));
-const diff = (threadRef: typeof refA) =>
-  ({ kind: "panel-tab", threadRef, surface: { kind: "diff", id: "diff" } }) as const;
+const files = (threadRef: typeof refA) =>
+  ({ kind: "panel-tab", threadRef, surface: { kind: "files", id: "files" } }) as const;
 
 beforeEach(() => {
   useClosedViewStore.setState({ entries: [] });
@@ -37,10 +37,11 @@ describe("closedViewStore", () => {
       threadRef: refA,
       snapshot: { ...snapshot, profileId: "default", navStatus: null },
     },
-    { id: "bad", kind: "panel-tab", surface: { kind: "diff", id: "diff" } },
+    { id: "bad", kind: "panel-tab", surface: { kind: "files", id: "files" } },
     { id: "bad", kind: "panel-tab", threadRef: refA },
-    { id: "bad", kind: "panel-tab", threadRef: {}, surface: { kind: "diff", id: "diff" } },
+    { id: "bad", kind: "panel-tab", threadRef: {}, surface: { kind: "files", id: "files" } },
     { id: "bad", kind: "panel-tab", threadRef: refA, surface: {} },
+    { id: "bad", kind: "panel-tab", threadRef: refA, surface: { kind: "diff", id: "diff" } },
     { id: "bad", kind: "panel-tab", threadRef: refA, surface: { kind: "file", id: "file:x" } },
     {
       id: "bad",
@@ -61,7 +62,7 @@ describe("closedViewStore", () => {
       surface: { kind: "side-chat", id: "side-chat:x" },
     },
   ])("discards incomplete saved views %j while retaining valid history", async (entry) => {
-    const id = useClosedViewStore.getState().remember(diff(refA));
+    const id = useClosedViewStore.getState().remember(files(refA));
     const { storage, name } = useClosedViewStore.persist.getOptions();
     await storage!.setItem(name!, {
       state: { entries: [entry as ClosedViewEntry, ...useClosedViewStore.getState().entries] },
@@ -69,13 +70,13 @@ describe("closedViewStore", () => {
     });
     await useClosedViewStore.persist.rehydrate();
     expect(useClosedViewStore.persist.hasHydrated()).toBe(true);
-    expect(useClosedViewStore.getState().entries).toEqual([{ ...diff(refA), id }]);
-    expect(() => useClosedViewStore.getState().remember(diff(refB))).not.toThrow();
+    expect(useClosedViewStore.getState().entries).toEqual([{ ...files(refA), id }]);
+    expect(() => useClosedViewStore.getState().remember(files(refB))).not.toThrow();
   });
 
   it("keeps private tabs available in memory without saving their metadata", async () => {
     const store = useClosedViewStore.getState();
-    const publicId = store.remember(diff(refA));
+    const publicId = store.remember(files(refA));
     const privateId = store.remember({ kind: "browser", threadRef: refA, snapshot });
     expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([
       privateId,
@@ -96,7 +97,7 @@ describe("closedViewStore", () => {
       threadRef: refA,
       surface: { id: "side-chat:side", kind: "side-chat", threadId: ThreadId.make("side") },
     });
-    const publicId = store.remember(diff(refA));
+    const publicId = store.remember(files(refA));
     const browserId = store.remember({
       kind: "browser",
       threadRef: refA,

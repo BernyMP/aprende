@@ -8,21 +8,9 @@ import type {
   PullRequestDiffFileContentsInput,
   PullRequestDiffFileContentsResult,
   PullRequestRef,
-  ReviewDiffFileContentsInput,
-  ReviewDiffFileContentsResult,
-  ReviewDiffPreviewSourceKind,
 } from "@aprende/contracts";
 
 import { resolveFileDiffPath } from "./diffRendering";
-
-interface GitDiffFileContentsSource {
-  readonly environmentId: EnvironmentId;
-  readonly cwd: string;
-  readonly sourceKind: ReviewDiffPreviewSourceKind;
-  readonly baseRef: string | null;
-  readonly headRef: string | null;
-  readonly cacheKey: string;
-}
 
 interface PullRequestDiffFileContentsSource {
   readonly environmentId: EnvironmentId;
@@ -30,11 +18,6 @@ interface PullRequestDiffFileContentsSource {
   readonly commit: string | null;
   readonly cacheKey: string;
 }
-
-type GetDiffFileContents<E> = (request: {
-  readonly environmentId: EnvironmentId;
-  readonly input: ReviewDiffFileContentsInput;
-}) => Promise<AtomCommandResult<ReviewDiffFileContentsResult, E>>;
 
 type GetPullRequestDiffFileContents<E> = (request: {
   readonly environmentId: EnvironmentId;
@@ -72,30 +55,6 @@ function createDiffFileContentsLoader(
       newFile,
     };
   };
-}
-
-export function createGitDiffFileContentsLoader<E>(
-  getDiffFileContents: GetDiffFileContents<E>,
-  source: GitDiffFileContentsSource,
-): FileDiffContentsLoader {
-  return createDiffFileContentsLoader(async ({ changeType, oldPath, newPath }) => {
-    const result = await getDiffFileContents({
-      environmentId: source.environmentId,
-      input: {
-        cwd: source.cwd,
-        sourceKind: source.sourceKind,
-        changeType,
-        baseRef: source.baseRef,
-        headRef: source.headRef,
-        oldPath,
-        newPath,
-      },
-    });
-    if (result._tag !== "Success") {
-      throw squashAtomCommandFailure(result);
-    }
-    return result.value;
-  }, source.cacheKey);
 }
 
 export function createPullRequestDiffFileContentsLoader<E>(

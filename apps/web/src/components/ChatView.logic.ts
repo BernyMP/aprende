@@ -3,7 +3,6 @@ import {
   deriveLatestThreadRun,
   deriveThreadRuntime,
 } from "@aprende/client-runtime/state/thread-execution";
-import { checkpointFileTotals } from "@aprende/client-runtime/state/thread-checkpoints";
 import { COMPACT_COMMAND_PATTERN } from "@aprende/client-runtime/state/context-window";
 import { derivePendingBackgroundWork } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
 import {
@@ -42,7 +41,6 @@ import {
   type ThreadContextRecord,
   type EnvironmentContextRecord,
   type ThreadId,
-  type ThreadLinkedPullRequest,
   type RunId,
   type WorktreeSetupSnapshot,
 } from "@aprende/contracts";
@@ -60,13 +58,7 @@ import {
   type CodexArtifactTemplate,
 } from "@aprende/shared/codexArtifactTemplates";
 import { presentThreadShell } from "@aprende/client-runtime/state/shell";
-import {
-  type ChatMessage,
-  isImageAttachment,
-  type SessionPhase,
-  type Thread,
-  type TurnDiffSummary,
-} from "../types";
+import { type ChatMessage, isImageAttachment, type SessionPhase, type Thread } from "../types";
 import {
   type ComposerFileAttachment,
   type ComposerImageAttachment,
@@ -152,97 +144,6 @@ export function shouldRenderPreviewMiniPlayer(
     renderedRightPanelSurface.target?.hostId === source.hostId &&
     renderedRightPanelSurface.target.deviceId === source.deviceId
   );
-}
-
-export function shouldOpenProactivePullRequest(
-  previousTargetKey: string | null | undefined,
-  targetKey: string | null,
-): boolean {
-  return targetKey !== null && targetKey !== previousTargetKey;
-}
-
-interface ProactivePanelObservation {
-  threadKey: string;
-  runningTurnId: RunId | null | undefined;
-  targetKey: string | null | undefined;
-  userActionTurnId: RunId | null;
-  userActionRevision: number;
-}
-
-export function observeProactivePanelUserChoice(
-  previous: ProactivePanelObservation | null,
-  input: { threadKey: string; runningTurnId: RunId | null; userActionRevision: number },
-): ProactivePanelObservation {
-  const sameThread = previous?.threadKey === input.threadKey;
-  const newTurn =
-    sameThread && input.runningTurnId !== null && input.runningTurnId !== previous.userActionTurnId;
-  return {
-    threadKey: input.threadKey,
-    runningTurnId: sameThread ? previous.runningTurnId : undefined,
-    targetKey: sameThread ? previous.targetKey : undefined,
-    userActionTurnId: input.runningTurnId ?? (sameThread ? previous.userActionTurnId : null),
-    userActionRevision:
-      !sameThread || newTurn ? input.userActionRevision : previous.userActionRevision,
-  };
-}
-
-export function shouldRetargetThreadPullRequestPanel(
-  previous: ThreadLinkedPullRequest | null,
-  current: ThreadLinkedPullRequest | null,
-  surface: RightPanelSurface | null,
-): boolean {
-  if (previous === null || current === null || surface?.kind !== "pull-request") return false;
-  const previousRepository = previous.repository.toLowerCase();
-  return (
-    (previous.projectId !== current.projectId ||
-      previousRepository !== current.repository.toLowerCase() ||
-      previous.number !== current.number) &&
-    surface.projectId === previous.projectId &&
-    surface.repository.toLowerCase() === previousRepository &&
-    surface.number === previous.number
-  );
-}
-
-export function shouldOpenProactiveTurnDiff(input: {
-  previousRunningTurnId: RunId | null | undefined;
-  runningTurnId: RunId | null;
-  settledTurnId: RunId | null;
-  turnCompleted: boolean;
-}): boolean {
-  return (
-    input.runningTurnId === null &&
-    input.turnCompleted &&
-    input.settledTurnId !== null &&
-    (input.previousRunningTurnId === undefined ||
-      input.settledTurnId === input.previousRunningTurnId)
-  );
-}
-
-export function resolveProactiveTurnDiffAction(input: {
-  checkpoint: Pick<TurnDiffSummary, "status" | "files" | "filesTotal"> | undefined;
-  isGitRepo: boolean | undefined;
-}): "defer" | "ignore" | "open" {
-  if (input.checkpoint === undefined || input.checkpoint.status === "missing") return "defer";
-  if (input.isGitRepo === undefined) return "defer";
-  if (
-    !input.isGitRepo ||
-    input.checkpoint.status !== "ready" ||
-    input.checkpoint.files.length === 0
-  ) {
-    return "ignore";
-  }
-  const totals = checkpointFileTotals(input.checkpoint);
-  return totals.count >= 3 || totals.additions + totals.deletions >= 50 ? "open" : "ignore";
-}
-
-/** Mark reactivated Diff tabs to preserve review scope. Already-active tabs must not leave a marker for
- * the next open. */
-export function resolveExplicitDiffOpenOnActivate(input: {
-  readonly surfaceKind: RightPanelSurface["kind"];
-  readonly diffOpen: boolean;
-  readonly activeThreadRef: ScopedThreadRef;
-}): ScopedThreadRef | null {
-  return input.surfaceKind === "diff" && !input.diffOpen ? input.activeThreadRef : null;
 }
 
 export function codexArtifactTemplatePromptToAppend(

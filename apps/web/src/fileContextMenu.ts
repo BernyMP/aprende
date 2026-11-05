@@ -162,10 +162,3 @@ export function useFileContextMenu(environmentId: EnvironmentId | null) {
     show,
   };
 }
-
-export function useFileContextMenuHandler(environmentId: EnvironmentId | null) {
-  const contextMenu = useFileContextMenu(environmentId);
-  return (target: FileContextMenuTarget, event?: { clientX: number; clientY: number }) => {
-    void contextMenu.show(target, event ? { x: event.clientX, y: event.clientY } : undefined);
-  };
-}

@@ -3,7 +3,7 @@ import {
   scopedThreadKey,
   scopeThreadRef,
 } from "@aprende/client-runtime/environment";
-import { EnvironmentId, RunId, ThreadId, type ScopedThreadRef } from "@aprende/contracts";
+import { EnvironmentId, ThreadId, type ScopedThreadRef } from "@aprende/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -13,7 +13,6 @@ import type { ThreadPanelPresentation } from "./rightPanelLayout";
 import type { ChatFileAttachment } from "./types";
 
 const RIGHT_PANEL_KINDS = [
-  "diff",
   "files",
   "file",
   "preview",
@@ -46,7 +45,6 @@ export type RightPanelSurface =
       activeTerminalId: string;
       splitDirection?: "horizontal" | "vertical";
     }
-  | { id: "diff"; kind: "diff" }
   | {
       id: "files";
       kind: "files";
@@ -79,7 +77,7 @@ export type RightPanelSurface =
   | { id: `side-chat:${string}`; kind: "side-chat"; threadId: ThreadId };
 
 const RIGHT_PANEL_STORAGE_KEY = "aprende:right-panel-state:v2";
-const RIGHT_PANEL_STORAGE_VERSION = 14;
+const RIGHT_PANEL_STORAGE_VERSION = 15;
 
 export const PULL_REQUESTS_PANEL_REF = scopeThreadRef(
   EnvironmentId.make("pull-requests-panel"),
@@ -94,7 +92,6 @@ export interface ThreadRightPanelState {
   surfaces: RightPanelSurface[];
   dismissedDeviceSurfaceIds?: string[];
   maximized?: true;
-  proactiveDiffTurnId?: RunId;
 }
 
 export interface ThreadPanelVisibility {
@@ -108,19 +105,10 @@ interface RightPanelStoreState {
   requestMaximize: (ref: ScopedThreadRef) => void;
   consumeMaximizeRequest: (ref: ScopedThreadRef) => boolean;
   threadPanelVisibilityByThreadKey: Record<string, ThreadPanelVisibility>;
+  /** Bumped by each user action; workspace focus follows a panel the user opens. */
   userActionRevisionByThreadKey: Record<string, number>;
+  /** Bumped by each user close; closed tabs are remembered for reopening. */
   closeRevisionByThreadKey: Record<string, number>;
-  getUserActionRevision: (ref: ScopedThreadRef) => number;
-  markUserAction: (ref: ScopedThreadRef) => number;
-  /** Refused if the user chose a panel after expectedUserActionRevision was read. */
-  openProactive: (
-    ref: ScopedThreadRef,
-    request:
-      | Extract<RightPanelSurface, { kind: "pull-request" | "pull-requests" }>
-      | { kind: "diff"; turnId: RunId },
-    expectedUserActionRevision: number,
-    activateExisting?: boolean,
-  ) => boolean;
   open: (
     ref: ScopedThreadRef,
     kind: Exclude<RightPanelKind, "file" | "terminal" | "pull-request" | "side-chat">,
@@ -211,8 +199,6 @@ const singletonSurface = (
   kind: Exclude<RightPanelKind, "file" | "preview" | "terminal" | "pull-request" | "side-chat">,
 ): RightPanelSurface => {
   switch (kind) {
-    case "diff":
-      return { id: "diff", kind };
     case "files":
       return { id: "files", kind };
     case "pull-requests":
@@ -317,8 +303,7 @@ const updateThreadStateMap = (
     !next.isOpen &&
     next.activeSurfaceId === null &&
     next.surfaces.length === 0 &&
-    !next.dismissedDeviceSurfaceIds?.length &&
-    next.proactiveDiffTurnId === undefined
+    !next.dismissedDeviceSurfaceIds?.length
   ) {
     if (!(threadKey in byThreadKey)) return byThreadKey;
     const { [threadKey]: _removed, ...rest } = byThreadKey;
@@ -464,6 +449,9 @@ const closeAction = (
   updater: (current: ThreadRightPanelState) => ThreadRightPanelState,
 ): Partial<RightPanelStoreState> => userAction(state, threadKey, updater, true);
 
+// Panels that no longer exist; saved tabs of these kinds are dropped on load.
+const REMOVED_SURFACE_KINDS: ReadonlySet<string> = new Set(["plan", "agents", "diff"]);
+
 function normalizeRevealLine(line: number | undefined): number | null {
   if (line === undefined || !Number.isFinite(line)) return null;
   return Math.max(1, Math.trunc(line));
@@ -489,7 +477,7 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
               const surfaces = Array.isArray(validThreadState?.surfaces)
                 ? validThreadState.surfaces.flatMap<RightPanelSurface>((surface) => {
                     const kind = (surface as { kind?: string }).kind;
-                    if (kind === "plan" || kind === "agents") return [];
+                    if (kind === undefined || REMOVED_SURFACE_KINDS.has(kind)) return [];
                     if (
                       (surface.kind === "file" || surface.kind === "files") &&
                       "folderTrail" in surface &&
@@ -586,9 +574,6 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                   isOpen,
                   surfaces,
                   activeSurfaceId,
-                  ...(typeof validThreadState?.proactiveDiffTurnId === "string"
-                    ? { proactiveDiffTurnId: RunId.make(validThreadState.proactiveDiffTurnId) }
-                    : {}),
                   ...(Array.isArray(validThreadState?.dismissedDeviceSurfaceIds)
                     ? {
                         dismissedDeviceSurfaceIds:
@@ -635,58 +620,6 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
       threadPanelVisibilityByThreadKey: {},
       userActionRevisionByThreadKey: {},
       closeRevisionByThreadKey: {},
-      getUserActionRevision: (ref) =>
-        get().userActionRevisionByThreadKey[scopedThreadKey(ref)] ?? 0,
-      markUserAction: (ref) => {
-        const revision = get().getUserActionRevision(ref) + 1;
-        set((state) => ({
-          userActionRevisionByThreadKey: {
-            ...state.userActionRevisionByThreadKey,
-            [scopedThreadKey(ref)]: revision,
-          },
-        }));
-        return revision;
-      },
-      openProactive: (ref, request, expectedUserActionRevision, activateExisting = false) => {
-        let opened = false;
-        set((state) => {
-          const threadKey = scopedThreadKey(ref);
-          if (request.kind === "diff") {
-            const current = selectThreadRightPanelState(state.byThreadKey, ref);
-            if (current.proactiveDiffTurnId === request.turnId) return state;
-            const activePanel = selectActiveRightPanel(state.byThreadKey, ref);
-            const pullRequestActive =
-              activePanel === "pull-request" || activePanel === "pull-requests";
-            opened =
-              (state.userActionRevisionByThreadKey[threadKey] ?? 0) ===
-                expectedUserActionRevision &&
-              activePanel !== "diff" &&
-              !pullRequestActive;
-            // Record the offer even when refused, so a revisit does not retry this turn.
-            return automaticUpdate(state, threadKey, (thread) => ({
-              ...(opened ? upsertSurface(thread, singletonSurface("diff")) : thread),
-              proactiveDiffTurnId: request.turnId,
-            }));
-          }
-          if (
-            (state.userActionRevisionByThreadKey[threadKey] ?? 0) !== expectedUserActionRevision
-          ) {
-            return state;
-          }
-          // Keep an existing PR tab where the user left it when revisiting a thread.
-          if (
-            !activateExisting &&
-            selectThreadRightPanelState(state.byThreadKey, ref).surfaces.some(
-              (entry) => entry.id === request.id,
-            )
-          ) {
-            return state;
-          }
-          opened = true;
-          return automaticUpdate(state, threadKey, (current) => upsertSurface(current, request));
-        });
-        return opened;
-      },
       open: (ref, kind) =>
         set((state) =>
           userAction(state, scopedThreadKey(ref), (current) => {

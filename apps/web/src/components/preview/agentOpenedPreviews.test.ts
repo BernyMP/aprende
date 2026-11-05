@@ -224,20 +224,23 @@ describe("revealServerTabs", () => {
     setup();
     useRightPanelStore.getState().openBrowser(ref, "tab_a");
     const browserSurfaceId = useRightPanelStore.getState().byThreadKey[threadKey]?.activeSurfaceId;
-    useRightPanelStore.getState().open(ref, "diff");
+    useRightPanelStore.getState().open(ref, "files");
 
     revealServerTabs(ref, [tab("tab_a", false)], { autoShowFloatingPreview: true });
     expect(useRightPanelStore.getState().byThreadKey[threadKey]?.activeSurfaceId).not.toBe(
       browserSurfaceId,
     );
-    const userActionRevision = useRightPanelStore.getState().getUserActionRevision(ref);
+    const userActionRevision =
+      useRightPanelStore.getState().userActionRevisionByThreadKey[threadKey];
     revealServerTabs(ref, [tab("tab_a", true)], { autoShowFloatingPreview: true });
     expect(useRightPanelStore.getState().byThreadKey[threadKey]?.activeSurfaceId).toBe(
       browserSurfaceId,
     );
     expect(floatingTabId()).toBeNull();
     // A user action moves keyboard focus into the panel; an agent reveal must not.
-    expect(useRightPanelStore.getState().getUserActionRevision(ref)).toBe(userActionRevision);
+    expect(useRightPanelStore.getState().userActionRevisionByThreadKey[threadKey]).toBe(
+      userActionRevision,
+    );
   });
 });
 

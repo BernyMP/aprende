@@ -1,4 +1,3 @@
-import type { ToolCallDiffTarget } from "../../diffPanelStore";
 import type { EnvironmentId, OrchestrationV2ProjectedTurnItem } from "@aprende/contracts";
 import {
   isJsonToolText,
@@ -19,7 +18,6 @@ import { resolveDiffThemeName } from "../../lib/diffRendering";
 import { getSyntaxHighlighterPromise } from "../../lib/syntaxHighlighting";
 import { useTurnItemDetail } from "../../state/queries";
 import { formatWorkspaceRelativePath } from "../../filePathDisplay";
-import { Button } from "../ui/button";
 import ChatMarkdown from "../ChatMarkdown";
 import { ChatMarkdownAssetImage } from "./ChatMarkdownMedia";
 import { RenderErrorBoundary } from "../RenderErrorBoundary";
@@ -34,7 +32,6 @@ interface V2ItemInspectorProps {
   readonly environmentId: EnvironmentId;
   readonly cwd?: string | undefined;
   readonly workspaceRoot?: string | undefined;
-  readonly onOpenToolDiff?: ((target: ToolCallDiffTarget) => void) | undefined;
   readonly onImageExpand?: ((preview: ExpandedImagePreview) => void) | undefined;
   readonly source?: TurnItemSource | undefined;
 }
@@ -283,21 +280,6 @@ export const V2ItemInspector = memo(function V2ItemInspector(props: V2ItemInspec
                 <span className="text-diff-addition">+{formatDiffCount(item.additions ?? 0)}</span>{" "}
                 <span className="text-diff-deletion">-{formatDiffCount(item.deletions ?? 0)}</span>
               </span>
-            ) : null}
-            {props.onOpenToolDiff ? (
-              <Button
-                size="xs"
-                variant="outline"
-                onClick={() =>
-                  props.onOpenToolDiff?.({
-                    threadId: props.projectedItem.sourceThreadId,
-                    itemId: props.projectedItem.sourceItemId,
-                    revision: turnItemDetailRevision(item),
-                  })
-                }
-              >
-                Open diff
-              </Button>
             ) : null}
           </div>
           {item.status === "failed" && item.diffStr?.trim() ? (

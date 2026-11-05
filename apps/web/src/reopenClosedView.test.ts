@@ -127,7 +127,18 @@ describe("reopenClosedView", () => {
 
 describe("planNextReopen", () => {
   const entries: ClosedViewEntry[] = [
-    { id: "a", kind: "panel-tab", threadRef, surface: { kind: "diff", id: "diff" } },
+    {
+      id: "a",
+      kind: "panel-tab",
+      threadRef,
+      surface: {
+        kind: "file",
+        id: "file:a.ts",
+        relativePath: "a.ts",
+        revealLine: null,
+        revealRequestId: 0,
+      },
+    },
     { id: "b", kind: "panel-tab", threadRef, surface: { kind: "files", id: "files" } },
   ];
   const known: ReopenOwnerState = {
@@ -138,10 +149,12 @@ describe("planNextReopen", () => {
     shellLive: true,
     panel: { isOpen: false, activeSurfaceId: null, surfaces: [] },
   };
-  const openDiff: ThreadRightPanelState = {
+  const openFilePanel: ThreadRightPanelState = {
     isOpen: true,
-    activeSurfaceId: "diff",
-    surfaces: [{ kind: "diff", id: "diff" }],
+    activeSurfaceId: "file:a.ts",
+    surfaces: [
+      { kind: "file", id: "file:a.ts", relativePath: "a.ts", revealLine: null, revealRequestId: 0 },
+    ],
   };
 
   it.each([
@@ -182,10 +195,10 @@ describe("planNextReopen", () => {
       [],
       null,
     ],
-    ["drops a tab that is already open", [{ ...known, panel: openDiff }, known], ["a"], "b"],
+    ["drops a tab that is already open", [{ ...known, panel: openFilePanel }, known], ["a"], "b"],
     [
       "restores a tab whose panel is hidden",
-      [{ ...known, panel: { ...openDiff, isOpen: false } }],
+      [{ ...known, panel: { ...openFilePanel, isOpen: false } }],
       [],
       "a",
     ],

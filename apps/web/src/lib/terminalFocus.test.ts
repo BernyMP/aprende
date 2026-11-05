@@ -253,16 +253,16 @@ describe("focusTerminal", () => {
     const ref = threadRef("panel-fallback");
     const panel = useRightPanelStore.getState();
     panel.openTerminal(ref, "a");
-    panel.open(ref, "diff");
-    const { activeSurfaceId: diffSurfaceId } = selectThreadRightPanelState(
+    panel.open(ref, "files");
+    const { activeSurfaceId: filesSurfaceId } = selectThreadRightPanelState(
       useRightPanelStore.getState().byThreadKey,
       ref,
     );
     const focus = vi.fn(() => true);
     const unregister = registerTerminalFocusTarget({ threadRef: ref, terminalId: "a", focus });
-    expect(diffSurfaceId).not.toBeNull();
+    expect(filesSurfaceId).not.toBeNull();
 
-    useRightPanelStore.getState().closeSurface(ref, diffSurfaceId!);
+    useRightPanelStore.getState().closeSurface(ref, filesSurfaceId!);
     focusActivePanelTerminal(ref);
 
     expect(focus).toHaveBeenCalledTimes(1);
@@ -300,8 +300,8 @@ describe("focusTerminal", () => {
       useRightPanelStore.getState().byThreadKey,
       ref,
     ).activeSurfaceId!;
-    panel.open(ref, "diff");
-    const diffSurfaceId = selectThreadRightPanelState(
+    panel.open(ref, "files");
+    const filesSurfaceId = selectThreadRightPanelState(
       useRightPanelStore.getState().byThreadKey,
       ref,
     ).activeSurfaceId!;
@@ -309,11 +309,11 @@ describe("focusTerminal", () => {
     const unregister = registerTerminalFocusTarget({ threadRef: ref, terminalId: "a", focus });
 
     panel.activateSurface(ref, terminalSurfaceId);
-    panel.closeSurface(ref, diffSurfaceId);
+    panel.closeSurface(ref, filesSurfaceId);
     focusPanelTerminalAfterClose(ref, terminalSurfaceId);
     expect(focus).not.toHaveBeenCalled();
 
-    panel.open(ref, "diff");
+    panel.open(ref, "files");
     const reopenedDiffId = selectThreadRightPanelState(
       useRightPanelStore.getState().byThreadKey,
       ref,

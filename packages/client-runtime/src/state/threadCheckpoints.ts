@@ -16,7 +16,7 @@ export interface ThreadCheckpointSummary {
   readonly checkpointTurnCount: number;
   readonly checkpointRef: CheckpointRef;
   readonly status: "ready" | "missing" | "error" | "stale";
-  /** A prefix of the changed files when `filesTotal` is set; see `checkpointFileTotals`. */
+  /** A prefix of the changed files when `filesTotal` is set. */
   readonly files: ReadonlyArray<{
     readonly path: string;
     readonly kind: string;
@@ -75,17 +75,4 @@ export function deriveThreadCheckpointSummaries(
       },
     ];
   });
-}
-
-export function checkpointFileTotals(
-  checkpoint: Pick<ThreadCheckpointSummary, "files" | "filesTotal">,
-): OrchestrationV2CheckpointFileTotals {
-  if (checkpoint.filesTotal !== undefined) return checkpoint.filesTotal;
-  let additions = 0;
-  let deletions = 0;
-  for (const file of checkpoint.files) {
-    additions += file.additions;
-    deletions += file.deletions;
-  }
-  return { count: checkpoint.files.length, additions, deletions };
 }

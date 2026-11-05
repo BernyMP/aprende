@@ -1491,14 +1491,12 @@ export function PullRequestsPage() {
             onAddBrowser={() => undefined}
             onAddBrowserInProfile={() => undefined}
             onAddTerminal={() => undefined}
-            onAddDiff={() => undefined}
             onAddFiles={() => undefined}
             onAddPullRequest={() => undefined}
             onAddPullRequests={() => undefined}
             onAddDevice={() => undefined}
             browserAvailable={false}
             terminalAvailable={false}
-            diffAvailable={false}
             filesAvailable={false}
             pullRequestAvailable={false}
             pullRequestsAvailable={false}

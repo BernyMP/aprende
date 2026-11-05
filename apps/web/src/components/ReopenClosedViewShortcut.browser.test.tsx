@@ -1,4 +1,4 @@
-import type { ResolvedKeybindingsConfig, ScopedThreadRef } from "@aprende/contracts";
+import type { ResolvedKeybindingsConfig, ScopedThreadRef, ThreadId } from "@aprende/contracts";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@aprende/shared/keybindings";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
@@ -180,7 +180,7 @@ describe("root reopen shortcut", () => {
     const older = store.remember({
       kind: "panel-tab",
       threadRef: ref,
-      surface: { kind: "diff", id: "diff" },
+      surface: { kind: "side-chat", id: "side-chat:side", threadId: "side" as ThreadId },
     });
     store.remember({ kind: "browser", threadRef: ref, snapshot });
     state.openPreview.mockResolvedValue(AsyncResult.success({ tabId: "new-tab" }));
@@ -202,7 +202,7 @@ describe("root reopen shortcut", () => {
     expect(state.openPreview).toHaveBeenCalledOnce();
     expect(
       selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, ref).activeSurfaceId,
-    ).toBe("diff");
+    ).toBe("side-chat:side");
     expect(useClosedViewStore.getState().entries).toEqual([]);
   });
 
@@ -214,7 +214,7 @@ describe("root reopen shortcut", () => {
       const older = store.remember({
         kind: "panel-tab",
         threadRef: ref,
-        surface: { kind: "diff", id: "diff" },
+        surface: { kind: "side-chat", id: "side-chat:side", threadId: "side" as ThreadId },
       });
       const failed = store.remember(
         kind === "browser"
@@ -250,7 +250,7 @@ describe("root reopen shortcut", () => {
       });
       expect(
         selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, ref).activeSurfaceId,
-      ).toBe("diff");
+      ).toBe("side-chat:side");
       expect(useClosedViewStore.getState().entries.map((entry) => entry.id)).toEqual([failed]);
       state.workspaceAvailable = true;
       state.openPreview.mockResolvedValue(AsyncResult.success({ ...snapshot, tabId: "new-tab" }));
