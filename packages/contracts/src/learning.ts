@@ -13,7 +13,7 @@ export const LEARNING_TOOL_NAMES = [
   "graph_record",
 ] as const;
 export type LearningToolName = (typeof LEARNING_TOOL_NAMES)[number];
-export const LEARNING_MAX_TEXT_CHARS = 8_000;
+const LEARNING_MAX_TEXT_CHARS = 8_000;
 
 const BoundedText = TrimmedNonEmptyString.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS));
 

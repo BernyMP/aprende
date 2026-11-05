@@ -39,7 +39,7 @@ export const DEFAULT_TUTOR_PROMPT = `You are the tutor in aprende, an app for le
 - If the learner asks their own question, answer it directly, then return to the plan.
 `;
 
-export const tutorPromptPath = (path: Path.Path, stateDir: string) =>
+const tutorPromptPath = (path: Path.Path, stateDir: string) =>
   path.join(stateDir, "prompts", "tutor.md");
 
 interface TutorPromptLocation {
@@ -69,7 +69,11 @@ export const writeTutorPrompt = Effect.fn("TutorPrompt.write")(function* (
   prompt: string | null,
 ) {
   const file = tutorPromptPath(path, stateDir);
-  if (prompt === null || prompt.trim().length === 0 || prompt.trim() === DEFAULT_TUTOR_PROMPT.trim()) {
+  if (
+    prompt === null ||
+    prompt.trim().length === 0 ||
+    prompt.trim() === DEFAULT_TUTOR_PROMPT.trim()
+  ) {
     yield* fileSystem.remove(file, { force: true });
     return;
   }

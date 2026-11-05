@@ -26,7 +26,11 @@ import {
 import type { HtmlRenderReference } from "@t3tools/shared/htmlRender";
 import { turnItemDetailRevision } from "@t3tools/client-runtime/work-log/item-detail";
 import type { McpAppReference } from "@t3tools/shared/mcpApp";
-import { htmlRenderFromToolItem, mcpAppFromToolItem } from "@t3tools/shared/toolOutput";
+import {
+  htmlRenderFromToolItem,
+  learningToolFromToolItem,
+  mcpAppFromToolItem,
+} from "@t3tools/shared/toolOutput";
 import {
   contextCompactionLabel,
   workEntryIndicatesToolFailure,
@@ -132,6 +136,16 @@ export type TimelineEntry = (
       readonly createdAt: string;
       readonly runId: RunId | null;
       readonly htmlRender: HtmlRenderReference;
+    }
+  | {
+      readonly id: string;
+      readonly kind: "learning";
+      readonly createdAt: string;
+      readonly runId: RunId | null;
+      readonly tool: "ask_question" | "finish_measuring" | "set_plan";
+      readonly questionId: string | null;
+      /** Only the newest plan or assessment shows in full; earlier ones were replaced. */
+      readonly latest: boolean;
     }
   | {
       readonly id: string;
@@ -695,6 +709,29 @@ export function deriveTimelineEntriesFromVisibleTurnItems(
       continue;
     }
 
+    const learning =
+      item.type === "dynamic_tool" && item.status === "completed"
+        ? learningToolFromToolItem(item)
+        : undefined;
+    if (
+      learning !== undefined &&
+      learning.tool !== "graph_search" &&
+      learning.tool !== "graph_record" &&
+      (learning.tool !== "ask_question" || learning.questionId !== null)
+    ) {
+      entries.push({
+        id: item.id,
+        kind: "learning",
+        createdAt,
+        runId: item.runId,
+        tool: learning.tool,
+        questionId: learning.questionId,
+        latest: false,
+        ...attemptMetadata,
+      });
+      continue;
+    }
+
     const htmlRender =
       item.type === "dynamic_tool" && item.status === "completed"
         ? htmlRenderFromToolItem(item)
@@ -777,6 +814,14 @@ export function deriveTimelineEntriesFromVisibleTurnItems(
         message,
       });
     }
+  }
+
+  for (const tool of ["set_plan", "finish_measuring"] as const) {
+    const index = entries.findLastIndex(
+      (entry) => entry.kind === "learning" && entry.tool === tool,
+    );
+    const entry = entries[index];
+    if (entry?.kind === "learning") entries[index] = { ...entry, latest: true };
   }
 
   return entries;

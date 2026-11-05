@@ -1171,7 +1171,7 @@ export const layerMcpTransport = <RA, RE, RR>(registrations: Layer.Layer<RA, RE,
     registrations,
   }).pipe(Layer.provide(layerMcpAuthMiddleware));
 
-export const layerLearnToolkit = toolkitRegistration(LearnToolkit, LearnHandlers.layer);
+const layerLearnToolkit = toolkitRegistration(LearnToolkit, LearnHandlers.layer);
 
 /** Every tool the MCP server advertises to the tutor. AgentContextBudget.test.ts measures this set. */
 export const layerTools = Layer.mergeAll(layerLearnToolkit, layerHtmlToolkit);

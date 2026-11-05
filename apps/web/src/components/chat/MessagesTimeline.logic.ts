@@ -82,7 +82,8 @@ function timelineEntryRunId(entry: TimelineEntry): RunId | null {
   if (entry.kind === "proposed-plan") {
     return entry.proposedPlan.runId;
   }
-  if (entry.kind === "html-render" || entry.kind === "mcp-app") return entry.runId;
+  if (entry.kind === "html-render" || entry.kind === "mcp-app" || entry.kind === "learning")
+    return entry.runId;
   return entry.kind === "work" ? (entry.entry.runId ?? null) : null;
 }
 
@@ -632,6 +633,14 @@ type MessagesTimelineRowContent =
       htmlRender: HtmlRenderReference;
     }
   | {
+      kind: "learning";
+      id: string;
+      createdAt: string;
+      tool: "ask_question" | "finish_measuring" | "set_plan";
+      questionId: string | null;
+      latest: boolean;
+    }
+  | {
       kind: "mcp-app";
       id: string;
       createdAt: string;
@@ -795,6 +804,7 @@ function deriveSupersededAttemptFolds(
       (entry.kind === "event" && entry.projectedItem.item.type === "handoff") ||
       entry.kind === "html-render" ||
       entry.kind === "mcp-app" ||
+      entry.kind === "learning" ||
       timelineEntryIsPersistentResourceCard(entry) ||
       liveSubagentEntryIds.has(entry.id) ||
       (entry.kind === "work" && entry.entry.itemType === "system_notice")
@@ -1949,6 +1959,18 @@ export function deriveMessagesTimelineRows(input: {
       continue;
     }
 
+    if (timelineEntry.kind === "learning") {
+      nextRows.push({
+        kind: "learning",
+        id: timelineEntry.id,
+        createdAt: timelineEntry.createdAt,
+        tool: timelineEntry.tool,
+        questionId: timelineEntry.questionId,
+        latest: timelineEntry.latest,
+      });
+      continue;
+    }
+
     if (timelineEntry.kind === "html-render") {
       nextRows.push({
         kind: "html-render",
@@ -2438,6 +2460,16 @@ function isRowUnchanged(a: MessagesTimelineRow, b: MessagesTimelineRow): boolean
 
     case "proposed-plan":
       return a.proposedPlan === (b as typeof a).proposedPlan;
+
+    case "learning": {
+      const bl = b as typeof a;
+      return (
+        a.createdAt === bl.createdAt &&
+        a.tool === bl.tool &&
+        a.questionId === bl.questionId &&
+        a.latest === bl.latest
+      );
+    }
 
     case "html-render": {
       // Tool updates rebuild entries; preserve frames for unchanged pages.

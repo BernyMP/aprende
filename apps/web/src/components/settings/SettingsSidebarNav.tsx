@@ -26,6 +26,7 @@ import {
   PaletteIcon,
   SearchIcon,
   ServerIcon,
+  GraduationCapIcon,
   Settings2Icon,
   ShieldCheckIcon,
   SmartphoneIcon,
@@ -86,6 +87,7 @@ const T3ConnectSidebarAvatar = lazy(() =>
 const SETTINGS_SECTION_ICONS: Readonly<
   Record<SettingsPath, ComponentType<{ className?: string }>>
 > = {
+  "/settings/tutor": GraduationCapIcon,
   "/settings/general": Settings2Icon,
   "/settings/diagnostics": WrenchIcon,
   "/settings/appearance": PaletteIcon,

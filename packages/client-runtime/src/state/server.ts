@@ -1327,6 +1327,18 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:scheduled-tasks:live",
       tag: WS_METHODS.scheduledTasksSubscribe,
     }),
+    learningThreadLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+      label: "environment-data:learning:thread:live",
+      tag: WS_METHODS.learningSubscribeThread,
+    }),
+    tutorPrompt: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:learning:tutor-prompt",
+      tag: WS_METHODS.learningGetTutorPrompt,
+    }),
+    learningKnowledge: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:learning:knowledge",
+      tag: WS_METHODS.learningGetKnowledge,
+    }),
     // A cold transcript scan is measured in seconds, so keep the result around
     // long enough that switching windows or re-rendering does not rescan.
     usageSummary: createEnvironmentRpcQueryAtomFamily(runtime, {
@@ -1540,6 +1552,16 @@ export function createServerEnvironmentAtoms<R, E>(
     signalProcess: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:signal-process",
       tag: WS_METHODS.serverSignalProcess,
+    }),
+    answerLearningQuestion: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:answer",
+      tag: WS_METHODS.learningAnswer,
+    }),
+    setTutorPrompt: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:set-tutor-prompt",
+      tag: WS_METHODS.learningSetTutorPrompt,
+      scheduler: configScheduler,
+      concurrency: configConcurrency,
     }),
     upsertScheduledTask: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:scheduled-task:upsert",
