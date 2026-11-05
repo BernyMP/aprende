@@ -136,9 +136,9 @@ export function createFileSaveSessions(deps: FileSaveSessionDeps) {
     ): Promise<boolean> {
       const { folder, files, ...base } = target;
       const prefix = fileSaveKey({ ...base, relativePath: `${folder}/` });
+      const targets = files.map((file) => ({ ...base, relativePath: `${folder}/${file}` }));
       const releases: Array<() => void> = [];
-      for (const file of files) {
-        const fileTarget = { ...base, relativePath: `${folder}/${file}` };
+      for (const fileTarget of targets) {
         // A closed editor whose save failed leaves its draft behind; reopening recovers it.
         if (!sessions.has(fileSaveKey(fileTarget)) && deps.readUnsaved(fileTarget) !== null)
           releases.push(acquire(fileTarget, () => {}));
@@ -147,7 +147,10 @@ export function createFileSaveSessions(deps: FileSaveSessionDeps) {
         .filter(([key]) => key.startsWith(prefix))
         .map(([, session]) => session.coordinator);
       await Promise.all(inFolder.map((coordinator) => coordinator.flushed()));
-      const saved = inFolder.every((coordinator) => coordinator.unconfirmedContents === null);
+      // A draft recovery could not load, e.g. without write access, is still unsaved.
+      const saved =
+        inFolder.every((coordinator) => coordinator.unconfirmedContents === null) &&
+        targets.every((fileTarget) => deps.readUnsaved(fileTarget) === null);
       for (const release of releases) release();
       return saved;
     },

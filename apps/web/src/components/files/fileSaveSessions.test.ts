@@ -93,6 +93,14 @@ describe("file save sessions", () => {
 
     h.persist.mockResolvedValueOnce(AsyncResult.failure(Cause.fail("disk full")));
     expect(await h.sessions.flushFolder(folder)).toBe(false);
+    // Without write access the draft can't even be loaded, and it still counts as unsaved.
+    h.state.writable = false;
+    expect(await h.sessions.flushFolder(folder)).toBe(false);
+    h.state.writable = true;
+    h.confirm.mockImplementationOnce(() => {
+      h.state.unsaved = null;
+      return true;
+    });
     expect(await h.sessions.flushFolder(folder)).toBe(true);
     expect(h.writes().at(-1)).toEqual([inFolder, "print(3)"]);
   });
