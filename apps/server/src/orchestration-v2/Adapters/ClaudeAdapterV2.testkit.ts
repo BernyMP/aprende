@@ -1565,7 +1565,7 @@ async function recordClaudeStreamingQuery(input: {
     cwd: input.cwd,
     ...(input.enableTools === true
       ? {
-          tools: input.tools ?? { type: "preset", preset: "claude_code" },
+          tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
           permissionMode: input.permissionMode ?? "default",
           ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
           ...(input.disallowedTools === undefined
@@ -1742,7 +1742,7 @@ async function recordClaudeActiveSteeringQuery(input: {
     cwd: input.cwd,
     ...(input.enableTools === true
       ? {
-          tools: input.tools ?? { type: "preset", preset: "claude_code" },
+          tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
           permissionMode: input.permissionMode ?? "default",
           ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
           ...(input.disallowedTools === undefined
@@ -1818,7 +1818,7 @@ async function recordClaudeRestartingQueries(input: {
       cwd: input.cwd,
       ...(input.enableTools === true
         ? {
-            tools: input.tools ?? { type: "preset", preset: "claude_code" },
+            tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
             permissionMode: input.permissionMode ?? "default",
             ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
             ...(input.disallowedTools === undefined
@@ -1911,7 +1911,7 @@ async function recordClaudeResumeAtCursorQuery(input: {
     cwd: input.cwd,
     ...(input.enableTools === true
       ? {
-          tools: input.tools ?? { type: "preset", preset: "claude_code" },
+          tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
           permissionMode: input.permissionMode ?? "default",
           ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
           ...(input.disallowedTools === undefined
@@ -1981,7 +1981,7 @@ async function recordClaudeResumeAtCursorQuery(input: {
         cwd: input.cwd,
         ...(input.enableTools === true
           ? {
-              tools: input.tools ?? { type: "preset", preset: "claude_code" },
+              tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
               permissionMode: input.permissionMode ?? "default",
               ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
               ...(input.disallowedTools === undefined
@@ -2094,7 +2094,7 @@ async function recordClaudeForkSessionQuery(input: {
     cwd: input.cwd,
     ...(input.enableTools === true
       ? {
-          tools: input.tools ?? { type: "preset", preset: "claude_code" },
+          tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
           permissionMode: input.permissionMode ?? "default",
           ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
           ...(input.disallowedTools === undefined
@@ -2202,7 +2202,7 @@ async function recordClaudeForkSessionQuery(input: {
         cwd: input.cwd,
         ...(input.enableTools === true
           ? {
-              tools: input.tools ?? { type: "preset", preset: "claude_code" },
+              tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
               permissionMode: input.permissionMode ?? "default",
               ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
               ...(input.disallowedTools === undefined
@@ -2260,7 +2260,7 @@ async function recordClaudeForkSessionQuery(input: {
         cwd: input.cwd,
         ...(input.enableTools === true
           ? {
-              tools: input.tools ?? { type: "preset", preset: "claude_code" },
+              tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
               permissionMode: input.permissionMode ?? "default",
               ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
               ...(input.disallowedTools === undefined
@@ -2350,7 +2350,7 @@ async function recordInterruptedClaudeQuery(input: {
     cwd: input.cwd,
     ...(input.enableTools === true
       ? {
-          tools: input.tools ?? { type: "preset", preset: "claude_code" },
+          tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
           permissionMode: input.permissionMode ?? "default",
           ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
           ...(input.disallowedTools === undefined
@@ -2531,7 +2531,7 @@ async function recordClaudeInterruptRestartQuery(input: {
     cwd: input.cwd,
     ...(input.enableTools === true
       ? {
-          tools: input.tools ?? { type: "preset", preset: "claude_code" },
+          tools: input.tools ?? [...ClaudeAdapterV2.CLAUDE_TUTOR_TOOLS],
           permissionMode: input.permissionMode ?? "default",
           ...(input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools }),
           ...(input.disallowedTools === undefined

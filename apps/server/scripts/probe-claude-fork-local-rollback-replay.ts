@@ -145,7 +145,7 @@ function queryOptions(input: {
       cwd: input.cwd,
       nativeThreadId: input.nativeThreadId,
       resume: input.resume,
-      tools: { type: "preset", preset: "claude_code" },
+      tools: ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
     }),

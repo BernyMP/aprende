@@ -376,6 +376,16 @@ import {
   ScheduledTaskUpsertInput,
   ScheduledTaskMutationResult,
 } from "./scheduledTask.ts";
+import {
+  LearningAnswerInput,
+  LearningAnswerResult,
+  LearningError,
+  LearningKnowledge,
+  LearningSetTutorPromptInput,
+  LearningSubscribeThreadInput,
+  LearningThreadState,
+  LearningTutorPrompt,
+} from "./learning.ts";
 import { SecretRequestAnswerInput, SecretRequestError } from "./secretRequest.ts";
 import {
   ProjectCloneActionInput,
@@ -537,6 +547,12 @@ export const WS_METHODS = {
   serverReportClientActivity: "server.reportClientActivity",
   serverGetUsageSummary: "server.getUsageSummary",
   serverRefreshUsageRates: "server.refreshUsageRates",
+
+  learningSubscribeThread: "learning.subscribeThread",
+  learningAnswer: "learning.answer",
+  learningGetTutorPrompt: "learning.getTutorPrompt",
+  learningSetTutorPrompt: "learning.setTutorPrompt",
+  learningGetKnowledge: "learning.getKnowledge",
 
   scheduledTasksSubscribe: "scheduledTasks.subscribe",
   scheduledTasksUpsert: "scheduledTasks.upsert",
@@ -1905,6 +1921,39 @@ const WsSubscribeServerLifecycleRpc = Rpc.make(WS_METHODS.subscribeServerLifecyc
   stream: true,
 });
 
+const LearningRpcError = Schema.Union([LearningError, EnvironmentAuthorizationError]);
+
+const WsLearningSubscribeThreadRpc = Rpc.make(WS_METHODS.learningSubscribeThread, {
+  payload: LearningSubscribeThreadInput,
+  success: LearningThreadState,
+  error: LearningRpcError,
+  stream: true,
+});
+
+const WsLearningAnswerRpc = Rpc.make(WS_METHODS.learningAnswer, {
+  payload: LearningAnswerInput,
+  success: LearningAnswerResult,
+  error: LearningRpcError,
+});
+
+const WsLearningGetTutorPromptRpc = Rpc.make(WS_METHODS.learningGetTutorPrompt, {
+  payload: Schema.Struct({}),
+  success: LearningTutorPrompt,
+  error: LearningRpcError,
+});
+
+const WsLearningSetTutorPromptRpc = Rpc.make(WS_METHODS.learningSetTutorPrompt, {
+  payload: LearningSetTutorPromptInput,
+  success: LearningTutorPrompt,
+  error: LearningRpcError,
+});
+
+const WsLearningGetKnowledgeRpc = Rpc.make(WS_METHODS.learningGetKnowledge, {
+  payload: Schema.Struct({}),
+  success: LearningKnowledge,
+  error: LearningRpcError,
+});
+
 const WsScheduledTasksSubscribeRpc = Rpc.make(WS_METHODS.scheduledTasksSubscribe, {
   payload: ScheduledTaskListInput,
   success: ScheduledTaskListResult,
@@ -2050,6 +2099,11 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
   WsServerSignalProcessRpc,
+  WsLearningSubscribeThreadRpc,
+  WsLearningAnswerRpc,
+  WsLearningGetTutorPromptRpc,
+  WsLearningSetTutorPromptRpc,
+  WsLearningGetKnowledgeRpc,
   WsScheduledTasksSubscribeRpc,
   WsScheduledTasksUpsertRpc,
   WsScheduledTasksSetEnabledRpc,

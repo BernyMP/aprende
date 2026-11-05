@@ -238,7 +238,8 @@ function recorderThreadConfigKeys(transcript: CodexAppServerReplayTranscript): R
 
 /**
  * `cwd`, `model`, host-supplied MCP servers (machine-local URLs, short-lived
- * authorization headers) and the T3 thread id vary per machine or run, and
+ * authorization headers) and the T3 thread id vary per machine or run, the
+ * tutor prompt in `developerInstructions` is the learner's to edit, and
  * recorder-only keys are not the client's.
  */
 function normalizeThreadRequest(frame: unknown, ignoredConfigKeys: ReadonlySet<string>): unknown {
@@ -253,7 +254,13 @@ function normalizeThreadRequest(frame: unknown, ignoredConfigKeys: ReadonlySet<s
   ) {
     return frame;
   }
-  const { cwd: _cwd, model: _model, config, ...params } = record.params as Record<string, unknown>;
+  const {
+    cwd: _cwd,
+    model: _model,
+    developerInstructions: _developerInstructions,
+    config,
+    ...params
+  } = record.params as Record<string, unknown>;
   if (typeof config !== "object" || config === null) return { ...record, params };
   const owned = Object.fromEntries(
     Object.entries(config as Record<string, unknown>).filter(

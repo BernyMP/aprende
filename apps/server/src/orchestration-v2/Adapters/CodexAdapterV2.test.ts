@@ -74,6 +74,7 @@ import * as ModelManifest from "../../provider/ModelManifest.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import { resolveProviderCompatibility } from "../../provider/providerCompatibility.ts";
 import * as CodexAdapterV2 from "./CodexAdapterV2.ts";
+import { DEFAULT_TUTOR_PROMPT } from "../../learning/tutorPrompt.ts";
 import { withCodexReplayChildMetadata } from "./CodexAdapterV2.testkit.ts";
 import * as CodexAdapterV2Testkit from "./CodexAdapterV2.testkit.ts";
 
@@ -180,7 +181,8 @@ describe("CodexAdapterV2 runtime policy", () => {
               },
             });
             assert.equal(params.effort, reasoningEffort);
-            assert.equal(params.additionalContext !== undefined, hasT3Mcp === true);
+            // The tutor prompt travels as thread developer instructions, not per-turn context.
+            assert.isUndefined(params.additionalContext);
           }
         }
       }),
@@ -248,11 +250,7 @@ describe("CodexAdapterV2 runtime policy", () => {
         hasT3Mcp: true,
         appContext,
       });
-      assert.deepEqual(withT3.additionalContext?.["mcp_app_todos_list_todos_item-1"], {
-        kind: "untrusted",
-        value: "Filtered to overdue",
-      });
-      assert.isDefined(withT3.additionalContext?.["t3_code_runtime"]);
+      assert.deepEqual(withT3.additionalContext, alone.additionalContext);
     }),
   );
 });
@@ -537,6 +535,7 @@ function makeCodexTestTurnInput(input: {
   readonly now: DateTime.Utc;
   readonly attemptId: RunAttemptId;
   readonly text: string;
+  readonly appContext?: ProviderAdapter.ProviderAdapterV2TurnInput["appContext"];
 }): ProviderAdapter.ProviderAdapterV2TurnInput {
   return {
     appThread: makeCodexTestAppThread(input),
@@ -556,6 +555,7 @@ function makeCodexTestTurnInput(input: {
     },
     modelSelection: CODEX_TEST_MODEL_SELECTION,
     runtimePolicy: CODEX_TEST_RUNTIME_POLICY,
+    ...(input.appContext === undefined ? {} : { appContext: input.appContext }),
   };
 }
 
@@ -1624,6 +1624,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         {
           cwd: "/workspace",
           model: "gpt-5.4",
+          developerInstructions: DEFAULT_TUTOR_PROMPT,
           config: {
             "tools.update_plan.enabled": true,
             mcp_optional_startup_grace_ms: 10_000,
@@ -2194,22 +2195,20 @@ describe("CodexAdapterV2 post-settle continuation", () => {
     ),
   );
 
-  it.effect("preserves T3 context on the wire and restores it after compaction", () =>
+  it.effect("preserves app context on the wire and restores it after compaction", () =>
     Effect.scoped(
       Effect.gen(function* () {
         const nativeThreadId = "context-thread";
         const nativeTurnId = "context-turn";
+        const appContext = [{ key: "mcp_app_notes", text: "Chapter 2 is open" }];
         const params = yield* CodexAdapterV2.buildCodexTurnStartParams({
           nativeThreadId,
           codexInput: [{ type: "text", text: "work" }],
           runtimePolicy: CODEX_TEST_RUNTIME_POLICY,
           modelSelection: CODEX_TEST_MODEL_SELECTION,
           hasT3Mcp: true,
+          appContext,
         });
-        assert.include(
-          params.additionalContext?.t3_code_orchestration_01?.value ?? "",
-          "delegate_task",
-        );
         const entries = codexReplayPreamble({ nativeThreadId, nativeTurnId, prompt: "work" });
         const transcript = makeCodexReplayTranscript({
           scenario: "restore-context",
@@ -2243,8 +2242,13 @@ describe("CodexAdapterV2 post-settle continuation", () => {
                   threadId: nativeThreadId,
                   items: Object.entries(params.additionalContext ?? {}).map(([key, entry]) => ({
                     type: "message",
-                    role: "developer",
-                    content: [{ type: "input_text", text: `<${key}>${entry.value}</${key}>` }],
+                    role: "user",
+                    content: [
+                      {
+                        type: "input_text",
+                        text: `<external_${key}>${entry.value}</external_${key}>`,
+                      },
+                    ],
                   })),
                 },
               },
@@ -2280,6 +2284,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
             now: yield* DateTime.now,
             attemptId: RunAttemptId.make("context-attempt"),
             text: "work",
+            appContext,
           }),
         );
         yield* harness.firstTerminal;

@@ -14,6 +14,7 @@ import {
   dedupeSubagentBodies,
   dedupeTurnItemBodies,
 } from "@t3tools/shared/orchestrationV2DedupedBodies";
+import { resolveT3McpToolId } from "@t3tools/shared/t3McpToolPresentation";
 import {
   compactDynamicToolOutput,
   omitToolOutputImageData,
@@ -151,6 +152,11 @@ function capCheckpointItemFiles(item: OrchestrationV2TurnItem): OrchestrationV2T
   return item.type === "checkpoint" ? capCheckpointFiles(item) : item;
 }
 
+// The tutor commits the answer in ask_question's input; learners see it through the learning
+// store only after answering, so it never reaches a client from the transcript.
+const visibleToolInput = (item: { readonly toolName: string | null; readonly input: unknown }) =>
+  resolveT3McpToolId(item.toolName) === "ask_question" ? null : item.input;
+
 export function projectTurnItemForWire(item: OrchestrationV2TurnItem): OrchestrationV2TurnItem {
   switch (item.type) {
     case "checkpoint":
@@ -193,7 +199,7 @@ export function projectTurnItemForWire(item: OrchestrationV2TurnItem): Orchestra
       const output = compactDynamicToolOutput(rawOutput);
       return {
         ...projected,
-        input: summarizeDynamicValue(item.input),
+        input: summarizeDynamicValue(visibleToolInput(item)),
         ...(output === undefined ? {} : { output }),
         ...(hasDynamicValue(rawOutput) ? { outputOmitted: true } : {}),
       };
@@ -249,7 +255,7 @@ export function projectTurnItemForDetail(item: OrchestrationV2TurnItem): Orchest
     case "dynamic_tool":
       return {
         ...item,
-        input: boundDynamicValue(item.input),
+        input: boundDynamicValue(visibleToolInput(item)),
         output: boundToolOutput(item.output),
       };
     case "subagent":
