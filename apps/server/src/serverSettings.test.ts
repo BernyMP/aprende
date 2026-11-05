@@ -12,7 +12,6 @@ import {
   SecretProviderId,
   ServerSettings,
   ServerSettingsPatch,
-  UsageLimitSourceId,
 } from "@aprende/contracts";
 import { createModelSelection } from "@aprende/shared/model";
 import { assert, it } from "@effect/vitest";
@@ -618,27 +617,14 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
 
         yield* serverSettings.updateSettings({ usagePriceOverrides: { "example-model": prices } });
         const usageModelAliases = { "example-preview": "example-model" };
-        const sourceId = UsageLimitSourceId.make("hub");
-        const usageLimitSources = {
-          [sourceId]: {
-            kind: "cliproxy" as const,
-            url: "https://hub.example.test",
-            managementKey: "",
-            enabled: true,
-          },
-        };
-        const saved = yield* serverSettings.updateSettings({
-          usageModelAliases,
-          usageLimitSources,
-        });
+        const saved = yield* serverSettings.updateSettings({ usageModelAliases });
         const updated = yield* serverSettings.updateSettings({
           storageCleanup: { browserArtifactsAfterDays: 9, logsAfterDays: 3 },
         });
-        assert.deepStrictEqual(updated.usageLimitSources, saved.usageLimitSources);
+        assert.deepStrictEqual(updated.usageModelAliases, saved.usageModelAliases);
         const persisted = yield* readPersisted;
         assert.deepStrictEqual(persisted.usagePriceOverrides, { "example-model": prices });
         assert.deepStrictEqual(persisted.usageModelAliases, usageModelAliases);
-        assert.deepStrictEqual(persisted.usageLimitSources, usageLimitSources);
         assert.equal(persisted.storageCleanup.browserArtifactsAfterDays, 9);
         assert.equal(persisted.storageCleanup.logsAfterDays, 3);
 
@@ -1180,7 +1166,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       }).pipe(Effect.provide(layerServerSettings())),
   );
 
-  it.effect("uses the same secret lifecycle for provider environment and quota keys", () =>
+  it.effect("keeps sensitive provider environment values out of the settings file", () =>
     Effect.gen(function* () {
       const service = yield* ServerSettingsModule.ServerSettingsService;
       const config = yield* ServerConfig.ServerConfig;
@@ -1197,16 +1183,8 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
             ],
           },
         },
-        usageLimitSources: {
-          [UsageLimitSourceId.make("hub")]: {
-            kind: "cliproxy",
-            url: "https://hub.example.test",
-            managementKey: "quota-secret",
-            enabled: true,
-          },
-        },
       });
-      const values = ["env-secret", "quota-secret"];
+      const values = ["env-secret"];
       const client = ServerSettingsModule.redactServerSettingsForClient(saved, {
         secretReferences: true,
       });
@@ -1219,13 +1197,9 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
       assert.include(JSON.stringify(client), "https://example.test");
       const echoed = yield* service.updateSettings({
         providerInstances: client.providerInstances,
-        usageLimitSources: client.usageLimitSources,
       });
       for (const value of values) assert.include(JSON.stringify(echoed), value);
-      const secretNames = [
-        "provider-env-Y29kZXhfc2VjcmV0cw-QVBJX1RPS0VO",
-        "usage-limit-source-aHVi",
-      ];
+      const secretNames = ["provider-env-Y29kZXhfc2VjcmV0cw-QVBJX1RPS0VO"];
       for (const name of secretNames) {
         assert.isTrue(Option.isSome(yield* store.get(name)), name);
       }
@@ -1247,10 +1221,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
           .providerInstances[instanceId]?.environment,
         [{ name: "API_TOKEN", value: secret, sensitive: true }],
       );
-      yield* service.updateSettings({
-        providerInstances: {},
-        usageLimitSources: { [UsageLimitSourceId.make("hub")]: null },
-      });
+      yield* service.updateSettings({ providerInstances: {} });
       for (const name of secretNames) {
         assert.isTrue(Option.isNone(yield* store.get(name)));
       }
@@ -1260,9 +1231,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
   it.effect("knows every strictly decoded field that can hold a secret reference", () =>
     Effect.sync(() => {
       // Shipped clients decode these as strings. Each must be covered by the older-client case above.
-      assert.deepEqual(strictSecretReferencePaths(ServerSettings.ast), [
-        "usageLimitSources.*.managementKey",
-      ]);
+      assert.deepEqual(strictSecretReferencePaths(ServerSettings.ast), []);
     }),
   );
 

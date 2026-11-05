@@ -365,7 +365,6 @@ const cachedConfigSnapshotEvent = (config: ServerConfig): ServerConfigStreamEven
 
 export interface ServerConfigSubscriptionOptions {
   readonly environmentThemes?: boolean;
-  readonly usageLimitSources?: boolean;
   readonly usageLimitsCommand?: boolean;
 }
 
@@ -435,12 +434,7 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
       config: ServerConfig,
     ) {
       // A cached stall would read as a fresh freeze on the next launch.
-      const {
-        environmentThemes: _themes,
-        usageLimitSources: _sources,
-        lastEventLoopStall: _stall,
-        ...cacheable
-      } = config;
+      const { environmentThemes: _themes, lastEventLoopStall: _stall, ...cacheable } = config;
       if (lastPersisted !== undefined && sameCacheValue(lastPersisted, cacheable)) {
         return true;
       }
@@ -486,7 +480,6 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
 
     yield* subscribe(WS_METHODS.subscribeServerConfig, {
       ...(subscription.environmentThemes === true ? { environmentThemes: true } : {}),
-      ...(subscription.usageLimitSources === true ? { usageLimitSources: true } : {}),
       ...(subscription.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),
     }).pipe(
       Stream.runForEach((event) =>
@@ -755,7 +748,6 @@ export function createServerEnvironmentAtoms<R, E>(
       environmentId: EnvironmentId,
     ) => Atom.Atom<ServerConfig | null>;
     readonly environmentThemes?: boolean;
-    readonly usageLimitSources?: boolean;
     readonly usageLimitsCommand?: boolean;
   },
 ) {
@@ -770,7 +762,6 @@ export function createServerEnvironmentAtoms<R, E>(
       .atom(
         serverConfigStateChanges(environmentId, {
           ...(options.environmentThemes === true ? { environmentThemes: true } : {}),
-          ...(options.usageLimitSources === true ? { usageLimitSources: true } : {}),
           ...(options.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),
         }),
       )

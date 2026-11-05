@@ -133,9 +133,7 @@
   "src/startupAccess.test.ts": 0.5,
   "src/storageCleanup.test.ts": 1.4,
   "src/textGeneration/CodexTextGeneration.test.ts": 1,
-  "src/usage/UsageLimitSources.test.ts": 0.6,
   "src/usage/UsageService.test.ts": 2.2,
-  "src/usage/cliproxyApi.test.ts": 0.5,
   "src/usage/usageTranscriptStreaming.test.ts": 1.1,
   "src/workspace/WorkspaceEntries.test.ts": 0.8,
   "src/ws.test.ts": 1.9

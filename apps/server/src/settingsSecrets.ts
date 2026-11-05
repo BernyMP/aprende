@@ -4,12 +4,9 @@ import {
   type ProviderInstanceConfig,
   type ServerSettings,
   type SettingsSecretValue,
-  UsageLimitSourceConfig,
   isSecretReference,
   secretSettingsFields,
 } from "@aprende/contracts";
-import type * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
-import * as Effect from "effect/Effect";
 
 function readSecretFieldValues(
   value: unknown,
@@ -40,29 +37,12 @@ function writeSecretFieldValues(
   ]);
 }
 
-/** Settings that cannot be read clear every cached secret, so a refresh never keeps a stale one. */
-export const invalidateSettingsSecrets = Effect.fn("SettingsSecrets.invalidate")(function* <E>(
-  resolver: SecretResolver.SecretResolver["Service"],
-  settings: Effect.Effect<Pick<ServerSettings, "usageLimitSources">, E>,
-) {
-  const references = yield* settings.pipe(
-    Effect.map((current) =>
-      Object.values(current.usageLimitSources).flatMap(({ managementKey }) =>
-        isSecretReference(managementKey) ? [managementKey] : [],
-      ),
-    ),
-    Effect.orElseSucceed(() => undefined),
-  );
-  yield* resolver.invalidate(references);
-});
-
 export const SECRET_REDACTED = "\u2022\u2022\u2022\u2022\u2022\u2022";
 
 const providerSecretFields = new Map([
   ["codex", secretSettingsFields(CodexSettings)],
   ["claudeAgent", secretSettingsFields(ClaudeSettings)],
 ]);
-const usageLimitSecretFields = secretSettingsFields(UsageLimitSourceConfig);
 const encode = (value: string) => Buffer.from(value, "utf8").toString("base64url");
 
 export interface SettingsSecret {
@@ -199,24 +179,5 @@ function mapSecretFieldGroups(
     }),
   );
 
-  const usageLimitSources = Object.fromEntries(
-    Object.entries(settings.usageLimitSources).map(([id, source]) => [
-      id,
-      mapFields(
-        source,
-        usageLimitSecretFields,
-        (field, serverHost) =>
-          `usage-limit-source-${encode(id)}` +
-          (field === "managementKey" && serverHost === null
-            ? ""
-            : `-${encode(field)}${serverHost === null ? "" : `-${encode(serverHost)}`}`),
-      ),
-    ]),
-  ) as ServerSettings["usageLimitSources"];
-
-  return {
-    ...settings,
-    providerInstances,
-    usageLimitSources,
-  };
+  return { ...settings, providerInstances };
 }

@@ -7,7 +7,6 @@ import {
   SecretProviderKind,
   ServerSettings,
   ServerSettingsPatch,
-  UsageLimitSourceId,
 } from "@aprende/contracts";
 import * as Duration from "effect/Duration";
 import * as Schema from "effect/Schema";
@@ -382,29 +381,6 @@ describe("serverSettings helpers", () => {
       continueThreadsAfterServerUpdate: true,
       providerInstances: {},
     });
-  });
-
-  it("upserts and removes usageLimitSources per entry so concurrent edits cannot clobber", () => {
-    const hubA = UsageLimitSourceId.make("cliproxy-a");
-    const hubB = UsageLimitSourceId.make("cliproxy-b");
-    const source = (url: string) => ({
-      kind: "cliproxy" as const,
-      url,
-      managementKey: "secret",
-      enabled: true,
-    });
-    const current = {
-      ...DEFAULT_SERVER_SETTINGS,
-      usageLimitSources: { [hubA]: source("http://a:8318") },
-    };
-
-    const added = applyServerSettingsPatch(current, {
-      usageLimitSources: { [hubB]: source("http://b:8318") },
-    });
-    expect(Object.keys(added.usageLimitSources)).toEqual([hubA, hubB]);
-
-    const removed = applyServerSettingsPatch(added, { usageLimitSources: { [hubA]: null } });
-    expect(Object.keys(removed.usageLimitSources)).toEqual([hubB]);
   });
 
   it("upserts and removes secretProviders per entry so concurrent edits cannot clobber", () => {

@@ -60,6 +60,7 @@ const RETIRED_KEYS: ReadonlySet<string> = new Set([
   "sourceControlHosts",
   "sourceControlWriterModelSelection",
   "sourceControlWritingStyle",
+  "usageLimitSources",
   "worktreeCleanup",
   "worktreeSubmodules",
   "worktreesDirectory",

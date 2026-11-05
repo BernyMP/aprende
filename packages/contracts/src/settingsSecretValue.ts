@@ -17,11 +17,6 @@ export type SettingsSecretValue = typeof SettingsSecretValue.Type;
 
 export const isSecretReference = Schema.is(SecretReference);
 
-/** The literal a credential setting holds, or `""` when it names a secret instead. */
-export function settingsSecretLiteral(value: SettingsSecretValue | undefined): string {
-  return typeof value === "string" ? value : "";
-}
-
 export function acceptsSecretReference(schema: Schema.Top): boolean {
   return Schema.resolveAnnotationsKey(schema)?.settingsSecretReference === true;
 }

@@ -140,9 +140,7 @@ import * as ServerSelfUpdate from "./service/selfUpdate.ts";
 import * as NpmRelease from "./service/npmRelease.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
 import * as ServerRuntimeStartup from "./serverRuntimeStartup.ts";
-import * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
 import * as ServerSettings from "./serverSettings.ts";
-import { invalidateSettingsSecrets } from "./settingsSecrets.ts";
 import * as DatabaseStorage from "./persistence/DatabaseStorage.ts";
 import * as StorageCleanup from "./storageCleanup.ts";
 import { issueAssetUrl } from "./assets/AssetAccess.ts";
@@ -188,13 +186,9 @@ import {
   SOCKET_FRAME_PARTS_QUERY_PARAM,
   splitLargeSocketFrames,
 } from "@aprende/shared/socketFrameParts";
-import {
-  sameUsageLimitCommandCoverage,
-  withUsageLimitsCommands,
-} from "@aprende/shared/usageLimits";
+import { withUsageLimitsCommands } from "@aprende/shared/usageLimits";
 import * as AgentSessionScanner from "./project/AgentSessionScanner.ts";
 import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
-import * as UsageLimitSources from "./usage/UsageLimitSources.ts";
 import { requestUrl } from "./requestUrl.ts";
 
 const CONFIG_DISCOVERY_TIMEOUT = Duration.seconds(5);
@@ -1231,7 +1225,6 @@ export const layerWsRpc = (
       const secretRequests = yield* SecretRequests.SecretRequests;
 
       const usage = yield* UsageService.UsageService;
-      const usageLimitSources = yield* UsageLimitSources.UsageLimitSources;
 
       const agentSessionScanner = yield* AgentSessionScanner.AgentSessionScanner;
       const agentSessionImporter = yield* AgentSessionImporter.AgentSessionImporter;
@@ -1252,7 +1245,6 @@ export const layerWsRpc = (
       const storageCleanup = yield* StorageCleanup.StorageCleanup;
       const databaseStorage = yield* DatabaseStorage.DatabaseStorage;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
-      const secretResolver = yield* SecretResolver.SecretResolver;
       const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
       const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
       const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
@@ -1302,7 +1294,7 @@ export const layerWsRpc = (
         const keybindingsConfig = yield* keybindings.loadConfigState;
         const currentProviders = yield* providerRegistry.getProviders;
         const commandProviders = options.usageLimitsCommand
-          ? withUsageLimitsCommands(currentProviders, yield* usageLimitSources.current)
+          ? withUsageLimitsCommands(currentProviders)
           : currentProviders;
         const providers = options.workspaceSnapshotsOnDemand
           ? withoutWorkspaceSnapshots(commandProviders)
@@ -1715,13 +1707,6 @@ export const layerWsRpc = (
                 fresh: input.fresh,
               });
             }
-            if (input.reloadSecrets === true && input.instanceId === undefined) {
-              yield* invalidateSettingsSecrets(secretResolver, serverSettings.getSettings);
-            }
-            // Await refresh; RPC scope closure would interrupt a fork before the hub answered.
-            if (input.instanceId === undefined) {
-              yield* usageLimitSources.refresh;
-            }
             let providers = yield* input.cwd !== undefined && input.instanceId !== undefined
               ? providerRegistry.refreshWorkspaceSnapshot({
                   instanceId: input.instanceId,
@@ -1762,9 +1747,7 @@ export const layerWsRpc = (
             }
             if (input.workspaceSnapshotsOnDemand !== true) return { providers };
             const commandProviders =
-              input.usageLimitsCommand === true
-                ? withUsageLimitsCommands(providers, yield* usageLimitSources.current)
-                : providers;
+              input.usageLimitsCommand === true ? withUsageLimitsCommands(providers) : providers;
             const { instanceId, cwd } = input;
             if (instanceId === undefined || cwd === undefined) {
               return { providers: withoutWorkspaceSnapshots(commandProviders) };
@@ -1841,7 +1824,6 @@ export const layerWsRpc = (
         [WS_METHODS.providerConsumeResetCredit]:
           /* Request instrumentation already owns the span; keep this helper in that context. */
           Effect.fnUntraced(function* (input) {
-            if ("sourceId" in input) return yield* usageLimitSources.consumeResetCredit(input);
             const instance = yield* providerInstances.getInstance(input.instanceId);
             if (instance === undefined || !instance.enabled) {
               return yield* new ProviderSetupError({
@@ -2180,27 +2162,22 @@ export const layerWsRpc = (
                   },
                 })),
               );
-              const providerStatuses = Stream.zipLatestWith(
-                // Seed the changes-only stream so early source refreshes pair with current providers.
-                Stream.concat(
-                  Stream.fromEffect(providerRegistry.getProviders),
-                  providerRegistry.streamChanges,
-                ),
-                usageLimitSources.streamChanges.pipe(
-                  Stream.changesWith(
-                    usageLimitsCommand ? sameUsageLimitCommandCoverage : () => true,
-                  ),
-                ),
-                (providers, sources) => {
+              // Seeded so a change between the snapshot and this subscription still reaches the client.
+              const providerStatuses = Stream.concat(
+                Stream.fromEffect(providerRegistry.getProviders),
+                providerRegistry.streamChanges,
+              ).pipe(
+                Stream.map((providers) => {
                   const commandProviders = usageLimitsCommand
-                    ? withUsageLimitsCommands(providers, sources)
+                    ? withUsageLimitsCommands(providers)
                     : providers;
                   // Stripped before the de-dupe below, so snapshot-only changes send nothing.
                   return workspaceSnapshotsOnDemand
                     ? withoutWorkspaceSnapshots(commandProviders)
                     : commandProviders;
-                },
-              ).pipe(
+                }),
+              );
+              const providerStatusUpdates = providerStatuses.pipe(
                 // Compare initial paired values with the snapshot; blindly dropping them loses changes between snapshot and subscription.
                 (updates) => Stream.concat(rpcInitialItems([config.providers]), updates),
                 Stream.changesWith(
@@ -2225,16 +2202,6 @@ export const layerWsRpc = (
                       })),
                     )
                   : Stream.empty;
-              const usageLimitSourceUpdates =
-                input.usageLimitSources === true
-                  ? usageLimitSources.streamChanges.pipe(
-                      Stream.map((sources) => ({
-                        version: 1 as const,
-                        type: "usageLimitSourcesUpdated" as const,
-                        payload: { sources },
-                      })),
-                    )
-                  : Stream.empty;
               const settingsUpdates = settingsChanges.pipe(
                 Stream.map((settings) =>
                   ServerSettings.redactServerSettingsForClient(settings, settingsClient),
@@ -2249,11 +2216,8 @@ export const layerWsRpc = (
               const liveUpdates = Stream.merge(
                 keybindingsUpdates,
                 Stream.merge(
-                  providerStatuses,
-                  Stream.merge(
-                    settingsUpdates,
-                    Stream.merge(environmentThemeUpdates, usageLimitSourceUpdates),
-                  ),
+                  providerStatusUpdates,
+                  Stream.merge(settingsUpdates, environmentThemeUpdates),
                 ),
               );
 

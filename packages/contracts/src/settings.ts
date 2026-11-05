@@ -17,7 +17,6 @@ import {
   TrimmedNonEmptyString,
   TrimmedString,
 } from "./baseSchemas.ts";
-import { UsageLimitSourceId } from "./usageLimitSourceId.ts";
 import { UsageModelFilter } from "./usage.ts";
 import { SecretProviderId, SecretProviderSlug } from "./secretReference.ts";
 import { SettingsSecretValue } from "./settingsSecretValue.ts";
@@ -482,10 +481,6 @@ declare module "effect/Schema" {
   }
 }
 
-function secretSetting<S extends Schema.Top>(schema: S): S["Rebuild"] {
-  return schema.annotateKey({ settingsSecret: true });
-}
-
 /** A masked form field is a credential too, so none is saved or sent to clients as plain text. */
 export function isSecretSetting(schema: Schema.Top): boolean {
   const annotations = Schema.resolveAnnotationsKey(schema) ?? Schema.resolveAnnotations(schema);
@@ -663,18 +658,6 @@ export const ClaudeSettings = makeProviderSettingsSchema(
   },
 );
 export type ClaudeSettings = typeof ClaudeSettings.Type;
-
-export const UsageLimitSourceConfig = Schema.Struct({
-  kind: Schema.Literal("cliproxy"),
-  label: Schema.optional(TrimmedNonEmptyString),
-  url: TrimmedNonEmptyString,
-  managementKey: SettingsSecretValue.pipe(
-    Schema.withDecodingDefault(Effect.succeed("")),
-    secretSetting,
-  ),
-  enabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(true))),
-});
-export type UsageLimitSourceConfig = typeof UsageLimitSourceConfig.Type;
 
 export const SecretProviderKind = SecretProviderSlug.pipe(Schema.brand("SecretProviderKind"));
 export type SecretProviderKind = typeof SecretProviderKind.Type;
@@ -959,10 +942,6 @@ export const ServerSettings = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
   observability: ObservabilitySettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
-  // User-chosen ids preserve rows across edits; undecodable entries round-trip untouched.
-  usageLimitSources: Schema.Record(UsageLimitSourceId, UsageLimitSourceConfig).pipe(
-    Schema.withDecodingDefault(Effect.succeed({})),
-  ),
   secretProviders: Schema.Record(SecretProviderId, SecretProviderConfig).pipe(
     Schema.withDecodingDefault(Effect.succeed({})),
   ),
@@ -1223,10 +1202,6 @@ export const ServerSettingsPatch = Schema.Struct({
   ),
   // Replace whole maps to avoid half-merged driver configs.
   providerInstances: Schema.optionalKey(Schema.Record(ProviderInstanceId, ProviderInstanceConfig)),
-  // Merge per source to avoid racing other edits; null removes an entry.
-  usageLimitSources: Schema.optionalKey(
-    Schema.Record(UsageLimitSourceId, Schema.NullOr(UsageLimitSourceConfig)),
-  ),
   secretProviders: Schema.optionalKey(
     Schema.Record(SecretProviderId, Schema.NullOr(SecretProviderConfigWrite)),
   ),
@@ -1248,12 +1223,7 @@ export function requiredScopesForServerSettingsPatch(
   let changesSettings = false;
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    if (
-      key === "providers" ||
-      key === "providerInstances" ||
-      key === "usageLimitSources" ||
-      key === "secretProviders"
-    ) {
+    if (key === "providers" || key === "providerInstances" || key === "secretProviders") {
       changesProviders = true;
     } else {
       changesSettings = true;
