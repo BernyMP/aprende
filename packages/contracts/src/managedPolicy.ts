@@ -78,7 +78,7 @@ export const ManagedPolicyLimits = Schema.Struct({
   /** `false` turns T3 Connect off and unlinks this machine. */
   connect: Schema.optionalKey(Schema.Boolean),
   webhookTasks: Schema.optionalKey(Schema.Boolean),
-  /** Can only turn product analytics off, never force it on. */
+  /** Can only turn relay tracing off, never force it on. */
   telemetry: Schema.optionalKey(Schema.Boolean),
   browserCookieImport: Schema.optionalKey(Schema.Boolean),
   providers: Schema.optionalKey(ManagedProviderLimits),

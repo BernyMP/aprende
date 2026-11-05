@@ -56,11 +56,7 @@ import * as ProjectionReplay from "./ProjectionReplay.ts";
 import * as ProjectionStore from "../ProjectionStore.ts";
 import * as ProviderAdapterRegistry from "../ProviderAdapterRegistry.ts";
 import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
-import {
-  CLAUDE_MODEL_SELECTION,
-  CODEX_MODEL_SELECTION,
-  GROK_MODEL_SELECTION,
-} from "./fixtures/shared.ts";
+import { CLAUDE_MODEL_SELECTION, CODEX_MODEL_SELECTION } from "./fixtures/shared.ts";
 import * as ProviderReplayHarness from "./ProviderReplayHarness.ts";
 import { checkpointWorkspace } from "@t3tools/provider-testing/replayWorkspace";
 import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
@@ -72,6 +68,10 @@ const projectId = ProjectId.make("project:provider-switch");
 const CODEX_DRIVER = ProviderDriverKind.make("codex");
 const CLAUDE_DRIVER = ProviderDriverKind.make("claudeAgent");
 const GROK_DRIVER = ProviderDriverKind.make("acp");
+const GROK_MODEL_SELECTION = {
+  instanceId: ProviderInstanceId.make("grok"),
+  model: "grok-build",
+} satisfies ModelSelection;
 
 interface CapturedTurn {
   readonly driver: ProviderDriverKind;

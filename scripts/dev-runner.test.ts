@@ -93,7 +93,7 @@ it.layer(NodeServices.layer)("dev-runner", (it) => {
       }),
     );
 
-    it.effect("turns product analytics off unless the developer opts in", () =>
+    it.effect("turns relay tracing off unless the developer opts in", () =>
       Effect.gen(function* () {
         const input = {
           mode: "dev",

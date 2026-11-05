@@ -1453,7 +1453,7 @@ it.effect("replays a thread.create receipt without changing the thread", () =>
     const before = yield* projections.getThread(threadId);
     const replayed = yield* orchestrator.dispatch(create);
     assert.equal(replayed.sequence, original.sequence);
-    // Marked so client analytics do not count the retry again.
+    // Marked so a launch retry reports itself as resumed.
     assert.deepEqual(replayed, { ...original, replayed: true });
     assert.deepEqual(yield* projections.getThread(threadId), before);
     assert.equal(yield* orchestrator.getThreadEventSequence(threadId), original.sequence);

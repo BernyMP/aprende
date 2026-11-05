@@ -172,8 +172,6 @@ export const make = Effect.gen(function* () {
         wsBaseUrl: input.wsBaseUrl,
         httpBaseUrl: input.httpBaseUrl,
         bearerToken: input.bearerToken,
-        clientMetadata: presentation.metadata,
-        connectionMethod: input.connectionMethod,
       }).pipe(
         Effect.mapError(mapRemoteEnvironmentError),
         Effect.provideService(HttpClient.HttpClient, httpClient),
@@ -212,8 +210,6 @@ export const make = Effect.gen(function* () {
                 }),
             ),
           ),
-        clientMetadata: presentation.metadata,
-        connectionMethod: "relay",
         ...(timeoutMs === undefined ? {} : { timeoutMs }),
       });
     },

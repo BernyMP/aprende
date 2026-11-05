@@ -146,9 +146,13 @@ describe("applyProviderInstanceSettings", () => {
   it("uses the driver default for an unconfigured built-in default instance", () => {
     const entries = deriveProviderInstanceEntries([
       provider({ provider: ProviderDriverKind.make("codex"), instanceId: "codex", enabled: false }),
-      provider({ provider: ProviderDriverKind.make("grok"), instanceId: "grok", enabled: true }),
+      provider({
+        provider: ProviderDriverKind.make("acpRegistry"),
+        instanceId: "acpRegistry",
+        enabled: true,
+      }),
     ]);
-    const [codex, grok] = applyProviderInstanceSettings(
+    const [codex, acpRegistry] = applyProviderInstanceSettings(
       entries,
       {
         providerInstances: {},
@@ -158,7 +162,7 @@ describe("applyProviderInstanceSettings", () => {
     );
 
     expect(codex?.enabled).toBe(true);
-    expect(grok?.enabled).toBe(false);
+    expect(acpRegistry?.enabled).toBe(false);
   });
 });
 
