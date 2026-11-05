@@ -23,7 +23,6 @@ const PROJECT_OVERRIDE_KEYS: ReadonlySet<string> = new Set(
 /** Per-project stores; admins lock the top-level key and the lock reaches every project. */
 const UNMANAGEABLE_KEYS: ReadonlySet<string> = new Set([
   "projectSettingsOverrides",
-  "projectAgentBrowserAccessOverrides",
   "projectAutoPullOverrides",
   "projectScriptOverrides",
 ]);

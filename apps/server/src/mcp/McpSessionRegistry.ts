@@ -16,8 +16,6 @@ import * as McpProviderSession from "@aprende/provider-core/server/mcpSession";
 export interface McpCredentialRequest {
   readonly threadId: ThreadId;
   readonly providerInstanceId: ProviderInstanceId;
-  /** False omits the preview capability wherever the token is honored. Defaults to full access. */
-  readonly browserToolsAvailable?: boolean;
   readonly capabilities?: ReadonlySet<McpInvocationContext.McpCapability>;
   readonly subagent?: boolean;
 }
@@ -100,7 +98,6 @@ const makeWithOptions = Effect.fn("McpSessionRegistry.make")(function* (
       const providerSessionId = yield* random.uuidV4();
       const rawToken = yield* random.randomBytes(32).pipe(Effect.map(tokenFromBytes), Effect.orDie);
       const tokenHash = yield* hashToken(rawToken);
-      const browserToolsAvailable = request.browserToolsAvailable ?? true;
       const scope: McpInvocationContext.McpThreadInvocationScope = {
         environmentId,
         requestNamespace: providerSessionId,
@@ -115,7 +112,7 @@ const makeWithOptions = Effect.fn("McpSessionRegistry.make")(function* (
           "orchestration",
           "worktree",
           "pull-requests",
-          ...(request.capabilities ?? (browserToolsAvailable ? (["preview"] as const) : [])),
+          ...(request.capabilities ?? []),
         ]),
         issuedAt,
       };
@@ -132,7 +129,6 @@ const makeWithOptions = Effect.fn("McpSessionRegistry.make")(function* (
           providerInstanceId: scope.thread.providerInstanceId,
           endpoint,
           authorizationHeader: `Bearer ${rawToken}`,
-          browserToolsAvailable: scope.capabilities.has("preview"),
           capabilities: scope.capabilities,
         },
       };

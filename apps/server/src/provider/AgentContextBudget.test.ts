@@ -14,7 +14,6 @@ import { ServerEnvironment } from "../environment/ServerEnvironment.ts";
 import { GitWorkflowService } from "../git/GitWorkflowService.ts";
 import { LearningService } from "../learning/LearningService.ts";
 import * as McpHttpServer from "../mcp/McpHttpServer.ts";
-import { PreviewAutomationBroker } from "../mcp/PreviewAutomationBroker.ts";
 import {
   CLAUDE_PROVIDER,
   CLAUDE_TUTOR_HIDDEN_MCP_TOOLS,
@@ -29,8 +28,7 @@ import { PeerForwarding } from "../peer/PeerForwarding.ts";
 import { PeerLinkRequests } from "../peer/PeerLinkRequests.ts";
 import { PeerLinks } from "../peer/PeerLinks.ts";
 import { RemoteDelegation } from "../peer/RemoteDelegation.ts";
-import { PreviewManager } from "../preview/Manager.ts";
-import { PreviewBrowser } from "../preview/PreviewBrowser.ts";
+import { PreviewBrowser } from "../htmlRender/PreviewBrowser.ts";
 import { ManagedProjectFolders } from "../project/ManagedProjectFolders.ts";
 import { ProjectCloneTracker } from "../project/ProjectCloneTracker.ts";
 import { ProjectService } from "../project/ProjectService.ts";
@@ -59,9 +57,7 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(PeerForwarding)({}),
   Layer.mock(PeerLinkRequests)({}),
   Layer.mock(PeerLinks)({}),
-  Layer.mock(PreviewAutomationBroker)({}),
   Layer.mock(PreviewBrowser)({}),
-  Layer.mock(PreviewManager)({}),
   Layer.mock(ProjectCloneTracker)({}),
   Layer.mock(ProjectService)({}),
   Layer.mock(ProjectSetupScriptRunner)({}),

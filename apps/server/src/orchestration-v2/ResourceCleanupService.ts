@@ -8,13 +8,12 @@ import * as Schema from "effect/Schema";
 import { resolveAttachmentRelativePath } from "../attachmentPaths.ts";
 import { parseAttachmentFileExtension, resolveAttachmentPathById } from "../attachmentStore.ts";
 import * as ServerConfig from "../config.ts";
-import * as PreviewManager from "../preview/Manager.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 
 export class ResourceCleanupError extends Schema.TaggedError<ResourceCleanupError>()(
   "ResourceCleanupError",
   {
-    operation: Schema.Literals(["preview", "attachment", "scheduled-tasks"]),
+    operation: Schema.Literals(["attachment", "scheduled-tasks"]),
     threadId: Schema.optional(Schema.String),
     attachmentId: Schema.optional(Schema.String),
     cause: Schema.Defect(),
@@ -23,14 +22,12 @@ export class ResourceCleanupError extends Schema.TaggedError<ResourceCleanupErro
 
 export class ResourceCleanupService extends Context.Reference<{
   readonly cleanupScheduledTasks: (threadId: ThreadId) => Effect.Effect<void, ResourceCleanupError>;
-  readonly cleanupPreviews: (threadId: string) => Effect.Effect<void, ResourceCleanupError>;
   readonly cleanupAttachments: (
     attachmentIds: ReadonlyArray<string>,
   ) => Effect.Effect<void, ResourceCleanupError>;
 }>("aprende/orchestration-v2/ResourceCleanupService", {
   defaultValue: () => ({
     cleanupScheduledTasks: () => Effect.void,
-    cleanupPreviews: () => Effect.void,
     cleanupAttachments: () => Effect.void,
   }),
 }) {}
@@ -38,7 +35,6 @@ export class ResourceCleanupService extends Context.Reference<{
 export const layer = Layer.effect(
   ResourceCleanupService,
   Effect.gen(function* () {
-    const previews = yield* PreviewManager.PreviewManager;
     const fileSystem = yield* FileSystem.FileSystem;
     const config = yield* ServerConfig.ServerConfig;
     const scheduledTasks = yield* ScheduledTaskService.ScheduledTaskService;
@@ -52,17 +48,6 @@ export const layer = Layer.effect(
             Effect.mapError(
               (cause) =>
                 new ResourceCleanupError({ operation: "scheduled-tasks", threadId, cause }),
-            ),
-          );
-      }),
-      cleanupPreviews: Effect.fn("ResourceCleanupService.cleanupPreviews")(function (
-        threadId: string,
-      ) {
-        return previews
-          .close({ threadId: ThreadId.make(threadId) })
-          .pipe(
-            Effect.mapError(
-              (cause) => new ResourceCleanupError({ operation: "preview", threadId, cause }),
             ),
           );
       }),

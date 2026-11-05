@@ -14,7 +14,7 @@ import type {
 } from "@aprende/contracts";
 import { codexAuthHandoffUrl } from "@aprende/shared/codexAuthHandoff";
 import { providerAuthReturnUrl } from "@aprende/shared/providerAuthReturnUrl";
-import { isLoopbackHost } from "@aprende/shared/preview";
+import { isLoopbackHost } from "@aprende/shared/loopbackHost";
 import { CheckIcon, ChevronRightIcon, ExternalLinkIcon } from "lucide-react";
 import {
   Children,

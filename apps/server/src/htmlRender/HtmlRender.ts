@@ -33,8 +33,8 @@ import { createAttachmentId } from "../attachmentStore.ts";
 import { resolveRootCliCommand } from "../cli/invocation.ts";
 import * as ServerConfig from "../config.ts";
 import * as HeadlessChrome from "./headlessChrome.ts";
-import * as PreviewBrowser from "../preview/PreviewBrowser.ts";
-import * as PreviewBrowserHost from "../preview/PreviewBrowserHost.ts";
+import * as PreviewBrowser from "./PreviewBrowser.ts";
+import * as PreviewBrowserHost from "./PreviewBrowserHost.ts";
 
 const MIB = 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * MIB;

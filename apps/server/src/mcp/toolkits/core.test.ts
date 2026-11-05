@@ -43,7 +43,7 @@ import * as ThreadLaunchService from "../../orchestration-v2/ThreadLaunchService
 import * as GitVcsDriver from "../../vcs/GitVcsDriver.ts";
 import * as ThreadManagement from "../../orchestration-v2/ThreadManagementService.ts";
 import * as ThreadSearch from "../../orchestration-v2/ThreadSearch.ts";
-import * as PreviewBrowser from "../../preview/PreviewBrowser.ts";
+import * as PreviewBrowser from "../../htmlRender/PreviewBrowser.ts";
 import * as ProjectService from "../../project/ProjectService.ts";
 import * as ProviderRegistry from "../../provider/ProviderRegistry.ts";
 import * as SecretRequests from "../../secrets/SecretRequests.ts";

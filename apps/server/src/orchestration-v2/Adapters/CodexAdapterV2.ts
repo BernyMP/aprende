@@ -103,7 +103,6 @@ import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { resolveAttachmentPath, resolveAttachmentPathById } from "../../attachmentStore.ts";
-import * as PortScanner from "../../preview/PortScanner.ts";
 import { getCodexServiceTierOptionValue } from "../../codexModelOptions.ts";
 import { ServerConfig } from "../../config.ts";
 import { readTutorPrompt } from "../../learning/tutorPrompt.ts";
@@ -763,7 +762,6 @@ export const buildCodexTurnStartParams = Effect.fn("CodexAdapterV2.buildCodexTur
     readonly runtimePolicy: ProviderAdapter.ProviderAdapterV2RuntimePolicy;
     readonly modelSelection: ModelSelection;
     readonly hasT3Mcp?: boolean;
-    readonly browserToolsAvailable?: boolean;
     /** ChatGPT token sharing does not accept service tiers. */
     readonly omitServiceTier?: boolean;
     readonly appContext?: ProviderAdapter.ProviderAdapterV2TurnInput["appContext"];
@@ -1407,10 +1405,6 @@ function codexThreadRuntimeParams(input: {
       : { developerInstructions: input.developerInstructions }),
     config: {
       ...CODEX_THREAD_CONFIG,
-      // One app-server serves many threads, so the id goes in per-thread shell config, not its env.
-      ...(input.threadId === null
-        ? {}
-        : { [`shell_environment_policy.set.${PortScanner.AGENT_THREAD_ENV}`]: input.threadId }),
       ...(t3Server === undefined
         ? {}
         : {
@@ -1554,16 +1548,13 @@ function isSensitiveCodexProtocolKey(key: string): boolean {
 export const layerAppServerClientFactory: Layer.Layer<
   CodexAppServerClientFactory,
   never,
-  | ChildProcessSpawner.ChildProcessSpawner
-  | PortScanner.PortDiscovery
-  | ProviderEventLoggers.ProviderEventLoggers
+  ChildProcessSpawner.ChildProcessSpawner | ProviderEventLoggers.ProviderEventLoggers
 > = Layer.effect(
   CodexAppServerClientFactory,
   Effect.gen(function* () {
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const { native: nativeEventLogger } = yield* ProviderEventLoggers.ProviderEventLoggers;
     const agentScope = yield* AgentScope;
-    const portDiscovery = yield* PortScanner.PortDiscovery;
 
     return CodexAppServerClientFactory.of({
       open: Effect.fn("CodexAdapterV2.open")(function* (input) {
@@ -1590,10 +1581,6 @@ export const layerAppServerClientFactory: Layer.Layer<
                 cause,
               }),
           ),
-        );
-        // Its shells carry each thread's APRENDE_THREAD_ID, so port discovery reads listeners' threads.
-        yield* Effect.acquireRelease(Effect.sync(portDiscovery.trackAgent), (release) =>
-          Effect.sync(release),
         );
         const protocolLogger = makeCodexAppServerProtocolLogger({
           nativeEventLogger,
@@ -6779,7 +6766,6 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
               runtimePolicy: turnInput.runtimePolicy,
               modelSelection: turnInput.modelSelection,
               hasT3Mcp: mcpSession !== undefined,
-              browserToolsAvailable: mcpSession?.browserToolsAvailable ?? true,
               omitServiceTier: adapterOptions.resolveRuntime !== undefined,
               ...(turnInput.appContext === undefined ? {} : { appContext: turnInput.appContext }),
             });

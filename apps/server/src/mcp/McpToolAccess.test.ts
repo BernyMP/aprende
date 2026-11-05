@@ -241,7 +241,7 @@ const fullAccessLinkedClient: McpInvocationContext.McpInvocationScope = {
   ...fullAccessClient,
   client: { ...fullAccessClient.client!, linked: true },
 };
-const previewOnly = { ...fullAccess, capabilities: new Set(["preview"] as const) };
+const worktreeOnly = { ...fullAccess, capabilities: new Set(["worktree"] as const) };
 
 it.effect.each([
   ["reads", ended, {}, "ran"],
@@ -269,10 +269,10 @@ it.effect.each([
   ["writes", background, {}, "ran"],
   ["writes", oldProviderBackground, {}, "parent_not_active"],
   ["writes", supervisedClient, {}, "ran"],
-  ["writes", previewOnly, {}, "capability_denied"],
-  ["writes_environment", previewOnly, {}, "capability_denied"],
+  ["writes", worktreeOnly, {}, "capability_denied"],
+  ["writes_environment", worktreeOnly, {}, "capability_denied"],
 
-  ["writes_with_capability", previewOnly, {}, "ran"],
+  ["writes_with_capability", worktreeOnly, {}, "ran"],
   ["writes_with_capability", readOnlyClient, {}, "capability_denied"],
   ["writes_with_capability", ended, {}, "parent_not_active"],
   ["writes", linkedClient, {}, "capability_denied"],

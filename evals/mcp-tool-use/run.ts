@@ -52,8 +52,6 @@ import { AttachmentToolkit } from "../../apps/server/src/mcp/toolkits/attachment
 import { EnvironmentToolkit } from "../../apps/server/src/mcp/toolkits/environment/tools.ts";
 import { HtmlToolkit } from "../../apps/server/src/mcp/toolkits/html/tools.ts";
 import { OrchestratorToolkit } from "../../apps/server/src/mcp/toolkits/orchestrator/tools.ts";
-import { PreviewToolkit } from "../../apps/server/src/mcp/toolkits/preview/tools.ts";
-import { PreviewControlsToolkit } from "../../apps/server/src/mcp/toolkits/previewControls/tools.ts";
 import { ProjectToolkit } from "../../apps/server/src/mcp/toolkits/project/tools.ts";
 import {
   CHILD_PULL_REQUEST_REPORT_NEXT,
@@ -385,10 +383,8 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   AttachmentToolkit,
   ProjectToolkit,
   EnvironmentToolkit,
-  PreviewControlsToolkit,
   WorktreeToolkit,
   PullRequestsToolkit,
-  PreviewToolkit,
   HtmlToolkit,
 ].flatMap((toolkit): ReadonlyArray<Tool.Any> => Object.values(toolkit.tools));
 // McpHttpServer decodes arguments with each tool's JSON codec, which drops undeclared keys.
@@ -1169,15 +1165,6 @@ export const t3Default = (
       return {
         htmlRender: { attachmentId: "att-1", title: input.title ?? "Visual", height: 560 },
         message: HTML_RENDERED,
-      };
-    case "preview_status":
-      return {
-        available: false,
-        visible: false,
-        tabId: null,
-        url: null,
-        title: null,
-        loading: false,
       };
     default:
       return { ok: true };

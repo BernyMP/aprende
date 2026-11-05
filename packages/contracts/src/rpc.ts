@@ -255,25 +255,6 @@ import {
   ProjectWriteFileResult,
 } from "./project.ts";
 import {
-  DiscoveredLocalServerList,
-  ConfiguredLocalServerUrls,
-  PreviewCloseInput,
-  PreviewError,
-  PreviewEvent,
-  PreviewListInput,
-  PreviewListResult,
-  PreviewClearProfileError,
-  PreviewClearProfileInput,
-  PreviewReportProfilesInput,
-  PreviewStopLocalServerError,
-  PreviewStopLocalServerInput,
-  PreviewOpenInput,
-  PreviewReportStatusInput,
-  PreviewResizeInput,
-  PreviewAdjustInput,
-  PreviewSessionSnapshot,
-} from "./preview.ts";
-import {
   ServerConfigStreamEvent,
   DesktopUpdateCommitInput,
   OtlpEndpointCheckInput,
@@ -444,16 +425,6 @@ export const WS_METHODS = {
   reviewGetDiffPreview: "review.getDiffPreview",
   reviewGetDiffFileContents: "review.getDiffFileContents",
 
-  previewOpen: "preview.open",
-  previewResize: "preview.resize",
-  previewAdjust: "preview.adjust",
-  previewClose: "preview.close",
-  previewList: "preview.list",
-  previewClearProfile: "preview.clearProfile",
-  previewReportProfiles: "preview.reportProfiles",
-  previewReportStatus: "preview.reportStatus",
-  previewStopLocalServer: "preview.stopLocalServer",
-
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
   serverGetNpmRelease: "server.getNpmRelease",
@@ -571,8 +542,6 @@ export const WS_METHODS = {
   subscribeVcsStatus: "subscribeVcsStatus",
   subscribeWorktreeSetup: "subscribeWorktreeSetup",
   worktreeSetupCancel: "worktreeSetup.cancel",
-  subscribePreviewEvents: "subscribePreviewEvents",
-  subscribeDiscoveredLocalServers: "subscribeDiscoveredLocalServers",
   subscribeServerConfig: "subscribeServerConfig",
   subscribeServerLifecycle: "subscribeServerLifecycle",
   subscribeAuthAccess: "subscribeAuthAccess",
@@ -1514,71 +1483,6 @@ const WsReviewGetDiffFileContentsRpc = Rpc.make(WS_METHODS.reviewGetDiffFileCont
   error: Schema.Union([ReviewDiffPreviewError, EnvironmentAuthorizationError]),
 });
 
-const WsPreviewOpenRpc = Rpc.make(WS_METHODS.previewOpen, {
-  payload: PreviewOpenInput,
-  success: PreviewSessionSnapshot,
-  error: Schema.Union([PreviewError, EnvironmentAuthorizationError]),
-});
-
-const WsPreviewResizeRpc = Rpc.make(WS_METHODS.previewResize, {
-  payload: PreviewResizeInput,
-  success: PreviewSessionSnapshot,
-  error: Schema.Union([PreviewError, EnvironmentAuthorizationError]),
-});
-
-const WsPreviewAdjustRpc = Rpc.make(WS_METHODS.previewAdjust, {
-  payload: PreviewAdjustInput,
-  success: PreviewSessionSnapshot,
-  error: Schema.Union([PreviewError, EnvironmentAuthorizationError]),
-});
-
-const WsPreviewCloseRpc = Rpc.make(WS_METHODS.previewClose, {
-  payload: PreviewCloseInput,
-  error: Schema.Union([PreviewError, EnvironmentAuthorizationError]),
-});
-
-const WsPreviewListRpc = Rpc.make(WS_METHODS.previewList, {
-  payload: PreviewListInput,
-  success: PreviewListResult,
-  error: EnvironmentAuthorizationError,
-});
-
-const WsPreviewClearProfileRpc = Rpc.make(WS_METHODS.previewClearProfile, {
-  payload: PreviewClearProfileInput,
-  error: Schema.Union([PreviewClearProfileError, EnvironmentAuthorizationError]),
-});
-
-const WsPreviewReportProfilesRpc = Rpc.make(WS_METHODS.previewReportProfiles, {
-  payload: PreviewReportProfilesInput,
-  error: EnvironmentAuthorizationError,
-});
-
-const WsPreviewReportStatusRpc = Rpc.make(WS_METHODS.previewReportStatus, {
-  payload: PreviewReportStatusInput,
-  error: Schema.Union([PreviewError, EnvironmentAuthorizationError]),
-});
-
-const WsSubscribePreviewEventsRpc = Rpc.make(WS_METHODS.subscribePreviewEvents, {
-  payload: Schema.Struct({}),
-  success: PreviewEvent,
-  error: EnvironmentAuthorizationError,
-  stream: true,
-});
-
-const WsPreviewStopLocalServerRpc = Rpc.make(WS_METHODS.previewStopLocalServer, {
-  payload: PreviewStopLocalServerInput,
-  error: Schema.Union([PreviewStopLocalServerError, EnvironmentAuthorizationError]),
-});
-
-const WsSubscribeDiscoveredLocalServersRpc = Rpc.make(WS_METHODS.subscribeDiscoveredLocalServers, {
-  payload: Schema.Struct({
-    configuredUrls: Schema.optional(ConfiguredLocalServerUrls),
-  }),
-  success: DiscoveredLocalServerList,
-  error: EnvironmentAuthorizationError,
-  stream: true,
-});
-
 const WsOrchestrationV2DispatchCommandRpc = Rpc.make(ORCHESTRATION_V2_WS_METHODS.dispatchCommand, {
   payload: OrchestrationV2RpcSchemas.dispatchCommand.input,
   success: OrchestrationV2RpcSchemas.dispatchCommand.output,
@@ -2046,17 +1950,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsReviewGetBranchCommitsRpc,
   WsReviewGetDiffPreviewRpc,
   WsReviewGetDiffFileContentsRpc,
-  WsPreviewOpenRpc,
-  WsPreviewResizeRpc,
-  WsPreviewAdjustRpc,
-  WsPreviewCloseRpc,
-  WsPreviewListRpc,
-  WsPreviewClearProfileRpc,
-  WsPreviewReportProfilesRpc,
-  WsPreviewReportStatusRpc,
-  WsSubscribePreviewEventsRpc,
-  WsPreviewStopLocalServerRpc,
-  WsSubscribeDiscoveredLocalServersRpc,
   WsSubscribeServerConfigRpc,
   WsSubscribeServerLifecycleRpc,
   WsSubscribeAuthAccessRpc,

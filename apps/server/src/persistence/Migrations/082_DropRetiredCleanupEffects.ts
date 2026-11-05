@@ -6,6 +6,6 @@ export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   yield* sql`
     DELETE FROM orchestration_v2_effect_outbox
-    WHERE effect_type IN ('terminal.cleanup')
+    WHERE effect_type IN ('terminal.cleanup', 'preview.cleanup')
   `;
 });

@@ -36,8 +36,6 @@ import * as SqlClient from "effect/sql/SqlClient";
 import * as Statement from "effect/sql/Statement";
 
 import * as AssetSigner from "./assets/AssetSigner.ts";
-import * as PreviewAutomationBroker from "./mcp/PreviewAutomationBroker.ts";
-import * as ServerBrowser from "./preview/ServerBrowser.ts";
 import * as AcpRegistryRuntimeCoordinator from "@aprende/provider-acp-registry/server/AcpRegistryRuntimeCoordinator";
 import * as AcpRegistrySupport from "@aprende/provider-acp-registry/server/AcpRegistrySupport";
 import * as AgentSessionImporter from "./project/AgentSessionImporter.ts";
@@ -61,8 +59,6 @@ import * as OtlpEndpointCheck from "./observability/OtlpEndpointCheck.ts";
 import * as PairingGrantStore from "./auth/PairingGrantStore.ts";
 import * as PeerLinkRequests from "./peer/PeerLinkRequests.ts";
 import * as PeerLinks from "./peer/PeerLinks.ts";
-import * as PortScanner from "./preview/PortScanner.ts";
-import * as PreviewManager from "./preview/Manager.ts";
 import * as ProcessDiagnostics from "./diagnostics/ProcessDiagnostics.ts";
 import * as ProcessResourceMonitor from "./diagnostics/ProcessResourceMonitor.ts";
 import * as ProjectCloneTracker from "./project/ProjectCloneTracker.ts";
@@ -678,8 +674,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(PairingGrantStore.PairingGrantStore)({}),
   Layer.mock(PeerLinks.PeerLinks)({}),
   Layer.mock(PeerLinkRequests.PeerLinkRequests)({}),
-  Layer.mock(PortScanner.PortDiscovery)({ trackAgent: () => () => undefined }),
-  Layer.mock(PreviewManager.PreviewManager)({}),
   Layer.mock(ProcessDiagnostics.ProcessDiagnostics)({}),
   Layer.mock(ProcessResourceMonitor.ProcessResourceMonitor)({}),
   Layer.mock(ProjectCloneTracker.ProjectCloneTracker)({}),
@@ -876,8 +870,6 @@ it.effect.each([
               method: "browser-session-cookie",
               scopes: [],
             },
-            yield* ServerBrowser.ServerBrowser,
-            () => Effect.void,
             { secretReferences: true },
           ).pipe(Layer.provide(configRpcServices)),
         ),
@@ -984,16 +976,7 @@ it.effect.each([
       }
       yield* server.write(0, { _tag: "Interrupt", requestId, interruptors: [] });
       if (direct) yield* Deferred.await(directStopped);
-    }).pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          Layer.fresh(layerConfigSources),
-          Layer.mock(PreviewAutomationBroker.PreviewAutomationBroker)({}),
-          Layer.mock(ServerBrowser.ServerBrowser)({}),
-        ),
-      ),
-      Effect.scoped,
-    ),
+    }).pipe(Effect.provide(Layer.mergeAll(Layer.fresh(layerConfigSources))), Effect.scoped),
 );
 
 it.effect("on-demand clients get provider config without workspace snapshots", () =>
@@ -1095,8 +1078,6 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
             method: "browser-session-cookie",
             scopes: [],
           },
-          yield* ServerBrowser.ServerBrowser,
-          () => Effect.void,
           { secretReferences: true },
         ).pipe(Layer.provide(configRpcServices)),
       ),
@@ -1143,16 +1124,7 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
       [[[snapshotFor("/b", "2026-10-25T00:00:00.000Z")], []]],
     );
     yield* server.write(0, { _tag: "Interrupt", requestId: configRequest, interruptors: [] });
-  }).pipe(
-    Effect.provide(
-      Layer.mergeAll(
-        Layer.fresh(layerConfigSources),
-        Layer.mock(PreviewAutomationBroker.PreviewAutomationBroker)({}),
-        Layer.mock(ServerBrowser.ServerBrowser)({}),
-      ),
-    ),
-    Effect.scoped,
-  ),
+  }).pipe(Effect.provide(Layer.mergeAll(Layer.fresh(layerConfigSources))), Effect.scoped),
 );
 
 // Pruned history cannot be replayed: a cursor below the boundary must resync from a snapshot.

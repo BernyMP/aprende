@@ -16,7 +16,6 @@ import * as ServerConfig from "../config.ts";
 import * as DocumentText from "./DocumentText.ts";
 import { extractDocumentText } from "./documentTextWorker.ts";
 import * as Cleanup from "../orchestration-v2/ResourceCleanupService.ts";
-import * as PreviewManager from "../preview/Manager.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as NodeZlib from "node:zlib";
 import { appendUserInputAttachmentPaths } from "./userInputAttachments.ts";
@@ -323,10 +322,7 @@ describe("question answer paths", () => {
         Effect.provide(
           Cleanup.layer.pipe(
             Layer.provide(
-              Layer.mergeAll(
-                Layer.mock(PreviewManager.PreviewManager)({}),
-                Layer.mock(ScheduledTaskService.ScheduledTaskService)({}),
-              ),
+              Layer.mergeAll(Layer.mock(ScheduledTaskService.ScheduledTaskService)({})),
             ),
           ),
         ),

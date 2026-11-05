@@ -237,12 +237,11 @@ describe("persistClientSettingsUpdate", () => {
         durableSettings = settings;
       });
     __setClientSettingsForTests(DEFAULT_CLIENT_SETTINGS);
-    const importedProfile = { id: "profile-import", name: "Imported", kind: "persistent" as const };
 
     const pending = persistClientSettingsUpdate(
       (current) => ({
         ...current,
-        browserProfiles: [...current.browserProfiles, importedProfile],
+        confirmThreadUnpin: !current.confirmThreadUnpin,
       }),
       persist,
     );
@@ -255,11 +254,12 @@ describe("persistClientSettingsUpdate", () => {
     expect(persist.mock.calls[1]?.[0]).toMatchObject({
       wordWrap: false,
     });
-    expect(persist.mock.calls[1]?.[0].browserProfiles).toContainEqual(importedProfile);
+    const toggled = !DEFAULT_CLIENT_SETTINGS.confirmThreadUnpin;
+    expect(persist.mock.calls[1]?.[0].confirmThreadUnpin).toBe(toggled);
     expect(durableSettings.wordWrap).toBe(false);
-    expect(durableSettings.browserProfiles).toContainEqual(importedProfile);
+    expect(durableSettings.confirmThreadUnpin).toBe(toggled);
     expect(getClientSettings().wordWrap).toBe(false);
-    expect(getClientSettings().browserProfiles).toContainEqual(importedProfile);
+    expect(getClientSettings().confirmThreadUnpin).toBe(toggled);
   });
 });
 

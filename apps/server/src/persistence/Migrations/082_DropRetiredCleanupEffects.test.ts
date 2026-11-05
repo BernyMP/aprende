@@ -16,6 +16,7 @@ layer("082_DropRetiredCleanupEffects", (it) => {
       const rows: ReadonlyArray<readonly [string, string, string]> = [
         ["terminal-pending", "terminal.cleanup", "pending"],
         ["terminal-done", "terminal.cleanup", "succeeded"],
+        ["preview-failed", "preview.cleanup", "failed"],
         ["attachments", "attachment.cleanup", "pending"],
       ];
       for (const [id, type, status] of rows) {

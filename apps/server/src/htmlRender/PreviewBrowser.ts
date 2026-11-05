@@ -133,7 +133,7 @@ export class PreviewBrowser extends Context.Service<
     >;
     readonly installed: Effect.Effect<Option.Option<string>>;
   }
->()("aprende/preview/PreviewBrowser") {}
+>()("aprende/htmlRender/PreviewBrowser") {}
 
 export interface PreviewBrowserOptions {
   readonly baseDir: string;

@@ -640,7 +640,7 @@ it.effect("refuses what a linked environment cannot take before anything leaves"
 
       // The box sees only the link's credential, so one that may not control
       // threads here may not reach them there either.
-      const previewOnly = new Set<McpInvocationContext.McpCapability>(["preview"]);
+      const worktreeOnly = new Set<McpInvocationContext.McpCapability>(["worktree"]);
       for (const [name, args] of [
         ["t3_environment_links", {}],
         ["t3_project_list", { environmentId: box.environmentId }],
@@ -666,7 +666,7 @@ it.effect("refuses what a linked environment cannot take before anything leaves"
           },
         ],
       ] as const) {
-        const refused = yield* a.call("thread:laptop-full", name, args, previewOnly);
+        const refused = yield* a.call("thread:laptop-full", name, args, worktreeOnly);
         expect(failureOf(refused), name).toMatchObject({ code: "capability_denied" });
       }
       expect(yield* Ref.get(b.bearers)).toEqual([]);

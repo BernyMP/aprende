@@ -12,7 +12,6 @@ import {
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   AuthSourceControlWriteScope,
-  AuthTerminalOperateScope,
   WS_METHODS,
   WsRpcGroup,
 } from "@aprende/contracts";
@@ -54,12 +53,6 @@ describe("RPC authorization scopes", () => {
     ]) {
       expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
     }
-  });
-
-  it("treats stopping a local server as a terminal operation", () => {
-    expect(requiredScopeForRpcMethod(WS_METHODS.previewStopLocalServer)).toBe(
-      AuthTerminalOperateScope,
-    );
   });
 
   it("rejects unknown RPC method names", () => {
