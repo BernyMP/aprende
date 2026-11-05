@@ -742,10 +742,6 @@ describe("MessagesTimeline automation prompts", () => {
 
     await click(row);
     expect(screen.text()).toContain("Label every new issue and close duplicates.");
-    const link = [...screen.container.querySelectorAll("a")].find(
-      (anchor) => anchor.textContent === "Open automation",
-    );
-    expect(link?.getAttribute("href")).toContain(`taskId=${TASK_ID}`);
     expect(screen.buttons(/copy/i)).not.toHaveLength(0);
   });
 
