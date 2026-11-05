@@ -46,6 +46,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PubSub from "effect/PubSub";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
 import type { SqlError } from "effect/sql/SqlError";
@@ -760,7 +761,12 @@ export const layer = Layer.effect(
       const folder = `practice/${practiceFolderName(name, problemId)}`;
       const absolute = path.join(root, ...folder.split("/"));
       yield* Effect.gen(function* () {
-        yield* fileSystem.makeDirectory(path.join(root, "practice"), { recursive: true });
+        const practice = path.join(root, "practice");
+        yield* fileSystem.makeDirectory(practice, { recursive: true });
+        // A symlinked practice folder would put starter files outside the session folder.
+        const realRoot = yield* fileSystem.realPath(root);
+        if ((yield* fileSystem.realPath(practice)) !== path.join(realRoot, "practice"))
+          return yield* fail(`${folder} must stay inside the session folder.`);
         // Neither the folder nor its files may exist yet, so nothing of the learner's is overwritten.
         yield* fileSystem.makeDirectory(absolute);
         for (const file of draft.files) {
@@ -777,42 +783,65 @@ export const layer = Layer.effect(
       return { workspace, absolute };
     });
 
+    // Overlapping checks in one folder can fail correct work, so each problem runs one at a time.
+    const checkLocks = new Map<string, Semaphore.Semaphore>();
+    const checkLock = (problemId: string) => {
+      const existing = checkLocks.get(problemId);
+      if (existing !== undefined) return existing;
+      const lock = Semaphore.makeUnsafe(1);
+      checkLocks.set(problemId, lock);
+      return lock;
+    };
+
     const runWorkspaceCheck = Effect.fn("LearningService.runWorkspaceCheck")(function* (
       threadId: ThreadId,
+      problemId: string,
       workspace: LearningProblemWorkspace & { readonly checkCommand: string },
     ) {
-      const cwd = path.join(yield* sessionRoot(threadId), ...workspace.folder.split("/"));
-      const failed = (output: string): LearningCheckRun => ({
-        exitCode: null,
-        output,
-        truncated: false,
-        timedOut: false,
-      });
-      if (!(yield* fileSystem.exists(cwd).pipe(Effect.orElseSucceed(() => false))))
-        return failed(`The practice folder ${workspace.folder} is gone.`);
-      const output = cappedOutput(LEARNING_CHECK_MAX_OUTPUT_BYTES);
-      const result = yield* processRunner
-        .run({
-          ...checkInvocation(yield* HostProcess.Platform, workspace.checkCommand),
-          cwd,
-          // Unbuffered, so Python's prints and tracebacks arrive in order and survive a timeout.
-          env: { PYTHONUNBUFFERED: "1" },
-          timeout: `${LEARNING_CHECK_TIMEOUT_SECONDS} seconds`,
-          timeoutBehavior: "timedOutResult",
-          maxOutputBytes: LEARNING_CHECK_MAX_OUTPUT_BYTES,
-          outputMode: "truncate",
-          onStdoutChunk: output.push,
-        })
-        .pipe(Effect.result);
-      if (result._tag === "Failure") return failed(result.failure.message);
-      const run = result.success;
-      if (run.stderr.length > 0) output.push(Buffer.from(run.stderr));
-      return {
-        exitCode: run.timedOut || run.code === null ? null : Number(run.code),
-        timedOut: run.timedOut,
-        ...output.read(),
-      } satisfies LearningCheckRun;
+      return yield* Semaphore.withPermit(
+        checkLock(problemId),
+        runWorkspaceCheckUnlocked(threadId, workspace),
+      );
     });
+
+    const runWorkspaceCheckUnlocked = Effect.fn("LearningService.runWorkspaceCheckUnlocked")(
+      function* (
+        threadId: ThreadId,
+        workspace: LearningProblemWorkspace & { readonly checkCommand: string },
+      ) {
+        const cwd = path.join(yield* sessionRoot(threadId), ...workspace.folder.split("/"));
+        const failed = (output: string): LearningCheckRun => ({
+          exitCode: null,
+          output,
+          truncated: false,
+          timedOut: false,
+        });
+        if (!(yield* fileSystem.exists(cwd).pipe(Effect.orElseSucceed(() => false))))
+          return failed(`The practice folder ${workspace.folder} is gone.`);
+        const output = cappedOutput(LEARNING_CHECK_MAX_OUTPUT_BYTES);
+        const result = yield* processRunner
+          .run({
+            ...checkInvocation(yield* HostProcess.Platform, workspace.checkCommand),
+            cwd,
+            // Unbuffered, so Python's prints and tracebacks arrive in order and survive a timeout.
+            env: { PYTHONUNBUFFERED: "1" },
+            timeout: `${LEARNING_CHECK_TIMEOUT_SECONDS} seconds`,
+            timeoutBehavior: "timedOutResult",
+            maxOutputBytes: LEARNING_CHECK_MAX_OUTPUT_BYTES,
+            outputMode: "truncate",
+            onStdoutChunk: output.push,
+          })
+          .pipe(Effect.result);
+        if (result._tag === "Failure") return failed(result.failure.message);
+        const run = result.success;
+        if (run.stderr.length > 0) output.push(Buffer.from(run.stderr));
+        return {
+          exitCode: run.timedOut || run.code === null ? null : Number(run.code),
+          timedOut: run.timedOut,
+          ...output.read(),
+        } satisfies LearningCheckRun;
+      },
+    );
 
     const poseProblem: LearningService["Service"]["poseProblem"] = Effect.fn(
       "LearningService.poseProblem",
@@ -927,7 +956,10 @@ export const layer = Layer.effect(
       const check =
         workspace === null || checkCommand === null || input.gaveUp
           ? undefined
-          : yield* runWorkspaceCheck(input.threadId, { ...workspace, checkCommand });
+          : yield* runWorkspaceCheck(input.threadId, input.problemId, {
+              ...workspace,
+              checkCommand,
+            });
       const attempt: LearningProblemAttempt = {
         ...(input.text?.trim() ? { text: input.text.trim() } : {}),
         ...(check === undefined
@@ -965,7 +997,10 @@ export const layer = Layer.effect(
         const checkCommand = workspace?.checkCommand ?? null;
         if (workspace === null || checkCommand === null)
           return yield* fail("This problem has no check to run.");
-        return yield* runWorkspaceCheck(input.threadId, { ...workspace, checkCommand });
+        return yield* runWorkspaceCheck(input.threadId, input.problemId, {
+          ...workspace,
+          checkCommand,
+        });
       },
     );
 

@@ -7,6 +7,7 @@ import {
   learningAnswerMessageQuestionId,
   learningSolutionMessageProblemId,
 } from "@aprende/contracts";
+import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -504,6 +505,14 @@ it.effect("writes starter files into a fresh practice folder and never into an e
       const blocked = yield* learning.poseProblem(otherThreadId, codingProblem).pipe(Effect.exit);
       assert.isTrue(Exit.isFailure(blocked));
       assert.deepEqual((yield* learning.getThreadState(otherThreadId)).problems, []);
+
+      // A symlinked practice folder must not carry starter files out of the session folder.
+      const outside = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-outside-" });
+      yield* fileSystem.remove(path.join(root, "practice"));
+      yield* fileSystem.symlink(outside, path.join(root, "practice"));
+      const escaped = yield* learning.poseProblem(otherThreadId, codingProblem).pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(escaped));
+      assert.deepEqual(yield* fileSystem.readDirectory(outside), []);
     }).pipe(Effect.provide(makeLayer(sent, { root })));
   }).pipe(Effect.provide(NodeServices.layer)),
 );
@@ -515,11 +524,14 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
     const root = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-practice-" });
     const sent = yield* Ref.make<ReadonlyArray<string>>([]);
     const spawned = yield* Ref.make<ReadonlyArray<Spawned>>([]);
+    const spawnedAt = yield* Ref.make<ReadonlyArray<number>>([]);
     const hang = yield* Ref.make(false);
     const drained = yield* Deferred.make<void>();
     const spawn = (command: Spawned) =>
       Effect.gen(function* () {
         yield* Ref.update(spawned, (all) => [...all, command]);
+        const now = yield* Clock.currentTimeMillis;
+        yield* Ref.update(spawnedAt, (all) => [...all, now]);
         if (yield* Ref.get(hang))
           return makeHandle({
             stdout: Stream.encodeText(Stream.make("started\n")).pipe(
@@ -551,6 +563,10 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
         .runCheck({ threadId, problemId })
         .pipe(Effect.forkChild({ startImmediately: true }));
       yield* Deferred.await(drained);
+      yield* Ref.set(hang, false);
+      const overlapping = yield* learning
+        .runCheck({ threadId, problemId })
+        .pipe(Effect.forkChild({ startImmediately: true }));
       yield* TestClock.adjust("30 seconds");
       // Output written before the timeout still reaches the learner.
       assert.deepEqual(yield* Fiber.join(running), {
@@ -559,12 +575,15 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
         output: "started\n",
         truncated: false,
       });
+      // A second check in the same folder waits for the first instead of overlapping it.
+      assert.equal((yield* Fiber.join(overlapping)).exitCode, 1);
+      assert.isAtLeast((yield* Ref.get(spawnedAt))[2]!, 30_000);
 
       yield* fileSystem.remove(path.join(root, folder), { recursive: true });
       const gone = yield* learning.runCheck({ threadId, problemId });
       assert.isNull(gone.exitCode);
       assert.include(gone.output, "is gone");
-      assert.equal((yield* Ref.get(spawned)).length, 2);
+      assert.equal((yield* Ref.get(spawned)).length, 3);
 
       yield* learning.poseProblem(threadId, problemDraft);
       const plain = (yield* learning.getThreadState(threadId)).problems[1]!;

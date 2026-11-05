@@ -16,6 +16,7 @@ import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import ChatMarkdown from "../ChatMarkdown";
 import { flushFileSaveFolder } from "../files/fileSaveSessions";
+import { toastManager } from "../ui/toast";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
@@ -135,18 +136,25 @@ const checkLabel = (check: LearningCheckOutcome) =>
         : { label: `Failed with exit code ${check.exitCode}`, variant: "error" as const };
 
 /** Saves open edits in the practice folder, so a run or a submit sees what the learner sees. */
-const saveWorkspace = (
+const saveWorkspace = async (
   threadRef: ScopedThreadRef,
   cwd: string | undefined,
   workspace: LearningProblemWorkspace | null,
-) =>
-  cwd === undefined || workspace === null
-    ? Promise.resolve()
-    : flushFileSaveFolder({
-        environmentId: threadRef.environmentId,
-        cwd,
-        folder: workspace.folder,
-      });
+) => {
+  if (cwd === undefined || workspace === null) return true;
+  const saved = await flushFileSaveFolder({
+    environmentId: threadRef.environmentId,
+    cwd,
+    folder: workspace.folder,
+  });
+  if (!saved)
+    toastManager.add({
+      type: "error",
+      title: "Your changes are not saved",
+      description: `Save your files in ${workspace.folder}, then try again.`,
+    });
+  return saved;
+};
 
 function Workspace(props: {
   readonly problem: LearningProblemView;
@@ -166,7 +174,10 @@ function Workspace(props: {
   const runIt = async () => {
     if (running) return;
     setRunning(true);
-    await saveWorkspace(threadRef, props.cwd, workspace);
+    if (!(await saveWorkspace(threadRef, props.cwd, workspace))) {
+      setRunning(false);
+      return;
+    }
     const result = await runCheck({
       environmentId: threadRef.environmentId,
       input: { threadId: threadRef.threadId, problemId: problem.id },
@@ -276,7 +287,10 @@ function OpenProblem(props: {
   const submit = async (gaveUp: boolean) => {
     if (pending) return;
     setPending(true);
-    await saveWorkspace(props.threadRef, props.markdownCwd, problem.workspace);
+    if (!gaveUp && !(await saveWorkspace(props.threadRef, props.markdownCwd, problem.workspace))) {
+      setPending(false);
+      return;
+    }
     const result = await submitSolution({
       environmentId: props.threadRef.environmentId,
       input: {

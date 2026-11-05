@@ -70,8 +70,13 @@ describe("file save sessions", () => {
     h.sessions.acquire(other, h.onPendingChange);
     h.sessions.change(inFolder, "print(1)");
     h.sessions.change(other, "elsewhere");
-    await h.sessions.flushFolder({ ...target, folder: "practice" });
+    expect(await h.sessions.flushFolder({ ...target, folder: "practice" })).toBe(true);
     expect(h.writes()).toEqual([[inFolder, "print(1)"]]);
+
+    // A failed write reports the folder unsaved, so nothing runs against stale files.
+    h.persist.mockResolvedValueOnce(AsyncResult.failure(Cause.fail("disk full")));
+    h.sessions.change(inFolder, "print(2)");
+    expect(await h.sessions.flushFolder({ ...target, folder: "practice" })).toBe(false);
   });
 
   it("flushes on the last release and drops edits from retired editors", async () => {
