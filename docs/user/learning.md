@@ -53,6 +53,17 @@ The tutor records the key ideas each session taught, and how they follow from ea
 knowledge graph on your computer. New sessions check it first, so the tutor skips what you already
 learned.
 
+## Knowledge
+
+**Knowledge** lists everything your sessions have recorded, newest first. Open it from the sidebar
+or the command palette, or press `mod+alt+k` (customize `knowledge.open` in
+**Settings → Keybindings**). Each idea shows what it follows from and the sessions that taught it;
+open a session to reread how it was taught. Search, or pick a subject, to narrow the list.
+
+To practice, select the ideas you want and choose **Practice**. aprende starts a session in the
+subject that taught them most recently, or another subject you pick, and the tutor starts posing
+problems on exactly those ideas.
+
 ## The tutor prompt
 
 **Settings → Tutor** shows the instructions the tutor follows. You can edit them, for example to ask

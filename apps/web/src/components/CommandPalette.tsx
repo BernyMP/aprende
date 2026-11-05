@@ -65,6 +65,7 @@ import {
   FolderIcon,
   FolderPlusIcon,
   MessageSquareDashedIcon,
+  LibraryIcon,
   LinkIcon,
   MessageSquareIcon,
   PaletteIcon,
@@ -1576,6 +1577,18 @@ function OpenCommandPaletteDialog(props: {
       },
     });
   }
+
+  actionItems.push({
+    kind: "action",
+    value: "action:knowledge",
+    searchTerms: ["knowledge", "learned", "propositions", "graph", "practice", "review"],
+    title: "Open knowledge",
+    icon: <LibraryIcon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: "knowledge.open",
+    run: async () => {
+      await navigate({ to: "/knowledge" });
+    },
+  });
 
   actionItems.push({
     kind: "action",
