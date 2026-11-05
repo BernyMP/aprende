@@ -1,17 +1,7 @@
 # Telemetry
 
-aprende sends relay connection traces to Axiom to diagnose T3 Connect connectivity.
-
-To disable relay tracing, set `APRENDE_TELEMETRY_ENABLED=false` in the server's
-environment before starting it. Relay tracing also stops when `APRENDE_OTEL_SDK_DISABLED` or
-`OTEL_SDK_DISABLED` turns OpenTelemetry export off. The web app in a browser, including one the
-`aprende` CLI opens, does not read these variables.
-
-An administrator can turn relay tracing off for every user on a machine with
-a [managed policy](./managed-policy.md#other-capabilities).
-
-The desktop app reads `APRENDE_TELEMETRY_ENABLED` from your shell profile (for example `~/.zshrc`) on macOS and
-Linux, so export it there and restart the app. On Windows, set it as a user environment variable.
+aprende sends no telemetry. Traces, metrics and logs stay on the machine that runs the server
+unless you export them to a receiver of your own.
 
 ## Export diagnostics to your own receiver
 

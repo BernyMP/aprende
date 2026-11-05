@@ -75,8 +75,8 @@ Administrative Templates > aprende. Set **Organization** whenever you set any ot
 Locks and provider fields go in the two JSON policies, as the same objects a policy file would hold.
 Machines pick up a change at the next Group Policy refresh; run `gpupdate /target:computer /force`
 to apply it now, then restart aprende.
-Setting **Allow T3 Connect**, **Allow importing browser cookies**, or
-**Allow usage data** to **Disabled** turns that feature off. Setting any other aprende policy to
+Setting **Allow importing browser cookies** or **Allow usage data** to **Disabled** turns that
+feature off. Setting any other aprende policy to
 **Disabled** restricts nothing, the same as **Not Configured**.
 
 **Windows registry value.** Instead of the template, set the `Policy` value (`REG_SZ`) to the whole policy as one line of JSON,
@@ -161,7 +161,6 @@ A few settings need care:
   "limits": {
     "maxRuntimeMode": "auto-accept-edits",
     "clients": ["desktop"],
-    "connect": false,
     "browserCookieImport": false,
     "telemetry": false,
     "providers": {
@@ -199,14 +198,10 @@ environment from settings the user controls, such as their shell profile, so a u
 own `claude` earlier on their `PATH`. Pin an absolute `binaryPath` in `providers.instances` for each
 provider you allow.
 
-ACP agents' own mode menus have no effect under `maxRuntimeMode`, except Antigravity's, whose modes
-aprende can place under the limit. Users still choose which ACP Registry agent runs; leave
-`acpRegistry` out of `allowedDrivers` to stop that.
-
 The limit decides which modes aprende asks the provider for. It is not a sandbox; see
 [What a policy does not cover](#what-a-policy-does-not-cover).
 
-### Clients and T3 Connect
+### Clients
 
 `clients` lists how the server may run:
 
@@ -224,8 +219,7 @@ address or `localhost`. A [background service](./background-service.md) installe
 `APRENDE_LAN` existed keeps private-network access, so without `remote` it refuses to start.
 Run `aprende up --no-lan` when its `service.env` sets no `APRENDE_HOST`, or set
 `APRENDE_HOST=127.0.0.1` in `service.env`, then run `aprende service restart`. The desktop app starts
-with network access and Tailscale Serve off, whatever the user chose. That also turns off
-T3 Connect. To keep other remote access but turn off T3 Connect alone, set `"connect": false`.
+with network access and Tailscale Serve off, whatever the user chose.
 
 When it starts, the server also turns off each Tailscale Serve route, HTTPS or TCP, that forwards
 to it, such as one `aprende pair --tailscale` set up, and leaves other routes alone. It does not start
@@ -242,16 +236,13 @@ so restart aprende after that.
 
 - `browserCookieImport: false`: users cannot import cookies from another browser into aprende's
   browser.
-- `telemetry: false`: the server and desktop app send no relay connection traces
-  ([telemetry](./telemetry.md)). A policy cannot turn them on. A browser that opens the server, such as
-  app.aprende.invalid, still sends its own relay traces.
+- `telemetry: false`: accepted so older policies still load. aprende sends no telemetry
+  ([telemetry](./telemetry.md)), so it has no effect.
 
 ### Providers
 
 `providers.allowedDrivers` lists the providers that may run, by ID: `codex` (Codex),
-`claudeAgent` (Claude), `cursor` (Cursor), `grok` (Grok), `opencode` (OpenCode), `antigravity`
-(Antigravity), `fx` (fx), `kiro` (Kiro), `pi` (Pi), `muse` (Muse Code), and `acpRegistry` (ACP
-Registry).
+`claudeAgent` (Claude), and `acpRegistry` (a local ACP agent, used only by development builds).
 `aprende policy check` rejects an ID this version does not know. Threads on other providers stay,
 marked unavailable, and users can still turn those providers off.
 

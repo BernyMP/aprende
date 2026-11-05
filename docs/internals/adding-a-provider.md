@@ -7,11 +7,10 @@ whether a turn runs. This page lists the decisions and evidence a new driver nee
 
 ## Choose the integration shape
 
-- **ACP agents** start as [ACP Registry](../user/providers-acp.md) entries, which follow the ACP
-  spec with no per-agent handling. An agent gets a dedicated driver only when it needs behavior the
-  spec does not cover, and then it is a small flavor over the
-  [shared ACP adapter](../../packages/provider-acp/src/server/adapter.ts), like Grok
-  and Antigravity. Never add agent-id checks to the generic registry adapter.
+- **ACP agents** run on the [shared ACP adapter](../../packages/provider-acp/src/server/adapter.ts).
+  The only ACP driver left is the [local-command driver](../../packages/provider-acp/src/server/localDriver.ts)
+  behind the dev Replay provider; learners cannot add it. A new ACP agent gets a dedicated driver
+  with a small flavor over the shared adapter, never agent-id checks inside that adapter.
 - **Other protocols** get a native adapter that implements
   [`ProviderAdapterV2`](../../packages/provider-core/src/server/ProviderAdapter.ts), like Codex,
   Claude, Cursor, OpenCode, Pi, and Muse.
@@ -103,7 +102,7 @@ produce catches them.
 ## Where a driver plugs in
 
 A provider lives in its own `packages/provider-<name>` package, with
-[ACP Registry](../../packages/provider-acp-registry) as the reference. Drivers not moved yet still live in
+[provider-acp](../../packages/provider-acp) as the reference. Drivers not moved yet still live in
 [`provider/Drivers`](../../apps/server/src/provider/Drivers).
 
 - **Package exports.** `./settings` holds the instance settings schema, built with

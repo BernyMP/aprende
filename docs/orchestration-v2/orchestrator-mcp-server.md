@@ -118,34 +118,12 @@ cancel-and-restart. Its current driver also lacks `session/fork`, so app forks
 use portable context transfer. These are orchestrator policies, not
 provider-specific MCP tools.
 
-### ACP Registry V2
+### Local ACP driver
 
-The `acpRegistry` driver is the generic flavor of the same shared ACP adapter.
-Each provider instance names an agent from the official ACP Registry. Settings
-searches the registry through the connected server, then prepares a compatible
-distribution before persisting the provider instance. Binary distributions use
-a managed, versioned cache; declared checksums are verified when present.
-Version-pinned `npx` packages install globally through `npm`; `uvx` packages use
-`uv tool install`. ACP launches the resulting global command directly, so the
-same command is available for terminal authentication. A local executable may
-override the installed command without changing the registry-declared arguments
-or environment.
-
-Search, preparation, provider status, and session startup share one
-server-scoped catalog service. This keeps platform selection and registry
-validation identical across settings and runtime use. Catalog inspection never
-starts an ACP process, probes models, or performs authentication. The managed
-provider snapshot creates a disposable `session/new` through the normal provider
-refresh lifecycle, using success as the authentication-readiness proof and
-projecting advertised models into the snapshot. Terminal-only login remains a
-manual operation on the connected server.
-
-Capabilities such as session loading, session forking, models, modes, and MCP
-transport are enabled only when the selected agent advertises them. Missing
-features degrade through V2 policy: steering uses interrupt-and-restart,
-forking uses portable context when native `session/fork` is unavailable, and
-subagents use orchestrator-owned child threads. Registry agents do not receive
-provider-specific extensions; those remain in flavors such as Grok.
+The only ACP driver is a local-command driver on the shared ACP adapter. It keeps
+the persisted `acpRegistry` kind and exists for the dev Replay provider: the
+snapshot probe opens one `session/new` to read the agent's models and commands,
+and turns spawn the configured command. It adds no agent-specific extensions.
 
 ### Pi V2
 
@@ -188,7 +166,7 @@ remain ordinary dynamic tool output.
 A provider instance can run child tasks when its live `ProviderInstance`
 exposes a V2 `orchestrationAdapter` — the same registration the orchestrator
 resolves when a `delegated_task.request` executes. That covers Codex, Claude
-Agent SDK, Cursor Agent SDK, Grok, generic registry agents over ACP, OpenCode,
+Agent SDK, Cursor Agent SDK, Grok, the local ACP driver, OpenCode,
 OpenCode 2, Pi, Antigravity, and any future driver that builds an adapter.
 Capability discovery still reports other registered provider instances, but
 marks them unavailable for orchestration when no adapter resolves. This keeps
