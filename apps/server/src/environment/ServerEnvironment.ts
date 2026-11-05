@@ -266,7 +266,6 @@ export const make = Effect.gen(function* () {
       projectCloneTracking: true,
       projectOrganization: true,
       ignoredFileListing: true,
-      triage: true,
       oneTimeSchedules: true,
       // aprende is not on npm yet; offering npm releases would let anyone who claims the name ship an update.
       ...(serverSelfUpdate === null ? {} : { serverSelfUpdate }),

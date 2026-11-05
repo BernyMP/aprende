@@ -39,12 +39,6 @@ describe("RPC authorization scopes", () => {
     }
   });
 
-  it("keeps triage, which seeds an agent that reads logs and the database, behind operate scope", () => {
-    expect(requiredScopeForRpcMethod(WS_METHODS.serverPrepareTriage)).toBe(
-      AuthOrchestrationOperateScope,
-    );
-  });
-
   it("keeps learner answers and practice, which start tutor turns, behind operate scope", () => {
     for (const method of [
       WS_METHODS.learningAnswer,

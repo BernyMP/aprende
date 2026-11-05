@@ -145,7 +145,7 @@ const layerWakeups = Wakeups.layer({
   ),
 });
 
-export function currentClientMetadata() {
+function currentClientMetadata() {
   return clientPresentationMetadata({
     appVersion: APP_VERSION,
     hosted: isHostedStaticApp(),

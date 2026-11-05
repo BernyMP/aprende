@@ -148,15 +148,6 @@ import {
   VcsStatusResult,
   VcsStatusStreamEvent,
 } from "./git.ts";
-import {
-  ReviewBranchCommitsInput,
-  ReviewBranchCommitsResult,
-  ReviewDiffFileContentsInput,
-  ReviewDiffFileContentsResult,
-  ReviewDiffPreviewError,
-  ReviewDiffPreviewInput,
-  ReviewDiffPreviewResult,
-} from "./review.ts";
 import { KeybindingsConfigError } from "./keybindings.ts";
 import { OrchestrationSearchThreadsError } from "./threadSearch.ts";
 import {
@@ -258,9 +249,6 @@ import {
   ServerConfigStreamEvent,
   DesktopUpdateCommitInput,
   OtlpEndpointCheckInput,
-  ServerPrepareTriageError,
-  ServerPrepareTriageInput,
-  ServerPrepareTriageResult,
   OtlpEndpointCheckResult,
   ServerConfig,
   ServerProviderUpdateError,
@@ -421,10 +409,6 @@ export const WS_METHODS = {
   gitResolvePullRequest: "git.resolvePullRequest",
   gitPreparePullRequestThread: "git.preparePullRequestThread",
 
-  reviewGetBranchCommits: "review.getBranchCommits",
-  reviewGetDiffPreview: "review.getDiffPreview",
-  reviewGetDiffFileContents: "review.getDiffFileContents",
-
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
   serverGetNpmRelease: "server.getNpmRelease",
@@ -462,7 +446,6 @@ export const WS_METHODS = {
   serverGetResourceTelemetryHistory: "server.getResourceTelemetryHistory",
   serverRetryResourceTelemetry: "server.retryResourceTelemetry",
   serverCheckOtlpEndpoint: "server.checkOtlpEndpoint",
-  serverPrepareTriage: "server.prepareTriage",
   serverSignalProcess: "server.signalProcess",
   serverReportClientActivity: "server.reportClientActivity",
   serverGetUsageSummary: "server.getUsageSummary",
@@ -884,12 +867,6 @@ const WsServerCheckOtlpEndpointRpc = Rpc.make(WS_METHODS.serverCheckOtlpEndpoint
   payload: OtlpEndpointCheckInput,
   success: OtlpEndpointCheckResult,
   error: EnvironmentAuthorizationError,
-});
-
-const WsServerPrepareTriageRpc = Rpc.make(WS_METHODS.serverPrepareTriage, {
-  payload: ServerPrepareTriageInput,
-  success: ServerPrepareTriageResult,
-  error: Schema.Union([ServerPrepareTriageError, EnvironmentAuthorizationError]),
 });
 
 const WsServerGetUsageSummaryRpc = Rpc.make(WS_METHODS.serverGetUsageSummary, {
@@ -1465,24 +1442,6 @@ const WsVcsInitRpc = Rpc.make(WS_METHODS.vcsInit, {
   error: Schema.Union([VcsError, EnvironmentAuthorizationError]),
 });
 
-const WsReviewGetBranchCommitsRpc = Rpc.make(WS_METHODS.reviewGetBranchCommits, {
-  payload: ReviewBranchCommitsInput,
-  success: ReviewBranchCommitsResult,
-  error: Schema.Union([ReviewDiffPreviewError, EnvironmentAuthorizationError]),
-});
-
-const WsReviewGetDiffPreviewRpc = Rpc.make(WS_METHODS.reviewGetDiffPreview, {
-  payload: ReviewDiffPreviewInput,
-  success: ReviewDiffPreviewResult,
-  error: Schema.Union([ReviewDiffPreviewError, EnvironmentAuthorizationError]),
-});
-
-const WsReviewGetDiffFileContentsRpc = Rpc.make(WS_METHODS.reviewGetDiffFileContents, {
-  payload: ReviewDiffFileContentsInput,
-  success: ReviewDiffFileContentsResult,
-  error: Schema.Union([ReviewDiffPreviewError, EnvironmentAuthorizationError]),
-});
-
 const WsOrchestrationV2DispatchCommandRpc = Rpc.make(ORCHESTRATION_V2_WS_METHODS.dispatchCommand, {
   payload: OrchestrationV2RpcSchemas.dispatchCommand.input,
   success: OrchestrationV2RpcSchemas.dispatchCommand.output,
@@ -1839,7 +1798,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetResourceTelemetryHistoryRpc,
   WsServerRetryResourceTelemetryRpc,
   WsServerCheckOtlpEndpointRpc,
-  WsServerPrepareTriageRpc,
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
   WsServerSignalProcessRpc,
@@ -1947,9 +1905,6 @@ export const WsRpcGroup = RpcGroup.make(
   WsVcsCreateRefRpc,
   WsVcsSwitchRefRpc,
   WsVcsInitRpc,
-  WsReviewGetBranchCommitsRpc,
-  WsReviewGetDiffPreviewRpc,
-  WsReviewGetDiffFileContentsRpc,
   WsSubscribeServerConfigRpc,
   WsSubscribeServerLifecycleRpc,
   WsSubscribeAuthAccessRpc,
