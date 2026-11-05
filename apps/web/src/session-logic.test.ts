@@ -1355,6 +1355,24 @@ describe("HTML renders in the timeline", () => {
     expect(entries.some((entry) => entry.kind === "html-render")).toBe(false);
     expect(entries.find((entry) => entry.id === "render")?.kind).toBe("work");
   });
+
+  it.each([
+    ["pose_problem", { structuredContent: { problemId: "prob-1" }, content: [] }, "prob-1"],
+    [
+      "pose_problem",
+      { content: [{ type: "text", text: "Give 1 to 3 hints" }], isError: true },
+      null,
+    ],
+    ["conclude_problem", { structuredContent: { message: "Shown." }, content: [] }, null],
+  ] as const)("shows %s as a problem card only when it posed one", (tool, output, recordId) => {
+    const call = renderCall("completed", output);
+    const entries = turn(
+      call.type === "dynamic_tool" ? { ...call, toolName: `mcp__aprende__${tool}` } : call,
+    );
+    const card = entries.find((entry) => entry.kind === "learning");
+    if (recordId === null) expect(card).toBeUndefined();
+    else expect(card).toMatchObject({ tool, recordId });
+  });
 });
 
 describe("work-log failure policy (#7999/#7893)", () => {

@@ -31,6 +31,31 @@ const handlers = {
       };
     }),
   ),
+  pose_problem: McpToolAccess.actsAsCaller((input) =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("pose_problem");
+      const learning = yield* LearningService.LearningService;
+      const { problemId } = yield* learning
+        .poseProblem(threadId, input)
+        .pipe(Effect.mapError(toFailure));
+      return {
+        problemId,
+        message:
+          "The learner sees the problem now. End your turn without writing more; their work arrives as their next message.",
+      };
+    }),
+  ),
+  conclude_problem: McpToolAccess.actsAsCaller((input) =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("conclude_problem");
+      const learning = yield* LearningService.LearningService;
+      yield* learning.concludeProblem(threadId, input).pipe(Effect.mapError(toFailure));
+      return {
+        message:
+          "The learner sees your verdict and the model solution now. After a miss, repair before the next problem.",
+      };
+    }),
+  ),
   finish_measuring: McpToolAccess.actsAsCaller((input) =>
     Effect.gen(function* () {
       const threadId = yield* callerThread("finish_measuring");

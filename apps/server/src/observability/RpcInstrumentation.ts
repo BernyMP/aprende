@@ -90,6 +90,8 @@ const RPC_AGGREGATES = {
   [WS_METHODS.serverReportClientActivity]: "server",
   [WS_METHODS.learningSubscribeThread]: "learning",
   [WS_METHODS.learningAnswer]: "learning",
+  [WS_METHODS.learningRevealHint]: "learning",
+  [WS_METHODS.learningSubmitSolution]: "learning",
   [WS_METHODS.learningGetTutorPrompt]: "learning",
   [WS_METHODS.learningSetTutorPrompt]: "learning",
   [WS_METHODS.learningGetKnowledge]: "learning",

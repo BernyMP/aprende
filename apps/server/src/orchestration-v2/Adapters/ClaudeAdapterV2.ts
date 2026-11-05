@@ -1964,6 +1964,8 @@ export const CLAUDE_T3_MCP_TOOL_WILDCARD = "mcp__aprende__*";
 // Keep in sync with the advertised toolkits' Tool.Readonly annotations; ClaudeAdapterV2.test.ts checks this.
 export const CLAUDE_READ_ONLY_T3_MCP_ALLOWED_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__ask_question",
+  "mcp__aprende__pose_problem",
+  "mcp__aprende__conclude_problem",
   "mcp__aprende__finish_measuring",
   "mcp__aprende__set_plan",
   "mcp__aprende__graph_search",

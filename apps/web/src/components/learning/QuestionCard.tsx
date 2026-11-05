@@ -154,23 +154,7 @@ function OpenQuestion(props: {
           onChange={(event) => setText(event.target.value)}
         />
       )}
-      {graded ? (
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="flex justify-between text-muted-foreground">
-            <span>How sure are you?</span>
-            <span className="tabular-nums">{confidence}%</span>
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={confidence}
-            onChange={(event) => setConfidence(Number(event.target.value))}
-            className="accent-primary"
-          />
-        </label>
-      ) : null}
+      {graded ? <ConfidenceField value={confidence} onChange={setConfidence} /> : null}
       <Textarea
         aria-label="Your thinking"
         size="sm"
@@ -195,6 +179,29 @@ function OpenQuestion(props: {
         ) : null}
       </div>
     </form>
+  );
+}
+
+export function ConfidenceField(props: {
+  readonly value: number;
+  readonly onChange: (value: number) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5 text-sm">
+      <span className="flex justify-between text-muted-foreground">
+        <span>How sure are you?</span>
+        <span className="tabular-nums">{props.value}%</span>
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={props.value}
+        onChange={(event) => props.onChange(Number(event.target.value))}
+        className="accent-primary"
+      />
+    </label>
   );
 }
 

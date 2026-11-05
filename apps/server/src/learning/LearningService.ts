@@ -4,17 +4,26 @@ import {
   LearningAssessment,
   LearningError,
   LearningPlan,
+  LearningProblemAttempt,
+  LearningProblemConclusion,
+  LearningProblemTarget,
   MessageId,
   type LearningAnswerInput,
   type LearningAnswerResult,
   type LearningChain,
   type LearningKnowledge,
+  type LearningMissType,
+  type LearningProblemOutcome,
+  type LearningProblemResult,
+  type LearningProblemView,
   type LearningPlanEdge,
   type LearningPlanNode,
   type LearningProposition,
   type LearningQuestionView,
+  type LearningRevealHintInput,
   type LearningSetTutorPromptInput,
   type LearningStrand,
+  type LearningSubmitSolutionInput,
   type LearningThreadState,
   type LearningTutorPrompt,
   type ThreadId,
@@ -36,12 +45,18 @@ import { ServerConfig } from "../config.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import {
   answerProblem,
+  conclusionProblem,
   formatAnswerMessage,
+  formatSolutionMessage,
   gradeAnswer,
   planProblem,
+  problemDraftProblem,
   questionDraftProblem,
   shuffleOptions,
+  solutionProblem,
+  type ProblemDraft,
   type QuestionDraft,
+  type StoredProblem,
   type StoredQuestion,
 } from "./learningLogic.ts";
 import { DEFAULT_TUTOR_PROMPT, readTutorPrompt, writeTutorPrompt } from "./tutorPrompt.ts";
@@ -59,6 +74,14 @@ export interface GraphRecordInput {
   }>;
 }
 
+export interface ConcludeProblemInput {
+  readonly problemId: string;
+  readonly outcome: LearningProblemOutcome;
+  readonly verdict: string;
+  readonly missType?: LearningMissType | undefined;
+  readonly retest: boolean;
+}
+
 export class LearningService extends Context.Service<
   LearningService,
   {
@@ -66,6 +89,14 @@ export class LearningService extends Context.Service<
       threadId: ThreadId,
       draft: QuestionDraft,
     ) => Effect.Effect<{ readonly questionId: string }, LearningError>;
+    readonly poseProblem: (
+      threadId: ThreadId,
+      draft: ProblemDraft,
+    ) => Effect.Effect<{ readonly problemId: string }, LearningError>;
+    readonly concludeProblem: (
+      threadId: ThreadId,
+      input: ConcludeProblemInput,
+    ) => Effect.Effect<void, LearningError>;
     readonly finishMeasuring: (
       threadId: ThreadId,
       input: {
@@ -101,6 +132,12 @@ export class LearningService extends Context.Service<
     readonly answer: (
       input: LearningAnswerInput,
     ) => Effect.Effect<LearningAnswerResult, LearningError>;
+    readonly revealHint: (
+      input: LearningRevealHintInput,
+    ) => Effect.Effect<LearningProblemResult, LearningError>;
+    readonly submitSolution: (
+      input: LearningSubmitSolutionInput,
+    ) => Effect.Effect<LearningProblemResult, LearningError>;
     readonly getTutorPrompt: () => Effect.Effect<LearningTutorPrompt, LearningError>;
     readonly setTutorPrompt: (
       input: LearningSetTutorPromptInput,
@@ -123,6 +160,22 @@ interface QuestionRow {
   readonly plan_node_id: string | null;
   readonly status: string;
   readonly answer_json: string | null;
+  readonly created_at: string;
+}
+
+interface ProblemRow {
+  readonly problem_id: string;
+  readonly thread_id: string;
+  readonly mode: string;
+  readonly statement: string;
+  readonly targets_json: string;
+  readonly model_solution: string;
+  readonly hints_json: string;
+  readonly hints_used: number;
+  readonly retest_of: string | null;
+  readonly status: string;
+  readonly attempt_json: string | null;
+  readonly conclusion_json: string | null;
   readonly created_at: string;
 }
 
@@ -154,6 +207,13 @@ const decodePlan = Schema.decodeUnknownSync(Schema.fromJsonString(LearningPlan))
 const encodePlan = Schema.encodeSync(Schema.fromJsonString(LearningPlan));
 const decodeAssessment = Schema.decodeUnknownSync(Schema.fromJsonString(LearningAssessment));
 const encodeAssessment = Schema.encodeSync(Schema.fromJsonString(LearningAssessment));
+const TargetsJson = Schema.fromJsonString(Schema.Array(LearningProblemTarget));
+const decodeTargets = Schema.decodeUnknownSync(TargetsJson);
+const encodeTargets = Schema.encodeSync(TargetsJson);
+const decodeAttempt = Schema.decodeUnknownSync(Schema.fromJsonString(LearningProblemAttempt));
+const encodeAttempt = Schema.encodeSync(Schema.fromJsonString(LearningProblemAttempt));
+const decodeConclusion = Schema.decodeUnknownSync(Schema.fromJsonString(LearningProblemConclusion));
+const encodeConclusion = Schema.encodeSync(Schema.fromJsonString(LearningProblemConclusion));
 
 const fail = (message: string, cause?: unknown) =>
   new LearningError(cause === undefined ? { message } : { message, cause });
@@ -194,6 +254,38 @@ const questionView = (row: QuestionRow): LearningQuestionView => {
             explanation: question.explanation,
           }
         : null,
+  };
+};
+
+const storedProblem = (row: ProblemRow): StoredProblem => ({
+  id: row.problem_id,
+  mode: row.mode as StoredProblem["mode"],
+  statement: row.statement,
+  targets: decodeTargets(row.targets_json),
+  hintCount: decodeStrings(row.hints_json).length,
+  retestOf: row.retest_of,
+});
+
+const problemView = (row: ProblemRow): LearningProblemView => {
+  const problem = storedProblem(row);
+  const hints = decodeStrings(row.hints_json);
+  // The solution and the hints not yet asked for stay on the server until the tutor concludes.
+  const concluded = row.status === "concluded";
+  return {
+    id: problem.id,
+    threadId: row.thread_id as ThreadId,
+    mode: problem.mode,
+    statement: problem.statement,
+    targets: problem.targets,
+    retestOf: problem.retestOf,
+    status: row.status as LearningProblemView["status"],
+    hints: concluded ? hints : hints.slice(0, row.hints_used),
+    hintCount: hints.length,
+    hintsUsed: row.hints_used,
+    createdAt: row.created_at,
+    attempt: row.attempt_json === null ? null : decodeAttempt(row.attempt_json),
+    conclusion: row.conclusion_json === null ? null : decodeConclusion(row.conclusion_json),
+    modelSolution: concluded ? row.model_solution : null,
   };
 };
 
@@ -253,6 +345,9 @@ export const layer = Layer.effect(
         const assessmentRows = yield* sql<{ assessment_json: string }>`
         SELECT assessment_json FROM learning_assessments WHERE thread_id = ${threadId}
       `;
+        const problemRows = yield* sql<ProblemRow>`
+        SELECT * FROM learning_problems WHERE thread_id = ${threadId} ORDER BY created_at, rowid
+      `;
         const plan = yield* readPlan(threadId);
         const assessment =
           assessmentRows[0] === undefined
@@ -265,6 +360,7 @@ export const layer = Layer.effect(
           threadId,
           phase: plan !== null ? "teach" : assessment !== null ? "plan" : "measure",
           questions,
+          problems: problemRows.map(problemView),
           assessment,
           plan,
           currentNodeId,
@@ -288,6 +384,41 @@ export const layer = Layer.effect(
         }),
       );
 
+    // One card waits for the learner at a time: a new question or problem replaces an open one.
+    const skipOpenItems = (threadId: ThreadId) =>
+      Effect.all(
+        [
+          sql`UPDATE learning_questions SET status = 'skipped' WHERE thread_id = ${threadId} AND status = 'open'`,
+          sql`UPDATE learning_problems SET status = 'skipped' WHERE thread_id = ${threadId} AND status = 'open'`,
+        ],
+        { discard: true },
+      );
+
+    const sendToTutor = Effect.fn("LearningService.sendToTutor")(function* (
+      threadId: ThreadId,
+      idPrefix: string,
+      text: string,
+    ) {
+      const shell = yield* threads
+        .getThreadShell(threadId)
+        .pipe(Effect.mapError(dbError("Could not find the session.")));
+      if (shell === null) return yield* fail("Could not find the session.");
+      const sendId = yield* newId(idPrefix);
+      yield* threads
+        .sendToThread({
+          projectId: shell.projectId,
+          commandId: CommandId.make(sendId),
+          threadId,
+          messageId: MessageId.make(sendId),
+          text,
+          attachments: [],
+          mode: "queue",
+          createdBy: "user",
+          creationSource: "web",
+        })
+        .pipe(Effect.mapError(dbError("Could not send it to the tutor.")));
+    });
+
     const askQuestion: LearningService["Service"]["askQuestion"] = Effect.fn(
       "LearningService.askQuestion",
     )(function* (threadId, draft) {
@@ -308,7 +439,7 @@ export const layer = Layer.effect(
         : { options, correctOptions: draft.correctOptions ?? [] };
       yield* sql
         .withTransaction(
-          sql`UPDATE learning_questions SET status = 'skipped' WHERE thread_id = ${threadId} AND status = 'open'`.pipe(
+          skipOpenItems(threadId).pipe(
             Effect.andThen(
               sql`INSERT INTO learning_questions ${sql.insert({
                 question_id: questionId,
@@ -521,32 +652,14 @@ export const layer = Layer.effect(
         const reopen = sql`
           UPDATE learning_questions SET status = 'open', answer_json = NULL WHERE question_id = ${row.question_id}
         `.pipe(Effect.ignore);
-        const shell = yield* threads.getThreadShell(input.threadId).pipe(
-          Effect.mapError(dbError("Could not find the session.")),
+        yield* sendToTutor(
+          input.threadId,
+          "learning-answer",
+          formatAnswerMessage(question, recorded),
+        ).pipe(
+          // Any ending, defects and interruption included, leaves the question answerable again.
           Effect.onError(() => reopen),
         );
-        if (shell === null) {
-          yield* reopen;
-          return yield* fail("Could not find the session.");
-        }
-        const sendId = yield* newId("learning-answer");
-        yield* threads
-          .sendToThread({
-            projectId: shell.projectId,
-            commandId: CommandId.make(sendId),
-            threadId: input.threadId,
-            messageId: MessageId.make(sendId),
-            text: formatAnswerMessage(question, recorded),
-            attachments: [],
-            mode: "queue",
-            createdBy: "user",
-            creationSource: "web",
-          })
-          .pipe(
-            Effect.mapError(dbError("Could not send the answer to the tutor.")),
-            // Any ending, defects and interruption included, leaves the question answerable again.
-            Effect.onError(() => reopen),
-          );
         yield* changed(input.threadId);
         return {
           question: questionView({
@@ -557,6 +670,165 @@ export const layer = Layer.effect(
         };
       },
     );
+
+    const readProblem = (threadId: ThreadId, problemId: string) =>
+      sql<ProblemRow>`SELECT * FROM learning_problems WHERE problem_id = ${problemId}`.pipe(
+        Effect.mapError(dbError("Could not read the problem.")),
+        Effect.flatMap((rows) =>
+          rows[0] === undefined || rows[0].thread_id !== threadId
+            ? Effect.fail(fail("That problem does not exist in this session."))
+            : Effect.succeed(rows[0]),
+        ),
+      );
+
+    const poseProblem: LearningService["Service"]["poseProblem"] = Effect.fn(
+      "LearningService.poseProblem",
+    )(function* (threadId, draft) {
+      const problem = problemDraftProblem(draft);
+      if (problem !== undefined) return yield* fail(problem);
+      const existing = yield* sql<{ problem_id: string; status: string }>`
+        SELECT problem_id, status FROM learning_problems WHERE thread_id = ${threadId}
+      `.pipe(Effect.mapError(dbError("Could not read the problems.")));
+      const awaiting = existing.find((row) => row.status === "submitted");
+      if (awaiting !== undefined)
+        return yield* fail(
+          `The learner's work on problem ${awaiting.problem_id} is waiting for your verdict. Call conclude_problem first.`,
+        );
+      if (
+        draft.retestOf !== undefined &&
+        !existing.some((row) => row.problem_id === draft.retestOf)
+      )
+        return yield* fail(`retestOf "${draft.retestOf}" is not a problem in this session.`);
+      const names = new Map(
+        (yield* sql<{ proposition_id: string; name: string }>`
+          SELECT proposition_id, name FROM learning_propositions
+        `.pipe(Effect.mapError(dbError("Could not read the knowledge graph.")))).map((row) => [
+          row.proposition_id,
+          row.name,
+        ]),
+      );
+      const targets = draft.targets.map((target) => {
+        const name = names.get(target.trim());
+        return name === undefined
+          ? { name: target.trim(), propositionId: null }
+          : { name, propositionId: target.trim() };
+      });
+      const problemId = yield* newId("prob");
+      const createdAt = yield* nowIso;
+      yield* sql
+        .withTransaction(
+          skipOpenItems(threadId).pipe(
+            Effect.andThen(
+              sql`INSERT INTO learning_problems ${sql.insert({
+                problem_id: problemId,
+                thread_id: threadId,
+                mode: draft.mode,
+                statement: draft.statement.trim(),
+                targets_json: encodeTargets(targets),
+                model_solution: draft.modelSolution.trim(),
+                hints_json: encodeStrings(draft.hints.map((hint) => hint.trim())),
+                hints_used: 0,
+                retest_of: draft.retestOf ?? null,
+                status: "open",
+                attempt_json: null,
+                conclusion_json: null,
+                created_at: createdAt,
+              })}`,
+            ),
+          ),
+        )
+        .pipe(Effect.mapError(dbError("Could not save the problem.")));
+      yield* changed(threadId);
+      return { problemId };
+    });
+
+    const revealHint: LearningService["Service"]["revealHint"] = Effect.fn(
+      "LearningService.revealHint",
+    )(function* (input) {
+      const revealed = yield* sql<ProblemRow>`
+        UPDATE learning_problems SET hints_used = hints_used + 1
+        WHERE problem_id = ${input.problemId} AND thread_id = ${input.threadId} AND status = 'open'
+          AND hints_used < json_array_length(hints_json)
+        RETURNING *
+      `.pipe(Effect.mapError(dbError("Could not reveal the hint.")));
+      const row = revealed[0];
+      if (row === undefined) {
+        const current = yield* readProblem(input.threadId, input.problemId);
+        return yield* fail(
+          current.status === "open"
+            ? "There are no more hints."
+            : "That problem was already submitted or replaced.",
+        );
+      }
+      yield* changed(input.threadId);
+      return { problem: problemView(row) };
+    });
+
+    const submitSolution: LearningService["Service"]["submitSolution"] = Effect.fn(
+      "LearningService.submitSolution",
+    )(function* (input) {
+      const problem = solutionProblem(input);
+      if (problem !== undefined) return yield* fail(problem);
+      const attempt: LearningProblemAttempt = {
+        ...(input.text?.trim() ? { text: input.text.trim() } : {}),
+        gaveUp: input.gaveUp,
+        ...(input.confidence === undefined || input.gaveUp ? {} : { confidence: input.confidence }),
+        ...(input.thinking?.trim() ? { thinking: input.thinking.trim() } : {}),
+        submittedAt: yield* nowIso,
+      };
+      const claimed = yield* sql<ProblemRow>`
+        UPDATE learning_problems SET status = 'submitted', attempt_json = ${encodeAttempt(attempt)}
+        WHERE problem_id = ${input.problemId} AND thread_id = ${input.threadId} AND status = 'open'
+        RETURNING *
+      `.pipe(Effect.mapError(dbError("Could not save your work.")));
+      const row = claimed[0];
+      // Two submits can race; only the one that flipped the row sends the message.
+      if (row === undefined) {
+        yield* readProblem(input.threadId, input.problemId);
+        return yield* fail("That problem was already submitted or replaced.");
+      }
+      const reopen = sql`
+        UPDATE learning_problems SET status = 'open', attempt_json = NULL
+        WHERE problem_id = ${row.problem_id} AND status = 'submitted'
+      `.pipe(Effect.ignore);
+      yield* sendToTutor(
+        input.threadId,
+        "learning-solution",
+        formatSolutionMessage(storedProblem(row), attempt, row.hints_used),
+      ).pipe(Effect.onError(() => reopen));
+      yield* changed(input.threadId);
+      return { problem: problemView(row) };
+    });
+
+    const concludeProblem: LearningService["Service"]["concludeProblem"] = Effect.fn(
+      "LearningService.concludeProblem",
+    )(function* (threadId, input) {
+      const problem = conclusionProblem(input);
+      if (problem !== undefined) return yield* fail(problem);
+      const conclusion: LearningProblemConclusion = {
+        outcome: input.outcome,
+        verdict: input.verdict.trim(),
+        ...(input.missType === undefined ? {} : { missType: input.missType }),
+        retest: input.retest,
+        concludedAt: yield* nowIso,
+      };
+      const concluded = yield* sql<{ problem_id: string }>`
+        UPDATE learning_problems SET status = 'concluded', conclusion_json = ${encodeConclusion(conclusion)}
+        WHERE problem_id = ${input.problemId} AND thread_id = ${threadId} AND status = 'submitted'
+        RETURNING problem_id
+      `.pipe(Effect.mapError(dbError("Could not save the verdict.")));
+      if (concluded.length === 0) {
+        const current = yield* readProblem(threadId, input.problemId);
+        return yield* fail(
+          current.status === "open"
+            ? "The learner has not submitted their work yet. Wait for it before concluding."
+            : current.status === "concluded"
+              ? "That problem is already concluded."
+              : "That problem was replaced before the learner submitted it.",
+        );
+      }
+      yield* changed(threadId);
+    });
 
     const getTutorPrompt: LearningService["Service"]["getTutorPrompt"] = () =>
       readTutorPrompt(promptLocation).pipe(
@@ -582,6 +854,8 @@ export const layer = Layer.effect(
 
     return LearningService.of({
       askQuestion,
+      poseProblem,
+      concludeProblem,
       finishMeasuring,
       setPlan,
       searchGraph,
@@ -589,6 +863,8 @@ export const layer = Layer.effect(
       getThreadState,
       subscribeThread,
       answer,
+      revealHint,
+      submitSolution,
       getTutorPrompt,
       setTutorPrompt,
       getKnowledge,

@@ -7,6 +7,8 @@ export const LEARNING_MAX_OPTIONS = 6;
 /** The tutor's MCP tools, which clients render as learning cards instead of tool rows. */
 export const LEARNING_TOOL_NAMES = [
   "ask_question",
+  "pose_problem",
+  "conclude_problem",
   "finish_measuring",
   "set_plan",
   "graph_search",
@@ -114,6 +116,68 @@ export const LearningAssessment = Schema.Struct({
 });
 export type LearningAssessment = typeof LearningAssessment.Type;
 
+/**
+ * What a practice problem asks for. `recall` produces a fact, definition or derivation from
+ * memory. `discriminate` tells apart cases that look alike. `compose` combines several ideas.
+ */
+export const LearningProblemMode = Schema.Literals(["recall", "discriminate", "compose"]);
+export type LearningProblemMode = typeof LearningProblemMode.Type;
+
+/** `submitted` waits for the tutor's verdict; `skipped` was replaced before the learner submitted. */
+export const LearningProblemStatus = Schema.Literals(["open", "submitted", "concluded", "skipped"]);
+export type LearningProblemStatus = typeof LearningProblemStatus.Type;
+
+export const LearningProblemOutcome = Schema.Literals(["solved", "partial", "missed"]);
+export type LearningProblemOutcome = typeof LearningProblemOutcome.Type;
+
+export const LearningMissType = Schema.Literals(["slip", "gap", "misconception"]);
+export type LearningMissType = typeof LearningMissType.Type;
+
+export const LearningProblemTarget = Schema.Struct({
+  name: Schema.String,
+  /** Set when the tutor named a proposition of the knowledge graph. */
+  propositionId: Schema.NullOr(Schema.String),
+});
+export type LearningProblemTarget = typeof LearningProblemTarget.Type;
+
+export const LearningProblemAttempt = Schema.Struct({
+  text: Schema.optional(Schema.String),
+  gaveUp: Schema.Boolean,
+  confidence: Schema.optional(LearningConfidence),
+  thinking: Schema.optional(Schema.String),
+  submittedAt: IsoDateTime,
+});
+export type LearningProblemAttempt = typeof LearningProblemAttempt.Type;
+
+export const LearningProblemConclusion = Schema.Struct({
+  outcome: LearningProblemOutcome,
+  verdict: Schema.String,
+  missType: Schema.optional(LearningMissType),
+  retest: Schema.Boolean,
+  concludedAt: IsoDateTime,
+});
+export type LearningProblemConclusion = typeof LearningProblemConclusion.Type;
+
+/** What the learner may see. The model solution and unrevealed hints stay on the server until the tutor concludes. */
+export const LearningProblemView = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  threadId: ThreadId,
+  mode: LearningProblemMode,
+  statement: Schema.String,
+  targets: Schema.Array(LearningProblemTarget),
+  retestOf: Schema.NullOr(Schema.String),
+  status: LearningProblemStatus,
+  /** The revealed hints, in order; every hint once concluded. */
+  hints: Schema.Array(Schema.String),
+  hintCount: Schema.Int,
+  hintsUsed: Schema.Int,
+  createdAt: IsoDateTime,
+  attempt: Schema.NullOr(LearningProblemAttempt),
+  conclusion: Schema.NullOr(LearningProblemConclusion),
+  modelSolution: Schema.NullOr(Schema.String),
+});
+export type LearningProblemView = typeof LearningProblemView.Type;
+
 /** Derived: no assessment yet is `measure`, an assessment without a plan is `plan`, then `teach`. */
 export const LearningPhase = Schema.Literals(["measure", "plan", "teach"]);
 export type LearningPhase = typeof LearningPhase.Type;
@@ -122,6 +186,7 @@ export const LearningThreadState = Schema.Struct({
   threadId: ThreadId,
   phase: LearningPhase,
   questions: Schema.Array(LearningQuestionView),
+  problems: Schema.Array(LearningProblemView),
   assessment: Schema.NullOr(LearningAssessment),
   plan: Schema.NullOr(LearningPlan),
   /** The plan node of the most recent question that named one. */
@@ -169,6 +234,25 @@ export type LearningAnswerInput = typeof LearningAnswerInput.Type;
 export const LearningAnswerResult = Schema.Struct({ question: LearningQuestionView });
 export type LearningAnswerResult = typeof LearningAnswerResult.Type;
 
+export const LearningRevealHintInput = Schema.Struct({
+  threadId: ThreadId,
+  problemId: TrimmedNonEmptyString,
+});
+export type LearningRevealHintInput = typeof LearningRevealHintInput.Type;
+
+export const LearningSubmitSolutionInput = Schema.Struct({
+  threadId: ThreadId,
+  problemId: TrimmedNonEmptyString,
+  text: Schema.optional(Schema.String.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS))),
+  gaveUp: Schema.Boolean,
+  confidence: Schema.optional(LearningConfidence),
+  thinking: Schema.optional(Schema.String.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS))),
+});
+export type LearningSubmitSolutionInput = typeof LearningSubmitSolutionInput.Type;
+
+export const LearningProblemResult = Schema.Struct({ problem: LearningProblemView });
+export type LearningProblemResult = typeof LearningProblemResult.Type;
+
 export const LearningTutorPrompt = Schema.Struct({
   prompt: Schema.String,
   defaultPrompt: Schema.String,
@@ -189,6 +273,7 @@ export const LearningKnowledge = Schema.Struct({
 export type LearningKnowledge = typeof LearningKnowledge.Type;
 
 const ANSWER_MESSAGE_PATTERN = /^\[Answer to question ([A-Za-z0-9-]+)\]/;
+const SOLUTION_MESSAGE_PATTERN = /^\[Work on problem ([A-Za-z0-9-]+)\]/;
 
 /** First line of the message that carries a learner's answer back to the tutor. */
 export const learningAnswerMessageHeader = (questionId: string) =>
@@ -197,3 +282,11 @@ export const learningAnswerMessageHeader = (questionId: string) =>
 /** The question id a learner-answer message refers to, or null for any other message. */
 export const learningAnswerMessageQuestionId = (text: string): string | null =>
   ANSWER_MESSAGE_PATTERN.exec(text)?.[1] ?? null;
+
+/** First line of the message that carries a learner's work on a problem back to the tutor. */
+export const learningSolutionMessageHeader = (problemId: string) =>
+  `[Work on problem ${problemId}]`;
+
+/** The problem id a learner-work message refers to, or null for any other message. */
+export const learningSolutionMessageProblemId = (text: string): string | null =>
+  SOLUTION_MESSAGE_PATTERN.exec(text)?.[1] ?? null;

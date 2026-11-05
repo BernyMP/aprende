@@ -46,6 +46,7 @@ interface CompactToolOutput {
   taskId?: string;
   scheduledTaskId?: string;
   questionId?: string;
+  problemId?: string;
   status?: "rolled_back";
   htmlRender?: HtmlRenderReference;
   [MCP_APP_OUTPUT_KEY]?: McpAppReference;
@@ -134,6 +135,7 @@ export function compactDynamicToolOutput(value: unknown): CompactToolOutput | un
       "taskId",
       "scheduledTaskId",
       "questionId",
+      "problemId",
     ] as const) {
       const id = boundedId(data[key]);
       if (id !== undefined) output[key] = id;
@@ -205,15 +207,16 @@ export function htmlRenderFromToolItem(item: {
   return output?.isError ? undefined : output?.htmlRender;
 }
 
-/** A tutor tool call, with the question id when it showed a question. */
+/** A tutor tool call, with the id of the question or problem it showed. */
 export function learningToolFromToolItem(item: {
   readonly toolName: string | null | undefined;
   readonly output?: unknown;
-}): { readonly tool: LearningToolName; readonly questionId: string | null } | undefined {
+}): { readonly tool: LearningToolName; readonly recordId: string | null } | undefined {
   const id = resolveT3McpToolId(item.toolName);
   const tool = LEARNING_TOOL_NAMES.find((name) => name === id);
   if (tool === undefined) return undefined;
-  return { tool, questionId: compactDynamicToolOutput(item.output)?.questionId ?? null };
+  const output = compactDynamicToolOutput(item.output);
+  return { tool, recordId: output?.questionId ?? output?.problemId ?? null };
 }
 
 /** The thread-owned file `preview_recording_stop` stored for the agent. */

@@ -1,8 +1,11 @@
 import {
   LEARNING_MAX_OPTIONS,
   LearningKnowledge,
+  LearningMissType,
   LearningPlanEdge,
   LearningPlanNode,
+  LearningProblemMode,
+  LearningProblemOutcome,
   LearningQuestionFormat,
   LearningQuestionPurpose,
   OrchestratorMcpFailure,
@@ -66,6 +69,76 @@ const AskQuestionTool = Tool.make("ask_question", {
   dependencies,
 })
   .annotate(Tool.Title, "Ask the learner")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, false)
+  .annotate(Tool.OpenWorld, false);
+
+const PoseProblemTool = Tool.make("pose_problem", {
+  description: `Show the learner one practice problem as a card. Commit a complete model solution and graded hints before they see it. After calling, end your turn without writing more: their work, the hints they used, their confidence (0-100) and their thinking arrive as their next message. Posing replaces an unanswered question or problem.`,
+  parameters: Schema.Struct({
+    mode: LearningProblemMode.annotate({
+      description:
+        "recall: produce a fact, definition or derivation from memory. discriminate: tell apart cases that look alike, or spot which idea applies. compose: combine several ideas to solve something new.",
+    }),
+    statement: Text,
+    targets: Schema.Array(Text).annotate({
+      description:
+        "What it practices: proposition ids from graph_search, or short names for ideas not in the graph.",
+    }),
+    modelSolution: Text.annotate({
+      description: "A complete worked solution. Shown after you conclude.",
+    }),
+    hints: Schema.Array(Text).annotate({
+      description:
+        "1 to 3 hints, gentlest first. Each points to the next move without giving the answer.",
+    }),
+    retestOf: Schema.optional(
+      Schema.String.annotate({
+        description: "The id of an earlier problem this retests in a new form.",
+      }),
+    ),
+  }),
+  success: Schema.Struct({ problemId: Schema.String, message: Schema.String }),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Pose a problem")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, false)
+  .annotate(Tool.OpenWorld, false);
+
+const ConcludeProblemTool = Tool.make("conclude_problem", {
+  description:
+    "Judge the learner's submitted work on a problem against your model solution. They then see your verdict, the model solution and every hint. The app counts the hints they used.",
+  parameters: Schema.Struct({
+    problemId: Schema.String,
+    outcome: LearningProblemOutcome.annotate({
+      description:
+        "solved: right and complete. partial: the right idea with a gap or an error. missed: wrong, or no real attempt.",
+    }),
+    verdict: Text.annotate({
+      description: "Short feedback to the learner: what held, and where their work went wrong.",
+    }),
+    missType: Schema.optional(
+      LearningMissType.annotate({
+        description:
+          "partial or missed only. slip: they know it but erred. gap: a missing piece. misconception: a wrong idea they hold.",
+      }),
+    ),
+    retest: Schema.Boolean.annotate({
+      description:
+        "true to pose it again in a new form before practice ends: after a miss, or a right answer given with low confidence.",
+    }),
+  }),
+  success: Schema.Struct({ message: Schema.String }),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Conclude a problem")
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Destructive, false)
   .annotate(Tool.Idempotent, false)
@@ -170,6 +243,8 @@ const GraphRecordTool = Tool.make("graph_record", {
 
 export const LearnToolkit = Toolkit.make(
   AskQuestionTool,
+  PoseProblemTool,
+  ConcludeProblemTool,
   FinishMeasuringTool,
   SetPlanTool,
   GraphSearchTool,
