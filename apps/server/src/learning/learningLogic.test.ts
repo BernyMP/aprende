@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { learningAnswerMessageQuestionId } from "@t3tools/contracts";
+import { learningAnswerMessageQuestionId } from "@aprende/contracts";
 
 import {
   answerProblem,
@@ -15,8 +15,25 @@ const node = (id: string) => ({ id, title: id });
 
 describe("planProblem", () => {
   it.each([
-    ["accepts a DAG", [node("a"), node("b"), node("c")], [["a", "b"], ["a", "c"], ["b", "c"]], undefined],
-    ["rejects a cycle", [node("a"), node("b")], [["a", "b"], ["b", "a"]], "cycle"],
+    [
+      "accepts a DAG",
+      [node("a"), node("b"), node("c")],
+      [
+        ["a", "b"],
+        ["a", "c"],
+        ["b", "c"],
+      ],
+      undefined,
+    ],
+    [
+      "rejects a cycle",
+      [node("a"), node("b")],
+      [
+        ["a", "b"],
+        ["b", "a"],
+      ],
+      "cycle",
+    ],
     ["rejects a self edge", [node("a")], [["a", "a"]], "itself"],
     ["rejects an unknown node", [node("a")], [["a", "z"]], "does not exist"],
     ["rejects duplicate ids", [node("a"), node("a")], [], "twice"],
@@ -48,10 +65,26 @@ describe("questionDraftProblem", () => {
     ["needs a committed answer when graded", { ...base, correctOptions: [] }, plan, "committed"],
     ["needs an explanation when graded", { ...base, explanation: undefined }, plan, "explanation"],
     ["refuses grading a goal question", { ...base, purpose: "goal" as const }, plan, "not graded"],
-    ["needs the plan node once a plan exists", { ...base, planNodeId: undefined }, plan, "planNodeId"],
+    [
+      "needs the plan node once a plan exists",
+      { ...base, planNodeId: undefined },
+      plan,
+      "planNodeId",
+    ],
     ["refuses an unknown plan node", { ...base, planNodeId: "zz" }, plan, "not a node"],
-    ["allows no plan node before planning", { ...base, planNodeId: undefined }, null, undefined],
-    ["needs allowMultiple for several answers", { ...base, correctOptions: [0, 1] }, plan, "allowMultiple"],
+    ["refuses teaching before a plan exists", { ...base, planNodeId: undefined }, null, "set_plan"],
+    [
+      "measures before a plan exists",
+      { ...base, purpose: "measure" as const, planNodeId: undefined },
+      null,
+      undefined,
+    ],
+    [
+      "needs allowMultiple for several answers",
+      { ...base, correctOptions: [0, 1] },
+      plan,
+      "allowMultiple",
+    ],
     ["refuses duplicate options", { ...base, options: ["A", "A"] }, plan, "same"],
     [
       "needs a model answer for graded recall",
@@ -88,7 +121,9 @@ describe("grading", () => {
     expect(answerProblem(single, { selectedOptions: [5], dontKnow: false })).toBeDefined();
     expect(answerProblem(single, { selectedOptions: [], dontKnow: true })).toBeUndefined();
     const recall = { format: "recall" as const, options: [], allowMultiple: false };
-    expect(answerProblem(recall, { selectedOptions: [], text: "  ", dontKnow: false })).toBeDefined();
+    expect(
+      answerProblem(recall, { selectedOptions: [], text: "  ", dontKnow: false }),
+    ).toBeDefined();
   });
 });
 

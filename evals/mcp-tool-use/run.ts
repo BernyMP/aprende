@@ -19,7 +19,7 @@ import {
   DeviceSummary,
   OrchestratorMcpTaskRole,
   ProviderInstanceId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Config from "effect/Config";
@@ -38,15 +38,15 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { taskPrompt } from "../../apps/server/src/mcp/delegatedTaskModes.ts";
 import * as McpInvocationContext from "../../apps/server/src/mcp/McpInvocationContext.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
-import * as Contracts from "@t3tools/contracts";
+import * as Contracts from "@aprende/contracts";
 import {
   EnvironmentId,
   ORCHESTRATOR_MCP_RUNNING_TASK_NEXT,
   PullRequestState,
   ThreadId,
-} from "@t3tools/contracts";
-import { projectComposerContextForProvider } from "@t3tools/shared/composerContextReferences";
-import { formatThreadLink } from "@t3tools/shared/threadLinks";
+} from "@aprende/contracts";
+import { projectComposerContextForProvider } from "@aprende/shared/composerContextReferences";
+import { formatThreadLink } from "@aprende/shared/threadLinks";
 import { buildCodexAdditionalContext } from "../../apps/server/src/provider/CodexDeveloperInstructions.ts";
 import { makeSideChatContext } from "../../apps/server/src/orchestration-v2/ContextHandoffService.ts";
 import { withInlineContext } from "../../apps/server/src/orchestration-v2/ContextHandoffDelivery.ts";
@@ -109,7 +109,7 @@ type PricedModel = keyof typeof PRICES;
 const PROXY_SHELL_MODELS = ["gpt-6-luna", "gpt-6.1-terra"] as const;
 type ShellModel = PricedModel | (typeof PROXY_SHELL_MODELS)[number];
 const isPricedModel = (model: ShellModel): model is PricedModel => model in PRICES;
-const T3_PREFIX = "mcp__t3-code__";
+const T3_PREFIX = "mcp__aprende__";
 const RUNTIME_MARKER = "<runtime_info>";
 const TOOL_LOADED = "Tool loaded.";
 
@@ -442,7 +442,7 @@ const t3InputDecoders = new Map(
     ),
   ]),
 );
-const t3Tools: ReadonlyArray<ApiTool> = t3SourceTools.map((tool) => ({
+const appTools: ReadonlyArray<ApiTool> = t3SourceTools.map((tool) => ({
   name: `${T3_PREFIX}${tool.name}`,
   description: Tool.getDescription(tool) ?? "",
   input_schema: advertisedJsonSchema(tool),
@@ -465,7 +465,7 @@ const alwaysLoaded = new Set(
     .map((tool) => `${T3_PREFIX}${tool.name}`),
 );
 // Refs whose request_secret takes `value` save a secret the user already pasted, with no card.
-export const savesPastedSecrets = t3Tools.some(
+export const savesPastedSecrets = appTools.some(
   (tool) =>
     tool.name === `${T3_PREFIX}request_secret` &&
     isRecord(tool.input_schema) &&
@@ -479,8 +479,8 @@ const pastedSecret = (name: string, input: Readonly<Record<string, unknown>>) =>
 const hiddenFromSubagents = enabledWhen(McpInvocationContext.hiddenFromSubagents);
 // The Linked environments beta starts off, and T3 lists its tools only while it is on.
 const hiddenWhileLinksOff = enabledWhen(McpInvocationContext.hiddenWhileLinksOff);
-const visibleT3Tools = (options: { readonly subagent?: boolean; readonly links?: boolean }) =>
-  t3Tools.filter(
+const visibleAppTools = (options: { readonly subagent?: boolean; readonly links?: boolean }) =>
+  appTools.filter(
     (tool) =>
       (options.links === true || !hiddenWhileLinksOff.has(tool.name)) &&
       !(options.subagent === true && hiddenFromSubagents.has(tool.name)),
@@ -499,7 +499,7 @@ const claudeQueryOptions = (model: Model, device = true) => {
     nativeThreadId: "mcp-tool-use-eval",
     resume: false,
     cwd: null,
-    mcpServers: { "t3-code": { type: "http", url: "http://127.0.0.1/mcp" } },
+    mcpServers: { aprende: { type: "http", url: "http://127.0.0.1/mcp" } },
     deviceToolsAvailable: device,
   };
   return makeClaudeQueryOptions(input);
@@ -550,12 +550,12 @@ export const t3SubagentContext = async (model: Model, device = true) => {
  */
 const t3ContextReport = (model: Model) => {
   const size = (chars: number) => `${chars} chars (~${Math.round(chars / 4)} tokens)`;
-  const descriptions = t3Tools.reduce((sum, tool) => sum + valueText(tool.description).length, 0);
-  const schemas = JSON.stringify(t3Tools).length;
+  const descriptions = appTools.reduce((sum, tool) => sum + valueText(tool.description).length, 0);
+  const schemas = JSON.stringify(appTools).length;
   return [
     `- T3 context: system text ${size((isCodex(model) ? JSON.stringify(buildCodexAdditionalContext({ model }, { browser: true, device: true })) : t3SystemAppend(model)).length)}`,
     `tool descriptions ${size(descriptions)}`,
-    `full tool schemas ${size(schemas)} across ${t3Tools.length} tools.`,
+    `full tool schemas ${size(schemas)} across ${appTools.length} tools.`,
   ].join(", ");
 };
 
@@ -596,7 +596,7 @@ export const buildBase = (
     readonly deviceAccess?: boolean;
   },
 ) => {
-  const t3 = visibleT3Tools(options);
+  const t3 = visibleAppTools(options);
   const firstAssistant = template.messages.findIndex((message) => message.role === "assistant");
   const head = template.messages.slice(0, firstAssistant === -1 ? undefined : firstAssistant);
   const systemTexts = [
@@ -686,7 +686,7 @@ const buildCodexBase = (
     readonly deviceAccess?: boolean;
   },
 ): Base => {
-  const t3 = visibleT3Tools(options);
+  const t3 = visibleAppTools(options);
   const contentText = (item: Block) =>
     Array.isArray(item.content)
       ? item.content.map((block: Block) => valueText(block.text)).join("\n")
@@ -767,7 +767,7 @@ const codexCall = (name: string, input: unknown) => {
           : `python3 -c ${JSON.stringify(`from pathlib import Path; p=Path(${JSON.stringify(file)}); p.write_text(p.read_text().replace(${JSON.stringify(args.old_string)}, ${JSON.stringify(args.new_string)}))`)}`;
     return `text(await tools.exec_command(${JSON.stringify({ cmd: command })}));`;
   }
-  return `text(await tools.${name.replace("mcp__t3-code__", "mcp__t3_code__")}(${JSON.stringify(input)}));`;
+  return `text(await tools.${name.replace("mcp__aprende__", "mcp__t3_code__")}(${JSON.stringify(input)}));`;
 };
 const codexMessages = (messages: ReadonlyArray<ApiMessage>): Array<Block> =>
   messages.flatMap((message) =>
@@ -1192,7 +1192,7 @@ export const t3Default = (
       const home =
         /^\/(?:home|Users)\/[^/]+/.exec(sample.base.environment.cwd)?.[0] ?? "/home/user";
       return input.delivery === "file" || pastedSecret(name, input)
-        ? { status: "saved", file: `${home}/.t3/userdata/secrets/files/${id}` }
+        ? { status: "saved", file: `${home}/.aprende/userdata/secrets/files/${id}` }
         : { status: "saved", secretRef: `secret-ref:${id}` };
     }
     case "unlink_pull_request":
@@ -1836,7 +1836,7 @@ export const executeCodex = async (
 
 const codexCatalog = (base: Base) => [
   ...base.t3.map((tool) => ({
-    name: tool.name.replace("mcp__t3-code__", "mcp__t3_code__"),
+    name: tool.name.replace("mcp__aprende__", "mcp__t3_code__"),
     description: `${valueText(tool.description)}\nInput JSON schema: ${JSON.stringify(tool.input_schema)}`,
   })),
   ...[

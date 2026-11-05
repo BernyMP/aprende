@@ -1,79 +1,79 @@
-# Install T3 Code
+# Install aprende
 
-T3 Code runs coding agents on your computer and lets you control them from its
+aprende runs coding agents on your computer and lets you control them from its
 desktop, web, or mobile app. Set up the machine where the agents will work first.
 
 ## Requirements
 
 You need an installed, authenticated provider before starting a thread. You can
-launch T3 Code and configure providers afterwards.
+launch aprende and configure providers afterwards.
 
 ## Command line
 
 ```bash
-curl -fsSL https://t3.codes/install.sh | sh
+curl -fsSL https://github.com/BernyMP/aprende/releases | sh
 ```
 
 On Windows, in PowerShell:
 
 ```powershell
-irm https://t3.codes/install.ps1 | iex
+irm https://github.com/BernyMP/aprende/releases | iex
 ```
 
-This installs the `t3` binary to `~/.local/bin`. If your shell reports `command not found`
+This installs the `aprende` binary to `~/.local/bin`. If your shell reports `command not found`
 afterwards, that directory is not on your `PATH` yet; the installer prints the
-line to add. Set `T3CODE_CHANNEL=nightly` to install the nightly train, or
-`T3CODE_VERSION` to pin an exact version.
+line to add. Set `APRENDE_CHANNEL=nightly` to install the nightly train, or
+`APRENDE_VERSION` to pin an exact version.
 
-| Task                                             | Command                                                                 |
-| ------------------------------------------------ | ----------------------------------------------------------------------- |
-| Start the server and open the web app            | `t3`                                                                    |
-| Start the server without a browser               | `t3 serve`                                                              |
-| Use it from your other devices                   | `t3 up` ([details](./remote-access.md))                                 |
-| Keep it running in the background (macOS, Linux) | `t3 service install` ([details](./background-service.md))               |
-| Move to the newest release                       | `t3 update`                                                             |
-| Reclaim database space                           | `t3 doctor` ([details](./background-service.md#reclaim-database-space)) |
-| Remove it again                                  | `t3 uninstall`                                                          |
+| Task                                             | Command                                                                      |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Start the server and open the web app            | `aprende`                                                                    |
+| Start the server without a browser               | `aprende serve`                                                              |
+| Use it from your other devices                   | `aprende up` ([details](./remote-access.md))                                 |
+| Keep it running in the background (macOS, Linux) | `aprende service install` ([details](./background-service.md))               |
+| Move to the newest release                       | `aprende update`                                                             |
+| Reclaim database space                           | `aprende doctor` ([details](./background-service.md#reclaim-database-space)) |
+| Remove it again                                  | `aprende uninstall`                                                          |
 
-Run `t3 help` or `t3 --help` for the full reference. To start in a new working
-directory, use an explicit path such as `t3 ./my-project`. A bare directory name
+Run `aprende help` or `aprende --help` for the full reference. To start in a new working
+directory, use an explicit path such as `aprende ./my-project`. A bare directory name
 is accepted only if it already exists.
 
-If `t3` or `t3 start` reports an already running server, connect to that server
+If `aprende` or `aprende start` reports an already running server, connect to that server
 instead. Stop it before starting a replacement, or use a different `--base-dir`
 for an independent server.
 
-To try T3 Code once without installing it, run `npx t3@latest` instead (needs
+To try aprende once without installing it, run `npx aprende@latest` instead (needs
 Node.js for `npx`).
 
 ### Intel Macs
 
-There is no `t3` executable for Intel Macs (the desktop app is available). To
+There is no `aprende` executable for Intel Macs (the desktop app is available). To
 run a server there, build it from source with `vp`, which provides the Node version it needs
-([Install vp](https://github.com/pingdotgg/t3code#install-vp)):
+([Install vp](https://github.com/BernyMP/aprende#install-vp)):
 
 ```bash
-git clone https://github.com/pingdotgg/t3code
-cd t3code && vp i && vp run build:desktop
+git clone https://github.com/BernyMP/aprende
+cd aprende && vp i && vp run build:desktop
 node apps/server/dist/bin.mjs
 ```
 
-`t3 update` and the background service do not apply to a server run this way;
+`aprende update` and the background service do not apply to a server run this way;
 update it with `git pull` and a rebuild.
 
 ## Desktop app
 
-Download a release from [GitHub Releases](https://github.com/pingdotgg/t3code/releases),
+Download a release from [GitHub Releases](https://github.com/BernyMP/aprende/releases),
 or use a package manager:
 
-| Platform           | Install                                                      |
-| ------------------ | ------------------------------------------------------------ |
-| Windows            | `winget install T3Tools.T3Code`                              |
-| macOS              | `brew install --cask t3-code`                                |
-| Debian, Ubuntu     | `sudo apt install ./T3-Code-*.deb`                           |
-| Arch Linux         | `yay -S t3code-bin`                                          |
-| Arch Linux nightly | `yay -S t3code-nightly-bin`                                  |
-| Nix                | `nix profile add github:NixOS/nixpkgs/nixos-unstable#t3code` |
+| Platform           | Install                                                       |
+| ------------------ | ------------------------------------------------------------- |
+| Windows            | `winget install BernyMP.Aprende`                              |
+| macOS              | `brew install --cask aprende`                                 |
+| Debian, Ubuntu     | `sudo apt install ./T3-Code-*.deb`                            |
+| Arch Linux         | `yay -S aprende-bin`                                          |
+| Arch Linux nightly | `yay -S aprende-nightly-bin`                                  |
+| Nix                | `nix profile add github:NixOS/nixpkgs/nixos-unstable#aprende` |
 
 The `.deb` updates itself like the other desktop builds. It asks for your
 password to install each update. If your desktop has no password prompt, the
@@ -81,39 +81,39 @@ update fails. Download the new `.deb` and install it the same way.
 
 ### Nix (nixpkgs)
 
-T3 Code is maintained in [nixpkgs](https://github.com/NixOS/nixpkgs/tree/nixos-unstable/pkgs/by-name/t3/t3code).
+aprende is maintained in [nixpkgs](https://github.com/NixOS/nixpkgs/tree/nixos-unstable/pkgs/by-name/t3/aprende).
 The command above installs from `nixos-unstable` and requires Nix 2.30 or later with
-`nix-command` and `flakes` enabled. Launch the desktop app with `t3code-desktop`;
-the package also includes the `t3` command.
+`nix-command` and `flakes` enabled. Launch the desktop app with `aprende-desktop`;
+the package also includes the `aprende` command.
 
 On NixOS, you can instead add the package to your system configuration, using
-a nixpkgs revision that includes `t3code`:
+a nixpkgs revision that includes `aprende`:
 
 ```nix
-environment.systemPackages = [ pkgs.t3code ];
+environment.systemPackages = [ pkgs.aprende ];
 ```
 
 Apply the change with `sudo nixos-rebuild switch`. For Home Manager, add
-`pkgs.t3code` to `home.packages` and run `home-manager switch`.
+`pkgs.aprende` to `home.packages` and run `home-manager switch`.
 
-Update a profile installation with `nix profile upgrade t3code`. For NixOS or
+Update a profile installation with `nix profile upgrade aprende`. For NixOS or
 Home Manager, update your configuration's nixpkgs input or channel and rebuild.
 Nix manages both the desktop app and the bundled
-`t3` command; use Nix to update them instead of the in-app updater or `t3 update`.
+`aprende` command; use Nix to update them instead of the in-app updater or `aprende update`.
 
-### The `t3` command
+### The `aprende` command
 
-The desktop app includes the `t3` command-line tool. To run it from any
+The desktop app includes the `aprende` command-line tool. To run it from any
 terminal, open **Settings → About** and choose **Install** next to
-**t3 command**. On macOS and Linux it adds a `t3` link to a folder on your
+**t3 command**. On macOS and Linux it adds a `aprende` link to a folder on your
 `PATH`; on Windows it adds the app's command folder to your `PATH`. Open a new
-terminal afterwards. **Remove** takes it off again. If you already have `t3`
+terminal afterwards. **Remove** takes it off again. If you already have `aprende`
 from npm, it stays as it is.
 
 ### Windows Subsystem for Linux
 
 Choose a WSL distro in **Settings → Sharing & access** to run agents and projects
-there. Install the provider CLIs inside that distro. T3 Code installs its own
+there. Install the provider CLIs inside that distro. aprende installs its own
 server runtime there automatically; the first launch after an app update can
 take longer.
 
@@ -126,15 +126,15 @@ t3 app
 ```
 
 This opens a new thread for the current directory, adding the project if needed.
-Pass a path, such as `t3 app ../my-project`, to open another directory. It requires
+Pass a path, such as `aprende app ../my-project`, to open another directory. It requires
 the desktop app, so a standalone server or an SSH session is not enough. If the
 command cannot reach the app, start or update the desktop app and try again.
 
 ## Mobile app
 
-Install T3 Code from the
-[App Store](https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824) or
-[Google Play](https://play.google.com/store/apps/details?id=com.t3tools.t3code).
+Install aprende from the
+[App Store](https://apps.apple.com/us/app/aprende-remote-claude-more/id6787819824) or
+[Google Play](https://play.google.com/store/apps/details?id=io.github.bernymp.aprende).
 The phone connects to a server on another machine. Follow
 [remote access](./remote-access.md) to link it through T3 Connect or a pairing URL.
 
@@ -143,7 +143,7 @@ on web and desktop. The store apps work with both stable and Nightly servers. Te
 
 - **iPhone and iPad:** TestFlight is invite-only.
 - **Android:** download an APK from the
-  [Android beta releases](https://github.com/pingdotgg/t3code/releases?q=android-beta-).
+  [Android beta releases](https://github.com/BernyMP/aprende/releases?q=android-beta-).
 
 If the app crashes during launch, open Settings → Diagnostics on the next launch
 that succeeds. It lists startup crashes from the last 7 days with the error and
@@ -163,11 +163,11 @@ computer.
 | Codex    | [Connect with ChatGPT](./providers-codex.md#connect-with-chatgpt), or install [Codex CLI](https://developers.openai.com/codex/cli) and run `codex login`. |
 | Claude   | Install [Claude Code](https://claude.com/product/claude-code), then run `claude auth login`.                                                              |
 
-Provider CLIs must be on the server's `PATH`. If T3 Code cannot find one, set its
+Provider CLIs must be on the server's `PATH`. If aprende cannot find one, set its
 **Binary path** in provider settings, especially when using a version manager.
 Codex connected through ChatGPT can use its managed runtime without a `PATH` entry.
 
-T3 Code warns when a provider version has known compatibility problems with your
+aprende warns when a provider version has known compatibility problems with your
 release. Check **Settings → Providers** on that environment for the recommended
 version or range. When its package manager supports installing a specific version,
 you can install the recommendation there. Otherwise use the provider's installer
@@ -176,7 +176,7 @@ on the environment's machine. An unlisted version is unverified.
 When a provider CLI is behind its latest release, its provider card shows the
 available version. **Update now** runs the installer that owns the CLI
 (Homebrew, or a global npm, pnpm, Yarn, Bun, Volta, or Vite+ install), or the
-CLI's own update command when T3 Code cannot tell. Update a CLI installed with
+CLI's own update command when aprende cannot tell. Update a CLI installed with
 mise through mise. Homebrew and
 Chocolatey installs compare against the version their package manager offers,
 which can trail the npm release; update Claude installed with Chocolatey
@@ -184,7 +184,7 @@ through Chocolatey.
 
 Add another provider instance for a separate account or configuration. Each
 instance can have its own environment variables, such as API keys or a custom
-base URL. Mark secret values as sensitive; after saving, T3 Code does not display
+base URL. Mark secret values as sensitive; after saving, aprende does not display
 their original values.
 
 For provider-specific setup and accounts, see [Codex](./providers-codex.md) and
@@ -196,5 +196,5 @@ For provider-specific setup and accounts, see [Codex](./providers-codex.md) and
 - [Permission modes](./permission-modes.md): choose when agents ask before acting.
 - [Remote access](./remote-access.md): connect from another device.
 - [Running in the background](./background-service.md): keep a Linux or macOS host available.
-- [Updating T3 Code](./updating.md): update the app and connected servers.
-- [Managed policy](./managed-policy.md): configure T3 Code for everyone on a machine.
+- [Updating aprende](./updating.md): update the app and connected servers.
+- [Managed policy](./managed-policy.md): configure aprende for everyone on a machine.

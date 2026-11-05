@@ -1,5 +1,5 @@
-import { SourceControlProviderKind } from "@t3tools/contracts";
-import type { VcsStatusRemoteResult, VcsStatusResult } from "@t3tools/contracts";
+import { SourceControlProviderKind } from "@aprende/contracts";
+import type { VcsStatusRemoteResult, VcsStatusResult } from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -18,23 +18,23 @@ import {
 
 describe("normalizeGitRemoteUrl", () => {
   it("canonicalizes equivalent GitHub remotes across protocol variants", () => {
-    expect(normalizeGitRemoteUrl("git@github.com:T3Tools/T3Code.git")).toBe(
-      "github.com/t3tools/t3code",
+    expect(normalizeGitRemoteUrl("git@github.com:BernyMP/Aprende.git")).toBe(
+      "github.com/bernymp/aprende",
     );
-    expect(normalizeGitRemoteUrl("https://github.com/T3Tools/T3Code.git")).toBe(
-      "github.com/t3tools/t3code",
+    expect(normalizeGitRemoteUrl("https://github.com/BernyMP/Aprende.git")).toBe(
+      "github.com/bernymp/aprende",
     );
-    expect(normalizeGitRemoteUrl("ssh://git@github.com/T3Tools/T3Code")).toBe(
-      "github.com/t3tools/t3code",
+    expect(normalizeGitRemoteUrl("ssh://git@github.com/BernyMP/Aprende")).toBe(
+      "github.com/bernymp/aprende",
     );
   });
 
   it("preserves nested group paths for providers like GitLab", () => {
-    expect(normalizeGitRemoteUrl("git@gitlab.com:T3Tools/platform/T3Code.git")).toBe(
-      "gitlab.com/t3tools/platform/t3code",
+    expect(normalizeGitRemoteUrl("git@gitlab.com:BernyMP/platform/Aprende.git")).toBe(
+      "gitlab.com/bernymp/platform/aprende",
     );
-    expect(normalizeGitRemoteUrl("https://gitlab.com/T3Tools/platform/T3Code.git")).toBe(
-      "gitlab.com/t3tools/platform/t3code",
+    expect(normalizeGitRemoteUrl("https://gitlab.com/BernyMP/platform/Aprende.git")).toBe(
+      "gitlab.com/bernymp/platform/aprende",
     );
   });
 
@@ -82,12 +82,12 @@ describe("parseOriginUrlFromGitConfig", () => {
       '[remote "upstream"]',
       "\turl = https://github.com/other/repo.git",
       '[remote "origin"]',
-      "\turl = git@github.com:pingdotgg/t3code.git",
+      "\turl = git@github.com:BernyMP/aprende.git",
       "\tfetch = +refs/heads/*:refs/remotes/origin/*",
       '[branch "main"]',
       "\tremote = origin",
     ].join("\n");
-    expect(parseOriginUrlFromGitConfig(config)).toBe("git@github.com:pingdotgg/t3code.git");
+    expect(parseOriginUrlFromGitConfig(config)).toBe("git@github.com:BernyMP/aprende.git");
   });
 
   it("strips inline comments and quotes from the url value", () => {
@@ -162,18 +162,18 @@ describe("isTemporaryWorktreeBranch", () => {
     );
   });
 
-  it("matches legacy t3code temporary worktree refs", () => {
-    expect(isTemporaryWorktreeBranch("t3code/deadbeef")).toBe(true);
-    expect(isTemporaryWorktreeBranch("t3code-deadbeef")).toBe(true);
-    expect(isTemporaryWorktreeBranch("t3code/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(true);
+  it("matches legacy aprende temporary worktree refs", () => {
+    expect(isTemporaryWorktreeBranch("aprende/deadbeef")).toBe(true);
+    expect(isTemporaryWorktreeBranch("aprende-deadbeef")).toBe(true);
+    expect(isTemporaryWorktreeBranch("aprende/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(true);
     expect(
       isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12`),
     ).toBe(false);
   });
 
   it("rejects UUID-shaped refs that are not RFC 4122 v4", () => {
-    expect(isTemporaryWorktreeBranch("t3code/f4ae4e0e-f971-1d48-b4f2-9cf0aa54ab12")).toBe(false);
-    expect(isTemporaryWorktreeBranch("t3code/f4ae4e0e-f971-4d48-c4f2-9cf0aa54ab12")).toBe(false);
+    expect(isTemporaryWorktreeBranch("aprende/f4ae4e0e-f971-1d48-b4f2-9cf0aa54ab12")).toBe(false);
+    expect(isTemporaryWorktreeBranch("aprende/f4ae4e0e-f971-4d48-c4f2-9cf0aa54ab12")).toBe(false);
   });
 
   it("matches the flat fallback used when a plain t3 branch exists", () => {
@@ -182,13 +182,13 @@ describe("isTemporaryWorktreeBranch", () => {
     expect(isTemporaryWorktreeBranch(flat)).toBe(true);
     expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}-deadbeef-extra`)).toBe(false);
     expect(isTemporaryWorktreeBranch(`${WORKTREE_BRANCH_PREFIX}-feature`)).toBe(false);
-    expect(flattenTemporaryWorktreeBranchName("t3code/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(
+    expect(flattenTemporaryWorktreeBranchName("aprende/f4ae4e0e-f971-4d48-b4f2-9cf0aa54ab12")).toBe(
       `${WORKTREE_BRANCH_PREFIX}-f4ae4e0e`,
     );
-    expect(flattenTemporaryWorktreeBranchName("t3code-deadbeef")).toBe(
+    expect(flattenTemporaryWorktreeBranchName("aprende-deadbeef")).toBe(
       `${WORKTREE_BRANCH_PREFIX}-deadbeef`,
     );
-    expect(flattenTemporaryWorktreeBranchName("t3code/deadbeef")).toBe(
+    expect(flattenTemporaryWorktreeBranchName("aprende/deadbeef")).toBe(
       `${WORKTREE_BRANCH_PREFIX}-deadbeef`,
     );
   });
@@ -320,7 +320,7 @@ describe("formatGeneratedBranchName", () => {
     expect(
       formatGeneratedBranchName("feat/Add Search", {
         mode: "semantic",
-        prefix: "t3code",
+        prefix: "aprende",
         instructions: "",
       }),
     ).toBe("feat/add-search");

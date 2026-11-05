@@ -2,8 +2,8 @@ import {
   type ModelCapabilities,
   ProviderDriverKind,
   type ProviderOptionDescriptor,
-} from "@t3tools/contracts";
-import { type CustomModelDefinition, createModelCapabilities } from "@t3tools/shared/model";
+} from "@aprende/contracts";
+import { type CustomModelDefinition, createModelCapabilities } from "@aprende/shared/model";
 
 export interface EditorChoice {
   readonly key: string;

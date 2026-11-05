@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off - Applies real file modes in a temporary app folder.
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
@@ -13,7 +13,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() === "win32")("removeSharedWr
     try {
       const appOutDir = NodePath.join(root, "app");
       const modes = {
-        "app/t3code": [0o777, 0o755],
+        "app/aprende": [0o777, 0o755],
         "app/resources.pak": [0o666, 0o644],
         "app/chrome-sandbox": [0o4777, 0o4755],
         "app/resources/app.asar": [0o644, 0o644],

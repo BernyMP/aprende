@@ -13,9 +13,9 @@ import {
   resolveProviderInstanceEnabled,
   type RuntimeMode,
   type ServerSettings,
-} from "@t3tools/contracts";
-import { acpRegistryClient } from "@t3tools/provider-acp-registry/client";
-import type { ProviderClientDefinition } from "@t3tools/provider-core/client";
+} from "@aprende/contracts";
+import { acpRegistryClient } from "@aprende/provider-acp-registry/client";
+import type { ProviderClientDefinition } from "@aprende/provider-core/client";
 
 interface KnownDriver {
   readonly label: string;
@@ -68,7 +68,7 @@ type PinnedConfigField = (typeof PINNED_CONFIG_FIELDS)[number];
 /**
  * Fields that decide what a provider starts and reads on startup; a driver has those its schema
  * has. Under a ceiling they are the administrator's: a wrapper binary, a skip-permissions flag, or
- * a config directory with allow rules each outrank T3 Code's mode, and no flag filter stops a wrapper.
+ * a config directory with allow rules each outrank aprende's mode, and no flag filter stops a wrapper.
  */
 const LAUNCH_CONFIG_FIELDS = [
   "binaryPath",
@@ -135,7 +135,7 @@ export const disallowedDriverReason = (
  * server they are ignored under any policy, which can lock launch arguments in more than one way;
  * from an instance's own variables they are ignored when the policy locks launch arguments.
  */
-const LAUNCH_OVERRIDE_VARIABLES = ["T3CODE_CODEX_LAUNCH_ARGS"] as const;
+const LAUNCH_OVERRIDE_VARIABLES = ["APRENDE_CODEX_LAUNCH_ARGS"] as const;
 
 /** The environment provider drivers launch from under the policy clients were told about. */
 export const providerHostEnvironment = (

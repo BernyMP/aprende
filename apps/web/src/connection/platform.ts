@@ -2,7 +2,7 @@ import {
   ClientCapabilities,
   PlatformConnectionSource,
   Persistence,
-} from "@t3tools/client-runtime/platform";
+} from "@aprende/client-runtime/platform";
 import {
   BearerConnectionCredential,
   BearerConnectionProfile,
@@ -18,11 +18,11 @@ import {
   PrimaryConnectionTarget,
   sshTargetKey,
   Wakeups,
-} from "@t3tools/client-runtime/connection";
-import { bootstrapRemoteBearerSession } from "@t3tools/client-runtime/authorization";
-import { fetchRemoteEnvironmentDescriptor } from "@t3tools/client-runtime/environment";
-import { managedRelayAccountChanges, managedRelaySessionAtom } from "@t3tools/client-runtime/relay";
-import { EnvironmentRpcRequestObserver } from "@t3tools/client-runtime/rpc";
+} from "@aprende/client-runtime/connection";
+import { bootstrapRemoteBearerSession } from "@aprende/client-runtime/authorization";
+import { fetchRemoteEnvironmentDescriptor } from "@aprende/client-runtime/environment";
+import { managedRelayAccountChanges, managedRelaySessionAtom } from "@aprende/client-runtime/relay";
+import { EnvironmentRpcRequestObserver } from "@aprende/client-runtime/rpc";
 import {
   AuthStandardClientScopes,
   type DesktopBridge,
@@ -31,7 +31,7 @@ import {
   type DesktopSshEnvironmentTarget,
   type EnvironmentId,
   PRIMARY_LOCAL_ENVIRONMENT_ID,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -247,7 +247,7 @@ export const provisionDesktopSshEnvironment = Effect.fn(
       }
       return new ConnectionBlockedError({
         reason: "configuration",
-        detail: `${descriptor.label} runs T3 Code ${descriptor.serverVersion}, but this desktop is ${APP_VERSION}, and that server could not accept its pairing. Restart the T3 server on ${descriptor.label} so it runs ${APP_VERSION}, then retry.`,
+        detail: `${descriptor.label} runs aprende ${descriptor.serverVersion}, but this desktop is ${APP_VERSION}, and that server could not accept its pairing. Restart the T3 server on ${descriptor.label} so it runs ${APP_VERSION}, then retry.`,
       });
     },
   });

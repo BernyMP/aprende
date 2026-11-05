@@ -6,7 +6,7 @@ import {
   type LearningPlanNode,
   type LearningQuestionFormat,
   type LearningQuestionPurpose,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
 export interface QuestionDraft {
   readonly purpose: LearningQuestionPurpose;
@@ -63,12 +63,12 @@ export function questionDraftProblem(
     return "Graded questions need an explanation, shown after the learner answers.";
   if (draft.planNodeId !== undefined && planNodeIds !== null && !planNodeIds.has(draft.planNodeId))
     return `planNodeId "${draft.planNodeId}" is not a node of the current plan.`;
-  if (
-    (draft.purpose === "predict" || draft.purpose === "check") &&
-    planNodeIds !== null &&
-    draft.planNodeId === undefined
-  )
-    return "Predict and check questions need the planNodeId they teach.";
+  if (draft.purpose === "predict" || draft.purpose === "check") {
+    if (planNodeIds === null)
+      return "Teach after planning: call finish_measuring, then set_plan, then ask predict and check questions on its nodes. Use measure questions until then.";
+    if (draft.planNodeId === undefined)
+      return "Predict and check questions need the planNodeId they teach.";
+  }
   return undefined;
 }
 
@@ -128,7 +128,11 @@ export function gradeAnswer(
 /** The reason an answer cannot be accepted, or undefined. */
 export function answerProblem(
   question: Pick<StoredQuestion, "format" | "options" | "allowMultiple">,
-  input: { readonly selectedOptions: ReadonlyArray<number>; readonly text?: string | undefined; readonly dontKnow: boolean },
+  input: {
+    readonly selectedOptions: ReadonlyArray<number>;
+    readonly text?: string | undefined;
+    readonly dontKnow: boolean;
+  },
 ): string | undefined {
   if (input.dontKnow) return undefined;
   if (question.format === "choice") {

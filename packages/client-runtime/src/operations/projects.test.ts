@@ -1,6 +1,6 @@
-import { SourceControlProviderKind } from "@t3tools/contracts";
+import { SourceControlProviderKind } from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
-import { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId } from "@aprende/contracts";
 
 import {
   findExistingAddProject,
@@ -17,10 +17,10 @@ import type { EnvironmentProject } from "../state/models.ts";
 describe("add project shared logic", () => {
   it("asks for a repository name when GitHub input is only an owner path", () => {
     const github = SourceControlProviderKind.make("github");
-    expect(githubIncompleteOwnerRepositoryMessage(github, "pingdotgg/")).toBe(
+    expect(githubIncompleteOwnerRepositoryMessage(github, "BernyMP/")).toBe(
       "Enter the full owner/repository name.",
     );
-    expect(githubIncompleteOwnerRepositoryMessage(github, "  pingdotgg//  ")).toBe(
+    expect(githubIncompleteOwnerRepositoryMessage(github, "  BernyMP//  ")).toBe(
       "Enter the full owner/repository name.",
     );
     expect(githubIncompleteOwnerRepositoryMessage(github, "mona-cat_octo/")).toBe(
@@ -28,11 +28,11 @@ describe("add project shared logic", () => {
     );
 
     for (const input of [
-      "pingdotgg/t3code",
+      "BernyMP/aprende",
       "mona-cat_octo/repo",
-      "pingdotgg",
-      "https://github.com/pingdotgg/t3code.git",
-      "git@github.com:pingdotgg/t3code.git",
+      "BernyMP",
+      "https://github.com/BernyMP/aprende.git",
+      "git@github.com:BernyMP/aprende.git",
     ]) {
       expect(githubIncompleteOwnerRepositoryMessage(github, input)).toBeNull();
     }
@@ -49,8 +49,8 @@ describe("add project shared logic", () => {
     expect(normalizePastedCloneUrl("imputnet/helium")).toBe(
       "https://github.com/imputnet/helium.git",
     );
-    expect(normalizePastedCloneUrl("  pingdotgg/t3code  ")).toBe(
-      "https://github.com/pingdotgg/t3code.git",
+    expect(normalizePastedCloneUrl("  BernyMP/aprende  ")).toBe(
+      "https://github.com/BernyMP/aprende.git",
     );
   });
 

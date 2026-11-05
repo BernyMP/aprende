@@ -12,7 +12,7 @@ import {
   type AgentSessionProjectGit,
   type AgentSessionScanResult,
   type ProviderInstanceConfig,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -25,16 +25,16 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 
-import { isBareGitConfig, parseOriginUrlFromGitConfig } from "@t3tools/shared/git";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { normalizeProjectPathForComparison } from "@t3tools/shared/path";
-import { repositoryPathFromRemoteUrl } from "@t3tools/source-control-core/server/SourceControlProvider";
+import { isBareGitConfig, parseOriginUrlFromGitConfig } from "@aprende/shared/git";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { normalizeProjectPathForComparison } from "@aprende/shared/path";
+import { repositoryPathFromRemoteUrl } from "@aprende/source-control-core/server/SourceControlProvider";
 
 import * as ServerConfig from "../config.ts";
 import * as ProcessRunner from "../processRunner.ts";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import { resolveCodexHomeLayout } from "../provider/Drivers/CodexHomeLayout.ts";
-import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
+import { expandHomePath } from "@aprende/provider-core/server/pathExpansion";
 import * as ServerSettings from "../serverSettings.ts";
 import { sourceControlDefinitions } from "../sourceControl/sourceControlDefinitions.ts";
 import {
@@ -190,7 +190,7 @@ export class AgentSessionScanner extends Context.Service<
       completedSources?: ReadonlyArray<AgentSessionImportSource>,
     ) => Stream.Stream<AgentSessionRecentThread, AgentSessionScanError>;
   }
->()("t3/project/AgentSessionScanner") {}
+>()("aprende/project/AgentSessionScanner") {}
 
 type AgentSessionSource = AgentSessionProjectCandidate["sources"][number];
 
@@ -595,7 +595,7 @@ function isT3ManagedWorktree(
   const normalized = normalizeForWorktreeMatch(candidatePath, caseFold);
   return (
     normalized.startsWith(normalizeForWorktreeMatch(worktreesDir, caseFold)) ||
-    normalized.includes("/.t3/worktrees/")
+    normalized.includes("/.aprende/worktrees/")
   );
 }
 

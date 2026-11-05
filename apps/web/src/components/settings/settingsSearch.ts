@@ -1,14 +1,14 @@
 import { HOSTED_APP_CHANNEL } from "~/branding";
 import { isElectron, isSecretsFeatureEnabled } from "~/env";
 import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/utils";
-import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@t3tools/contracts";
-import type { EnvironmentId } from "@t3tools/contracts";
-import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
+import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@aprende/contracts";
+import type { EnvironmentId } from "@aprende/contracts";
+import type { EnvironmentConnectionPhase } from "@aprende/client-runtime/connection";
 import {
   sourceControlClients,
   type SourceControlDefinition,
-} from "@t3tools/client-runtime/source-control-clients";
-import { DEFAULT_KEYBINDINGS } from "@t3tools/shared/keybindings";
+} from "@aprende/client-runtime/source-control-clients";
+import { DEFAULT_KEYBINDINGS } from "@aprende/shared/keybindings";
 import * as Schema from "effect/Schema";
 import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { writeLocalStorageValue } from "../../hooks/useLocalStorage";
@@ -923,7 +923,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "pull-request-links-open-in-app",
-    title: "Open pull requests in T3 Code",
+    title: "Open pull requests in aprende",
     to: "/settings/diffs",
     searchTerms: [
       `pr commit links ${SOURCE_CONTROL_HOST_LABELS} browser external click default pull request view panel`,

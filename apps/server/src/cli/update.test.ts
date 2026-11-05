@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import type { ManagedUpdatesPolicy } from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import type { ManagedUpdatesPolicy } from "@aprende/contracts";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -51,7 +51,7 @@ it.effect("authenticates each release page until the requested channel is found"
     const httpClient = HttpClient.make((request) => {
       const url = new URL(request.url);
       assert.equal(url.origin, "https://api.github.com");
-      assert.equal(url.pathname, "/repos/pingdotgg/t3code/releases");
+      assert.equal(url.pathname, "/repos/BernyMP/aprende/releases");
       assert.equal(request.headers.accept, "application/vnd.github+json");
       assert.equal(request.headers.authorization, "Bearer gh-token");
       const page = url.searchParams.get("page") ?? "";
@@ -73,7 +73,7 @@ it.effect("reads the newest version from the update feed file a mirror publishes
     const requested: string[] = [];
     const mirror = {
       organization: "Example Corp",
-      feedUrl: "https://updates.example.com/t3code/?token=abc",
+      feedUrl: "https://updates.example.com/aprende/?token=abc",
     };
     const resolve = (
       channel: "stable" | "nightly" | "preview",
@@ -104,8 +104,8 @@ it.effect("reads the newest version from the update feed file a mirror publishes
       "1.5.0-nightly.20261101.2",
     );
     assert.deepStrictEqual(requested, [
-      "https://updates.example.com/t3code/latest-mac.yml?token=abc",
-      "https://updates.example.com/t3code/nightly-linux-arm64.yml?token=abc",
+      "https://updates.example.com/aprende/latest-mac.yml?token=abc",
+      "https://updates.example.com/aprende/nightly-linux-arm64.yml?token=abc",
     ]);
     // A feed for the wrong track is not trusted to mean the requested one.
     assert.include(
@@ -150,7 +150,7 @@ it.layer(NodeServices.layer)("t3 update under a managed policy", (it) => {
   it.effect("refuses to update when updates are off", () =>
     Effect.gen(function* () {
       const error = yield* runWithPolicy({ mode: "off" });
-      assert.equal(error.message, "Example Corp manages T3 Code updates.");
+      assert.equal(error.message, "Example Corp manages aprende updates.");
     }),
   );
 
@@ -167,7 +167,7 @@ it.layer(NodeServices.layer)("t3 update under a managed policy", (it) => {
       for (const error of [byChannel, byVersion]) {
         assert.equal(
           error.message,
-          "Example Corp manages T3 Code updates. Only stable releases can be installed.",
+          "Example Corp manages aprende updates. Only stable releases can be installed.",
         );
       }
     }),
@@ -177,7 +177,7 @@ it.layer(NodeServices.layer)("t3 update under a managed policy", (it) => {
     Effect.gen(function* () {
       const requested: string[] = [];
       const error = yield* runWithPolicy(
-        { mode: "auto", feedUrl: "https://updates.example.com/t3code" },
+        { mode: "auto", feedUrl: "https://updates.example.com/aprende" },
         { channel: "stable" },
         HttpClient.make((request) => {
           requested.push(new URL(request.url).origin);
@@ -244,7 +244,7 @@ it.layer(NodeServices.layer)("t3 update launcher", (it) => {
       if (recorded !== undefined) {
         yield* fs.writeFileString(path.join(root, "runtime/launchers"), recorded);
       }
-      // A launcher in the T3 home itself, which neither PATH nor the default bin dir reaches.
+      // A launcher in the aprende home itself, which neither PATH nor the default bin dir reaches.
       const launcher = path.join(root, "t3");
       yield* fs.symlink(path.join(root, "runtime/versions/1.0.0/t3"), launcher);
 
@@ -467,9 +467,9 @@ it.layer(NodeServices.layer)("t3 update with a background service", (it) => {
       yield* fs.makeDirectory(runtime.versionDir, { recursive: true });
       yield* fs.writeFileString(runtime.entryPath, "");
       yield* fs.writeFileString(runtime.sentinelPath, `${version}\n`);
-      const unitPath = path.join(baseDir, "t3code.service");
+      const unitPath = path.join(baseDir, "aprende.service");
       const logPath = path.join(baseDir, "boot-service.log");
-      // An earlier `t3 update` pointed the service at this version without restarting it.
+      // An earlier `aprende update` pointed the service at this version without restarting it.
       const service = Layer.mock(BootService.BootService, {
         status: Effect.succeed<BootService.BootServiceStatus>({
           supported: true,
@@ -489,7 +489,7 @@ it.layer(NodeServices.layer)("t3 update with a background service", (it) => {
           input.args?.includes("--version") === true
             ? unrelatedLsof
                 .run(input)
-                .pipe(Effect.map((result) => ({ ...result, stdout: `t3 v${version}\n` })))
+                .pipe(Effect.map((result) => ({ ...result, stdout: `aprende v${version}\n` })))
             : unrelatedLsof.run(input),
       });
 
@@ -520,7 +520,7 @@ it.layer(NodeServices.layer)("t3 update with a background service", (it) => {
 
       assert.include(
         output,
-        `Background service still running the version before ${version}. Run \`t3 service restart\` when you are ready to switch it to ${version}.`,
+        `Background service still running the version before ${version}. Run \`aprende service restart\` when you are ready to switch it to ${version}.`,
       );
     }).pipe(
       Effect.scoped,

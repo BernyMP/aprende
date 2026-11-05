@@ -9,7 +9,7 @@ import * as Schema from "effect/Schema";
 import * as Fiber from "effect/Fiber";
 import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
-import { discardResponseBody, responsePayloads } from "@t3tools/shared/mcpResponsePayloads";
+import { discardResponseBody, responsePayloads } from "@aprende/shared/mcpResponsePayloads";
 
 /** ACP mandates stdio MCP support; HTTP/SSE support varies. */
 
@@ -70,8 +70,8 @@ export interface McpToolSession {
 }
 
 /**
- * One initialized MCP session over T3 Code's HTTP endpoint, terminated when
- * the scope closes. Used by the ACP terminal fallback and `t3 thread`.
+ * One initialized MCP session over aprende's HTTP endpoint, terminated when
+ * the scope closes. Used by the ACP terminal fallback and `aprende thread`.
  */
 export const mcpToolSession = (
   options: McpToolSessionOptions,
@@ -105,7 +105,7 @@ export const mcpToolSession = (
     if (!response.ok) {
       yield* discardResponseBody(response);
       return yield* Effect.fail(
-        new AcpMcpBridgeError(`T3 Code MCP endpoint responded with HTTP ${response.status}.`),
+        new AcpMcpBridgeError(`aprende MCP endpoint responded with HTTP ${response.status}.`),
       );
     }
     const payloads = yield* Stream.runCollect(responsePayloads(response, bridgeError));
@@ -125,7 +125,7 @@ export const mcpToolSession = (
     if (envelope === null || envelope.error !== undefined) {
       return yield* Effect.fail(
         new AcpMcpBridgeError(
-          `T3 Code MCP ${method} failed${envelope?.error === undefined ? "." : `: ${JSON.stringify(envelope.error)}`}`,
+          `aprende MCP ${method} failed${envelope?.error === undefined ? "." : `: ${JSON.stringify(envelope.error)}`}`,
         ),
       );
     }
@@ -172,7 +172,7 @@ function callAcpMcpTool(options: {
   readonly tool: string;
   readonly arguments: Readonly<Record<string, unknown>>;
 }): Effect.Effect<unknown, AcpMcpBridgeError> {
-  return mcpToolSession({ ...options, clientName: "t3-code-acp-cli" }).pipe(
+  return mcpToolSession({ ...options, clientName: "aprende-acp-cli" }).pipe(
     Effect.flatMap((session) => session.call(options.tool, options.arguments)),
     Effect.scoped,
   );
@@ -235,7 +235,7 @@ export function runAcpMcpStdioBridge(options: AcpMcpStdioBridgeOptions): Effect.
           if (envelope.id !== undefined) {
             yield* respondWithError(
               envelope.id,
-              `T3 Code MCP endpoint responded with HTTP ${response.status}.`,
+              `aprende MCP endpoint responded with HTTP ${response.status}.`,
             );
           }
           return yield* discardResponseBody(response);
@@ -249,7 +249,7 @@ export function runAcpMcpStdioBridge(options: AcpMcpStdioBridgeOptions): Effect.
             const error = Cause.squash(cause);
             return respondWithError(
               envelope.id,
-              `T3 Code MCP bridge request failed: ${error instanceof Error ? error.message : String(error)}`,
+              `aprende MCP bridge request failed: ${error instanceof Error ? error.message : String(error)}`,
             );
           }),
         ),

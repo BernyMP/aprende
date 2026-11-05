@@ -1,8 +1,9 @@
-# T3 Code docs
+# aprende docs
 
-## Using T3 Code
+## Using aprende
 
-- [Install T3 Code](./user/install.md)
+- [Install aprende](./user/install.md)
+- [Learning sessions](./user/learning.md)
 - [Messages and context](./user/composer.md)
 - [Working with threads](./user/thread-sidebar.md)
 - [Permission modes](./user/permission-modes.md)
@@ -14,7 +15,7 @@
 - [SnapShots](./user/snap-shot.md)
 - [Visual replies](./user/html-renders.md)
 - [Import browser sessions](./user/browser-import.md)
-- [Use T3 Code as your default browser](./user/default-browser.md)
+- [Use aprende as your default browser](./user/default-browser.md)
 - [Devices](./user/devices.md)
 - [Usage and limits](./user/usage.md)
 - [Telemetry](./user/telemetry.md)
@@ -23,16 +24,16 @@
 - [T3 Connect troubleshooting](./user/t3-connect-troubleshooting.md)
 - [Outside agents (MCP)](./user/outside-agents.md)
 - [Running in the background](./user/background-service.md)
-- [Updating T3 Code](./user/updating.md)
+- [Updating aprende](./user/updating.md)
 - [Triage an issue](./user/triage.md)
 - Provider guides: [Codex](./user/providers-codex.md) · [Claude](./user/providers-claude.md)
 
 ---
 
-## Working on T3 Code
+## Working on aprende
 
 Start with the [development runbook](./operations/development.md) and
-[contribution policy](../CONTRIBUTING.md).
+[contributing guide](../CONTRIBUTING.md).
 
 Internal notes preserve architectural decisions, constraints, and implementation traps that the
 source alone does not explain. Most code changes do not need an internal documentation update. Follow the
@@ -57,6 +58,4 @@ source alone does not explain. Most code changes do not need an internal documen
 ### Runbooks
 
 - [Development and local builds](./operations/development.md)
-- [T3 Connect setup](./operations/connect-setup.md)
-- [Release](./operations/release.md)
 - [Observability](./operations/observability.md)

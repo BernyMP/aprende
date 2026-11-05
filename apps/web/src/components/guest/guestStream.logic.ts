@@ -13,10 +13,10 @@ import {
   type OrchestrationV2ThreadProjection,
   type OrchestrationV2TurnItem,
   type ThreadGuestMessage,
-} from "@t3tools/contracts";
-import { applyOrchestrationV2ProjectionEvent } from "@t3tools/client-runtime/state/orchestration-v2-projection";
-import { mergeOlderHistoryIntoProjection } from "@t3tools/client-runtime/state/thread-history-merge";
-import { boundedSnapshotProjection } from "@t3tools/shared/orchestrationV2BoundedSnapshot";
+} from "@aprende/contracts";
+import { applyOrchestrationV2ProjectionEvent } from "@aprende/client-runtime/state/orchestration-v2-projection";
+import { mergeOlderHistoryIntoProjection } from "@aprende/client-runtime/state/thread-history-merge";
+import { boundedSnapshotProjection } from "@aprende/shared/orchestrationV2BoundedSnapshot";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 

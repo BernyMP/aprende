@@ -1,8 +1,8 @@
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import type { ManagedPolicyLimits } from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { ManagedPolicyFileError } from "@t3tools/shared/managedPolicyFile";
+import type { ManagedPolicyLimits } from "@aprende/contracts";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { ManagedPolicyFileError } from "@aprende/shared/managedPolicyFile";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -211,7 +211,7 @@ describe("installRelayTelemetryEnabled", () => {
 
   it.effect("reads the desktop host opt-out before returning the renderer policy", () =>
     Effect.gen(function* () {
-      assert.isFalse(yield* relayTelemetryEnabled({ T3CODE_TELEMETRY_ENABLED: "false" }));
+      assert.isFalse(yield* relayTelemetryEnabled({ APRENDE_TELEMETRY_ENABLED: "false" }));
       assert.isTrue(yield* relayTelemetryEnabled({}));
     }),
   );

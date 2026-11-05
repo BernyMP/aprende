@@ -14,13 +14,13 @@ import {
   formatConnectReachable,
   managedCapabilityDenial,
   resolveEnvironmentMachineKind,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   connectionRoutes,
   hasSavedBearerRoute,
   connectionStatusText,
   environmentMcpUrl,
-} from "@t3tools/client-runtime/connection";
+} from "@aprende/client-runtime/connection";
 import * as Option from "effect/Option";
 
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
@@ -561,7 +561,7 @@ function ConfiguredCloudLinkRow({
   const refreshLinkState = useEffectEvent(cloudLinkState.refresh);
   // The server rechecks reachability when the tunnel's 30 s readiness poll changes.
   // Poll while mounted, so a failed read does not stop later ones.
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- 30 s interval that refreshes the cloud link reachability while mounted
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- 30 s interval that refreshes the cloud link reachability while mounted
   useEffect(() => {
     const interval = window.setInterval(() => refreshLinkState(), 30_000);
     return () => window.clearInterval(interval);
@@ -687,7 +687,7 @@ function ConfiguredCloudLinkRow({
       ) : linkRevoked ? (
         <SettingsRow
           title={searchableSetting("t3-connect").title}
-          description="This environment was removed from T3 Connect. Run `t3 connect link` on the host to link it again."
+          description="This environment was removed from T3 Connect. Run `aprende connect link` on the host to link it again."
         />
       ) : null}
       {signedOut && isElectron ? null : (

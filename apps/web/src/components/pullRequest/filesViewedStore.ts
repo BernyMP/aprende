@@ -2,12 +2,12 @@ import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
   runAtomCommand,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import type {
   EnvironmentId,
   PullRequestFilesViewedResult,
   PullRequestRef,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { AsyncResult } from "effect/reactivity";
 
 import { appAtomRegistry } from "~/rpc/atomRegistry";

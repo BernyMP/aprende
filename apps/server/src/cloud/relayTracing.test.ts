@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import type { ManagedPolicyDocument } from "@t3tools/contracts";
-import * as RelayTracing from "@t3tools/shared/relayTracing";
+import type { ManagedPolicyDocument } from "@aprende/contracts";
+import * as RelayTracing from "@aprende/shared/relayTracing";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -15,7 +15,7 @@ const tracesTo = (policy?: ManagedPolicyDocument) =>
   Effect.service(RelayTracing.RelayClientTracer).pipe(
     Effect.provide(
       relayLayer(
-        { serviceName: "t3code-server", runtime: "node", client: "environment-server" },
+        { serviceName: "aprende-server", runtime: "node", client: "environment-server" },
         { tracesUrl: "https://traces.example.com", tracesDataset: "relay", tracesToken: "token" },
       ).pipe(
         Layer.provide(ManagedPolicy.layerTest(policy)),

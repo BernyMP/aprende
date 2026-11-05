@@ -1,4 +1,4 @@
-import { WS_METHODS } from "@t3tools/contracts";
+import { WS_METHODS } from "@aprende/contracts";
 import { Atom } from "effect/reactivity";
 
 import {

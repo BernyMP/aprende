@@ -1,5 +1,5 @@
-import { historyResponseItems } from "@t3tools/provider-core/server/handoffBudget";
-import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
+import { historyResponseItems } from "@aprende/provider-core/server/handoffBudget";
+import { makeProviderFailure } from "@aprende/provider-core/server/failure";
 import {
   makeProviderTextDeltaCoalescer,
   type ProviderTextDeltaUpdate,
@@ -31,7 +31,7 @@ import {
   RunId,
   ThreadId,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { assert, describe, it } from "@effect/vitest";
 import * as CodexClient from "effect-codex-app-server/client";
 import * as CodexReplay from "effect-codex-app-server/replay";
@@ -43,8 +43,8 @@ import * as Digest from "effect/crypto/Digest";
 import * as Effect from "effect/Effect";
 import * as Predicate from "effect/Predicate";
 import * as FileSystem from "effect/FileSystem";
-import { MCP_APP_OUTPUT_KEY, readMcpAppReference } from "@t3tools/shared/mcpApp";
-import { toolOutputImages } from "@t3tools/shared/toolOutput";
+import { MCP_APP_OUTPUT_KEY, readMcpAppReference } from "@aprende/shared/mcpApp";
+import { toolOutputImages } from "@aprende/shared/toolOutput";
 import { resolveAttachmentPathById } from "../../attachmentStore.ts";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -62,19 +62,20 @@ import { TestClock } from "effect/testing";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import packageJson from "../../../package.json" with { type: "json" };
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
+import * as ProviderEventLoggers from "@aprende/provider-core/server/ProviderEventLoggers";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as EffectWorker from "../EffectWorker.ts";
 import * as Orchestrator from "../Orchestrator.ts";
 import * as ProviderReplayHarness from "../testkit/ProviderReplayHarness.ts";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
-import type * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
+import type * as ProviderContinuationRequests from "@aprende/provider-core/server/ProviderContinuationRequests";
 import * as ModelManifest from "../../provider/ModelManifest.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import { resolveProviderCompatibility } from "../../provider/providerCompatibility.ts";
 import * as CodexAdapterV2 from "./CodexAdapterV2.ts";
 import { DEFAULT_TUTOR_PROMPT } from "../../learning/tutorPrompt.ts";
+import { TUTOR_MCP_TOOL_NAMES } from "@aprende/contracts";
 import { withCodexReplayChildMetadata } from "./CodexAdapterV2.testkit.ts";
 import * as CodexAdapterV2Testkit from "./CodexAdapterV2.testkit.ts";
 
@@ -489,7 +490,7 @@ const CODEX_TEST_RUNTIME_POLICY = ProviderAdapter.ProviderAdapterV2RuntimePolicy
   interactionMode: "default",
   cwd: "/workspace",
 });
-const T3_THREAD_ENV_KEY = "shell_environment_policy.set.T3CODE_THREAD_ID";
+const T3_THREAD_ENV_KEY = "shell_environment_policy.set.APRENDE_THREAD_ID";
 const threadEnvOf = (params: unknown) =>
   Predicate.hasProperty(params, "config") && Predicate.hasProperty(params.config, T3_THREAD_ENV_KEY)
     ? params.config[T3_THREAD_ENV_KEY]
@@ -592,7 +593,7 @@ function codexReplayPreamble(input: {
         id: 1,
         method: "initialize",
         params: {
-          clientInfo: { name: "T3 Code", title: "T3 Code", version: packageJson.version },
+          clientInfo: { name: "aprende", title: "aprende", version: packageJson.version },
           capabilities: {
             experimentalApi: true,
             optOutNotificationMethods: ["turn/diff/updated"],
@@ -609,7 +610,7 @@ function codexReplayPreamble(input: {
       frame: {
         id: 1,
         result: {
-          userAgent: "T3 Code/0.156.1",
+          userAgent: "aprende/0.156.1",
           codexHome: "/tmp/codex-home",
           platformFamily: "unix",
           platformOs: "macos",
@@ -1123,7 +1124,7 @@ describe("CodexAdapterV2 session initialize", () => {
               frame: {
                 id: 1,
                 result: {
-                  userAgent: "T3 Code/0.144.3 (Mac OS 15.5.0; x86_64) unknown (T3 Code; 0.1.5)",
+                  userAgent: "aprende/0.144.3 (Mac OS 15.5.0; x86_64) unknown (aprende; 0.1.5)",
                   codexHome: "/tmp/codex-home",
                   platformFamily: "unix",
                   platformOs: "macos",
@@ -1147,7 +1148,7 @@ describe("CodexAdapterV2 session initialize", () => {
       assert.instanceOf(failure.cause, ProviderSetupError);
       assert.equal(
         failure.cause.message,
-        "Codex 0.144.3 does not work with this T3 Code release. Update Codex to >=0.159.0, then retry.",
+        "Codex 0.144.3 does not work with this aprende release. Update Codex to >=0.159.0, then retry.",
       );
     }).pipe(
       Effect.scoped,
@@ -1628,19 +1629,12 @@ describe("CodexAdapterV2 post-settle continuation", () => {
           config: {
             "tools.update_plan.enabled": true,
             mcp_optional_startup_grace_ms: 10_000,
-            "shell_environment_policy.set.T3CODE_THREAD_ID": `thread-${scenario}`,
-            "mcp_servers.t3-code": {
+            "shell_environment_policy.set.APRENDE_THREAD_ID": `thread-${scenario}`,
+            "mcp_servers.aprende": {
               url: "http://127.0.0.1:43123/mcp",
               tool_timeout_sec: 3_900,
               http_headers: { Authorization: "Bearer secret-codex-token" },
-              disabled_tools: ["t3_thread_wait"],
-            },
-            "mcp_servers.t3-code-direct": {
-              url: "http://127.0.0.1:43123/mcp",
-              tool_timeout_sec: 3_900,
-              http_headers: { Authorization: "Bearer secret-codex-token" },
-              enabled_tools: ["t3_thread_wait"],
-              omit_tools_from: ["code_mode", "deferred"],
+              enabled_tools: [...TUTOR_MCP_TOOL_NAMES],
             },
           },
         },
@@ -1658,7 +1652,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
     ),
   );
 
-  // regression: #15839 launch-arg MCP servers survive the thread's t3-code server
+  // regression: #15839 launch-arg MCP servers survive the thread's aprende server
   it.effect("replays historical and dotted MCP config while enforcing other thread config", () =>
     Effect.gen(function* () {
       const recordedServer = {
@@ -1667,15 +1661,15 @@ describe("CodexAdapterV2 post-settle continuation", () => {
       };
       const currentConfig = {
         "tools.update_plan.enabled": true,
-        "mcp_servers.t3-code": {
+        "mcp_servers.aprende": {
           url: "http://127.0.0.1:42000/mcp",
           http_headers: { Authorization: "Bearer current-token" },
         },
         "mcp_servers.extra.command": "cat",
       };
       for (const recordedMcp of [
-        { mcp_servers: { "t3-code": recordedServer } },
-        { "mcp_servers.t3-code": recordedServer, "mcp_servers.extra.command": "echo" },
+        { mcp_servers: { aprende: recordedServer } },
+        { "mcp_servers.aprende": recordedServer, "mcp_servers.extra.command": "echo" },
       ]) {
         const entries = codexReplayPreamble({
           nativeThreadId: "replayed-mcp-thread",
@@ -6484,7 +6478,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
             item: {
               type: "mcpToolCall",
               id: COMPLETED_WAIT_ITEM,
-              server: "t3-code",
+              server: "aprende",
               tool: "t3_thread_wait",
               status: "inProgress",
               arguments: { threadId: "thread:completed-wait", timeoutMs: 30000 },
@@ -6504,7 +6498,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
             item: {
               type: "mcpToolCall",
               id: COMPLETED_WAIT_ITEM,
-              server: "t3-code",
+              server: "aprende",
               tool: "t3_thread_wait",
               status: "completed",
               arguments: { threadId: "thread:completed-wait", timeoutMs: 30000 },
@@ -6525,7 +6519,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
             item: {
               type: "mcpToolCall",
               id: ORPHAN_WAIT_ITEM,
-              server: "t3-code",
+              server: "aprende",
               tool: "t3_thread_wait",
               status: "inProgress",
               arguments: {

@@ -1,8 +1,8 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import * as NetService from "@t3tools/shared/Net";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import * as NetService from "@aprende/shared/Net";
 import * as Cause from "effect/Cause";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -61,8 +61,8 @@ const SERVICE = {
   supported: true,
   installed: true,
   current: true,
-  unitPath: "/home/me/.config/systemd/user/t3code.service",
-  logPath: "/home/me/.t3/userdata/logs/boot-service.log",
+  unitPath: "/home/me/.config/systemd/user/aprende.service",
+  logPath: "/home/me/.aprende/userdata/logs/boot-service.log",
 } as const;
 
 it.each([
@@ -174,21 +174,21 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
     {
       label: "nothing changed",
       installed: true,
-      env: "T3CODE_LAN=false\n",
+      env: "APRENDE_LAN=false\n",
       args: ["--no-lan"],
       installs: 0,
       restarts: 0,
-      envAfter: "T3CODE_LAN=false\n",
+      envAfter: "APRENDE_LAN=false\n",
     },
     {
       label: "the local network opens",
-      prints: "Run `t3 pair --base-dir <baseDir>`.",
+      prints: "Run `aprende pair --base-dir <baseDir>`.",
       installed: true,
-      env: "T3CODE_LAN=false\n",
+      env: "APRENDE_LAN=false\n",
       args: ["--lan"],
       installs: 0,
       restarts: 1,
-      envAfter: "T3CODE_LAN=true\n",
+      envAfter: "APRENDE_LAN=true\n",
     },
     {
       label: "a new service starts with its settings",
@@ -197,31 +197,31 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       args: ["--lan"],
       installs: 1,
       restarts: 0,
-      envAfter: "T3CODE_LAN=true\n",
+      envAfter: "APRENDE_LAN=true\n",
     },
     {
       label: "a route turns off with no service to run",
       installed: false,
-      env: "T3CODE_LAN=true\n",
+      env: "APRENDE_LAN=true\n",
       args: ["--no-lan"],
       installs: 0,
       restarts: 0,
-      envAfter: "T3CODE_LAN=false\n",
+      envAfter: "APRENDE_LAN=false\n",
     },
     {
       label: "a stopped newer service starts as it is",
       installed: true,
       status: { current: false, installedVersion: "999.0.0", problems: ["service-stopped"] },
-      env: "T3CODE_LAN=false\n",
+      env: "APRENDE_LAN=false\n",
       args: ["--yes"],
       installs: 0,
       restarts: 1,
-      envAfter: "T3CODE_LAN=false\n",
+      envAfter: "APRENDE_LAN=false\n",
     },
     {
       label: "a failed update keeps service.env matching the old service",
       // The old service still runs, so no foreground server is offered.
-      prints: "Fix that, then run `t3 up` again.",
+      prints: "Fix that, then run `aprende up` again.",
       installed: true,
       status: { current: false },
       installFails: true,
@@ -235,22 +235,22 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       label: "a failed restart puts service.env back and restarts on it",
       installed: true,
       restartFails: true,
-      env: "T3CODE_LAN=false\n",
+      env: "APRENDE_LAN=false\n",
       args: ["--lan"],
       installs: 0,
       restarts: 2,
-      envAfter: "T3CODE_LAN=false\n",
+      envAfter: "APRENDE_LAN=false\n",
     },
     {
       label: "declining an update changes nothing",
       installed: true,
       status: { current: false },
       answer: "n",
-      env: "T3CODE_LAN=false\n",
+      env: "APRENDE_LAN=false\n",
       args: ["--lan"],
       installs: 0,
       restarts: 0,
-      envAfter: "T3CODE_LAN=false\n",
+      envAfter: "APRENDE_LAN=false\n",
     },
     {
       label: "no service manager still records the choice",
@@ -260,7 +260,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       args: ["--lan"],
       installs: 0,
       restarts: 0,
-      envAfter: "T3CODE_LAN=true\n",
+      envAfter: "APRENDE_LAN=true\n",
     },
     {
       label: "the old default is kept",
@@ -269,7 +269,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
       args: ["--yes"],
       installs: 0,
       restarts: 0,
-      envAfter: "T3CODE_LAN=true\n",
+      envAfter: "APRENDE_LAN=true\n",
     },
   ])("restarts the service only when it must: $label", (input) =>
     Effect.gen(function* () {
@@ -351,9 +351,15 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
 });
 
 it("rewrites only the named service.env keys and keeps the user's lines", () => {
-  const before = ["# my settings", "T3CODE_PORT=4000", "export T3CODE_LAN=0", "T3CODE_LAN=1", ""];
-  expect(upsertServiceEnv(before.join("\n"), { T3CODE_LAN: "true", T3CODE_HOST: undefined })).toBe(
-    ["# my settings", "T3CODE_PORT=4000", "T3CODE_LAN=true", ""].join("\n"),
-  );
-  expect(upsertServiceEnv("", { T3CODE_LAN: "false" })).toBe("T3CODE_LAN=false\n");
+  const before = [
+    "# my settings",
+    "APRENDE_PORT=4000",
+    "export APRENDE_LAN=0",
+    "APRENDE_LAN=1",
+    "",
+  ];
+  expect(
+    upsertServiceEnv(before.join("\n"), { APRENDE_LAN: "true", APRENDE_HOST: undefined }),
+  ).toBe(["# my settings", "APRENDE_PORT=4000", "APRENDE_LAN=true", ""].join("\n"));
+  expect(upsertServiceEnv("", { APRENDE_LAN: "false" })).toBe("APRENDE_LAN=false\n");
 });

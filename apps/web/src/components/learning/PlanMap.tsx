@@ -1,4 +1,4 @@
-import type { LearningPlan } from "@t3tools/contracts";
+import type { LearningPlan } from "@aprende/contracts";
 
 import { cn } from "~/lib/utils";
 

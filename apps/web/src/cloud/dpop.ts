@@ -1,5 +1,5 @@
-import { DpopProof } from "@t3tools/client-runtime/relay";
-import { computeDpopJwkThumbprint, DpopPublicJwk } from "@t3tools/shared/dpop";
+import { DpopProof } from "@aprende/client-runtime/relay";
+import { computeDpopJwkThumbprint, DpopPublicJwk } from "@aprende/shared/dpop";
 import * as Digest from "effect/crypto/Digest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Signature from "effect/crypto/Signature";
@@ -19,7 +19,7 @@ export class BrowserDpopError extends Data.TaggedError("BrowserDpopError")<{
   readonly cause?: unknown;
 }> {}
 
-const DPOP_DATABASE_NAME = "t3code:cloud-auth";
+const DPOP_DATABASE_NAME = "aprende:cloud-auth";
 const DPOP_DATABASE_VERSION = 1;
 const DPOP_KEY_STORE_NAME = "keys";
 const DPOP_KEY_ID = "relay-dpop-proof-key";

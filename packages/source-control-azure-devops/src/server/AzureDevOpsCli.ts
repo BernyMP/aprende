@@ -10,15 +10,15 @@ import {
   type SourceControlRepositoryVisibility,
   type VcsError,
   type VcsProcessExitFailureKind,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
-import * as SourceControlHost from "@t3tools/source-control-core/server/SourceControlHost";
+import * as SourceControlHost from "@aprende/source-control-core/server/SourceControlHost";
 import {
   decodeAzureDevOpsPullRequestJson,
   decodeAzureDevOpsPullRequestListJson,
   type NormalizedAzureDevOpsPullRequestRecord,
 } from "./azureDevOpsPullRequests.ts";
-import * as SourceControlProvider from "@t3tools/source-control-core/server/SourceControlProvider";
+import * as SourceControlProvider from "@aprende/source-control-core/server/SourceControlProvider";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -264,7 +264,7 @@ export class AzureDevOpsCli extends Context.Service<
       readonly remoteName?: string;
     }) => Effect.Effect<void, AzureDevOpsCliError>;
   }
->()("@t3tools/source-control-azure-devops/server/AzureDevOpsCli") {}
+>()("@aprende/source-control-azure-devops/server/AzureDevOpsCli") {}
 
 function normalizeChangeRequestId(reference: string): string {
   const trimmed = reference.trim().replace(/^#/, "");

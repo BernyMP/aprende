@@ -2,9 +2,9 @@ import {
   type ClientConnectionMethod,
   EnvironmentId,
   type ExecutionEnvironmentDescriptor,
-} from "@t3tools/contracts";
-import { RelayEnvironmentConnectScope } from "@t3tools/contracts/relay";
-import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
+} from "@aprende/contracts";
+import { RelayEnvironmentConnectScope } from "@aprende/contracts/relay";
+import { withRelayClientTracing } from "@aprende/shared/relayTracing";
 import {
   exchangeRemoteDpopAccessToken,
   type RemoteEnvironmentAuthError,
@@ -91,7 +91,7 @@ export class RemoteEnvironmentAuthorization extends Context.Service<
       readonly expiresAtEpochMs: number;
     }) => Effect.Effect<void, ConnectionBlockedError>;
   }
->()("@t3tools/client-runtime/authorization/service/RemoteEnvironmentAuthorization") {}
+>()("@aprende/client-runtime/authorization/service/RemoteEnvironmentAuthorization") {}
 
 const CACHED_ENDPOINT_SOCKET_TIMEOUT_MS = 3_000;
 const DPOP_AUTHORIZATION_TIMEOUT_MS = 30_000;

@@ -10,7 +10,7 @@ import type {
   DesktopCaptureConfigApplied,
   DesktopCaptureConfigPreview,
   DesktopCaptureConfigRequest,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   captureConfigKeys,
   editCaptureConfig,

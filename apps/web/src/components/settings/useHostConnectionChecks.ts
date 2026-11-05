@@ -1,8 +1,8 @@
-import { AuthSettingsWriteScope } from "@t3tools/contracts";
+import { AuthSettingsWriteScope } from "@aprende/contracts";
 import { readEnvironmentScope } from "../../state/session";
 import { useRef, useState } from "react";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import type { SshDeviceHostConfig } from "@t3tools/contracts";
+import { squashAtomCommandFailure } from "@aprende/client-runtime/state/runtime";
+import type { SshDeviceHostConfig } from "@aprende/contracts";
 import { deviceEnvironment } from "../../state/device";
 import { useAtomCommand } from "../../state/use-atom-command";
 import {

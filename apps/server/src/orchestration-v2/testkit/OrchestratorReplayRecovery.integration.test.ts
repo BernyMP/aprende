@@ -12,7 +12,7 @@ import {
   type OrchestrationV2ThreadProjection,
   ProviderDriverKind,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
 import {
   ClaudeOrchestratorReplayHarness,
@@ -20,7 +20,7 @@ import {
 } from "../Adapters/ClaudeAdapterV2.testkit.ts";
 import { CodexOrchestratorReplayHarness } from "../Adapters/CodexAdapterV2.testkit.ts";
 import * as CodexAdapterV2Testkit from "../Adapters/CodexAdapterV2.testkit.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as EffectWorker from "../EffectWorker.ts";
 import * as SqlitePersistence from "../../persistence/Sqlite.ts";
 import { provideDeterministicTestRuntime } from "./DeterministicRuntime.ts";
@@ -50,11 +50,11 @@ import {
   layerProviderReplay,
   runOrchestratorV2ProviderReplayScenario,
 } from "./ProviderReplayHarness.ts";
-import { checkpointWorkspace } from "@t3tools/provider-testing/replayWorkspace";
+import { checkpointWorkspace } from "@aprende/provider-testing/replayWorkspace";
 import {
   materializeReplayTranscriptWorkspace,
   readProviderReplayTranscript,
-} from "@t3tools/provider-testing/replayTranscript";
+} from "@aprende/provider-testing/replayTranscript";
 
 const FIRST_FINAL = "provider thread resume fixture first turn complete";
 const SECOND_FINAL = "provider thread resume fixture second turn complete";

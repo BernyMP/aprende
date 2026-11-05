@@ -1,10 +1,10 @@
-import type { UsageTokenTotals } from "@t3tools/contracts";
+import type { UsageTokenTotals } from "@aprende/contracts";
 import {
   isModelCostUnknown,
   type CategoryCost,
   type ModelTotals,
   type SpeedCost,
-} from "@t3tools/shared/usageMerge";
+} from "@aprende/shared/usageMerge";
 
 import type { ShareSegment } from "./UsageShareBar";
 

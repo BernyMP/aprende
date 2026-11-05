@@ -13,6 +13,13 @@ export const LEARNING_TOOL_NAMES = [
   "graph_record",
 ] as const;
 export type LearningToolName = (typeof LEARNING_TOOL_NAMES)[number];
+
+/** The MCP tools a tutor session can see; the CLI and outside agents see the rest too. */
+export const TUTOR_MCP_TOOL_NAMES: ReadonlyArray<string> = [
+  ...LEARNING_TOOL_NAMES,
+  "html_preview",
+  "html_render",
+];
 const LEARNING_MAX_TEXT_CHARS = 8_000;
 
 const BoundedText = TrimmedNonEmptyString.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS));

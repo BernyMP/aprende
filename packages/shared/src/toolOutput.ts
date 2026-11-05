@@ -3,7 +3,7 @@ import {
   LEARNING_TOOL_NAMES,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
   type LearningToolName,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Predicate from "effect/Predicate";
 
 import {

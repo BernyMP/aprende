@@ -12,7 +12,7 @@ import {
   MIN_APPEARANCE_CONTRAST,
   MIN_GLASS_OPACITY,
   MIN_PANEL_ANIMATION_DURATION_MS,
-} from "@t3tools/contracts/settings";
+} from "@aprende/contracts/settings";
 import {
   resolveSidebarStageBackdropVariant,
   type SidebarStageBackdropVariant,

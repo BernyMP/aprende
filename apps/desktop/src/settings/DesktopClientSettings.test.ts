@@ -5,7 +5,7 @@ import {
   ClientSettingsSchema,
   DEFAULT_CLIENT_SETTINGS,
   type ClientSettings,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -93,7 +93,7 @@ function layer(baseDir: string) {
       Layer.mergeAll(
         NodeServices.layer,
         NodeCrypto.layer,
-        DesktopConfig.layerTest({ T3CODE_HOME: baseDir }),
+        DesktopConfig.layerTest({ APRENDE_HOME: baseDir }),
       ),
     ),
   );

@@ -1,11 +1,11 @@
-import type { EnvironmentId } from "@t3tools/contracts";
-import type { TimestampFormat } from "@t3tools/contracts/settings";
+import type { EnvironmentId } from "@aprende/contracts";
+import type { TimestampFormat } from "@aprende/contracts/settings";
 import {
   pickSnoozePreset as pickSharedSnoozePreset,
   resolveSnoozePresets as resolveSharedSnoozePresets,
   snoozeWakeLabel,
   type SnoozePreset,
-} from "@t3tools/client-runtime/state/thread-settled";
+} from "@aprende/client-runtime/state/thread-settled";
 
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { serverEnvironment } from "../state/server";

@@ -8,16 +8,16 @@ import {
   ProviderInstanceId,
   type ServerProvider,
   type ServerSettings,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   type CustomModelDefinition,
   createModelSelection,
   readCustomModelEntries,
   resolveSelectableModel,
-} from "@t3tools/shared/model";
+} from "@aprende/shared/model";
 import { getComposerProviderState } from "./components/chat/composerProviderState";
-import { type ClientSettings, UnifiedSettings } from "@t3tools/contracts/settings";
-import { resolveModelPreferences } from "@t3tools/shared/serverSettings";
+import { type ClientSettings, UnifiedSettings } from "@aprende/contracts/settings";
+import { resolveModelPreferences } from "@aprende/shared/serverSettings";
 import * as Arr from "effect/Array";
 import * as Equal from "effect/Equal";
 import * as Result from "effect/Result";
@@ -35,7 +35,7 @@ import {
   resolveProjectDefaultProviderModelSelection,
 } from "./providerInstances";
 import { sortModelsForProviderInstance } from "./modelOrdering";
-import { resolveModelShortName } from "@t3tools/client-runtime/provider-clients";
+import { resolveModelShortName } from "@aprende/client-runtime/provider-clients";
 
 export const MAX_CUSTOM_MODEL_LENGTH = 256;
 const DEFAULT_TEXT_GENERATION_INSTANCE_ID = ProviderInstanceId.make("codex");

@@ -1,4 +1,4 @@
-import { makeProviderSettingsSchema, SourceControlProviderKind } from "@t3tools/contracts";
+import { makeProviderSettingsSchema, SourceControlProviderKind } from "@aprende/contracts";
 import {
   buildCommitUrl,
   changeRequestUrlBelow,
@@ -11,7 +11,7 @@ import {
   projectChangeRequestHost,
   remoteWebOrigin,
   type SourceControlAppSignIn,
-} from "@t3tools/source-control-core/shared/definition";
+} from "@aprende/source-control-core/shared/definition";
 
 import { gitHubMediaUrl } from "./gitHubMedia.ts";
 import { icon } from "./icon.ts";
@@ -44,11 +44,11 @@ function isRepositoryPath(repository: string): boolean {
   );
 }
 
-/** Signing in through the T3 Code for GitHub app lifts the per-user API rate limit to the app's. */
+/** Signing in through the aprende for GitHub app lifts the per-user API rate limit to the app's. */
 export const APP_SIGN_IN: SourceControlAppSignIn = {
-  appName: "T3 Code for GitHub",
+  appName: "aprende for GitHub",
   hosts: ["github.com"],
-  installUrl: "https://github.com/apps/t3-code-for-github/installations/new",
+  installUrl: "https://github.com/apps/aprende-for-github/installations/new",
   revokeUrl: "https://github.com/settings/apps/authorizations",
 };
 

@@ -3,9 +3,9 @@ import {
   type ModelSelection,
   type WorktreeSubmodules,
   managedRuntimeModeDenial,
-} from "@t3tools/contracts";
-import { createModelSelection } from "@t3tools/shared/model";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+} from "@aprende/contracts";
+import { createModelSelection } from "@aprende/shared/model";
+import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useClientSettings } from "../../hooks/useSettings";

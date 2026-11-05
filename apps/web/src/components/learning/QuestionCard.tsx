@@ -1,4 +1,4 @@
-import type { LearningQuestionView, ScopedThreadRef } from "@t3tools/contracts";
+import type { LearningQuestionView, ScopedThreadRef } from "@aprende/contracts";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 

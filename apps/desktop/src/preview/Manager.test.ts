@@ -4,9 +4,9 @@ import type {
   DesktopPreviewRecordingInputEvent,
   PreviewAnnotationPayload,
   PreviewAnnotationRect,
-} from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { parseKeybindingShortcut } from "@t3tools/shared/keybindings";
+} from "@aprende/contracts";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { parseKeybindingShortcut } from "@aprende/shared/keybindings";
 import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -197,8 +197,8 @@ vi.mock("electron", () => ({
 const layerBrowserSession = Layer.succeed(
   BrowserSession.BrowserSession,
   BrowserSession.BrowserSession.of({
-    getPartition: () => Effect.succeed("persist:t3code-preview-test"),
-    isPartition: (partition) => partition.startsWith("persist:t3code-preview-"),
+    getPartition: () => Effect.succeed("persist:aprende-preview-test"),
+    isPartition: (partition) => partition.startsWith("persist:aprende-preview-"),
     getSession: () => Effect.succeed(previewSession as unknown as Electron.Session),
     clearCookies: () => Effect.void,
     clearCache: () => Effect.void,

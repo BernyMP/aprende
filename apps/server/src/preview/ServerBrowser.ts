@@ -42,11 +42,11 @@ import {
   ThreadId,
   SERVER_BROWSER_AUTOMATION_CLIENT_ID,
   type PreviewAppearancePreference,
-} from "@t3tools/contracts";
-import { AgentScope, agentScopeLauncherScript } from "@t3tools/shared/AgentScope";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { normalizePreviewUrl } from "@t3tools/shared/preview";
-import { resolvePreviewViewport } from "@t3tools/shared/previewViewport";
+} from "@aprende/contracts";
+import { AgentScope, agentScopeLauncherScript } from "@aprende/shared/AgentScope";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { normalizePreviewUrl } from "@aprende/shared/preview";
+import { resolvePreviewViewport } from "@aprende/shared/previewViewport";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
@@ -257,7 +257,7 @@ export class ServerBrowser extends Context.Service<
 
     readonly profileReporter: Effect.Effect<ProfileReporter, never, Scope.Scope>;
   }
->()("t3/preview/ServerBrowser") {}
+>()("aprende/preview/ServerBrowser") {}
 
 interface ViewerState {
   readonly id: string;

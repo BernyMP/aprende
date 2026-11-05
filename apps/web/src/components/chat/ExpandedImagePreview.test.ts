@@ -8,8 +8,8 @@ describe("resolveMarkdownMediaPreview", () => {
   });
 
   it.each([
-    ["t3code:", "https:"],
-    ["t3code-dev:", "https:"],
+    ["aprende:", "https:"],
+    ["aprende-dev:", "https:"],
     ["http:", "http:"],
     ["https:", "https:"],
   ])(

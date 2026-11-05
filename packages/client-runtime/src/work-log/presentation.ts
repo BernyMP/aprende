@@ -8,26 +8,26 @@ import {
   type ToolActivityIcon,
   type OrchestrationV2TurnItem,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   resolveT3McpSummaryAction,
   resolveT3McpToolDefinition,
   type T3McpToolDefinition,
   type T3McpToolSummaryAction,
-} from "@t3tools/shared/t3McpToolPresentation";
-import { classifyMarkdownImageSource } from "@t3tools/client-runtime/markdown-images";
-import { resolveMediaSource } from "@t3tools/client-runtime/media-source";
-import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
-import { isWorkspaceImagePreviewPath } from "@t3tools/shared/mediaPreview";
-import { formatTokens } from "@t3tools/shared/usageFormat";
-import { classifyToolActivity } from "@t3tools/shared/toolActivity";
-import { toolOutputIndicatesFailure } from "@t3tools/shared/toolOutput";
+} from "@aprende/shared/t3McpToolPresentation";
+import { classifyMarkdownImageSource } from "@aprende/client-runtime/markdown-images";
+import { resolveMediaSource } from "@aprende/client-runtime/media-source";
+import { sourceControlClients } from "@aprende/client-runtime/source-control-clients";
+import { isWorkspaceImagePreviewPath } from "@aprende/shared/mediaPreview";
+import { formatTokens } from "@aprende/shared/usageFormat";
+import { classifyToolActivity } from "@aprende/shared/toolActivity";
+import { toolOutputIndicatesFailure } from "@aprende/shared/toolOutput";
 
 import {
   summarizeT3ToolCalls,
   t3ToolResultIndicatesFailure,
-  type T3ToolSummaryCall,
-} from "@t3tools/client-runtime/t3ToolSummary";
+  type AppToolSummaryCall,
+} from "@aprende/client-runtime/appToolSummary";
 
 export type WorkLogToolLifecycleStatus = RuntimeItemStatus | "stopped" | "idle";
 
@@ -80,7 +80,7 @@ export function contextCompactionLabel(item: CompactionLabelItem): string {
 }
 
 export interface WorkLogPresentationEntry {
-  readonly questionAnswer?: import("@t3tools/contracts").UserInputAttachmentAnswerPayload;
+  readonly questionAnswer?: import("@aprende/contracts").UserInputAttachmentAnswerPayload;
   readonly id: string;
   readonly createdAt: string;
   readonly label: string;
@@ -479,7 +479,7 @@ function toolGroupActionLabel(action: ToolGroupAction, count: number): string {
   }
 }
 
-function t3ToolSummaryCall(entry: WorkLogPresentationEntry): T3ToolSummaryCall {
+function appToolSummaryCall(entry: WorkLogPresentationEntry): AppToolSummaryCall {
   return {
     input: workEntryToolInput(entry),
     output: workEntryToolOutput(entry),
@@ -561,7 +561,7 @@ export function summarizeToolGroup(entries: ReadonlyArray<WorkLogPresentationEnt
   for (const entry of entries) {
     const t3Action = resolveT3McpSummaryAction(
       workEntryToolName(entry),
-      t3ToolSummaryCall(entry).input,
+      appToolSummaryCall(entry).input,
     );
     if (entry.toolSource && t3Action === null) {
       sources.set(entry.toolSource.key, entry.toolSource);
@@ -578,7 +578,7 @@ export function summarizeToolGroup(entries: ReadonlyArray<WorkLogPresentationEnt
     count: group.entries.length,
     priority: summaryActionPriority(action),
     ...(group.t3Action
-      ? summarizeT3ToolCalls(group.t3Action, group.entries.map(t3ToolSummaryCall))
+      ? summarizeT3ToolCalls(group.t3Action, group.entries.map(appToolSummaryCall))
       : {
           label: toolGroupActionLabel(
             group.action,

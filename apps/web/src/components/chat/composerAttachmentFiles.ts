@@ -2,17 +2,17 @@ import {
   type EnvironmentId,
   isProviderSendTurnSupportedImageMimeType,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   clampFileAttachmentUploadBytes,
   fileAttachmentTooLargeMessage,
-} from "@t3tools/client-runtime/state/attachments";
+} from "@aprende/client-runtime/state/attachments";
 
 import type { ComposerFileAttachment, ComposerImageAttachment } from "../../composerDraftStore";
 import { isHeicImageFile } from "../../lib/imageCompression";
 import { isVideoAttachment, videoMimeType } from "../../types";
-import { isSvgAttachment } from "@t3tools/shared/image";
-import { isWorkspaceImagePreviewPath } from "@t3tools/shared/mediaPreview";
+import { isSvgAttachment } from "@aprende/shared/image";
+import { isWorkspaceImagePreviewPath } from "@aprende/shared/mediaPreview";
 
 type ComposerAttachmentFileKind = "image" | "file" | "unsupported-image";
 

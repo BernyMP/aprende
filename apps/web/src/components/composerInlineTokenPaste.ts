@@ -1,20 +1,20 @@
-import { ComposerContextId } from "@t3tools/contracts";
+import { ComposerContextId } from "@aprende/contracts";
 import type {
   ComposerContextClipboardFragment,
   ComposerContextRecord,
   ScopedThreadRef,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   COMPOSER_CONTEXT_CLIPBOARD_MIME,
   decodeComposerContextFragment,
   decodeComposerContextClipboardHtml,
-} from "@t3tools/shared/composerContextClipboard";
+} from "@aprende/shared/composerContextClipboard";
 import {
   collectComposerContextReferences,
   formatComposerContextReference,
   replaceComposerContextReferences,
   threadLinkContextReferences,
-} from "@t3tools/shared/composerContextReferences";
+} from "@aprende/shared/composerContextReferences";
 
 import { readThreadShell } from "~/state/entities";
 

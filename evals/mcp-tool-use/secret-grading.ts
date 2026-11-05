@@ -1507,7 +1507,7 @@ export const classifyFileUse = (
   // Written shell scripts being read, so one that runs itself is read once.
   const reading = new Set<string>();
   const fileVars = new Set<string>();
-  // Variables that hold the secrets directory, as in S=~/.t3/userdata/secrets/files; cat "$S/<id>".
+  // Variables that hold the secrets directory, as in S=~/.aprende/userdata/secrets/files; cat "$S/<id>".
   const dirVars = new Set<string>();
   const ids = [...new Set(files.map(fileId))].join("|");
   const secretVars = new Set<string>();

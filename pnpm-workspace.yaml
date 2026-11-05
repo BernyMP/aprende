@@ -1,7 +1,7 @@
 packages:
   - apps/*
   - evals
-  - oxlint-plugin-t3code
+  - oxlint-plugin-aprende
   - packages/*
   - scripts
 

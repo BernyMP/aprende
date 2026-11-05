@@ -1,5 +1,5 @@
-import { scopedThreadKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
+import { scopedThreadKey, scopeProjectRef } from "@aprende/client-runtime/environment";
+import { EnvironmentId, ProjectId, ThreadId } from "@aprende/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const metadata = vi.hoisted(() => ({

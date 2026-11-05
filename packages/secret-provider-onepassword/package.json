@@ -1,5 +1,5 @@
 {
-  "name": "@t3tools/secret-provider-onepassword",
+  "name": "@aprende/secret-provider-onepassword",
   "private": true,
   "type": "module",
   "exports": {
@@ -17,10 +17,10 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
-    "@t3tools/contracts": "workspace:*",
-    "@t3tools/provider-core": "workspace:*",
-    "@t3tools/secret-provider-core": "workspace:*",
-    "@t3tools/shared": "workspace:*",
+    "@aprende/contracts": "workspace:*",
+    "@aprende/provider-core": "workspace:*",
+    "@aprende/secret-provider-core": "workspace:*",
+    "@aprende/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

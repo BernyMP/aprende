@@ -5,7 +5,7 @@ import * as NodeSqlite from "node:sqlite";
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -38,7 +38,7 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-owner-boot-service-" });
-  const t3Home = path.join(root, ".t3");
+  const t3Home = path.join(root, ".aprende");
   const serviceHome = input.unitServesOtherHome ? path.join(root, "other") : t3Home;
   for (const home of [t3Home, serviceHome]) {
     yield* fs.makeDirectory(path.join(home, "userdata"), { recursive: true });
@@ -75,11 +75,11 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   const [unitPath, unit] =
     input.platform === "darwin"
       ? [
-          path.join(root, "Library", "LaunchAgents", "com.t3tools.t3code.service.plist"),
+          path.join(root, "Library", "LaunchAgents", "io.github.bernymp.aprende.service.plist"),
           renderBootServicePlist(plan, { homeDir: root, environmentPath: "" }),
         ]
       : [
-          path.join(root, ".config", "systemd", "user", "t3code.service"),
+          path.join(root, ".config", "systemd", "user", "aprende.service"),
           renderBootServiceUnit(plan),
         ];
   yield* fs.makeDirectory(path.dirname(unitPath), { recursive: true });
@@ -260,7 +260,7 @@ describe("server ownership", () => {
             ? []
             : [
                 [
-                  `Server ownership lock at ${lockPath} was deleted or replaced. Another server may now share this T3 home. Stop any other server using this home, then restart this server. Do not delete server-owner.sqlite while a server is running.`,
+                  `Server ownership lock at ${lockPath} was deleted or replaced. Another server may now share this aprende home. Stop any other server using this home, then restart this server. Do not delete server-owner.sqlite while a server is running.`,
                 ],
               ];
         assert.deepEqual(messages, expected);
@@ -339,7 +339,7 @@ describe("server ownership", () => {
               "launchctl print": { code: 113 },
               "launchctl print-disabled": {
                 code: 0,
-                stdout: '"com.t3tools.t3code.service" => false',
+                stdout: '"io.github.bernymp.aprende.service" => false',
               },
             },
           },
@@ -370,8 +370,8 @@ describe("server ownership", () => {
           assert.equal(result.failure._tag, "OlderBootServiceError");
           assert.equal(Runtime.getErrorExitCode(result.failure), 78);
           assert.include(result.failure.message, t3Home);
-          assert.include(result.failure.message, "t3 update");
-          assert.include(result.failure.message, "t3 service restart");
+          assert.include(result.failure.message, "aprende update");
+          assert.include(result.failure.message, "aprende service restart");
           assert.include(result.failure.message, "No server was stopped");
         }
       }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
@@ -452,7 +452,7 @@ describe("server ownership", () => {
               "launchctl print": { code: 113 },
               "launchctl print-disabled": {
                 code: 0,
-                stdout: '"com.t3tools.t3code.service" => disabled',
+                stdout: '"io.github.bernymp.aprende.service" => disabled',
               },
             },
           },

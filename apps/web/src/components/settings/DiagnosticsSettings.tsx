@@ -1,22 +1,22 @@
 import { ProcessSignalActions } from "./ProcessSignalActions";
-import { resolveUsageAccess } from "@t3tools/client-runtime/state/usage-access";
+import { resolveUsageAccess } from "@aprende/client-runtime/state/usage-access";
 import { environmentSession } from "../../state/session";
-import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
+import { AuthOrchestrationOperateScope } from "@aprende/contracts";
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
-import { AuthEnvironmentMaintainScope } from "@t3tools/contracts";
+import { AuthEnvironmentMaintainScope } from "@aprende/contracts";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { AlertTriangleIcon, CopyIcon, FolderOpenIcon, InfoIcon } from "lucide-react";
 import { ChevronDown, ChevronRight } from "lucide";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import { useRef, useState, type ReactNode } from "react";
 import type {
   ServerProcessDiagnosticsEntry,
   ServerProcessResourceHistorySummary,
   ServerProcessSignal,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 

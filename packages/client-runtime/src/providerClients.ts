@@ -1,7 +1,7 @@
-import { ClaudeSettings, CodexSettings, ProviderDriverKind } from "@t3tools/contracts";
-import { acpRegistryClient } from "@t3tools/provider-acp-registry/client";
-import { makeProviderClientRegistry } from "@t3tools/provider-core/client";
-import { modelShortName } from "@t3tools/provider-core/modelShortName";
+import { ClaudeSettings, CodexSettings, ProviderDriverKind } from "@aprende/contracts";
+import { acpRegistryClient } from "@aprende/provider-acp-registry/client";
+import { makeProviderClientRegistry } from "@aprende/provider-core/client";
+import { modelShortName } from "@aprende/provider-core/modelShortName";
 
 export const providerClients = makeProviderClientRegistry([
   {

@@ -1,5 +1,5 @@
-import { type ServerLifecycleWelcomePayload } from "@t3tools/contracts";
-import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { type ServerLifecycleWelcomePayload } from "@aprende/contracts";
+import { scopedProjectKey, scopeProjectRef } from "@aprende/client-runtime/environment";
 import {
   Outlet,
   Link,
@@ -45,7 +45,7 @@ import {
   deriveLogicalProjectKeyFromSettings,
   derivePhysicalProjectKeyFromPath,
   selectProjectGroupingSettings,
-} from "@t3tools/client-runtime/state/project-grouping";
+} from "@aprende/client-runtime/state/project-grouping";
 import { useUiStateStore } from "../uiStateStore";
 import { configureClientTracing } from "../observability/clientTracing";
 import { resolveInitialServerAuthGateState } from "../environments/primary";
@@ -372,7 +372,7 @@ function EventRouter({
     })().catch(() => undefined);
   });
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- expands the bootstrap project in the UI store and navigates the router on a server welcome
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- expands the bootstrap project in the UI store and navigates the router on a server welcome
   useEffect(() => {
     handleWelcome(serverWelcome);
   }, [serverWelcome]);

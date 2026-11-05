@@ -1,4 +1,4 @@
-import type { EnvironmentId, PullRequestRef } from "@t3tools/contracts";
+import type { EnvironmentId, PullRequestRef } from "@aprende/contracts";
 import { create } from "zustand";
 
 import type { PullRequestDetailTab } from "~/rightPanelStore";

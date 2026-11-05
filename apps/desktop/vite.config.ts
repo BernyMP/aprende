@@ -9,10 +9,10 @@ const repoEnv = loadRepoEnv();
 // Install only bundle externals; the server bundle already carries its dependency tree.
 const isMainProcessExternal = (id: string) =>
   id === "electron" || id.startsWith("electron/") || isDesktopRuntimeExternalDependency(id);
-const shouldLaunchElectronAfterPack = process.env.T3CODE_DESKTOP_DEV === "1";
+const shouldLaunchElectronAfterPack = process.env.APRENDE_DESKTOP_DEV === "1";
 const publicConfigDefine = {
-  __T3CODE_BUILD_CLERK_PUBLISHABLE_KEY__: JSON.stringify(
-    repoEnv.T3CODE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
+  __APRENDE_BUILD_CLERK_PUBLISHABLE_KEY__: JSON.stringify(
+    repoEnv.APRENDE_CLERK_PUBLISHABLE_KEY?.trim() ?? "",
   ),
 };
 
@@ -22,13 +22,13 @@ export default defineConfig({
       build: {
         command:
           "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && vp pack",
-        dependsOn: ["t3#build"],
+        dependsOn: ["aprende#build"],
         cache: false,
       },
       dev: {
         command:
-          "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && cross-env T3CODE_DESKTOP_DEV=1 vp pack --watch",
-        dependsOn: ["t3#build"],
+          "node scripts/build-browser-secret.mjs && node scripts/build-preview-annotation-css.mjs && cross-env APRENDE_DESKTOP_DEV=1 vp pack --watch",
+        dependsOn: ["aprende#build"],
         cache: false,
       },
       "dev:bundle": {
@@ -38,7 +38,7 @@ export default defineConfig({
       },
       "dev:electron": {
         command: "node scripts/dev-electron.mjs",
-        dependsOn: ["t3#build"],
+        dependsOn: ["aprende#build"],
         cache: false,
       },
       // A local tsbuildinfo is leftover build state, not a typecheck input.

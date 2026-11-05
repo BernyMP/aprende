@@ -1,4 +1,4 @@
-import type { ManagedPolicyDocument } from "@t3tools/contracts";
+import type { ManagedPolicyDocument } from "@aprende/contracts";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -8,7 +8,7 @@ import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import { ChildProcessSpawner } from "effect/process";
 
-import * as NetService from "@t3tools/shared/Net";
+import * as NetService from "@aprende/shared/Net";
 
 import * as EnvironmentAuthPolicy from "../auth/EnvironmentAuthPolicy.ts";
 import * as ManagedLimits from "./managedLimits.ts";
@@ -68,7 +68,7 @@ it.effect("binds only the loopback address it approved when remote clients are n
       tailscaleServeEnabled: false,
       privateNetworkOnly: true,
     }).pipe(Effect.flip);
-    assert.include(service.message, "set T3CODE_HOST=127.0.0.1 in its service.env");
+    assert.include(service.message, "set APRENDE_HOST=127.0.0.1 in its service.env");
     assert.equal(yield* bind("localhost", { document: undefined }), "localhost");
     assert.equal(yield* bind(undefined, { document: undefined }), "127.0.0.1");
   }),

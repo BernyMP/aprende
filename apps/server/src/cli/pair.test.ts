@@ -6,9 +6,9 @@ import * as NodePath from "node:path";
 
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { AuthStandardClientScopes, ORCHESTRATION_PROTOCOL_VERSION } from "@t3tools/contracts";
-import * as NetService from "@t3tools/shared/Net";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import { AuthStandardClientScopes, ORCHESTRATION_PROTOCOL_VERSION } from "@aprende/contracts";
+import * as NetService from "@aprende/shared/Net";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import { assert, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -37,7 +37,7 @@ import {
 import { DevServerNotProxiableError, resolveTailscaleLocalTarget } from "./pair.ts";
 
 import packageJson from "../../package.json" with { type: "json" };
-import { buildPairingAppLink } from "@t3tools/shared/remote";
+import { buildPairingAppLink } from "@aprende/shared/remote";
 
 const layerCliRuntime = Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer);
 
@@ -297,7 +297,7 @@ describe("t3 pair", () => {
             ),
             Effect.provide(
               ConfigProvider.layer(
-                ConfigProvider.fromEnv({ env: { T3CODE_DEV_MANAGED_POLICY_PATH: policyPath } }),
+                ConfigProvider.fromEnv({ env: { APRENDE_DEV_MANAGED_POLICY_PATH: policyPath } }),
               ),
             ),
             Effect.flip,
@@ -333,7 +333,7 @@ describe("t3 pair", () => {
         const rendered = String(
           typeof error === "object" && error !== null && "cause" in error ? error.cause : error,
         );
-        assert.include(rendered, "No running T3 Code server found.");
+        assert.include(rendered, "No running aprende server found.");
       }),
     ).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
   );
@@ -363,13 +363,13 @@ describe("t3 pair", () => {
           runCli(["pair"]).pipe(
             Effect.provideService(HostProcess.WorkingDirectory, worktree),
             Effect.provide(
-              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { T3CODE_HOME: sharedHome } })),
+              ConfigProvider.layer(ConfigProvider.fromEnv({ env: { APRENDE_HOME: sharedHome } })),
             ),
             Effect.flip,
           ),
         );
 
-        assert.include(String(error), "No running T3 Code server found.");
+        assert.include(String(error), "No running aprende server found.");
         assert.notInclude(String(error), sharedHome);
         assert.deepEqual(NodeFS.readdirSync(NodePath.join(sharedHome, "userdata")), [
           "server-runtime.json",
@@ -404,7 +404,7 @@ describe("t3 pair", () => {
           ]);
           assert.isTrue(Exit.isFailure(exit));
           if (Exit.isFailure(exit)) {
-            assert.include(String(Cause.squash(exit.cause)), "t3@0.0.45 pair");
+            assert.include(String(Cause.squash(exit.cause)), "aprende@0.0.45 pair");
           }
         }),
       "127.0.0.1",
@@ -524,7 +524,7 @@ describe("auth scope options", () => {
       if (!CliError.isCliError(error) || error._tag !== "ShowHelp") {
         assert.fail(`Expected ShowHelp, got ${String(error)}`);
       }
-      assert.deepEqual(error.commandPath, ["t3", ...command]);
+      assert.deepEqual(error.commandPath, ["aprende", ...command]);
       const scopeError = error.errors[0];
       if (scopeError?._tag !== "InvalidValue") {
         assert.fail(`Expected InvalidValue, got ${String(scopeError?._tag)}`);

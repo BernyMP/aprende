@@ -4,18 +4,18 @@ import {
   ExecutionEnvironmentDescriptor,
   ORCHESTRATION_PROTOCOL_VERSION,
   PortSchema,
-} from "@t3tools/contracts";
-import { resolveWorktreeT3Home } from "@t3tools/shared/devHome";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { DEFAULT_SIGNAL_EXPORT } from "@t3tools/shared/observability";
-import { buildPairingAppLink } from "@t3tools/shared/remote";
-import * as OtelEnvironment from "@t3tools/shared/otelEnvironment";
+} from "@aprende/contracts";
+import { resolveWorktreeT3Home } from "@aprende/shared/devHome";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { DEFAULT_SIGNAL_EXPORT } from "@aprende/shared/observability";
+import { buildPairingAppLink } from "@aprende/shared/remote";
+import * as OtelEnvironment from "@aprende/shared/otelEnvironment";
 import {
   buildTailscaleHttpsBaseUrl,
   DEFAULT_TAILSCALE_SERVE_PORT,
   ensureTailscaleServe,
   readTailscaleStatus,
-} from "@t3tools/tailscale";
+} from "@aprende/tailscale";
 import * as Config from "effect/Config";
 import * as Console from "effect/Console";
 import * as DateTime from "effect/DateTime";
@@ -69,12 +69,12 @@ export class NoRunningServerError extends Schema.TaggedError<NoRunningServerErro
 ) {
   override get message(): string {
     return [
-      "No running T3 Code server found.",
+      "No running aprende server found.",
       ...this.checkedStatePaths.map((statePath) => `  checked ${statePath}`),
       ...(this.inLinkedWorktree
         ? ["In a linked worktree, pass --base-dir to pair with a server outside it."]
         : []),
-      "Start one with `npx t3 serve`, or connect this machine with T3 Connect: `npx t3 connect`.",
+      "Start one with `npx aprende serve`, or connect this machine with T3 Connect: `npx aprende connect`.",
     ].join("\n");
   }
 }
@@ -85,8 +85,8 @@ export class IncompatibleServerProtocolError extends Schema.TaggedError<Incompat
 ) {
   override get message(): string {
     return [
-      `The running T3 Code server (${this.serverVersion}) speaks orchestration protocol ${String(this.serverProtocolVersion)}, but this CLI speaks protocol ${String(ORCHESTRATION_PROTOCOL_VERSION)}.`,
-      `Pair with the matching CLI instead: \`npx t3@${this.serverVersion} pair\`.`,
+      `The running aprende server (${this.serverVersion}) speaks orchestration protocol ${String(this.serverProtocolVersion)}, but this CLI speaks protocol ${String(ORCHESTRATION_PROTOCOL_VERSION)}.`,
+      `Pair with the matching CLI instead: \`npx aprende@${this.serverVersion} pair\`.`,
     ].join("\n");
   }
 }
@@ -123,7 +123,7 @@ export class ServesOtherEnvironmentError extends Schema.TaggedError<ServesOtherE
   { servePort: Schema.Number },
 ) {
   override get message(): string {
-    return `Tailscale Serve on HTTPS port ${String(this.servePort)} already fronts a different T3 Code server. Pass --tailscale-serve-port to publish this one on another port.`;
+    return `Tailscale Serve on HTTPS port ${String(this.servePort)} already fronts a different aprende server. Pass --tailscale-serve-port to publish this one on another port.`;
   }
 }
 
@@ -141,7 +141,7 @@ export class ServePortOccupiedError extends Schema.TaggedError<ServePortOccupied
   { servePort: Schema.Number },
 ) {
   override get message(): string {
-    return `HTTPS port ${String(this.servePort)} on the tailnet already serves something that is not a T3 Code server. Pass --tailscale-serve-port to publish this one on another port.`;
+    return `HTTPS port ${String(this.servePort)} on the tailnet already serves something that is not a aprende server. Pass --tailscale-serve-port to publish this one on another port.`;
   }
 }
 
@@ -249,7 +249,7 @@ const discoverPairTarget = Effect.fn("pair.discoverPairTarget")(function* (
     bases.push(yield* resolveBaseDir(explicitBaseDir));
   } else {
     // Same precedence as dev-runner: inside a linked worktree only its own
-    // `.t3` counts. Minting opens the target database with this checkout's
+    // `.aprende` counts. Minting opens the target database with this checkout's
     // migrations, so falling back to the shared home could migrate the live
     // install with unreleased schema.
     const worktreeHome = yield* resolveWorktreeT3Home(yield* HostProcess.WorkingDirectory);
@@ -257,7 +257,7 @@ const discoverPairTarget = Effect.fn("pair.discoverPairTarget")(function* (
       bases.push(worktreeHome);
       inLinkedWorktree = true;
     } else {
-      const envHome = yield* Config.String("T3CODE_HOME").pipe(Config.option);
+      const envHome = yield* Config.String("APRENDE_HOME").pipe(Config.option);
       bases.push(yield* resolveBaseDir(Option.getOrUndefined(envHome)));
     }
   }
@@ -482,7 +482,7 @@ export const pairCommand = Command.make("pair", {
   tailscaleServePort: tailscaleServePortFlag,
 }).pipe(
   Command.withDescription(
-    "Mint a pairing token for a running T3 Code server and print it as a QR code.",
+    "Mint a pairing token for a running aprende server and print it as a QR code.",
   ),
   Command.withHandler((flags) =>
     Effect.gen(function* () {
@@ -522,7 +522,7 @@ export const pairCommand = Command.make("pair", {
         pairingBaseUrl = resolveDirectPairingBaseUrl(target.state);
         if (isLoopbackHost(new URL(pairingBaseUrl).hostname)) {
           notes.push(
-            "This URL is only reachable from this machine. To reach it from your other devices, run `t3 up`, or re-run with --tailscale.",
+            "This URL is only reachable from this machine. To reach it from your other devices, run `aprende up`, or re-run with --tailscale.",
           );
         } else if (target.state.privateNetworkOnly) {
           notes.push(

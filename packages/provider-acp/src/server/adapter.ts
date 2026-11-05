@@ -33,17 +33,17 @@ import {
   type ThreadId,
   isRuntimeModeAbove,
   type TurnTokenUsage,
-} from "@t3tools/contracts";
-import { AgentScope, AgentScopeThreadId } from "@t3tools/shared/AgentScope";
-import { HTML_RENDER_TOOL_NAME } from "@t3tools/shared/htmlRender";
-import { modelSelectionsEqual } from "@t3tools/shared/model";
-import { type SelfInvocation, selfInvocationArgs } from "@t3tools/shared/nodeRuntime";
-import { resolveT3McpToolId } from "@t3tools/shared/t3McpToolPresentation";
+} from "@aprende/contracts";
+import { AgentScope, AgentScopeThreadId } from "@aprende/shared/AgentScope";
+import { HTML_RENDER_TOOL_NAME } from "@aprende/shared/htmlRender";
+import { modelSelectionsEqual } from "@aprende/shared/model";
+import { type SelfInvocation, selfInvocationArgs } from "@aprende/shared/nodeRuntime";
+import { resolveT3McpToolId } from "@aprende/shared/t3McpToolPresentation";
 import {
   compactDynamicToolOutput,
   htmlRenderFromToolItem,
   mcpToolResultOutput,
-} from "@t3tools/shared/toolOutput";
+} from "@aprende/shared/toolOutput";
 import { FILE_HEADERS_ONLY, formatPatch, structuredPatch } from "diff";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
@@ -69,12 +69,12 @@ import * as EffectAcpErrors from "effect-acp/errors";
 import type * as EffectAcpProtocol from "effect-acp/protocol";
 import type * as EffectAcpSchema from "effect-acp/compat";
 
-import { formatReadToolLabel, formatSearchToolLabel } from "@t3tools/shared/toolActivity";
-import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
+import { formatReadToolLabel, formatSearchToolLabel } from "@aprende/shared/toolActivity";
+import * as ProviderHost from "@aprende/provider-core/server/ProviderHost";
 import { makeAcpMcpOverAcpBridge, type AcpMcpOverAcpBridge } from "./mcpOverAcpBridge.ts";
-import { mcpToolPresentation } from "@t3tools/provider-core/server/mcpToolPresentation";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as McpProviderSession from "@t3tools/provider-core/server/mcpSession";
+import { mcpToolPresentation } from "@aprende/provider-core/server/mcpToolPresentation";
+import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
+import * as McpProviderSession from "@aprende/provider-core/server/mcpSession";
 import {
   applyAcpAgentTerminalUpdate,
   acpContentBlockDisplayText,
@@ -113,30 +113,30 @@ import * as AcpSessionRuntime from "./AcpSessionRuntime.ts";
 import {
   t3AcpPromptWithInstructions,
   type T3AcpInstructionState,
-} from "@t3tools/provider-core/server/orchestrationInstructions";
-import { buildRuntimeInstructions } from "@t3tools/provider-core/server/runtimeInstructions";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import type * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
+} from "@aprende/provider-core/server/orchestrationInstructions";
+import { buildRuntimeInstructions } from "@aprende/provider-core/server/runtimeInstructions";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
+import type * as ProviderContinuationRequests from "@aprende/provider-core/server/ProviderContinuationRequests";
 import {
   type BackgroundWork,
   type BackgroundWorkReport,
   backgroundWorkNotification,
-} from "@t3tools/provider-core/server/notification";
+} from "@aprende/provider-core/server/notification";
 import {
   makeProviderFailure,
   makeProviderRetryTurnItem,
-} from "@t3tools/provider-core/server/failure";
-import { acpSelectionTransition } from "@t3tools/provider-core/server/selectionTransition";
+} from "@aprende/provider-core/server/failure";
+import { acpSelectionTransition } from "@aprende/provider-core/server/selectionTransition";
 import {
   isProviderNativeImageAttachment,
   providerMessageTextWithAttachmentPaths,
-} from "@t3tools/provider-core/server/attachmentPrompt";
+} from "@aprende/provider-core/server/attachmentPrompt";
 import {
   makeSubagentChildThread,
   makeSubagentConversationArtifacts,
   subagentThreadTitle,
-} from "@t3tools/provider-core/server/subagentProjection";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+} from "@aprende/provider-core/server/subagentProjection";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
 
 export const ACP_PROTOCOL = "acp.ndjson-jsonrpc" as const;
 
@@ -845,7 +845,7 @@ function acpMcpContext(
   return {
     servers: [
       {
-        name: "t3-code",
+        name: "aprende",
         command: self.command,
         args: [...selfInvocationArgs(self, ["acp-mcp-bridge"])],
         env: [
@@ -855,13 +855,13 @@ function acpMcpContext(
         ],
       },
     ],
-    acpServers: [{ type: "acp", name: "t3-code", serverId: "t3-code" }],
+    acpServers: [{ type: "acp", name: "aprende", serverId: "aprende" }],
     httpServers:
       mcpOverHttp === true
         ? [
             {
               type: "http",
-              name: "t3-code",
+              name: "aprende",
               url: session.endpoint,
               headers: [{ name: "Authorization", value: session.authorizationHeader }],
             },
@@ -2382,7 +2382,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
               elicitation: { form: {}, ...(flavor.onUrlElicitation ? { url: {} } : {}) },
               ...(flavor.clientCapabilitiesMeta ? { _meta: flavor.clientCapabilitiesMeta } : {}),
             },
-            clientInfo: { name: "t3-code", version: "0.0.0" },
+            clientInfo: { name: "aprende", version: "0.0.0" },
             onTermination: (error) =>
               Effect.sync(() => agentRequests.clear()).pipe(Effect.andThen(onTermination(error))),
             ...(promptInactivityTimeoutMillis === undefined
@@ -7826,7 +7826,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
                 "failed",
                 makeProviderFailure({
                   class: "provider_error",
-                  message: `${flavor.runtimeHarness ?? driver} sent nothing for ${minutes} ${minutes === 1 ? "minute" : "minutes"}, so T3 Code stopped the turn and restarted the agent. Send a message to continue.`,
+                  message: `${flavor.runtimeHarness ?? driver} sent nothing for ${minutes} ${minutes === 1 ? "minute" : "minutes"}, so aprende stopped the turn and restarted the agent. Send a message to continue.`,
                 }),
               );
               return "retired" as const;

@@ -1,18 +1,18 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { deriveThreadQueueWorkflowState } from "@t3tools/client-runtime/state/thread-workflows";
-import { assistantCitationsToPlainText } from "@t3tools/shared/assistantCitations";
+import { scopeThreadRef } from "@aprende/client-runtime/environment";
+import { deriveThreadQueueWorkflowState } from "@aprende/client-runtime/state/thread-workflows";
+import { assistantCitationsToPlainText } from "@aprende/shared/assistantCitations";
 import {
   isAttachmentOnlyBootstrapPrompt,
   replaceComposerContextReferences,
-} from "@t3tools/shared/composerContextReferences";
+} from "@aprende/shared/composerContextReferences";
 import type {
   ChatAttachment as ContractChatAttachment,
   EnvironmentId,
   MessageId,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
-import { resolveUserMessagePresentation } from "@t3tools/client-runtime/user-message";
+} from "@aprende/contracts";
+import { resolveUserMessagePresentation } from "@aprende/client-runtime/user-message";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowUpIcon,
@@ -34,7 +34,7 @@ import { isImageAttachment, type ChatMessage } from "../../types";
 import { cn } from "~/lib/utils";
 import { Button, InlineButton } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import type { TimestampFormat } from "@t3tools/contracts/settings";
+import type { TimestampFormat } from "@aprende/contracts/settings";
 import { GuestMessageName } from "./guestMessageStyle";
 import { TimelineRowTimestamp } from "./TimelineRowParts";
 import { FoldedMessageHeader, useScheduledTaskTitle } from "./TimelineUserMessageRow";
@@ -434,8 +434,8 @@ function QueuedMessage(props: {
 
   return (
     <>
-      {attribution === "t3code" ? (
-        <p className="me-1 text-2xs text-muted-foreground/70">Sent by T3 Code</p>
+      {attribution === "aprende" ? (
+        <p className="me-1 text-2xs text-muted-foreground/70">Sent by aprende</p>
       ) : null}
       {presentation?.guestName === undefined ? null : (
         <GuestMessageName name={presentation.guestName} />

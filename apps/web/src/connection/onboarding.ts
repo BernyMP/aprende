@@ -1,9 +1,9 @@
-import { ConnectionOnboarding } from "@t3tools/client-runtime/connection";
+import { ConnectionOnboarding } from "@aprende/client-runtime/connection";
 import {
   createAtomCommandScheduler,
   createRuntimeCommand,
-} from "@t3tools/client-runtime/state/runtime";
-import type { DesktopSshEnvironmentTarget } from "@t3tools/contracts";
+} from "@aprende/client-runtime/state/runtime";
+import type { DesktopSshEnvironmentTarget } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 
 import { connectionAtomRuntime } from "./runtime";

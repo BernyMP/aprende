@@ -8,11 +8,11 @@ import {
   type ProviderInteractionMode,
   type RuntimeMode,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import { formatThreadLink, hostedThreadLink } from "@t3tools/shared/threadLinks";
+import { formatThreadLink, hostedThreadLink } from "@aprende/shared/threadLinks";
 
 const ALL_MCP_CAPABILITIES = [
   "preview",
@@ -36,7 +36,7 @@ export interface McpClientCaller {
   readonly label: string;
   readonly access: AuthMcpClientAccess;
   /**
-   * Another T3 Code environment's peer link. What it starts here carries its
+   * Another aprende environment's peer link. What it starts here carries its
    * session as `linkOrigin`, and it changes only that work (`linkOrigin.ts`).
    */
   readonly linked?: boolean | undefined;
@@ -134,7 +134,7 @@ export interface McpInvocationScope {
 }
 
 /**
- * T3 Code renders `t3-thread://` links as thread chips. Other MCP clients cannot open them, so
+ * aprende renders `t3-thread://` links as thread chips. Other MCP clients cannot open them, so
  * they get the hosted link Copy thread copies, which opens the thread in either app or a browser.
  */
 export const threadLinkFor = (
@@ -149,7 +149,7 @@ export const threadLinkFor = (
 export class McpInvocationContext extends Context.Service<
   McpInvocationContext,
   McpInvocationScope
->()("t3/mcp/McpInvocationContext") {}
+>()("aprende/mcp/McpInvocationContext") {}
 
 /**
  * `McpSchema.EnabledWhen` for tools a delegated child must not see or call.
@@ -217,7 +217,7 @@ export const requireThreadMcpCapability = <const C extends "preview" | "device">
 const threadCallerRequired = (operation: string) =>
   new OrchestratorMcpFailure({
     code: "thread_credential_required",
-    message: `${operation} acts as the calling T3 thread, so it needs an agent running inside T3 Code. This MCP client signed in from outside a thread.`,
+    message: `${operation} acts as the calling T3 thread, so it needs an agent running inside aprende. This MCP client signed in from outside a thread.`,
   });
 
 export type McpThreadInvocationScope = McpInvocationScope & { readonly thread: McpThreadCaller };

@@ -6,8 +6,8 @@ import {
   type AuthEnvironmentScope,
   type AuthWebSocketTicketResult,
   type AuthWebSocketTicketUse,
-} from "@t3tools/contracts";
-import { encodeOAuthScope } from "@t3tools/shared/oauthScope";
+} from "@aprende/contracts";
+import { encodeOAuthScope } from "@aprende/shared/oauthScope";
 import * as Effect from "effect/Effect";
 import * as Redacted from "effect/Redacted";
 import { environmentEndpointUrl } from "../environment/endpoint.ts";

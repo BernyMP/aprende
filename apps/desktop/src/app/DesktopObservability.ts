@@ -1,19 +1,19 @@
-import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
+import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@aprende/contracts";
 import {
   makeLocalFileTracer,
   makeTraceSink,
   nodeProcessRuntimeAttributes,
   processServiceInstanceId,
   type SignalExport,
-} from "@t3tools/shared/observability";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import * as SharedObservability from "@t3tools/shared/observability";
-import * as OtelEnvironment from "@t3tools/shared/otelEnvironment";
-import { releaseChannelOf, releaseResourceAttributes } from "@t3tools/shared/releaseResource";
+} from "@aprende/shared/observability";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import * as SharedObservability from "@aprende/shared/observability";
+import * as OtelEnvironment from "@aprende/shared/otelEnvironment";
+import { releaseChannelOf, releaseResourceAttributes } from "@aprende/shared/releaseResource";
 import {
   parsePersistedServerObservabilitySettings,
   type PersistedServerObservabilitySettings,
-} from "@t3tools/shared/serverSettings";
+} from "@aprende/shared/serverSettings";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -64,7 +64,7 @@ export class DesktopBackendOutputLogFactory extends Context.Service<
   {
     readonly forInstance: (id: string) => Effect.Effect<DesktopBackendOutputLogShape>;
   }
->()("@t3tools/desktop/app/DesktopObservability/DesktopBackendOutputLogFactory") {}
+>()("@aprende/desktop/app/DesktopObservability/DesktopBackendOutputLogFactory") {}
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -606,12 +606,12 @@ const layerTelemetry = Layer.unwrap(
       ? environment.appVersion
       : desktopPackageJson.version;
     const resource = {
-      serviceName: "t3code-desktop",
+      serviceName: "aprende-desktop",
       serviceVersion,
       attributes: {
-        "service.namespace": "t3code",
+        "service.namespace": "aprende",
         "service.runtime": "desktop",
-        "t3code.desktop.mode": environment.isDevelopment ? "development" : "packaged",
+        "aprende.desktop.mode": environment.isDevelopment ? "development" : "packaged",
         "service.instance.id": processServiceInstanceId(endpoints.resourceAttributes),
         ...releaseResourceAttributes(
           environment.isDevelopment ? "dev" : releaseChannelOf(serviceVersion),

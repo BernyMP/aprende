@@ -2,7 +2,7 @@ import type {
   ServerProvider,
   ServerProviderVersionAdvisory,
   ServerProviderCompatibilityAdvisory,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
 export const PROVIDER_STATUS_STYLES = {
   disabled: {
@@ -37,7 +37,7 @@ export function getProviderSummary(provider: ServerProvider | undefined) {
     return {
       headline: "Disabled",
       detail:
-        provider.message ?? "This provider is installed but disabled for new sessions in T3 Code.",
+        provider.message ?? "This provider is installed but disabled for new sessions in aprende.",
     };
   }
   if (!provider.installed) {

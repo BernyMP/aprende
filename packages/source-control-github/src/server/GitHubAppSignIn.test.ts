@@ -10,12 +10,12 @@ import { HttpClient, HttpClientResponse } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
 import * as TestClock from "effect/testing/TestClock";
 
-import { DEFAULT_SERVER_SETTINGS, ServerSettingsError } from "@t3tools/contracts";
-import * as SourceControlHost from "@t3tools/source-control-core/server/SourceControlHost";
-import * as SourceControlRateLimit from "@t3tools/source-control-core/server/SourceControlRateLimit";
-import { readSourceControlHostSettings } from "@t3tools/source-control-core/shared/definition";
-import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
-import * as TestSourceControlHost from "@t3tools/source-control-testing/TestSourceControlHost";
+import { DEFAULT_SERVER_SETTINGS, ServerSettingsError } from "@aprende/contracts";
+import * as SourceControlHost from "@aprende/source-control-core/server/SourceControlHost";
+import * as SourceControlRateLimit from "@aprende/source-control-core/server/SourceControlRateLimit";
+import { readSourceControlHostSettings } from "@aprende/source-control-core/shared/definition";
+import { applyServerSettingsPatch } from "@aprende/shared/serverSettings";
+import * as TestSourceControlHost from "@aprende/source-control-testing/TestSourceControlHost";
 
 import * as GitHubClient from "../shared/definition.ts";
 import * as GitHubAppAccess from "./GitHubAppAccess.ts";
@@ -144,7 +144,7 @@ const installedOn = (sent: Sent): Reply =>
     ? {
         body: {
           installations: [
-            { id: 1, repository_selection: "all", account: { login: "pingdotgg" } },
+            { id: 1, repository_selection: "all", account: { login: "BernyMP" } },
             { id: 2, repository_selection: "selected", account: { login: "acme" } },
           ],
         },
@@ -512,7 +512,7 @@ describe("GitHubAppAccess", () => {
     });
     return Effect.gen(function* () {
       const access = yield* GitHubAppAccess.GitHubAppAccess;
-      expect(yield* access.reach("github.com", "pingdotgg/t3code")).toBe("covered");
+      expect(yield* access.reach("github.com", "BernyMP/aprende")).toBe("covered");
       expect(yield* access.reach("github.com", "acme/one")).toBe("covered");
       expect(yield* access.reach("github.com", "acme/two")).toBe("not-covered");
       expect(yield* access.reach("github.com", "https://github.com/Acme/One.git")).toBe("covered");
@@ -555,7 +555,7 @@ describe("GitHubAppAccess", () => {
         access
           .credentialFor("github.com", repository)
           .pipe(Effect.map((held) => Redacted.value(held.token)));
-      expect(yield* tokenFor("pingdotgg/t3code")).toBe("ghu_current");
+      expect(yield* tokenFor("BernyMP/aprende")).toBe("ghu_current");
       expect(yield* tokenFor("someone/else")).toBe("gh-token");
     }).pipe(Effect.provide(layer));
   });
@@ -571,7 +571,7 @@ describe("GitHubAppAccess", () => {
     });
     const tokenFor = Effect.flatMap(Effect.service(GitHubAppAccess.GitHubAppAccess), (access) =>
       access
-        .credentialFor("github.com", "pingdotgg/t3code")
+        .credentialFor("github.com", "BernyMP/aprende")
         .pipe(Effect.map((held) => Redacted.value(held.token))),
     );
     return Effect.gen(function* () {

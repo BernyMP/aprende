@@ -4,7 +4,7 @@ import {
   type EnvironmentCloudLinkStateResult,
   type EnvironmentCloudPreferencesRequest,
   type EnvironmentCloudRelayConfigResult,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   RelayCloudEnvironmentHealthProofPayload,
   type RelayCloudEnvironmentHealthRequest,
@@ -26,8 +26,8 @@ import {
   RelayManagedEndpointRecoveryResponse,
   type RelayManagedEndpointRuntimeConfig,
   RelayOkResponse,
-} from "@t3tools/contracts/relay";
-import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
+} from "@aprende/contracts/relay";
+import { withRelayClientTracing } from "@aprende/shared/relayTracing";
 import {
   normalizeRelayIssuer,
   RELAY_HEALTH_REQUEST_TYP,
@@ -37,8 +37,8 @@ import {
   RELAY_MINT_REQUEST_TYP,
   RELAY_MINT_RESPONSE_TYP,
   verifyRelayJwt,
-} from "@t3tools/shared/relayJwt";
-import { isSecureRelayUrl } from "@t3tools/shared/relayUrl";
+} from "@aprende/shared/relayJwt";
+import { isSecureRelayUrl } from "@aprende/shared/relayUrl";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Signature from "effect/crypto/Signature";
@@ -189,7 +189,7 @@ export class CloudLinkAuthorizationMissingError extends Schema.TaggedError<Cloud
   {},
 ) {
   override get message(): string {
-    return "Run `t3 connect link` to authorize this environment.";
+    return "Run `aprende connect link` to authorize this environment.";
   }
 }
 
@@ -238,7 +238,7 @@ export class CloudLinkEndpointUnavailableError extends Schema.TaggedError<CloudL
 
 const INTERNAL_OPERATION_MESSAGES = {
   "relay-url-unconfigured":
-    "T3CODE_RELAY_URL must be configured as a secure absolute HTTPS origin.",
+    "APRENDE_RELAY_URL must be configured as a secure absolute HTTPS origin.",
   "generate-link-proof": "Could not generate environment link proof.",
   "persist-relay-config": "Could not persist environment relay configuration.",
   "register-endpoint-origin": "Could not register the managed endpoint origin.",
@@ -510,7 +510,7 @@ export class CloudLink extends Context.Service<
       | HttpClientError.HttpClientError
     >;
   }
->()("t3/cloud/CloudLink") {}
+>()("aprende/cloud/CloudLink") {}
 
 const make = Effect.gen(function* () {
   const secrets = yield* ServerSecretStore.ServerSecretStore;
@@ -1228,7 +1228,7 @@ const make = Effect.gen(function* () {
     if (Option.isNone(token)) {
       return false;
     }
-    // Use the persisted relay URL; T3CODE_RELAY_URL may have changed since linking.
+    // Use the persisted relay URL; APRENDE_RELAY_URL may have changed since linking.
     const relayUrl = yield* secrets.get(RELAY_URL_SECRET);
     if (Option.isNone(relayUrl)) {
       return false;

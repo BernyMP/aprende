@@ -1,5 +1,5 @@
 import { pipe } from "effect/Function";
-import type { EnvironmentTheme } from "@t3tools/contracts";
+import type { EnvironmentTheme } from "@aprende/contracts";
 import * as Equal from "effect/Equal";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -22,7 +22,7 @@ import {
   type ThemeColors,
   type ThemeDefinition,
   type ThemeVariants,
-} from "@t3tools/shared/themePalettes";
+} from "@aprende/shared/themePalettes";
 import {
   CONTEXT_CHIP_ACCENTS,
   contextChipColorVariable,
@@ -41,10 +41,10 @@ const OCEAN_THEME_ID = "ocean" as const;
 const EMBER_THEME_ID = "ember" as const;
 const IRIS_THEME_ID = "iris" as const;
 export const THEME_FILE_VERSION = 1 as const;
-export const CUSTOM_THEMES_STORAGE_KEY = "t3code:themes:v1";
-export const THEME_FOLLOW_SYSTEM_STORAGE_KEY = "t3code:theme-follow-system";
-export const THEME_APPEARANCE_MODE_STORAGE_KEY = "t3code:theme-appearance-mode";
-export const THEME_HALVES_STORAGE_KEY = "t3code:theme-halves:v1";
+export const CUSTOM_THEMES_STORAGE_KEY = "aprende:themes:v1";
+export const THEME_FOLLOW_SYSTEM_STORAGE_KEY = "aprende:theme-follow-system";
+export const THEME_APPEARANCE_MODE_STORAGE_KEY = "aprende:theme-appearance-mode";
+export const THEME_HALVES_STORAGE_KEY = "aprende:theme-halves:v1";
 
 const LEGACY_T3_CHAT_DARK_THEME_ID = "t3-chat-dark";
 

@@ -9,16 +9,16 @@ import {
   type ServerLifecycleWelcomePayload,
   type ServerProvider,
   type ServerSettings,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   AVAILABLE_CONNECTION_STATE,
   presentConnectionState,
   type EnvironmentPresentation,
-} from "@t3tools/client-runtime/connection";
-import { createServerEnvironmentAtoms } from "@t3tools/client-runtime/state/server";
-import { createOutdatedServerUpdateCommand } from "@t3tools/client-runtime/state/outdatedServerUpdate";
-import { createEnvironmentServerConfigsAtom } from "@t3tools/client-runtime/state/shell";
-import { mergeWithDefaultKeybindings } from "@t3tools/shared/keybindings";
+} from "@aprende/client-runtime/connection";
+import { createServerEnvironmentAtoms } from "@aprende/client-runtime/state/server";
+import { createOutdatedServerUpdateCommand } from "@aprende/client-runtime/state/outdatedServerUpdate";
+import { createEnvironmentServerConfigsAtom } from "@aprende/client-runtime/state/shell";
+import { mergeWithDefaultKeybindings } from "@aprende/shared/keybindings";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 

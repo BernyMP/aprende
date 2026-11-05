@@ -1,8 +1,8 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
-import { ProviderInstanceId } from "@t3tools/contracts";
-import { McpProviderSessions } from "@t3tools/provider-core/server/McpProviderSessions";
+import { ProviderInstanceId, TUTOR_MCP_TOOL_NAMES } from "@aprende/contracts";
+import { McpProviderSessions } from "@aprende/provider-core/server/McpProviderSessions";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { McpServer } from "effect/ai";
@@ -18,6 +18,7 @@ import * as McpHttpServer from "../mcp/McpHttpServer.ts";
 import { PreviewAutomationBroker } from "../mcp/PreviewAutomationBroker.ts";
 import {
   CLAUDE_PROVIDER,
+  CLAUDE_TUTOR_HIDDEN_MCP_TOOLS,
   makeClaudeQueryOptions,
 } from "../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
 import { OrchestratorV2 } from "../orchestration-v2/Orchestrator.ts";
@@ -94,7 +95,7 @@ const claudeSystemPrompt = () => {
     nativeThreadId: "context-budget",
     resume: false,
     cwd: null,
-    mcpServers: { "t3-code": { type: "http", url: "http://127.0.0.1/mcp" } },
+    mcpServers: { aprende: { type: "http", url: "http://127.0.0.1/mcp" } },
   });
   return typeof systemPrompt === "string" ? systemPrompt : "";
 };
@@ -105,13 +106,25 @@ const layerAdvertisedTools = McpHttpServer.layerTools.pipe(
 );
 
 // Claude Code loads these tools up front instead of behind ToolSearch, outside this budget.
-it.effect("no tool asks Claude Code to load it up front", () =>
+it.effect("only request_secret asks Claude Code to load it up front", () =>
   Effect.gen(function* () {
     const mcp = yield* McpServer.McpServer;
     const alwaysLoad = mcp.tools
       .filter(({ tool }) => tool._meta?.["anthropic/alwaysLoad"] !== undefined)
       .map(({ tool }) => [tool.name, tool._meta]);
-    expect(alwaysLoad).toEqual([]);
+    expect(alwaysLoad).toEqual([["request_secret", { "anthropic/alwaysLoad": true }]]);
+  }).pipe(Effect.provide(layerAdvertisedTools)),
+);
+
+it.effect("hides every tool but the tutor's from Claude tutor sessions", () =>
+  Effect.gen(function* () {
+    const mcp = yield* McpServer.McpServer;
+    const hidden = mcp.tools
+      .map(({ tool }) => tool.name)
+      .filter((name) => !TUTOR_MCP_TOOL_NAMES.includes(name))
+      .map((name) => `mcp__aprende__${name}`)
+      .toSorted();
+    expect([...CLAUDE_TUTOR_HIDDEN_MCP_TOOLS].toSorted()).toEqual(hidden);
   }).pipe(Effect.provide(layerAdvertisedTools)),
 );
 
@@ -126,11 +139,13 @@ it.effect("agent context matches the committed budget", () =>
       // The model sees these fields. outputSchema and annotations are protocol metadata.
       mcpToolListJsonBytes: utf8Bytes(
         JSON.stringify(
-          mcp.tools.map(({ tool }) => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-          })),
+          mcp.tools
+            .filter(({ tool }) => TUTOR_MCP_TOOL_NAMES.includes(tool.name))
+            .map(({ tool }) => ({
+              name: tool.name,
+              description: tool.description,
+              inputSchema: tool.inputSchema,
+            })),
         ),
       ),
     };

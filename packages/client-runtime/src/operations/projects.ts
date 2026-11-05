@@ -4,10 +4,10 @@ import type {
   ServerConfig,
   SourceControlDiscoveryResult,
   SourceControlRepositoryInfo,
-} from "@t3tools/contracts";
-import { SourceControlProviderKind } from "@t3tools/contracts";
-import { cloneUrlRepositoryPath } from "@t3tools/shared/cloneUrl";
-import { newProjectFolderName } from "@t3tools/shared/path";
+} from "@aprende/contracts";
+import { SourceControlProviderKind } from "@aprende/contracts";
+import { cloneUrlRepositoryPath } from "@aprende/shared/cloneUrl";
+import { newProjectFolderName } from "@aprende/shared/path";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
 import * as Order from "effect/Order";

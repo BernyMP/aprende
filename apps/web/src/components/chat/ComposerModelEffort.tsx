@@ -3,10 +3,10 @@ import {
   getDescriptorStringValue,
   isReasoningControl,
   selectableProviderOptionChoices,
-} from "@t3tools/client-runtime/model-traits";
-import type { ProviderOptionDescriptor, RuntimeMode } from "@t3tools/contracts";
-import type { EffortDisplay } from "@t3tools/contracts/settings";
-import { getProviderOptionCurrentLabel } from "@t3tools/shared/model";
+} from "@aprende/client-runtime/model-traits";
+import type { ProviderOptionDescriptor, RuntimeMode } from "@aprende/contracts";
+import type { EffortDisplay } from "@aprende/contracts/settings";
+import { getProviderOptionCurrentLabel } from "@aprende/shared/model";
 import { CheckIcon, ChevronRightIcon, ChevronUpIcon } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, use, useRef, useState } from "react";
 

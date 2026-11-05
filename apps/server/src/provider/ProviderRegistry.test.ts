@@ -36,13 +36,13 @@ import {
   ServerProvider,
   type ServerProviderSlashCommand,
   type ServerSettings as ContractServerSettings,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { deepMerge } from "@t3tools/shared/Struct";
-import { createModelCapabilities } from "@t3tools/shared/model";
-import { applyServerSettingsPatch } from "@t3tools/shared/serverSettings";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { deepMerge } from "@aprende/shared/Struct";
+import { createModelCapabilities } from "@aprende/shared/model";
+import { applyServerSettingsPatch } from "@aprende/shared/serverSettings";
 
 import { checkCodexProviderStatus, type CodexAppServerProviderSnapshot } from "./CodexProvider.ts";
 import { BUNDLED_CLAUDE_MODEL_CATALOG } from "./ClaudeModelCatalog.ts";
@@ -51,9 +51,9 @@ import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ModelManifest from "./ModelManifest.ts";
 import { applyProviderCompatibility } from "./providerCompatibility.ts";
 import * as ResetCreditCoordinator from "./resetCreditCoordinator.ts";
-import * as ProviderLatestVersions from "@t3tools/provider-core/server/ProviderLatestVersions";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import * as ProviderLatestVersions from "@aprende/provider-core/server/ProviderLatestVersions";
+import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
+import * as ProviderEventLoggers from "@aprende/provider-core/server/ProviderEventLoggers";
 import * as ProviderInstanceRegistryHydration from "./ProviderInstanceRegistryHydration.ts";
 import * as PortScanner from "../preview/PortScanner.ts";
 import * as ServerConfig from "../config.ts";
@@ -63,16 +63,16 @@ import {
   resolveProviderStatusCachePath,
   writeProviderStatusCache,
 } from "./providerStatusCache.ts";
-import { COMPACT_SLASH_COMMAND } from "@t3tools/provider-core/server/snapshotProbe";
+import { COMPACT_SLASH_COMMAND } from "@aprende/provider-core/server/snapshotProbe";
 import type {
   ProviderInstance,
   ProviderWorkspaceSnapshot,
-} from "@t3tools/provider-core/server/driver";
+} from "@aprende/provider-core/server/driver";
 import * as ProviderInstanceRegistry from "./ProviderInstanceRegistry.ts";
 import * as ProviderInstanceRegistryMutator from "./ProviderInstanceRegistryMutator.ts";
 import * as ProviderRegistry from "./ProviderRegistry.ts";
-import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
-import { makeManualOnlyProviderMaintenanceCapabilities } from "@t3tools/provider-core/server/maintenanceResolver";
+import { mergeProviderInstanceEnvironment } from "@aprende/provider-core/server/instanceEnvironment";
+import { makeManualOnlyProviderMaintenanceCapabilities } from "@aprende/provider-core/server/maintenanceResolver";
 vi.mock("@anthropic-ai/claude-agent-sdk", { spy: true });
 
 const decodeServerProvider = Schema.decodeSync(ServerProvider);
@@ -95,7 +95,7 @@ const defaultClaudeSettings: ClaudeSettings = Schema.decodeSync(ClaudeSettings)(
 const decodeCodexSettings = Schema.decodeSync(CodexSettings);
 const defaultCodexSettings: CodexSettings = Schema.decodeSync(CodexSettings)({});
 
-process.env.T3CODE_CURSOR_ENABLED = "1";
+process.env.APRENDE_CURSOR_ENABLED = "1";
 
 const encoder = new TextEncoder();
 const TEST_EPOCH = DateTime.makeUnsafe("1970-01-01T00:00:00.000Z");
@@ -482,7 +482,7 @@ it.layer(
       Effect.gen(function* () {
         if ((yield* HostProcess.Platform) === "win32") return;
         const codexHome = yield* FileSystem.FileSystem.pipe(
-          Effect.flatMap((fs) => fs.makeTempDirectoryScoped({ prefix: "t3-codex-home-" })),
+          Effect.flatMap((fs) => fs.makeTempDirectoryScoped({ prefix: "aprendex-home-" })),
         );
         const { binaryPath } = yield* writeFakeCodexCli(
           [
@@ -1062,7 +1062,7 @@ it.layer(
         }).pipe(
           Effect.provide(
             ServerConfig.layerTest(process.cwd(), {
-              prefix: "t3-codex-retired-model-cache-",
+              prefix: "aprendex-retired-model-cache-",
             }).pipe(Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
           ),
         ),
@@ -2059,7 +2059,7 @@ it.layer(
             status: "unchanged",
             finishedAt: "2026-04-14T00:01:30.000Z",
             message:
-              "Update command completed, but T3 Code still detects an outdated provider version.",
+              "Update command completed, but aprende still detects an outdated provider version.",
           } as const;
           yield* registry.setProviderMaintenanceActionState({
             instanceId: claudeInstanceId,
@@ -2194,8 +2194,8 @@ it.layer(
 
     it.effect("re-probes when settings change the codex binaryPath", () =>
       Effect.gen(function* () {
-        const firstMissing = `t3code_codex_first_`;
-        const secondMissing = `t3code_codex_second_`;
+        const firstMissing = `aprende_codex_first_`;
+        const secondMissing = `aprende_codex_second_`;
         const spawnedCommands: Array<string> = [];
         const secondProbeStarted = yield* Deferred.make<void>();
         const releaseSecondProbe = yield* Deferred.make<void>();

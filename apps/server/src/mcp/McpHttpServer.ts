@@ -19,7 +19,7 @@ import {
   PreviewAutomationError,
   ProviderInteractionMode,
   RuntimeMode,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
 import packageJson from "../../package.json" with { type: "json" };
 import { parseBearerToken } from "../auth/EnvironmentAuth.ts";
@@ -59,6 +59,14 @@ import {
 } from "./toolkits/device/tools.ts";
 import * as HtmlHandlers from "./toolkits/html/handlers.ts";
 import { HtmlPreviewTool, HtmlPreviewToolkit, HtmlRenderToolkit } from "./toolkits/html/tools.ts";
+import * as ThreadCommandExecutor from "../orchestration-v2/ThreadCommandExecutor.ts";
+import { PreviewControlsToolkit } from "./toolkits/previewControls/tools.ts";
+import * as PreviewControlsHandlers from "./toolkits/previewControls/handlers.ts";
+import { EnvironmentToolkit } from "./toolkits/environment/tools.ts";
+import * as EnvironmentHandlers from "./toolkits/environment/handlers.ts";
+import * as WorktreeHandlers from "./toolkits/worktree/handlers.ts";
+import { WorktreeToolkit } from "./toolkits/worktree/tools.ts";
+import * as WorktreeMcpService from "./WorktreeMcpService.ts";
 import * as LearnHandlers from "./toolkits/learn/handlers.ts";
 import { LearnToolkit } from "./toolkits/learn/tools.ts";
 import { requestUrl } from "../requestUrl.ts";
@@ -89,7 +97,7 @@ const unauthorized = (input: {
   return HttpServerResponse.jsonUnsafe(
     {
       error: "invalid_mcp_credential",
-      message: "A valid T3 Code MCP credential is required.",
+      message: "A valid aprende MCP credential is required.",
     },
     {
       status: 401,
@@ -108,7 +116,7 @@ export class McpClientAuthenticator extends Context.Service<
       request: HttpServerRequest.HttpServerRequest,
     ) => Effect.Effect<McpInvocationContext.McpInvocationScope | undefined>;
   }
->()("t3/mcp/McpHttpServer/McpClientAuthenticator") {}
+>()("aprende/mcp/McpHttpServer/McpClientAuthenticator") {}
 
 type AuthenticatedHttpEffect = Effect.Effect<
   HttpServerResponse.HttpServerResponse,
@@ -893,6 +901,21 @@ export const layerOrchestratorToolkit = toolkitRegistration(
 
 export const layerThreadToolkit = toolkitRegistration(ThreadToolkit, ThreadHandlers.layer);
 
+const layerWorktreeToolkitRegistration = toolkitRegistration(
+  WorktreeToolkit,
+  WorktreeHandlers.layer,
+).pipe(Layer.provide(WorktreeMcpService.layer));
+
+const layerPreviewControlsRegistration = toolkitRegistration(
+  PreviewControlsToolkit,
+  PreviewControlsHandlers.layer,
+);
+
+const layerEnvironmentToolkit = toolkitRegistration(
+  EnvironmentToolkit,
+  EnvironmentHandlers.layer,
+).pipe(Layer.provide(ThreadCommandExecutor.layer));
+
 export const layerProjectRegistration = toolkitRegistration(ProjectToolkit, ProjectHandlers.layer);
 
 export const layerAttachmentToolkit = toolkitRegistration(
@@ -941,7 +964,7 @@ export const layerInProcessMcpServer = McpServer.middleware<{
 
 export const layerMcpTransport = <RA, RE, RR>(registrations: Layer.Layer<RA, RE, RR>) =>
   McpServer.layerHttp({
-    name: "T3 Code",
+    name: "aprende",
     version: packageJson.version,
     path: "/mcp",
     protocols: [McpProtocol.v2025_06_18],
@@ -951,7 +974,23 @@ export const layerMcpTransport = <RA, RE, RR>(registrations: Layer.Layer<RA, RE,
 
 const layerLearnToolkit = toolkitRegistration(LearnToolkit, LearnHandlers.layer);
 
-/** Every tool the MCP server advertises to the tutor. AgentContextBudget.test.ts measures this set. */
-export const layerTools = Layer.mergeAll(layerLearnToolkit, layerHtmlToolkit);
+/**
+ * Every tool the MCP server advertises. The CLI and outside agents use all of them; tutor
+ * sessions see only TUTOR_MCP_TOOL_NAMES. AgentContextBudget.test.ts measures that subset.
+ */
+export const layerTools = Layer.mergeAll(
+  layerPreviewToolkit,
+  layerOrchestratorToolkit,
+  layerThreadToolkit,
+  layerAttachmentToolkit,
+  layerProjectRegistration,
+  layerEnvironmentToolkit,
+  layerPreviewControlsRegistration,
+  layerWorktreeToolkitRegistration,
+  layerPullRequestsToolkit,
+  layerDeviceToolkit,
+  layerHtmlToolkit,
+  layerLearnToolkit,
+);
 
 export const layer = layerMcpTransport(layerTools);

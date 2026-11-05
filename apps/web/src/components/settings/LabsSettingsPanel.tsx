@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/react";
 import { Link } from "@tanstack/react-router";
-import { managedCapabilityDenial } from "@t3tools/contracts";
+import { managedCapabilityDenial } from "@aprende/contracts";
 
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
 import { useT3ConnectAuthPrompt } from "../clerk/useT3ConnectAuthPrompt";
@@ -187,7 +187,7 @@ function SimlockHostsRow() {
           <Link to="/settings/devices" className="underline underline-offset-2">
             Devices
           </Link>
-          . An alpha that may change or break. T3 Code never installs Simlock.
+          . An alpha that may change or break. aprende never installs Simlock.
         </>
       }
       control={

@@ -1,4 +1,4 @@
-import { AuthEnvironmentMaintainScope } from "@t3tools/contracts";
+import { AuthEnvironmentMaintainScope } from "@aprende/contracts";
 
 import { usePrimaryCloudLinkState } from "~/cloud/cloudLinkState";
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";

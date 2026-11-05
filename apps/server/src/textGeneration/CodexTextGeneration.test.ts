@@ -3,8 +3,8 @@ import {
   ProviderDriverKind,
   type ModelSelection,
   type ServerProvider,
-} from "@t3tools/contracts";
-import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
+} from "@aprende/contracts";
+import type { ProviderInstance } from "@aprende/provider-core/server/driver";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as SourceControlProviderRegistry from "../sourceControl/SourceControlProviderRegistry.ts";
@@ -19,16 +19,16 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
-import { createModelSelection } from "@t3tools/shared/model";
+import { createModelSelection } from "@aprende/shared/model";
 import { expect } from "vite-plus/test";
 
-import { CodexSettings, ProviderInstanceId } from "@t3tools/contracts";
+import { CodexSettings, ProviderInstanceId } from "@aprende/contracts";
 
 import * as ServerConfig from "../config.ts";
 import { makeProcessProbe, processProbeSource } from "../testUtils/processProbe.ts";
 import * as TextGeneration from "./TextGeneration.ts";
 import { makeCodexTextGeneration } from "./CodexTextGeneration.ts";
-import { writeFakeCli } from "@t3tools/provider-testing/fakeCli";
+import { writeFakeCli } from "@aprende/provider-testing/fakeCli";
 const decodeCodexSettings = Schema.decodeSync(CodexSettings);
 
 const DEFAULT_TEST_MODEL_SELECTION = createModelSelection(
@@ -37,7 +37,7 @@ const DEFAULT_TEST_MODEL_SELECTION = createModelSelection(
 );
 
 const layerCodexTextGenerationTest = ServerConfig.ServerConfig.layerTest(process.cwd(), {
-  prefix: "t3code-codex-text-generation-test-",
+  prefix: "aprende-codex-text-generation-test-",
 }).pipe(Layer.provideMerge(NodeServices.layer));
 
 interface FakeCodexInput {
@@ -169,7 +169,7 @@ function withFakeCodexEnv<A, E, R>(
 ) {
   return Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3code-codex-text-" });
+    const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "aprende-codex-text-" });
     const codexPath = yield* makeFakeCodexBinary(tempDir, input);
     const config = decodeCodexSettings({ binaryPath: codexPath, launchArgs: input.launchArgs });
     const textGeneration = yield* makeCodexTextGeneration(

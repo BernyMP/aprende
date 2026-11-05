@@ -9,8 +9,8 @@ import {
   UsageLimitSourceConfig,
   isSecretReference,
   secretSettingsFields,
-} from "@t3tools/contracts";
-import { acpRegistryClient } from "@t3tools/provider-acp-registry/client";
+} from "@aprende/contracts";
+import { acpRegistryClient } from "@aprende/provider-acp-registry/client";
 import {
   readSecretFieldValues,
   SOURCE_CONTROL_HOST_SECRET_FIELDS,

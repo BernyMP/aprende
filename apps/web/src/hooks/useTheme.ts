@@ -1,6 +1,6 @@
 import { pipe } from "effect/Function";
-import type { DesktopBridge } from "@t3tools/contracts";
-import { safeErrorLogAttributes } from "@t3tools/client-runtime/errors";
+import type { DesktopBridge } from "@aprende/contracts";
+import { safeErrorLogAttributes } from "@aprende/client-runtime/errors";
 import * as Schema from "effect/Schema";
 import { useSyncExternalStore } from "react";
 import {
@@ -38,7 +38,7 @@ type ThemeSnapshot = {
 
 type DesktopThemeBridge = Pick<DesktopBridge, "setTheme">;
 
-const STORAGE_KEY = "t3code:theme";
+const STORAGE_KEY = "aprende:theme";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
 const DEFAULT_THEME_SNAPSHOT: ThemeSnapshot = {
   theme: "system",

@@ -1,4 +1,4 @@
-import { OrchestratorMcpFailure, type LearningError } from "@t3tools/contracts";
+import { OrchestratorMcpFailure, type LearningError } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 
 import * as LearningService from "../../../learning/LearningService.ts";

@@ -1,7 +1,7 @@
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
-import { type ToolActivityIcon } from "@t3tools/contracts";
-import { toolActivityFaviconUrl } from "@t3tools/shared/favicon";
-import { getProjectFaviconCacheKey } from "@t3tools/shared/projectFavicon";
+import { type ToolActivityIcon } from "@aprende/contracts";
+import { toolActivityFaviconUrl } from "@aprende/shared/favicon";
+import { getProjectFaviconCacheKey } from "@aprende/shared/projectFavicon";
 import { use, useState } from "react";
 import { AppMark } from "../AppMark";
 import {
@@ -51,7 +51,7 @@ export type WorkEntryIconName =
   | "square-pen"
   | "terminal"
   | "pull-request"
-  | "t3-code"
+  | "aprende"
   | "wrench"
   | "x"
   | "zap";
@@ -244,7 +244,7 @@ function WorkEntryIcon({ name, className }: { name: WorkEntryIconName; className
       return <Code2Icon className={className} aria-hidden />;
     case "device":
       return <SmartphoneIcon className={className} aria-hidden />;
-    case "t3-code":
+    case "aprende":
       return <AppMark className={className} aria-hidden />;
     case "check":
       return <CheckIcon className={className} aria-hidden />;

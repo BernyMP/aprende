@@ -4,7 +4,7 @@ import {
   latestUnheldRun,
   threadErrorSummary,
   usageLimitRunPresentedAsLatest,
-} from "@t3tools/shared/orchestrationV2ThreadError";
+} from "@aprende/shared/orchestrationV2ThreadError";
 import {
   isOrchestrationV2WorkActive,
   isProviderNativeSubagentThread,
@@ -19,13 +19,13 @@ import {
   orchestrationV2RunWorkStartedAt,
   type RunId,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import {
   backgroundWorkHoldsCompletion,
   derivePendingBackgroundWork,
-} from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
-import { getProviderOptionCurrentLabel, getProviderOptionStatedValue } from "@t3tools/shared/model";
-import { formatDuration } from "@t3tools/shared/orchestrationTiming";
+} from "@aprende/shared/orchestrationV2PendingBackgroundWork";
+import { getProviderOptionCurrentLabel, getProviderOptionStatedValue } from "@aprende/shared/model";
+import { formatDuration } from "@aprende/shared/orchestrationTiming";
 import * as DateTime from "effect/DateTime";
 
 import {

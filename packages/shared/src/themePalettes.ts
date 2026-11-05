@@ -1,6 +1,6 @@
 export const BUILT_IN_THEME_IDS = ["t3-chat", "grove", "ocean", "ember", "iris"] as const;
 
-const MOBILE_DEFAULT_THEME_ID = "t3-code";
+const MOBILE_DEFAULT_THEME_ID = "aprende";
 
 const MOBILE_THEME_IDS = [MOBILE_DEFAULT_THEME_ID, ...BUILT_IN_THEME_IDS] as const;
 

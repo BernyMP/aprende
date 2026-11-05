@@ -13,8 +13,8 @@ import { DEVELOPMENT_ICON_OVERRIDES } from "../../../scripts/lib/brand-assets.ts
 import { findEsmImportsOfExternalPackages } from "../../../scripts/lib/cli-executable-imports.ts";
 import { injectLinuxArm64Sea } from "../../../scripts/lib/linux-arm64-sea.ts";
 import rootPackageJson from "../../../package.json" with { type: "json" };
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { resolveSpawnCommand } from "@aprende/shared/shell";
 import {
   ServerCliBuildAssetMissingError,
   ServerCliCommandExitError,
@@ -132,8 +132,8 @@ const buildExeCmd = Command.make(
           cwd: serverDir,
           env: {
             ...process.env,
-            T3CODE_PACK_EXE: linuxArm64 ? "bundle" : "1",
-            T3CODE_PACK_EXE_TARGET: target ?? "",
+            APRENDE_PACK_EXE: linuxArm64 ? "bundle" : "1",
+            APRENDE_PACK_EXE_TARGET: target ?? "",
           },
           stdout: config.verbose ? "inherit" : "ignore",
           stderr: "inherit",
@@ -151,13 +151,13 @@ const buildExeCmd = Command.make(
       if (linuxArm64) {
         yield* injectLinuxArm64Sea({
           bundlePath,
-          outputPath: path.join(serverDir, "dist-exe/t3"),
+          outputPath: path.join(serverDir, "dist-exe/aprende"),
           nodeVersion: rootPackageJson.engines.node,
           verbose: config.verbose,
         });
       }
       yield* Effect.log(
-        "[cli] Built dist-exe/t3 (expects client/, resource-monitor/, and the runtime-external node_modules beside it)",
+        "[cli] Built dist-exe/aprende (expects client/, resource-monitor/, and the runtime-external node_modules beside it)",
       );
     }),
 ).pipe(

@@ -5,7 +5,7 @@ import { cachedTestTasks } from "./scripts/lib/cached-tests.ts";
 
 const TEST_EXCLUDE = [
   "**/.repos/**",
-  "**/.t3/**",
+  "**/.aprende/**",
   "**/node_modules/**",
   "**/dist/**",
   "**/dist-electron/**",
@@ -14,12 +14,7 @@ const TEST_EXCLUDE = [
 
 // Directories whose tests belong to a package's own test config. desktop also
 // owns the kde-snap-shot tests through its `include`.
-const TEST_CONFIG_PACKAGES = [
-  "apps/desktop",
-  "apps/server",
-  "apps/web",
-  "packages/client-runtime",
-];
+const TEST_CONFIG_PACKAGES = ["apps/desktop", "apps/server", "apps/web", "packages/client-runtime"];
 
 // `vp test run <file>` from the repo root hands each file to its package's
 // config. Packages that borrow this config (`--config ../../vite.config.ts`) run
@@ -28,9 +23,9 @@ const isRepoRootTestRun = process.cwd() === import.meta.dirname;
 
 const RESTRICTED_IMPORT_PATHS = [
   {
-    name: "@t3tools/client-runtime",
+    name: "@aprende/client-runtime",
     message:
-      "Import from an explicit @t3tools/client-runtime/* subpath. The package has no root export.",
+      "Import from an explicit @aprende/client-runtime/* subpath. The package has no root export.",
   },
   {
     name: "@pierre/diffs/react",
@@ -182,7 +177,7 @@ export default defineConfig({
       "apps/server/schema/**",
     ],
     plugins: ["eslint", "oxc", "react", "unicorn", "typescript"],
-    jsPlugins: ["./oxlint-plugin-t3code/index.ts", "@shadcn/lint"],
+    jsPlugins: ["./oxlint-plugin-aprende/index.ts", "@shadcn/lint"],
     settings: {
       shadcn: { ui: "~/components/ui" },
     },
@@ -254,25 +249,25 @@ export default defineConfig({
         "error",
         { paths: [...RESTRICTED_IMPORT_PATHS, RESTRICTED_PULL_REQUEST_GLYPH_IMPORTS] },
       ],
-      "t3code/no-global-process-runtime": "error",
-      "t3code/no-inline-schema-compile": "error",
-      "t3code/no-low-value-comments": "error",
-      "t3code/no-manual-effect-runtime-in-tests": "error",
-      "t3code/no-native-title-tooltip": "error",
+      "aprende/no-global-process-runtime": "error",
+      "aprende/no-inline-schema-compile": "error",
+      "aprende/no-low-value-comments": "error",
+      "aprende/no-manual-effect-runtime-in-tests": "error",
+      "aprende/no-native-title-tooltip": "error",
       // Test files only (the rule checks the filename).
-      "t3code/no-polling-loop-in-tests": "error",
-      "t3code/no-raw-mcp-registration": "error",
-      "t3code/no-real-time-wait-in-tests": "error",
-      "t3code/no-test-in-loop": "error",
-      "t3code/no-test-timeout-or-unreasoned-skip": "error",
-      "t3code/no-rpc-permission-bypass": ["error", { allowRawClientAccess: true }],
-      "t3code/no-unscoped-has": "error",
-      "t3code/no-wall-clock-in-tests": "error",
-      "t3code/namespace-node-imports": "error",
-      "t3code/prefer-catch-tags": "error",
-      "t3code/prefer-effect-fn": "error",
-      "t3code/require-centered-scroll-gutter": "error",
-      "t3code/require-suppression-reason": "error",
+      "aprende/no-polling-loop-in-tests": "error",
+      "aprende/no-raw-mcp-registration": "error",
+      "aprende/no-real-time-wait-in-tests": "error",
+      "aprende/no-test-in-loop": "error",
+      "aprende/no-test-timeout-or-unreasoned-skip": "error",
+      "aprende/no-rpc-permission-bypass": ["error", { allowRawClientAccess: true }],
+      "aprende/no-unscoped-has": "error",
+      "aprende/no-wall-clock-in-tests": "error",
+      "aprende/namespace-node-imports": "error",
+      "aprende/prefer-catch-tags": "error",
+      "aprende/prefer-effect-fn": "error",
+      "aprende/require-centered-scroll-gutter": "error",
+      "aprende/require-suppression-reason": "error",
     },
     overrides: [
       {
@@ -281,23 +276,23 @@ export default defineConfig({
           "**/{test,tests,testkit,testing,fixtures,integration}/**",
           "packages/provider-testing/**",
         ],
-        rules: { "t3code/prefer-effect-fn": "off" },
+        rules: { "aprende/prefer-effect-fn": "off" },
       },
       {
         files: ["apps/web/**/*.test.{ts,tsx}"],
-        rules: { "t3code/require-disposable-render": "error" },
+        rules: { "aprende/require-disposable-render": "error" },
       },
       {
         files: ["apps/web/src/**/*.browser.test.{ts,tsx}"],
-        rules: { "t3code/no-frame-waits-in-browser-tests": "error" },
+        rules: { "aprende/no-frame-waits-in-browser-tests": "error" },
       },
       {
         files: ["apps/**/src/**", "packages/**/src/**"],
-        rules: { "t3code/no-dom-test-environment": "error" },
+        rules: { "aprende/no-dom-test-environment": "error" },
       },
       {
         files: ["packages/client-runtime/src/state/**", "apps/{web,desktop}/src/**"],
-        rules: { "t3code/no-rpc-permission-bypass": ["error", { allowRawClientAccess: false }] },
+        rules: { "aprende/no-rpc-permission-bypass": ["error", { allowRawClientAccess: false }] },
       },
       {
         files: [
@@ -305,7 +300,7 @@ export default defineConfig({
           "packages/client-runtime/src/state/vcsAction.ts",
         ],
         rules: {
-          "t3code/no-rpc-permission-bypass": [
+          "aprende/no-rpc-permission-bypass": [
             "error",
             { allowGuardInstallation: true, allowRawClientAccess: false },
           ],
@@ -317,34 +312,34 @@ export default defineConfig({
           "apps/web/src/components/device/DevicePhoneViewport.tsx",
           "apps/web/src/components/device/DeviceDuoViewport.tsx",
         ],
-        rules: { "t3code/no-rpc-permission-bypass": ["error", { allowRawClientAccess: true }] },
+        rules: { "aprende/no-rpc-permission-bypass": ["error", { allowRawClientAccess: true }] },
       },
       {
         files: ["packages/client-runtime/src/connection/outdatedHostUpdate.ts"],
-        rules: { "t3code/no-rpc-permission-bypass": "off" },
+        rules: { "aprende/no-rpc-permission-bypass": "off" },
       },
       {
         files: [
           "packages/client-runtime/src/rpc/**",
           "**/*.{test,spec}.{ts,tsx,js,jsx,mts,cts,mjs,cjs}",
         ],
-        rules: { "t3code/no-rpc-permission-bypass": "off" },
+        rules: { "aprende/no-rpc-permission-bypass": "off" },
       },
       {
         files: ["packages/shared/src/HostProcess.ts"],
-        rules: { "t3code/no-global-process-runtime": "off" },
+        rules: { "aprende/no-global-process-runtime": "off" },
       },
       {
-        // The `t3` npm launcher is published as plain, dependency-free Node.
+        // The `aprende` npm launcher is published as plain, dependency-free Node.
         files: ["scripts/npm-launcher/**"],
         rules: {
-          "t3code/no-global-process-runtime": "off",
-          "t3code/namespace-node-imports": "off",
+          "aprende/no-global-process-runtime": "off",
+          "aprende/namespace-node-imports": "off",
         },
       },
       {
         files: ["apps/server/src/mcp/McpHttpServer.ts"],
-        rules: { "t3code/no-raw-mcp-registration": "off" },
+        rules: { "aprende/no-raw-mcp-registration": "off" },
       },
       {
         files: ["apps/web/src/**"],
@@ -381,16 +376,16 @@ export default defineConfig({
                     "expo",
                     "expo-*",
                     "lucide-react",
-                    "@t3tools/client-runtime",
-                    "@t3tools/client-runtime/*",
+                    "@aprende/client-runtime",
+                    "@aprende/client-runtime/*",
                     "../client/*",
                     "../server/*",
                     "../../client/*",
                     "../../server/*",
                     "../../../client/*",
                     "../../../server/*",
-                    "@t3tools/source-control-*/client/*",
-                    "@t3tools/source-control-*/server/*",
+                    "@aprende/source-control-*/client/*",
+                    "@aprende/source-control-*/server/*",
                   ],
                   message:
                     "Shared forge definitions load on the server and every client; keep UI and server code out.",
@@ -410,7 +405,7 @@ export default defineConfig({
               patterns: [
                 {
                   group: [
-                    "@t3tools/source-control-*/client/*",
+                    "@aprende/source-control-*/client/*",
                     "../client/*",
                     "../../client/*",
                     "../../../client/*",
@@ -430,7 +425,7 @@ export default defineConfig({
           "apps/web/src/lib/observeResize.ts",
           "**/*.{test,spec}.{ts,tsx,js,jsx,mts,cts,mjs,cjs}",
         ],
-        rules: { "t3code/no-raw-resize-observer": "error" },
+        rules: { "aprende/no-raw-resize-observer": "error" },
       },
       {
         files: ["apps/web/src/**"],
@@ -438,7 +433,7 @@ export default defineConfig({
       },
       {
         files: ["apps/web/src/**"],
-        rules: { "t3code/no-outset-state-indicators": "error" },
+        rules: { "aprende/no-outset-state-indicators": "error" },
       },
       {
         files: ["apps/*/src/**", "packages/*/src/**"],
@@ -447,7 +442,7 @@ export default defineConfig({
           "**/testkit/**",
           "**/_generated/**",
         ],
-        rules: { "t3code/no-em-dash-copy": "error" },
+        rules: { "aprende/no-em-dash-copy": "error" },
       },
       {
         files: ["apps/web/src/**"],
@@ -513,7 +508,7 @@ export default defineConfig({
           "react/jsx-no-constructed-context-values": "off",
           "react/memo-dependencies": "error",
           "react/preserve-manual-memoization": "error",
-          // Render-time clock reads use @t3tools/client-runtime/clock or state seeded with the
+          // Render-time clock reads use @aprende/client-runtime/clock or state seeded with the
           // time; any other read carries a suppression that says why. oxlint also flags time reads
           // inside event handlers (oxc#27309); those suppressions cite it.
           "react/purity": "error",
@@ -522,18 +517,18 @@ export default defineConfig({
           "react/set-state-in-render": "error",
           "react/static-components": "error",
           "react/unsupported-syntax": "error",
-          "t3code/no-manual-memo": "error",
+          "aprende/no-manual-memo": "error",
         },
       },
       {
         files: ["apps/web/src/**", "packages/*/src/**"],
-        rules: { "t3code/no-unreasoned-state-sync": "error" },
+        rules: { "aprende/no-unreasoned-state-sync": "error" },
       },
       {
         // React Compiler caches use* functions only if they call a hook.
         files: ["apps/web/src/**/*.{ts,tsx}"],
         excludeFiles: ["**/*.test.ts", "**/*.test.tsx"],
-        rules: { "t3code/no-hookless-use-function": "error" },
+        rules: { "aprende/no-hookless-use-function": "error" },
       },
     ],
     options: {

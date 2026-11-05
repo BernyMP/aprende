@@ -1,4 +1,4 @@
-import type { LearningThreadState, ScopedThreadRef } from "@t3tools/contracts";
+import type { LearningThreadState, ScopedThreadRef } from "@aprende/contracts";
 
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";

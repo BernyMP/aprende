@@ -10,17 +10,17 @@ import {
   type DeviceSummary,
   type ServerSettings as Settings,
   type SshDeviceHostConfig,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as NetService from "@t3tools/shared/Net";
-import { SshCommandError } from "@t3tools/ssh/errors";
+import * as NetService from "@aprende/shared/Net";
+import { SshCommandError } from "@aprende/ssh/errors";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
-import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretResolver";
+import * as SecretResolver from "@aprende/secret-provider-core/server/SecretResolver";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as PubSub from "effect/PubSub";
@@ -36,7 +36,7 @@ import * as ProcessRunner from "../processRunner.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as DeviceHost from "./DeviceHost.ts";
 import { makeDeviceHubOperations } from "./DeviceHubOperations.ts";
-import { NodeRuntimeUnavailableError } from "@t3tools/shared/nodeRuntime";
+import { NodeRuntimeUnavailableError } from "@aprende/shared/nodeRuntime";
 
 import * as DeviceService from "./DeviceService.ts";
 import * as SshDeviceHost from "./SshDeviceHost.ts";
@@ -371,14 +371,14 @@ describe("device setup consent", () => {
       exitCode: 1,
       stderr: "private diagnostics",
       expected:
-        "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run T3 Code on it and connect to that environment.",
+        "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run aprende on it and connect to that environment.",
     },
     {
       name: "a Windows host returning 9009",
       exitCode: 9009,
       stderr: "private diagnostics",
       expected:
-        "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run T3 Code on it and connect to that environment.",
+        "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run aprende on it and connect to that environment.",
     },
     {
       name: "missing Node on a Windows host with a POSIX shell",
@@ -651,12 +651,12 @@ it.effect.each([1, 9009])(
         hostId: "windows",
         hostLabel: "Windows test",
         reason:
-          "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run T3 Code on it and connect to that environment.",
+          "Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run aprende on it and connect to that environment.",
       });
       const codec = Schema.fromJsonString(DeviceError);
       const decoded = yield* Schema.decodeEffect(codec)(yield* Schema.encodeEffect(codec)(error));
       expect(decoded.message).toBe(
-        "Windows test is unavailable: Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run T3 Code on it and connect to that environment.",
+        "Windows test is unavailable: Connected over SSH, but this host runs Windows, and SSH device hosts currently need macOS or Linux. To use this machine's devices, run aprende on it and connect to that environment.",
       );
       expect(decoded.message).not.toContain("private SSH diagnostics");
     }).pipe(

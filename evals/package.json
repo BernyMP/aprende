@@ -1,5 +1,5 @@
 {
-  "name": "@t3tools/evals",
+  "name": "@aprende/evals",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,10 +12,10 @@
     "test": "vp test run --config ../vite.config.ts --dir ."
   },
   "dependencies": {
+    "@aprende/contracts": "workspace:*",
+    "@aprende/provider-core": "workspace:*",
+    "@aprende/shared": "workspace:*",
     "@effect/platform-node": "catalog:",
-    "@t3tools/contracts": "workspace:*",
-    "@t3tools/provider-core": "workspace:*",
-    "@t3tools/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

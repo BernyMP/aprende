@@ -22,9 +22,9 @@ import {
   type OrchestrationV2DomainEvent,
   type OrchestrationV2ProviderThread,
   type OrchestrationV2TurnItem,
-} from "@t3tools/contracts";
-import { normalizeProjectPathForComparison } from "@t3tools/shared/path";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+} from "@aprende/contracts";
+import { normalizeProjectPathForComparison } from "@aprende/shared/path";
+import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -34,7 +34,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import * as EventSink from "../orchestration-v2/EventSink.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import * as Orchestrator from "../orchestration-v2/Orchestrator.ts";
 import * as ProviderSessionRuntime from "../persistence/ProviderSessionRuntime.ts";
 import * as ServerSettings from "../serverSettings.ts";
@@ -458,6 +458,6 @@ type AgentSessionImporterShape = Effect.Success<typeof make>;
 export class AgentSessionImporter extends Context.Service<
   AgentSessionImporter,
   AgentSessionImporterShape
->()("t3/project/AgentSessionImporter") {}
+>()("aprende/project/AgentSessionImporter") {}
 
 export const layer = Layer.effect(AgentSessionImporter, make);

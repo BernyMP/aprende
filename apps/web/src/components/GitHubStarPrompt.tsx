@@ -1,5 +1,5 @@
-import { type EnvironmentId, SourceControlProviderKind } from "@t3tools/contracts";
-import { runAtomCommand } from "@t3tools/client-runtime/state/runtime";
+import { type EnvironmentId, SourceControlProviderKind } from "@aprende/contracts";
+import { runAtomCommand } from "@aprende/client-runtime/state/runtime";
 import * as Schema from "effect/Schema";
 import { StarIcon } from "lucide-react";
 
@@ -10,9 +10,9 @@ import { sourceControlEnvironment } from "../state/sourceControl";
 import { toastManager } from "./ui/toast";
 
 // Separate keys so a count written by another tab can never undo a dismissal.
-const SENT_KEY = "t3code:github-star-prompt:sent";
-const DISMISSED_KEY = "t3code:github-star-prompt:dismissed";
-const REPOSITORY = "pingdotgg/t3code";
+const SENT_KEY = "aprende:github-star-prompt:sent";
+const DISMISSED_KEY = "aprende:github-star-prompt:dismissed";
+const REPOSITORY = "BernyMP/aprende";
 const PROMPTS_BEFORE_ASKING = 5;
 const IDLE_MS = 30_000;
 // User-driven actions (send, navigate, type, scroll) start with one of these; touch fires pointerdown.
@@ -43,7 +43,7 @@ function showStarPrompt(environmentId: EnvironmentId) {
       toastManager.update(id, {
         type: "success",
         title: "Thanks for the star!",
-        description: "It really helps T3 Code grow.",
+        description: "It really helps aprende grow.",
         timeout: 5_000,
         actionProps: undefined,
         data: {},
@@ -57,7 +57,7 @@ function showStarPrompt(environmentId: EnvironmentId) {
     toastManager.update(id, { actionProps: { children: "Open GitHub", onClick: openInBrowser } });
   };
   const id = toastManager.add({
-    title: "Enjoying T3 Code?",
+    title: "Enjoying aprende?",
     description: "Give us a star on GitHub to let us know!",
     timeout: 0,
     onClose: dismiss,

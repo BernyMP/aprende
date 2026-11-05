@@ -26,7 +26,7 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk/sdk-tools";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { toolOutputImages } from "@t3tools/shared/toolOutput";
+import { toolOutputImages } from "@aprende/shared/toolOutput";
 import {
   ChatAttachmentId,
   type ChatAttachment,
@@ -52,8 +52,8 @@ import {
   RunAttemptId,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
-import { mcpAppFromToolItem } from "@t3tools/shared/toolOutput";
+} from "@aprende/contracts";
+import { mcpAppFromToolItem } from "@aprende/shared/toolOutput";
 import { assert, describe, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
@@ -73,27 +73,27 @@ import * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
 import { Tool } from "effect/ai";
-import { formatClaudeResumeCompactionQuestion } from "@t3tools/shared/claudeCompaction";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
-import { SpawnExecutableResolution } from "@t3tools/shared/shell";
+import { formatClaudeResumeCompactionQuestion } from "@aprende/shared/claudeCompaction";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { getModelSelectionStringOptionValue } from "@aprende/shared/model";
+import { SpawnExecutableResolution } from "@aprende/shared/shell";
 
 import * as PortScanner from "../../preview/PortScanner.ts";
 import { attachmentRelativePath } from "../../attachmentStore.ts";
 import { WorkflowAgentTranscriptReadObserver } from "../workflowAgentTranscript.ts";
 import * as ServerConfig from "../../config.ts";
-import * as McpProviderSession from "@t3tools/provider-core/server/mcpSession";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import * as McpProviderSession from "@aprende/provider-core/server/mcpSession";
+import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
 import { HtmlToolkit } from "../../mcp/toolkits/html/tools.ts";
 import { LearnToolkit } from "../../mcp/toolkits/learn/tools.ts";
 import { DEFAULT_TUTOR_PROMPT } from "../../learning/tutorPrompt.ts";
 import { ClaudeExecutableFileCheck } from "../../provider/Drivers/ClaudeExecutable.ts";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
-import type * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
-import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
+import * as ProviderEventLoggers from "@aprende/provider-core/server/ProviderEventLoggers";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
+import type * as ProviderContinuationRequests from "@aprende/provider-core/server/ProviderContinuationRequests";
+import { makeProviderFailure } from "@aprende/provider-core/server/failure";
 import * as ClaudeAdapterV2 from "./ClaudeAdapterV2.ts";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import { ClaudeOrchestratorReplayHarness } from "./ClaudeAdapterV2.testkit.ts";
 import { provideDeterministicTestRuntime } from "../testkit/DeterministicRuntime.ts";
 import { runOrchestratorV2Scenario } from "../testkit/OrchestratorScenario.ts";
@@ -498,7 +498,7 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
 
 describe("ClaudeAdapterV2 MCP query overrides", () => {
   const T3_MCP_SERVERS = {
-    "t3-code": {
+    aprende: {
       type: "http",
       url: "http://127.0.0.1:43123/mcp",
       headers: {
@@ -521,7 +521,7 @@ describe("ClaudeAdapterV2 MCP query overrides", () => {
     browserToolsAvailable: true,
   });
 
-  it("pre-approves only read-only t3-code tools in a read-only sandbox", () => {
+  it("pre-approves only read-only aprende tools in a read-only sandbox", () => {
     const threadId = ThreadId.make("thread-claude-mcp-read-only");
     const mcpSession = mcpSessionFor(threadId);
     const overrides = ClaudeAdapterV2.claudeMcpQueryOverrides({
@@ -571,7 +571,7 @@ describe("ClaudeAdapterV2 MCP query overrides", () => {
       ...Object.values(HtmlToolkit.tools),
     ]
       .filter((tool) => Context.get(tool.annotations, Tool.Readonly))
-      .map((tool) => `mcp__t3-code__${tool.name}`)
+      .map((tool) => `mcp__aprende__${tool.name}`)
       .sort();
 
     assert.deepEqual(
@@ -600,9 +600,9 @@ describe("ClaudeAdapterV2 native protocol logging", () => {
       allowedTools: ["Read"],
     });
     assert.deepEqual(overrides, {
-      allowedTools: ["Read", "mcp__t3-code__*"],
+      allowedTools: ["Read", "mcp__aprende__*"],
       mcpServers: {
-        "t3-code": {
+        aprende: {
           type: "http",
           url: "http://127.0.0.1:43123/mcp",
           headers: {
@@ -2605,7 +2605,7 @@ describe("ClaudeAdapterV2 MCP credential channel", () => {
             resume: false,
             cwd: null,
             environment: { PATH: "/usr/bin" },
-            mcpServers: { "t3-code": t3McpServer },
+            mcpServers: { aprende: t3McpServer },
           }),
           pathToClaudeCodeExecutable: "/opt/claude/cli.js",
           spawnClaudeCodeProcess: cli.spawn,
@@ -2654,7 +2654,7 @@ describe("ClaudeAdapterV2 MCP credential channel", () => {
 
       assert.deepInclude(cli.controlRequests, {
         subtype: "mcp_set_servers",
-        servers: { "t3-code": t3McpServer },
+        servers: { aprende: t3McpServer },
       });
       assert.deepInclude(
         cli.controlRequests.find((request) => Reflect.get(request, "subtype") === "initialize"),

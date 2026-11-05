@@ -1,6 +1,6 @@
 import { it as effectIt } from "@effect/vitest";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { parseKeybindingShortcut } from "@t3tools/shared/keybindings";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { parseKeybindingShortcut } from "@aprende/shared/keybindings";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -255,7 +255,7 @@ describe("findAccessibleWindow", () => {
   };
 
   const chromeCapture = {
-    title: "Issues · pingdotgg/t3code",
+    title: "Issues · BernyMP/aprende",
     bounds: captured.bounds,
     platform: "darwin" as const,
     bundleId: "com.google.Chrome",
@@ -429,8 +429,8 @@ describe("findAccessibleWindow", () => {
   });
 
   it.each([
-    ["⠋ t3code", "t3code"],
-    ["t3code", "⠙ t3code"],
+    ["⠋ aprende", "aprende"],
+    ["aprende", "⠙ aprende"],
   ])("matches a Wayland spinner starting or stopping: %s → %s", (title, name) => {
     const windows = [{ name, bounds: captured.bounds }];
 
@@ -438,10 +438,10 @@ describe("findAccessibleWindow", () => {
   });
 
   it.each([
-    ["⠋ t3code", "⠙ private"],
-    ["t3code ⠋", "t3code ⠙"],
-    ["⠋t3code", "⠙t3code"],
-    ["⠁ t3code", "⠙ t3code"],
+    ["⠋ aprende", "⠙ private"],
+    ["aprende ⠋", "aprende ⠙"],
+    ["⠋aprende", "⠙aprende"],
+    ["⠁ aprende", "⠙ aprende"],
     ["⠋", "⠋"],
   ])("does not guess a Wayland title match: %s → %s", (title, name) => {
     expect(

@@ -4,7 +4,7 @@ import {
   type AuthSessionState,
   managedUpdatesDenial,
   sessionGrantsScope,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import type { AsyncResult } from "effect/reactivity";
 import { environmentSession } from "~/state/session";
 import type {
@@ -12,13 +12,13 @@ import type {
   EnvironmentId,
   ServerInstallation,
   ServerSelfUpdateCapability,
-} from "@t3tools/contracts";
-import type { ServerUpdateStage, ServerUpdateState } from "@t3tools/client-runtime/state/server";
+} from "@aprende/contracts";
+import type { ServerUpdateStage, ServerUpdateState } from "@aprende/client-runtime/state/server";
 import {
   isAtomCommandInterrupted,
   settlePromise,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/state/runtime";
 import { CircleArrowUpIcon } from "lucide-react";
 import { type ComponentProps, useRef, useState } from "react";
 
@@ -32,7 +32,7 @@ import { useManagedPolicy } from "~/state/managedPolicy";
 import { environmentPresentations } from "~/state/presentation";
 import { ManagedControl } from "./ManagedPolicy";
 import { manualServerUpdateCommand } from "~/versionSkew";
-import { crossesReleaseTrack } from "@t3tools/shared/cliRelease";
+import { crossesReleaseTrack } from "@aprende/shared/cliRelease";
 import { Button } from "./ui/button";
 import { toastManager } from "./ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
@@ -162,7 +162,7 @@ export function useServerUpdate() {
         description:
           selfUpdate === "desktop-managed"
             ? `Desktop app relaunched on ${result.value.targetVersion}.`
-            : `Reconnected on t3@${result.value.targetVersion}.`,
+            : `Reconnected on aprende@${result.value.targetVersion}.`,
       });
     }
     return { status: "updated" };
@@ -201,7 +201,7 @@ export function ServerUpdatesAction({
       if (desktopTargets.length > 0) {
         const confirmed =
           (await requestConfirmDialog(
-            `Update the T3 Code desktop apps on ${desktopTargets.map((target) => target.serverLabel).join(", ")}? They will close and relaunch on those machines.`,
+            `Update the aprende desktop apps on ${desktopTargets.map((target) => target.serverLabel).join(", ")}? They will close and relaunch on those machines.`,
           )) ?? true;
         if (!confirmed) return;
       }
@@ -307,7 +307,7 @@ export function ServerUpdateAction({
     if (isDesktopAppUpdate) {
       const confirmed =
         (await requestConfirmDialog(
-          `Update the T3 Code desktop app that runs the ${serverLabel}? It will close and relaunch on that machine.`,
+          `Update the aprende desktop app that runs the ${serverLabel}? It will close and relaunch on that machine.`,
         )) ?? true;
       if (!confirmed) {
         return;
@@ -431,7 +431,7 @@ export function OutdatedServerUpdateAction({
     toastManager.add({
       type: "success",
       title: `${serverLabel} updated`,
-      description: `Reconnected on t3@${result.value.targetVersion}.`,
+      description: `Reconnected on aprende@${result.value.targetVersion}.`,
     });
   };
   if (fromVersion !== undefined && crossesReleaseTrack(fromVersion, targetVersion)) {

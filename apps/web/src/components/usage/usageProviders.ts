@@ -1,6 +1,6 @@
-import type { UsageProviderKind } from "@t3tools/contracts";
+import type { UsageProviderKind } from "@aprende/contracts";
 
-import { ProviderDriverKind } from "@t3tools/contracts";
+import { ProviderDriverKind } from "@aprende/contracts";
 
 type UsageProviderPresentation = {
   readonly label: string;

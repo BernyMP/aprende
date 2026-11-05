@@ -5,9 +5,9 @@ import {
   normalizeDevinToolCall,
   extractDevinSubagentUpdate,
   makeAcpRegistryAdapterV2,
-} from "@t3tools/provider-acp-registry/testing";
-import { AcpRegistrySettings } from "@t3tools/provider-acp-registry/settings";
-import { AcpRegistryCatalog } from "@t3tools/provider-acp-registry/server/AcpRegistrySupport";
+} from "@aprende/provider-acp-registry/testing";
+import { AcpRegistrySettings } from "@aprende/provider-acp-registry/settings";
+import { AcpRegistryCatalog } from "@aprende/provider-acp-registry/server/AcpRegistrySupport";
 import { decodeAcpReplayTranscript, makeAcpReplayRuntime } from "./AcpAdapterV2.testkit.ts";
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodeFS from "node:fs";
@@ -29,10 +29,10 @@ import {
   type OrchestrationV2TurnItem,
   type ProviderOptionDescriptor,
   type ProviderUserInputAnswers,
-} from "@t3tools/contracts";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { deriveBlockedOnThreadWait } from "@t3tools/shared/orchestrationV2PendingBackgroundWork";
-import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
+} from "@aprende/contracts";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { deriveBlockedOnThreadWait } from "@aprende/shared/orchestrationV2PendingBackgroundWork";
+import { resolveSelfInvocation } from "@aprende/shared/nodeRuntime";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
@@ -55,18 +55,18 @@ import * as EffectAcpErrors from "effect-acp/errors";
 import type * as EffectAcpProtocol from "effect-acp/protocol";
 import type * as EffectAcpSchema from "effect-acp/compat";
 
-import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
+import * as TestProviderHost from "@aprende/provider-testing/TestProviderHost";
+import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
+import * as AcpSessionRuntime from "@aprende/provider-acp/server/AcpSessionRuntime";
 import {
   ACP_EMPTY_OPTION_VALUE,
   ACP_SESSION_MODE_OPTION_ID,
   acpProviderOptionDescriptors,
-} from "@t3tools/provider-acp/server/sessionConfig";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+} from "@aprende/provider-acp/server/sessionConfig";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
 import { makeTurnInput } from "./AcpAdapterV2.testkit.ts";
-import type * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
+import type * as ProviderContinuationRequests from "@aprende/provider-core/server/ProviderContinuationRequests";
 import {
   AcpProviderCapabilitiesV2,
   acpPerTurnPromptUsage,
@@ -79,14 +79,14 @@ import {
   type AcpAdapterV2Flavor,
   type AcpAdapterV2RuntimeInput,
   type AcpAdapterV2SubagentUpdate,
-} from "@t3tools/provider-acp/server/adapter";
+} from "@aprende/provider-acp/server/adapter";
 
 import { appendUserInputAttachmentPaths } from "../../provider/userInputAttachments.ts";
 
 import {
   acpRegistryPromptFailure,
   registerMistralVibeAcpExtensions,
-} from "@t3tools/provider-acp-registry/testing";
+} from "@aprende/provider-acp-registry/testing";
 
 const DROID_SETTINGS = Schema.decodeSync(AcpRegistrySettings)({ agentId: "factory-droid" });
 
@@ -741,9 +741,9 @@ function assertReinjectedInstructions(
   request: string,
 ) {
   const text = blocks[0]?.text ?? "";
-  assert.include(text, "T3 Code interaction mode: Default");
-  assert.include(text, "## T3 Code browser");
-  assert.include(text, "T3 Code orchestration");
+  assert.include(text, "aprende interaction mode: Default");
+  assert.include(text, "## aprende browser");
+  assert.include(text, "aprende orchestration");
   assert.include(text, `<user_request>\n${request}\n</user_request>`);
 }
 
@@ -2139,9 +2139,9 @@ describe("AcpAdapterV2", () => {
         assert.notInclude(whitespaceCommand.prompt, "<t3_code_instructions>");
         const firstDefault = yield* runTurn(2, defaultPolicy, "First default request.");
         assert.equal(firstDefault.textBlockCount, 2);
-        assert.include(firstDefault.prompt, "T3 Code interaction mode: Default");
-        assert.include(firstDefault.prompt, "## T3 Code browser");
-        assert.include(firstDefault.prompt, "T3 Code orchestration");
+        assert.include(firstDefault.prompt, "aprende interaction mode: Default");
+        assert.include(firstDefault.prompt, "## aprende browser");
+        assert.include(firstDefault.prompt, "aprende orchestration");
         assert.notInclude(
           firstDefault.methods,
           "session/set_config_option",
@@ -2154,14 +2154,14 @@ describe("AcpAdapterV2", () => {
 
         const planPolicy = policy("plan");
         const firstPlan = yield* runTurn(4, planPolicy, "Plan this change.");
-        assert.include(firstPlan.prompt, "T3 Code interaction mode: Plan");
+        assert.include(firstPlan.prompt, "aprende interaction mode: Plan");
         assert.deepEqual(firstPlan.modeSets, [planModeId]);
         assert.include(
           (yield* runTurn(5, planPolicy, "Continue planning.")).prompt,
           "Continue planning.",
         );
         const restoredBuild = yield* runTurn(6, defaultPolicy, "Implement the change.");
-        assert.include(restoredBuild.prompt, "T3 Code interaction mode: Default");
+        assert.include(restoredBuild.prompt, "aprende interaction mode: Default");
         assert.deepEqual(
           restoredBuild.modeSets,
           [buildModeId],
@@ -2345,7 +2345,7 @@ describe("AcpAdapterV2", () => {
                         title: "Wait for the child",
                         status: "in_progress",
                         rawInput: {
-                          server: "t3-code",
+                          server: "aprende",
                           tool: "t3_thread_wait",
                           arguments: { threadId: "child" },
                         },
@@ -2964,7 +2964,7 @@ describe("AcpAdapterV2", () => {
           (item) =>
             item.threadId === task?.childThreadId &&
             item.type === "dynamic_tool" &&
-            item.toolName === "t3-code.task_status",
+            item.toolName === "aprende.task_status",
         ),
       );
       const childMcp = items.find(
@@ -4167,7 +4167,7 @@ describe("AcpAdapterV2", () => {
         mcpServers: [
           {
             type: "stdio",
-            name: "t3-code",
+            name: "aprende",
             command: process.execPath,
             args: [
               process.argv[1] === undefined ? "t3" : NodePath.resolve(process.argv[1]),

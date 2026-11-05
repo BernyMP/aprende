@@ -13,14 +13,14 @@ import {
   ServerSettings,
   type T3ProjectFile,
   type ServerSettingsPatch,
-} from "@t3tools/contracts";
-import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
+} from "@aprende/contracts";
+import type { EnvironmentConnectionPhase } from "@aprende/client-runtime/connection";
 import {
   clearProjectSettingsOverrides,
   resolveProjectSettings,
   resolveWorktreeCleanup,
   type ProjectSettingSource,
-} from "@t3tools/shared/projectSettings";
+} from "@aprende/shared/projectSettings";
 import * as Equal from "effect/Equal";
 import * as Cause from "effect/Cause";
 
@@ -475,7 +475,7 @@ export async function persistScopedSettingsPatch(
       return [
         {
           ...environment,
-          message: "This environment does not support this setting. Update T3 Code on it.",
+          message: "This environment does not support this setting. Update aprende on it.",
         },
       ];
     }

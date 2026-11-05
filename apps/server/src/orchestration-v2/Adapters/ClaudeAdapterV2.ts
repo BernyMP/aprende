@@ -3,14 +3,14 @@ import {
   compactDynamicToolOutput,
   mcpToolResultOutput,
   toolOutputImages,
-} from "@t3tools/shared/toolOutput";
+} from "@aprende/shared/toolOutput";
 import { makeProviderTextDeltaCoalescer } from "./ProviderTextDeltaCoalescer.ts";
 import { claudeTaskOutputRoot, tailClaudeTaskOutput } from "./ClaudeTaskOutputTail.ts";
 import {
   dynamicToolTitle,
   formatReadToolLabel,
   formatSearchToolLabel,
-} from "@t3tools/shared/toolActivity";
+} from "@aprende/shared/toolActivity";
 import { field, text } from "../unknownField.ts";
 import { mergeWorkflowAgentMetadata, type WorkflowAgentMetadata } from "../workflowAgentAnswers.ts";
 import {
@@ -25,7 +25,7 @@ import {
   parseClaudeWorkflowRunHandles,
 } from "./claudeWorkflowProgress.ts";
 
-import { isWorkspaceImagePreviewPath } from "@t3tools/shared/filePreview";
+import { isWorkspaceImagePreviewPath } from "@aprende/shared/filePreview";
 import {
   addClaudeLedgerUsage,
   claudeLedgerDelta,
@@ -71,23 +71,23 @@ import type {
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- the SDK takes a Node ChildProcess for the CLI.
 import * as NodeChildProcess from "node:child_process";
 import * as NodeUtil from "node:util";
-import { parseCliArgs } from "@t3tools/shared/cliArgs";
-import { fromLenientJson } from "@t3tools/shared/schemaJson";
+import { parseCliArgs } from "@aprende/shared/cliArgs";
+import { fromLenientJson } from "@aprende/shared/schemaJson";
 import {
   claudeMcpToolName,
   claudeMcpToolNamePart,
   claudeMcpToolPrefix,
   MCP_APP_OUTPUT_KEY,
   mcpAppToolResourceUri,
-} from "@t3tools/shared/mcpApp";
-import { AgentScope } from "@t3tools/shared/AgentScope";
-import * as HostProcess from "@t3tools/shared/HostProcess";
-import { applyClaudePromptEffortPrefix } from "@t3tools/shared/model";
+} from "@aprende/shared/mcpApp";
+import { AgentScope } from "@aprende/shared/AgentScope";
+import * as HostProcess from "@aprende/shared/HostProcess";
+import { applyClaudePromptEffortPrefix } from "@aprende/shared/model";
 import {
   CLAUDE_RESUME_COMPACTION_COMPACT_ANSWER,
   CLAUDE_RESUME_COMPACTION_NEVER_ANSWER,
   formatClaudeResumeCompactionQuestion,
-} from "@t3tools/shared/claudeCompaction";
+} from "@aprende/shared/claudeCompaction";
 import {
   type ChatAttachment,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
@@ -127,7 +127,7 @@ import {
   type RunId,
   type ThreadId,
   resolveIdleCompaction,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 
 import { FILE_HEADERS_ONLY, formatPatch, structuredPatch } from "diff";
 import * as Cause from "effect/Cause";
@@ -173,9 +173,9 @@ import * as ServerConfig from "../../config.ts";
 import { DEFAULT_TUTOR_PROMPT, readTutorPrompt } from "../../learning/tutorPrompt.ts";
 import * as PortScanner from "../../preview/PortScanner.ts";
 import * as ServerSettings from "../../serverSettings.ts";
-import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
-import { spawnAndCollect } from "@t3tools/provider-core/server/snapshotProbe";
-import { signalProcessGroup } from "@t3tools/provider-core/server/processGroup";
+import { expandHomePath } from "@aprende/provider-core/server/pathExpansion";
+import { spawnAndCollect } from "@aprende/provider-core/server/snapshotProbe";
+import { signalProcessGroup } from "@aprende/provider-core/server/processGroup";
 import {
   claudeSignedOutMessage,
   makeClaudeEnvironment,
@@ -194,40 +194,40 @@ import {
   boundProviderEventForLogging,
   shouldPersistProviderEvent,
 } from "../../provider/EventNdjsonLogger.ts";
-import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import * as ProviderEventLoggers from "@aprende/provider-core/server/ProviderEventLoggers";
 import {
   claudeRateLimitEventToUpdate,
   type ClaudeScopedLimitNames,
 } from "../../provider/claudeUsageLimits.ts";
-import type { ManagedServerProvider } from "@t3tools/provider-core/server/snapshot";
+import type { ManagedServerProvider } from "@aprende/provider-core/server/snapshot";
 import {
   mcpToolPresentation,
   normalizeMcpText,
-} from "@t3tools/provider-core/server/mcpToolPresentation";
-import * as McpProviderSession from "@t3tools/provider-core/server/mcpSession";
-import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
-import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+} from "@aprende/provider-core/server/mcpToolPresentation";
+import * as McpProviderSession from "@aprende/provider-core/server/mcpSession";
+import * as McpProviderSessions from "@aprende/provider-core/server/McpProviderSessions";
+import * as IdAllocator from "@aprende/provider-core/server/IdAllocator";
 import {
   makeProviderFailure,
   makeProviderRetryTurnItem,
-} from "@t3tools/provider-core/server/failure";
-import { turnScopedSelectionTransition } from "@t3tools/provider-core/server/selectionTransition";
-import { providerMessageTextWithAttachmentPaths } from "@t3tools/provider-core/server/attachmentPrompt";
-import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+} from "@aprende/provider-core/server/failure";
+import { turnScopedSelectionTransition } from "@aprende/provider-core/server/selectionTransition";
+import { providerMessageTextWithAttachmentPaths } from "@aprende/provider-core/server/attachmentPrompt";
+import * as ProviderAdapter from "@aprende/provider-core/server/ProviderAdapter";
 import {
   ProviderAdapterDriverCreateError,
   type ProviderAdapterDriverCreateInput,
-} from "@t3tools/provider-core/server/adapterDriver";
+} from "@aprende/provider-core/server/adapterDriver";
 import {
   type BackgroundWorkReport,
   backgroundWorkNotification,
-} from "@t3tools/provider-core/server/notification";
-import * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
+} from "@aprende/provider-core/server/notification";
+import * as ProviderContinuationRequests from "@aprende/provider-core/server/ProviderContinuationRequests";
 import {
   makeSubagentChildThread,
   makeSubagentConversationArtifacts,
   subagentThreadTitle,
-} from "@t3tools/provider-core/server/subagentProjection";
+} from "@aprende/provider-core/server/subagentProjection";
 
 export const CLAUDE_PROVIDER = ProviderDriverKind.make("claudeAgent");
 const CLAUDE_AGENT_SDK_QUERY_PROTOCOL = "claude-agent-sdk.query" as const;
@@ -683,7 +683,7 @@ export interface ClaudeAgentSdkQueryRunnerShape {
 export class ClaudeAgentSdkQueryRunner extends Context.Service<
   ClaudeAgentSdkQueryRunner,
   ClaudeAgentSdkQueryRunnerShape
->()("t3/orchestration-v2/Adapters/ClaudeAdapterV2/ClaudeAgentSdkQueryRunner") {}
+>()("aprende/orchestration-v2/Adapters/ClaudeAdapterV2/ClaudeAgentSdkQueryRunner") {}
 
 export interface ClaudeAgentSdkSessionForkInput {
   readonly sessionId: string;
@@ -1835,7 +1835,14 @@ export function makeClaudeQueryOptions(input: {
     ...threadIdentity,
     ...(input.resumeSessionAt === undefined ? {} : { resumeSessionAt: input.resumeSessionAt }),
     ...(input.allowedTools === undefined ? {} : { allowedTools: [...input.allowedTools] }),
-    ...(input.disallowedTools === undefined ? {} : { disallowedTools: [...input.disallowedTools] }),
+    ...(input.disallowedTools === undefined && input.mcpServers === undefined
+      ? {}
+      : {
+          disallowedTools: [
+            ...(input.disallowedTools ?? []),
+            ...(input.mcpServers === undefined ? [] : CLAUDE_TUTOR_HIDDEN_MCP_TOOLS),
+          ],
+        }),
     ...(input.canUseTool === undefined ? {} : { canUseTool: input.canUseTool }),
     ...(input.allowDangerouslySkipPermissions === true
       ? { allowDangerouslySkipPermissions: true }
@@ -1952,17 +1959,91 @@ const readClaudeLaunchArgSettings = Effect.fn("ClaudeAdapterV2.readLaunchArgSett
   },
 );
 
-export const CLAUDE_T3_MCP_TOOL_WILDCARD = "mcp__t3-code__*";
+export const CLAUDE_T3_MCP_TOOL_WILDCARD = "mcp__aprende__*";
 
 // Keep in sync with the advertised toolkits' Tool.Readonly annotations; ClaudeAdapterV2.test.ts checks this.
 export const CLAUDE_READ_ONLY_T3_MCP_ALLOWED_TOOLS: ReadonlyArray<string> = [
-  "mcp__t3-code__ask_question",
-  "mcp__t3-code__finish_measuring",
-  "mcp__t3-code__set_plan",
-  "mcp__t3-code__graph_search",
-  "mcp__t3-code__graph_record",
-  "mcp__t3-code__html_preview",
-  "mcp__t3-code__html_render",
+  "mcp__aprende__ask_question",
+  "mcp__aprende__finish_measuring",
+  "mcp__aprende__set_plan",
+  "mcp__aprende__graph_search",
+  "mcp__aprende__graph_record",
+  "mcp__aprende__html_preview",
+  "mcp__aprende__html_render",
+];
+
+// The CLI and outside agents use the whole toolset; a tutor session sees only the tutor tools.
+// AgentContextBudget.test.ts checks this against the advertised toolkits.
+export const CLAUDE_TUTOR_HIDDEN_MCP_TOOLS: ReadonlyArray<string> = [
+  "mcp__aprende__create_threads",
+  "mcp__aprende__delegate_task",
+  "mcp__aprende__delete_scheduled_task",
+  "mcp__aprende__device_close",
+  "mcp__aprende__device_list",
+  "mcp__aprende__device_open",
+  "mcp__aprende__device_screenshot",
+  "mcp__aprende__link_pull_request",
+  "mcp__aprende__link_pull_requests",
+  "mcp__aprende__list_scheduled_tasks",
+  "mcp__aprende__list_thread_pull_requests",
+  "mcp__aprende__orchestrator_capabilities",
+  "mcp__aprende__preview_act",
+  "mcp__aprende__preview_dialog",
+  "mcp__aprende__preview_evaluate",
+  "mcp__aprende__preview_navigate",
+  "mcp__aprende__preview_open",
+  "mcp__aprende__preview_recording_start",
+  "mcp__aprende__preview_recording_stop",
+  "mcp__aprende__preview_resize",
+  "mcp__aprende__preview_set_appearance",
+  "mcp__aprende__preview_snapshot",
+  "mcp__aprende__preview_status",
+  "mcp__aprende__preview_wait_for",
+  "mcp__aprende__read_pull_request_guide",
+  "mcp__aprende__request_secret",
+  "mcp__aprende__run_scheduled_task_now",
+  "mcp__aprende__schedule_task",
+  "mcp__aprende__t3_attachment_discard",
+  "mcp__aprende__t3_attachment_prepare_upload",
+  "mcp__aprende__t3_background_wait",
+  "mcp__aprende__t3_environment_link",
+  "mcp__aprende__t3_environment_links",
+  "mcp__aprende__t3_environment_preferences_update",
+  "mcp__aprende__t3_environment_read",
+  "mcp__aprende__t3_environment_unlink",
+  "mcp__aprende__t3_pending_request",
+  "mcp__aprende__t3_preview_close",
+  "mcp__aprende__t3_preview_list",
+  "mcp__aprende__t3_project_clone",
+  "mcp__aprende__t3_project_create",
+  "mcp__aprende__t3_project_delete",
+  "mcp__aprende__t3_project_list",
+  "mcp__aprende__t3_project_read",
+  "mcp__aprende__t3_project_update",
+  "mcp__aprende__t3_queue",
+  "mcp__aprende__t3_thread_configure",
+  "mcp__aprende__t3_thread_interrupt",
+  "mcp__aprende__t3_thread_launch",
+  "mcp__aprende__t3_thread_list",
+  "mcp__aprende__t3_thread_organize",
+  "mcp__aprende__t3_thread_read",
+  "mcp__aprende__t3_thread_search",
+  "mcp__aprende__t3_thread_send",
+  "mcp__aprende__t3_thread_send_attachments",
+  "mcp__aprende__t3_thread_transfer",
+  "mcp__aprende__t3_thread_update",
+  "mcp__aprende__t3_thread_wait",
+  "mcp__aprende__t3_workflow_stop",
+  "mcp__aprende__t3_worktree_handoff",
+  "mcp__aprende__t3_worktree_list",
+  "mcp__aprende__t3_worktree_status",
+  "mcp__aprende__task_cancel",
+  "mcp__aprende__task_status",
+  "mcp__aprende__unlink_pull_request",
+  "mcp__aprende__unlink_pull_requests",
+  "mcp__aprende__unwatch_pull_request",
+  "mcp__aprende__watch_pull_request",
+  "mcp__aprende__write_pull_request_guides",
 ];
 
 // T3 waits can block for an hour; exceed Claude's default 60 s timeout.
@@ -1989,7 +2070,7 @@ export function claudeMcpQueryOverrides(input: {
   return {
     allowedTools: Array.from(new Set([...(input.allowedTools ?? []), ...mcpAllowedTools])),
     mcpServers: {
-      "t3-code": {
+      aprende: {
         type: "http",
         url: session.endpoint,
         headers: {
@@ -3703,7 +3784,7 @@ export function permissionResultFromDecision(input: {
   readonly toolUseID: string;
   readonly suggestions?: Parameters<CanUseTool>[2]["suggestions"];
   readonly feedback?: string;
-  /** Under an administrator's ceiling, T3 Code's mode is the only one; Claude cannot switch it. */
+  /** Under an administrator's ceiling, aprende's mode is the only one; Claude cannot switch it. */
   readonly managedCeiling?: boolean;
 }): PermissionResult {
   if (input.decision === "accept" || input.decision === "acceptForSession") {
@@ -7403,7 +7484,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             const { liveQuery, toolCall } = input;
             if (
               !toolCall.toolName.startsWith("mcp__") ||
-              toolCall.toolName.startsWith("mcp__t3-code__") ||
+              toolCall.toolName.startsWith("mcp__aprende__") ||
               !claudeSupportsMcpApps(liveQuery.capabilities)
             ) {
               return undefined;
@@ -8893,7 +8974,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               failure: makeProviderFailure({
                 class: "provider_error",
                 code: "claude_mod_ui_unsupported",
-                message: `The Claude Code mod "${focusedPlugin}" is waiting for input in its terminal pane, which T3 Code cannot show. Disable the mod for sessions run from T3 Code, or run the task in the Claude Code terminal.`,
+                message: `The Claude Code mod "${focusedPlugin}" is waiting for input in its terminal pane, which aprende cannot show. Disable the mod for sessions run from aprende, or run the task in the Claude Code terminal.`,
               }),
             });
             // Closing ends the CLI process and abandons the held tool call

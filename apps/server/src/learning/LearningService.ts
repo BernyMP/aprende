@@ -18,7 +18,7 @@ import {
   type LearningThreadState,
   type LearningTutorPrompt,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
@@ -92,18 +92,22 @@ export class LearningService extends Context.Service<
       { readonly propositions: ReadonlyArray<{ readonly key: string; readonly id: string }> },
       LearningError
     >;
-    readonly getThreadState: (threadId: ThreadId) => Effect.Effect<LearningThreadState, LearningError>;
+    readonly getThreadState: (
+      threadId: ThreadId,
+    ) => Effect.Effect<LearningThreadState, LearningError>;
     readonly subscribeThread: (
       threadId: ThreadId,
     ) => Stream.Stream<LearningThreadState, LearningError>;
-    readonly answer: (input: LearningAnswerInput) => Effect.Effect<LearningAnswerResult, LearningError>;
+    readonly answer: (
+      input: LearningAnswerInput,
+    ) => Effect.Effect<LearningAnswerResult, LearningError>;
     readonly getTutorPrompt: () => Effect.Effect<LearningTutorPrompt, LearningError>;
     readonly setTutorPrompt: (
       input: LearningSetTutorPromptInput,
     ) => Effect.Effect<LearningTutorPrompt, LearningError>;
     readonly getKnowledge: () => Effect.Effect<LearningKnowledge, LearningError>;
   }
->()("t3/learning/LearningService") {}
+>()("aprende/learning/LearningService") {}
 
 interface QuestionRow {
   readonly question_id: string;
@@ -233,38 +237,41 @@ export const layer = Layer.effect(
     const changed = (threadId: ThreadId) => PubSub.publish(changes, threadId);
 
     const readPlan = (threadId: ThreadId) =>
-      sql<{ plan_json: string }>`SELECT plan_json FROM learning_plans WHERE thread_id = ${threadId}`.pipe(
-        Effect.map((rows) =>
-          rows[0] === undefined ? null : decodePlan(rows[0].plan_json),
-        ),
+      sql<{
+        plan_json: string;
+      }>`SELECT plan_json FROM learning_plans WHERE thread_id = ${threadId}`.pipe(
+        Effect.map((rows) => (rows[0] === undefined ? null : decodePlan(rows[0].plan_json))),
       );
 
     const getThreadState: LearningService["Service"]["getThreadState"] = Effect.fn(
       "LearningService.getThreadState",
-    )(function* (threadId) {
-      const rows = yield* sql<QuestionRow>`
+    )(
+      function* (threadId) {
+        const rows = yield* sql<QuestionRow>`
         SELECT * FROM learning_questions WHERE thread_id = ${threadId} ORDER BY created_at, rowid
       `;
-      const assessmentRows = yield* sql<{ assessment_json: string }>`
+        const assessmentRows = yield* sql<{ assessment_json: string }>`
         SELECT assessment_json FROM learning_assessments WHERE thread_id = ${threadId}
       `;
-      const plan = yield* readPlan(threadId);
-      const assessment =
-        assessmentRows[0] === undefined
-          ? null
-          : decodeAssessment(assessmentRows[0].assessment_json);
-      const questions = rows.map(questionView);
-      const currentNodeId =
-        questions.findLast((question) => question.planNodeId !== null)?.planNodeId ?? null;
-      return {
-        threadId,
-        phase: plan !== null ? "teach" : assessment !== null ? "plan" : "measure",
-        questions,
-        assessment,
-        plan,
-        currentNodeId,
-      } satisfies LearningThreadState;
-    }, Effect.mapError(dbError("Could not read the learning state.")));
+        const plan = yield* readPlan(threadId);
+        const assessment =
+          assessmentRows[0] === undefined
+            ? null
+            : decodeAssessment(assessmentRows[0].assessment_json);
+        const questions = rows.map(questionView);
+        const currentNodeId =
+          questions.findLast((question) => question.planNodeId !== null)?.planNodeId ?? null;
+        return {
+          threadId,
+          phase: plan !== null ? "teach" : assessment !== null ? "plan" : "measure",
+          questions,
+          assessment,
+          plan,
+          currentNodeId,
+        } satisfies LearningThreadState;
+      },
+      Effect.mapError(dbError("Could not read the learning state.")),
+    );
 
     const subscribeThread: LearningService["Service"]["subscribeThread"] = (threadId) =>
       Stream.unwrap(
@@ -372,40 +379,41 @@ export const layer = Layer.effect(
       readonly words: ReadonlyArray<string>;
       readonly limit: number;
     }) {
-        const rows = yield* sql<PropositionRow>`
+      const rows = yield* sql<PropositionRow>`
           SELECT p.proposition_id, p.name, p.statement, p.created_at,
             (SELECT group_concat(s.thread_id) FROM learning_proposition_sources s
               WHERE s.proposition_id = p.proposition_id) AS source_thread_ids
           FROM learning_propositions p
           ORDER BY p.created_at DESC
         `;
-        const words = where.words.map((word) => word.toLowerCase());
-        return rows
-          .filter((row) => {
-            const haystack = `${row.name} ${row.statement}`.toLowerCase();
-            return words.every((word) => haystack.includes(word));
-          })
-          .slice(0, where.limit)
-          .map(propositionView);
+      const words = where.words.map((word) => word.toLowerCase());
+      return rows
+        .filter((row) => {
+          const haystack = `${row.name} ${row.statement}`.toLowerCase();
+          return words.every((word) => haystack.includes(word));
+        })
+        .slice(0, where.limit)
+        .map(propositionView);
     });
 
     const chainsAmong = (ids: ReadonlySet<string> | null) =>
       sql<ChainRow>`SELECT * FROM learning_chains ORDER BY created_at`.pipe(
         Effect.map((rows) =>
-          rows
-            .map(chainView)
-            .filter((chain) => ids === null || ids.has(chain.conclusion)),
+          rows.map(chainView).filter((chain) => ids === null || ids.has(chain.conclusion)),
         ),
       );
 
     const searchGraph: LearningService["Service"]["searchGraph"] = Effect.fn(
       "LearningService.searchGraph",
-    )(function* (input) {
-      const words = (input.query ?? "").split(/\s+/).filter((word) => word.length > 0);
-      const propositions = yield* listPropositions({ words, limit: input.limit ?? 50 });
-      const chains = yield* chainsAmong(new Set(propositions.map((entry) => entry.id)));
-      return { propositions, chains };
-    }, Effect.mapError(dbError("Could not search the knowledge graph.")));
+    )(
+      function* (input) {
+        const words = (input.query ?? "").split(/\s+/).filter((word) => word.length > 0);
+        const propositions = yield* listPropositions({ words, limit: input.limit ?? 50 });
+        const chains = yield* chainsAmong(new Set(propositions.map((entry) => entry.id)));
+        return { propositions, chains };
+      },
+      Effect.mapError(dbError("Could not search the knowledge graph.")),
+    );
 
     const recordGraph: LearningService["Service"]["recordGraph"] = Effect.fn(
       "LearningService.recordGraph",
@@ -413,7 +421,9 @@ export const layer = Layer.effect(
       const createdAt = yield* nowIso;
       const keys = new Map<string, string>();
       const existing = new Set(
-        (yield* sql<{ proposition_id: string }>`SELECT proposition_id FROM learning_propositions`.pipe(
+        (yield* sql<{
+          proposition_id: string;
+        }>`SELECT proposition_id FROM learning_propositions`.pipe(
           Effect.mapError(dbError("Could not read the knowledge graph.")),
         )).map((row) => row.proposition_id),
       );
@@ -446,7 +456,11 @@ export const layer = Layer.effect(
       for (const chain of input.chains) {
         const premises = chain.premises.map(resolve);
         const conclusion = resolve(chain.conclusion);
-        if (premises.length === 0 || premises.some((id) => id === undefined) || conclusion === undefined)
+        if (
+          premises.length === 0 ||
+          premises.some((id) => id === undefined) ||
+          conclusion === undefined
+        )
           return yield* fail(
             "Chains must name premises and a conclusion by a key in this call or an existing proposition id.",
           );
@@ -474,7 +488,8 @@ export const layer = Layer.effect(
         const row = rows[0];
         if (row === undefined || row.thread_id !== input.threadId)
           return yield* fail("That question does not exist in this session.");
-        if (row.status !== "open") return yield* fail("That question was already answered or replaced.");
+        if (row.status !== "open")
+          return yield* fail("That question was already answered or replaced.");
         const question = storedQuestion(row);
         const problem = answerProblem(question, input);
         if (problem !== undefined) return yield* fail(problem);
@@ -482,7 +497,9 @@ export const layer = Layer.effect(
           selectedOptions: input.dontKnow ? [] : [...input.selectedOptions].toSorted(),
           ...(input.text?.trim() ? { text: input.text.trim() } : {}),
           dontKnow: input.dontKnow,
-          ...(input.confidence === undefined || input.dontKnow ? {} : { confidence: input.confidence }),
+          ...(input.confidence === undefined || input.dontKnow
+            ? {}
+            : { confidence: input.confidence }),
           ...(input.thinking?.trim() ? { thinking: input.thinking.trim() } : {}),
           correct: gradeAnswer(question, input.selectedOptions, input.dontKnow),
           answeredAt: yield* nowIso,
@@ -525,7 +542,11 @@ export const layer = Layer.effect(
           );
         yield* changed(input.threadId);
         return {
-          question: questionView({ ...row, status: "answered", answer_json: encodeAnswer(recorded) }),
+          question: questionView({
+            ...row,
+            status: "answered",
+            answer_json: encodeAnswer(recorded),
+          }),
         };
       },
     );
@@ -543,11 +564,14 @@ export const layer = Layer.effect(
 
     const getKnowledge: LearningService["Service"]["getKnowledge"] = Effect.fn(
       "LearningService.getKnowledge",
-    )(function* () {
-      const propositions = yield* listPropositions({ words: [], limit: Number.MAX_SAFE_INTEGER });
-      const chains = yield* chainsAmong(null);
-      return { propositions, chains };
-    }, Effect.mapError(dbError("Could not read the knowledge graph.")));
+    )(
+      function* () {
+        const propositions = yield* listPropositions({ words: [], limit: Number.MAX_SAFE_INTEGER });
+        const chains = yield* chainsAmong(null);
+        return { propositions, chains };
+      },
+      Effect.mapError(dbError("Could not read the knowledge graph.")),
+    );
 
     return LearningService.of({
       askQuestion,

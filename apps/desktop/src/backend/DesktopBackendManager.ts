@@ -24,8 +24,8 @@ import {
   PRIMARY_LOCAL_ENVIRONMENT_ID,
   DesktopTelemetryControlMessage,
   type DesktopTelemetryControlMessage as DesktopTelemetryControlMessageValue,
-} from "@t3tools/contracts";
-import { waitForHttpReady as waitForHttpReadyShared } from "@t3tools/shared/httpReadiness";
+} from "@aprende/contracts";
+import { waitForHttpReady as waitForHttpReadyShared } from "@aprende/shared/httpReadiness";
 
 import * as DesktopObservability from "../app/DesktopObservability.ts";
 import * as DesktopTelemetryPublisher from "../telemetry/DesktopTelemetryPublisher.ts";
@@ -67,7 +67,7 @@ export type DesktopBackendBootstrapDelivery = "fd3" | "stdin";
 export interface DesktopBackendStartConfig extends BackendProcessContext {
   readonly args: ReadonlyArray<string>;
   readonly env: Record<string, string | undefined>;
-  /** False passes env verbatim, preventing the Windows T3CODE_HOME from leaking into WSL. */
+  /** False passes env verbatim, preventing the Windows APRENDE_HOME from leaking into WSL. */
   readonly extendEnv: boolean;
   readonly bootstrap: DesktopBackendBootstrapValue;
   readonly bootstrapDelivery: DesktopBackendBootstrapDelivery;

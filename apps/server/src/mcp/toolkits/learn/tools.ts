@@ -6,7 +6,7 @@ import {
   LearningQuestionFormat,
   LearningQuestionPurpose,
   OrchestratorMcpFailure,
-} from "@t3tools/contracts";
+} from "@aprende/contracts";
 import * as Schema from "effect/Schema";
 import { Tool, Toolkit } from "effect/ai";
 
@@ -27,7 +27,7 @@ const AskQuestionTool = Tool.make("ask_question", {
   parameters: Schema.Struct({
     purpose: LearningQuestionPurpose.annotate({
       description:
-        "goal: ungraded (what they want, how they like to learn). measure: probe a prerequisite. predict: a guess before a step is taught. check: apply a step after teaching it.",
+        "goal: ungraded (what they want, how they like to learn). measure: probe a prerequisite. predict: a guess before a step is taught. check: apply a step after teaching it. predict and check need a plan from set_plan.",
     }),
     format: LearningQuestionFormat.annotate({
       description: "choice: options the app grades. recall: free text you grade next turn.",
@@ -40,7 +40,8 @@ const AskQuestionTool = Tool.make("ask_question", {
     ),
     correctOptions: Schema.optional(
       Schema.Array(Schema.Int).annotate({
-        description: "choice only: indexes of the correct options, counting from 0. Omit for goal questions.",
+        description:
+          "choice only: indexes of the correct options, counting from 0. Omit for goal questions.",
       }),
     ),
     allowMultiple: Schema.optional(Schema.Boolean),
@@ -49,12 +50,13 @@ const AskQuestionTool = Tool.make("ask_question", {
     ),
     explanation: Schema.optional(
       Text.annotate({
-        description: "Why the answer is right, shown after they answer. Required unless purpose is goal.",
+        description:
+          "Why the answer is right, shown after they answer. Required unless purpose is goal.",
       }),
     ),
     planNodeId: Schema.optional(
       Schema.String.annotate({
-        description: "The plan node this question teaches. Required for predict and check once a plan exists.",
+        description: "The plan node this question teaches. Required for predict and check.",
       }),
     ),
   }),

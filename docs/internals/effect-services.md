@@ -55,7 +55,7 @@ export class FooWriteError extends Schema.TaggedError<FooWriteError>()("FooWrite
 export class Foo extends Context.Service<
   Foo,
   { readonly write: (input: { readonly path: string }) => Effect.Effect<void, FooWriteError> }
->()("t3/area/Foo") {}
+>()("aprende/area/Foo") {}
 
 const make = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
@@ -70,7 +70,7 @@ export const layer = Layer.effect(Foo, make);
   `import * as Effect from "effect/Effect"`, never `import { Effect } from "effect"`. Consumers use
   a service module the same way: `import * as Foo from "./Foo.ts"`, then `yield* Foo.Foo` and
   `Foo.layer`. Never `import { layer as fooLayer }`. Named imports are fine for packages like
-  `@t3tools/contracts` and for modules used only for a pure helper, error, schema, config value, or
+  `@aprende/contracts` and for modules used only for a pure helper, error, schema, config value, or
   type. A barrel exposes a whole service module as `export * as TokenStore from "./tokenStore.ts"`,
   not as renamed `make` and `layer` exports.
 - **Interface.** No standalone `FooShape`; name the type `Foo["Service"]`.

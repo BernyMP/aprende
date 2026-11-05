@@ -1,6 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off globalFetchInEffect:off - verifies generated remote scripts using real shell and Node processes.
 import * as Effect from "effect/Effect";
-import * as HostProcess from "@t3tools/shared/HostProcess";
+import * as HostProcess from "@aprende/shared/HostProcess";
 import { expect, it } from "@effect/vitest";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFSP from "node:fs/promises";
@@ -52,7 +52,7 @@ it.effect("stops a daemon left for its owner when starting without agent tools",
     yield* Effect.promise(async () => {
       const home = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-ssh-start-"));
       try {
-        const state = NodePath.join(home, ".t3/device/hosts/owner");
+        const state = NodePath.join(home, ".aprende/device/hosts/owner");
         const daemonFile = NodePath.join(state, "daemon.json");
         const calls = NodePath.join(home, "calls");
         const failMarker = NodePath.join(home, "fail-stop");
@@ -99,7 +99,7 @@ it.effect("keeps a daemon record its missing agent CLI cannot stop", () =>
     yield* Effect.promise(async () => {
       const home = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-ssh-start-"));
       try {
-        const state = NodePath.join(home, ".t3/device/hosts/owner");
+        const state = NodePath.join(home, ".aprende/device/hosts/owner");
         const daemonFile = NodePath.join(state, "daemon.json");
         await NodeFSP.mkdir(NodePath.join(home, "bin"));
         await NodeFSP.mkdir(state, { recursive: true });

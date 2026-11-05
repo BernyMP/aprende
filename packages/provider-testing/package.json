@@ -1,5 +1,5 @@
 {
-  "name": "@t3tools/provider-testing",
+  "name": "@aprende/provider-testing",
   "private": true,
   "type": "module",
   "exports": {
@@ -28,10 +28,10 @@
     "typecheck": "effect-tsgo tsrs --noEmit"
   },
   "dependencies": {
+    "@aprende/contracts": "workspace:*",
+    "@aprende/provider-core": "workspace:*",
+    "@aprende/shared": "workspace:*",
     "@effect/platform-node": "catalog:",
-    "@t3tools/contracts": "workspace:*",
-    "@t3tools/provider-core": "workspace:*",
-    "@t3tools/shared": "workspace:*",
     "effect": "catalog:"
   },
   "devDependencies": {

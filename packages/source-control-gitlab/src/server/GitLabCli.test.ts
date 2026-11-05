@@ -3,10 +3,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { ChildProcessSpawner } from "effect/process";
 
-import { VcsProcessExitError } from "@t3tools/contracts";
+import { VcsProcessExitError } from "@aprende/contracts";
 
-import type * as SourceControlHost from "@t3tools/source-control-core/server/SourceControlHost";
-import * as TestSourceControlHost from "@t3tools/source-control-testing/TestSourceControlHost";
+import type * as SourceControlHost from "@aprende/source-control-core/server/SourceControlHost";
+import * as TestSourceControlHost from "@aprende/source-control-testing/TestSourceControlHost";
 import * as GitLabCli from "./GitLabCli.ts";
 
 const mockedRun = vi.fn<SourceControlHost.SourceControlHost["Service"]["process"]["run"]>();
@@ -37,7 +37,7 @@ layer("GitLabCli.layer", (it) => {
             JSON.stringify({
               iid: 42,
               title: "Add MR thread creation",
-              web_url: "https://gitlab.com/pingdotgg/t3code/-/merge_requests/42",
+              web_url: "https://gitlab.com/BernyMP/aprende/-/merge_requests/42",
               target_branch: "main",
               source_branch: "feature/mr-threads",
               sha: "a".repeat(40),
@@ -46,7 +46,7 @@ layer("GitLabCli.layer", (it) => {
               source_project_id: 101,
               target_project_id: 100,
               source_project: {
-                path_with_namespace: "octocat/t3code",
+                path_with_namespace: "octocat/aprende",
               },
             }),
           ),
@@ -64,7 +64,7 @@ layer("GitLabCli.layer", (it) => {
       assert.deepStrictEqual(result, {
         number: 42,
         title: "Add MR thread creation",
-        url: "https://gitlab.com/pingdotgg/t3code/-/merge_requests/42",
+        url: "https://gitlab.com/BernyMP/aprende/-/merge_requests/42",
         baseRefName: "main",
         headRefName: "feature/mr-threads",
         headSha: "a".repeat(40),
@@ -72,7 +72,7 @@ layer("GitLabCli.layer", (it) => {
         closedAt: "2026-08-23T10:00:00Z",
         mergedAt: null,
         isCrossRepository: true,
-        headRepositoryNameWithOwner: "octocat/t3code",
+        headRepositoryNameWithOwner: "octocat/aprende",
         headRepositoryOwnerLogin: "octocat",
       });
       expect(mockedRun).toHaveBeenCalledWith(
@@ -107,14 +107,14 @@ layer("GitLabCli.layer", (it) => {
               {
                 iid: 0,
                 title: "invalid",
-                web_url: "https://gitlab.com/pingdotgg/t3code/-/merge_requests/0",
+                web_url: "https://gitlab.com/BernyMP/aprende/-/merge_requests/0",
                 target_branch: "main",
                 source_branch: "feature/invalid",
               },
               {
                 iid: 43,
                 title: "  Valid MR  ",
-                web_url: " https://gitlab.com/pingdotgg/t3code/-/merge_requests/43 ",
+                web_url: " https://gitlab.com/BernyMP/aprende/-/merge_requests/43 ",
                 target_branch: " main ",
                 source_branch: " feature/mr-list ",
                 state: "merged",
@@ -138,7 +138,7 @@ layer("GitLabCli.layer", (it) => {
         {
           number: 43,
           title: "Valid MR",
-          url: "https://gitlab.com/pingdotgg/t3code/-/merge_requests/43",
+          url: "https://gitlab.com/BernyMP/aprende/-/merge_requests/43",
           baseRefName: "main",
           headRefName: "feature/mr-list",
           state: "merged",

@@ -8,9 +8,9 @@ import {
   CommandId,
   EnvironmentId,
   type ServerLifecycleStreamEvent,
-} from "@t3tools/contracts";
-import { DEFAULT_SIGNAL_EXPORT } from "@t3tools/shared/observability";
-import * as OtelEnvironment from "@t3tools/shared/otelEnvironment";
+} from "@aprende/contracts";
+import { DEFAULT_SIGNAL_EXPORT } from "@aprende/shared/observability";
+import * as OtelEnvironment from "@aprende/shared/otelEnvironment";
 import { HttpServer } from "effect/http";
 import * as NetAddress from "effect/net/NetAddress";
 import * as Deferred from "effect/Deferred";

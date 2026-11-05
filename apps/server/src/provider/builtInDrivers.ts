@@ -1,13 +1,13 @@
 import {
   AcpRegistryDriver,
   type AcpRegistryDriverEnv,
-} from "@t3tools/provider-acp-registry/server";
+} from "@aprende/provider-acp-registry/server";
 import { ClaudeDriver, type ClaudeDriverEnv } from "./Drivers/ClaudeDriver.ts";
 import { CodexDriver, type CodexDriverEnv } from "./Drivers/CodexDriver.ts";
 import type {
   AnyProviderDriver,
   ProviderUsageReaderEnv,
-} from "@t3tools/provider-core/server/driver";
+} from "@aprende/provider-core/server/driver";
 
 export type BuiltInDriversEnv = AcpRegistryDriverEnv | ClaudeDriverEnv | CodexDriverEnv;
 

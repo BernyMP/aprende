@@ -1,11 +1,11 @@
-import type { LearningAssessment } from "@t3tools/contracts";
+import type { LearningAssessment } from "@aprende/contracts";
 
 export function AssessmentCard(props: { readonly assessment: LearningAssessment }) {
   const { assessment } = props;
   return (
     <section className="rounded-xl border bg-card px-4 py-3.5 text-card-foreground text-sm">
       <p className="mb-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        Where you are
+        Your starting point
       </p>
       <p className="font-medium">{assessment.goal}</p>
       <dl className="mt-3 flex flex-col gap-3">

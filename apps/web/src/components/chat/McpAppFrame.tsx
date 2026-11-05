@@ -1,4 +1,4 @@
-import type { EnvironmentId, ThreadId, TurnItemId } from "@t3tools/contracts";
+import type { EnvironmentId, ThreadId, TurnItemId } from "@aprende/contracts";
 import {
   makeMcpAppHost,
   McpAppHostRefusal,
@@ -8,8 +8,8 @@ import {
   type McpAppDisplayMode,
   type McpAppHost,
   type McpAppHostContext,
-} from "@t3tools/client-runtime/mcp-apps";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+} from "@aprende/client-runtime/mcp-apps";
+import { squashAtomCommandFailure } from "@aprende/client-runtime/state/runtime";
 import {
   clampMcpAppHeight,
   MCP_APP_DEFAULT_HEIGHT,
@@ -17,7 +17,7 @@ import {
   mcpAppAllowAttribute,
   mcpAppFileName,
   type McpAppReference,
-} from "@t3tools/shared/mcpApp";
+} from "@aprende/shared/mcpApp";
 import { Minimize2Icon } from "lucide-react";
 import { useEffect, useRef, useState, type FocusEvent, type ToggleEvent } from "react";
 import { flushSync } from "react-dom";
@@ -237,7 +237,7 @@ export function McpAppFrame(props: {
         platform: isElectron ? "desktop" : "web",
         locale: navigator.language,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        userAgent: `t3-code/${APP_VERSION}`,
+        userAgent: `aprende/${APP_VERSION}`,
         deviceCapabilities: {
           touch: window.matchMedia("(pointer: coarse)").matches,
           hover: window.matchMedia("(hover: hover)").matches,
@@ -391,13 +391,13 @@ export function McpAppFrame(props: {
     };
   };
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- pushes theme, width, display mode and tool definition to the MCP app host in the iframe
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- pushes theme, width, display mode and tool definition to the MCP app host in the iframe
   useEffect(() => {
     hostRef.current?.updateHostContext();
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Context changes trigger a resend.
   }, [theme, width, displayMode, toolDefinition]);
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- sends the current tool call to the MCP app host, again for each new iframe document
+  // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- sends the current tool call to the MCP app host, again for each new iframe document
   useEffect(() => {
     if (toolCall !== undefined) hostRef.current?.setToolCall(toolCall);
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each new document needs the call.
