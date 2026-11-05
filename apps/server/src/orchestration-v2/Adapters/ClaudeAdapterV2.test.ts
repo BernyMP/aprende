@@ -551,6 +551,7 @@ describe("ClaudeAdapterV2 MCP query overrides", () => {
     const initialKey = ClaudeAdapterV2.claudeEffectiveQueryPolicyKey(
       queryPolicy,
       ClaudeAdapterV2.claudeMcpQueryOverrides({ mcpSession, readOnlySandbox: false }),
+      "/workspace",
     );
 
     const rotatedKey = ClaudeAdapterV2.claudeEffectiveQueryPolicyKey(
@@ -559,6 +560,7 @@ describe("ClaudeAdapterV2 MCP query overrides", () => {
         mcpSession: mcpSessionFor(threadId, "Bearer rotated-claude-token"),
         readOnlySandbox: false,
       }),
+      "/workspace",
     );
     assert.notEqual(rotatedKey, initialKey);
   });
@@ -3718,6 +3720,47 @@ describe("ClaudeAdapterV2 background wake turns", () => {
           ),
         ),
       ),
+  );
+
+  it.effect("opens a new query when a turn's workspace moves", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeWakeHarnessWithOptions({
+        close: Queue.shutdown,
+        freshQueueOnReopen: true,
+      });
+      const now = yield* DateTime.now;
+      for (const [ordinal, cwd] of [
+        [1, "/workspace/removed-worktree"],
+        [2, "/workspace"],
+      ] as const) {
+        yield* harness.runtime.startTurn(
+          makeClaudeTestTurnInput({
+            threadId: harness.threadId,
+            providerThread: harness.providerThread,
+            now,
+            attemptId: RunAttemptId.make(`attempt-workspace-move-${ordinal}`),
+            providerTurnOrdinal: ordinal,
+            text: "Where are you?",
+            attachments: [],
+            runtimePolicy: { ...CLAUDE_TEST_RUNTIME_POLICY, runtimeMode: "auto-accept-edits", cwd },
+          }),
+        );
+        assert.equal(harness.getOpenedOptions()?.cwd, cwd);
+        yield* harness.offerAndWait(
+          makeResultFrame({ uuid: `workspace-move-result-${ordinal}`, result: "Here." }),
+        );
+        yield* Queue.take(harness.terminalReceipts);
+      }
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          IdAllocator.layer,
+          McpProviderSessions.layer,
+          NodeServices.layer,
+          NodeCrypto.layer,
+        ),
+      ),
+    ),
   );
 
   describe("Claude settings restrictions", () => {

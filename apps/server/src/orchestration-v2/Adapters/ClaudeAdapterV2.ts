@@ -3001,15 +3001,18 @@ function claudeRuntimeQueryPolicyKey(policy: ClaudeRuntimeQueryPolicy): string {
   });
 }
 
-// Live-query reuse must include MCP pre-approvals, which can differ for the same policy key.
+// Live-query reuse must include MCP pre-approvals, which can differ for the same policy key,
+// and the cwd: a process cannot move, so a turn in another workspace needs a new one.
 export function claudeEffectiveQueryPolicyKey(
   queryPolicy: ClaudeRuntimeQueryPolicy,
   mcpOverrides: {
     readonly allowedTools?: ReadonlyArray<string>;
     readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
   },
+  cwd: string | null,
 ): string {
   return JSON.stringify({
+    cwd,
     runtimePolicy: claudeRuntimeQueryPolicyKey({
       ...queryPolicy,
       ...(mcpOverrides.allowedTools === undefined
@@ -10731,7 +10734,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               ? {}
               : { allowedTools: queryPolicy.allowedTools }),
           });
-          const queryPolicyKey = claudeEffectiveQueryPolicyKey(queryPolicy, mcpOverrides);
+          const queryPolicyKey = claudeEffectiveQueryPolicyKey(
+            queryPolicy,
+            mcpOverrides,
+            turnInput.runtimePolicy.cwd,
+          );
           const compiledSelection = compileClaudeModelSelection(turnInput.modelSelection);
           const resumeSessionAt = yield* getNativeConversationHeadId(turnInput.providerThread);
           const existing = yield* Ref.get(queryContext);
