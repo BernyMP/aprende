@@ -269,6 +269,7 @@ export function applyOrchestrationV2ProjectionEvent(
     // Pull requests are gone; their stored events change nothing.
     case "thread.pull-request-link-updated":
     case "thread.pull-request-synced":
+    case "thread.guest-share-updated":
       return projection;
     case "thread.created":
     case "thread.archived":
@@ -288,7 +289,6 @@ export function applyOrchestrationV2ProjectionEvent(
     case "thread.interaction-mode-updated":
     case "thread.model-selection-updated":
     case "thread.provider-switched":
-    case "thread.guest-share-updated":
       return { ...base, thread: event.payload };
     // Visited tracking and tags are not activity: skip the updatedAt bump.
     case "thread.visited":

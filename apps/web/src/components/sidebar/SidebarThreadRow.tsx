@@ -40,7 +40,6 @@ import {
   ShieldQuestionIcon,
   SquarePenIcon,
   Undo2Icon,
-  UserRoundIcon,
   XIcon,
 } from "lucide-react";
 import {
@@ -445,7 +444,6 @@ const TOP_STATUS_ICONS = {
   working: CircleDashedIcon,
   waiting: CircleDotDashedIcon,
   input: MessageCircleQuestionIcon,
-  request: UserRoundIcon,
   approval: ShieldQuestionIcon,
   failed: CircleAlertIcon,
   done: CircleCheckIcon,
@@ -639,37 +637,31 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 icon: "input" as const,
                 className: "text-indigo-600 dark:text-indigo-300",
               }
-            : status === "request"
+            : status === "limited"
               ? {
-                  label: "Request",
-                  icon: "request" as const,
-                  className: "text-guest-foreground",
+                  label: "Limited",
+                  icon: "failed" as const,
+                  className: "text-warning-foreground",
                 }
-              : status === "limited"
+              : status === "failed"
                 ? {
-                    label: "Limited",
+                    label: "Failed",
                     icon: "failed" as const,
-                    className: "text-warning-foreground",
+                    className: "text-error-foreground",
                   }
-                : status === "failed"
+                : isWoke
                   ? {
-                      label: "Failed",
-                      icon: "failed" as const,
-                      className: "text-error-foreground",
+                      label: "Woke",
+                      icon: "woke" as const,
+                      className: "text-warning-foreground",
                     }
-                  : isWoke
+                  : isUnread
                     ? {
-                        label: "Woke",
-                        icon: "woke" as const,
-                        className: "text-warning-foreground",
+                        label: "Done",
+                        icon: "done" as const,
+                        className: "text-success-foreground",
                       }
-                    : isUnread
-                      ? {
-                          label: "Done",
-                          icon: "done" as const,
-                          className: "text-success-foreground",
-                        }
-                      : null;
+                    : null;
   const isWokeStatus = topStatus?.icon === "woke";
 
   const modelInstanceId = thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId;
@@ -903,7 +895,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               "truncate group-focus-within/sidebar-row:text-foreground group-hover/sidebar-row:text-foreground",
               shouldRecede
                 ? "text-secondary-label"
-                : props.isActive || isWoke || status === "input" || status === "request"
+                : props.isActive || isWoke || status === "input"
                   ? "text-foreground"
                   : isUnread
                     ? "text-muted-foreground"
