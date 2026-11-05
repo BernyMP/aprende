@@ -1,37 +1,25 @@
 # Codex
 
-Use your ChatGPT plan or an existing Codex CLI login to code in aprende.
+aprende runs the Codex CLI you installed, signed in with your own login. It never
+asks for, stores or passes on an API key or account credential.
 
-## Connect with ChatGPT
+## Sign in
 
-Connect during onboarding or in **Settings → Providers**. For a remote machine,
-select that environment first. aprende handles Codex installation; sign in on
-OpenAI and allow sharing of your ChatGPT plan.
+Install Codex, then run `codex login` on the environment's machine. aprende picks
+up that login; refresh **Settings → Providers** if it still says you are signed
+out. [Provider setup](./install.md#providers) covers installation and custom
+configuration.
 
-Manage shared usage and credits in ChatGPT through **Manage usage** in aprende.
-If a request uses a feature that ChatGPT sharing does not support, use another
-provider for that request.
-
-When reconnecting, choose the same account in aprende and on OpenAI's sign-in
-page. Disconnecting stops running threads but keeps their history and lets you
-reconnect later.
-
-If remote sign-in cannot return automatically, paste the full URL from the final
-localhost page into the sign-in panel, even if that page could not load.
-
-## Use an existing Codex login
-
-aprende can use your installed Codex and its existing login. Run `codex login`
-on the environment's machine to sign in. [Provider setup](./install.md#providers)
-covers installation and custom configuration.
+Earlier versions could connect a ChatGPT account inside aprende. That sign-in is
+gone: such an instance now uses your own Codex login, and aprende deleted the
+tokens it had stored.
 
 ## Use multiple accounts
 
-Add another ChatGPT account in **Settings → Providers**, then select the account
-from the thread's model picker. Compatible accounts can continue the same thread.
-Connecting accounts through aprende leaves your CLI login unchanged.
+Each Codex instance uses the login in its own Codex home. Add another instance in
+**Settings → Providers**, then select it from the thread's model picker.
 
-### Multiple CLI logins
+### Continue threads across accounts
 
 A shared Codex home with a shadow home lets work and personal accounts continue
 the same threads. The accounts share Codex sessions and configuration while keeping

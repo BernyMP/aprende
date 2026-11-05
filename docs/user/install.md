@@ -38,8 +38,9 @@ Open **Settings → Providers** and enable the provider you want.
 | Claude   | Install [Claude Code](https://claude.com/product/claude-code), then run `claude auth login`. |
 | Codex    | Install [Codex CLI](https://developers.openai.com/codex/cli), then run `codex login`.        |
 
-aprende runs the CLI with your own login. It never asks for or stores API keys or account
-credentials.
+aprende runs the CLI with your own login. It never asks for, stores or passes on API keys or
+account credentials. A provider's **Environment variables** are for CLI settings such as
+`CLAUDE_CONFIG_DIR` or a base URL; aprende refuses variables named like a credential.
 
 Provider CLIs must be on your `PATH`. If aprende cannot find one, set its **Binary path** in
 provider settings, especially when you use a version manager.

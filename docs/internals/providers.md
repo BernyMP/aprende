@@ -14,12 +14,16 @@ session or catalog state. For a new driver, start with [adding a provider](./add
 Opening a provider session can start MCP servers, run hooks, or launch a login browser.
 Health checks avoid authentication and session creation for this reason.
 
-Managed ChatGPT sign-in for a remote environment can finish on a local primary. The
-[primary handoff](../../apps/server/src/provider/CodexChatGptHandoff.ts) uses an ephemeral
-credential store and the destination's environment ID. It exchanges and verifies the code before
-transferring the issued client registration and tokens. Only the destination persists and refreshes
-that session; retaining a primary refresh session would race refresh-token rotation. Without a local
-primary, the client uses the remote callback completion flow.
+## Providers sign in with the learner's own CLI
+
+aprende runs the CLI the learner installed, with the login it already has. It never runs its own
+OAuth client, reads a CLI's token files, calls a provider API with the learner's token, or keeps a
+provider credential in its secret store; that store holds only aprende's own signing keys. Usage
+limits and reset credits come from what the CLI itself reports. Provider environment variables are
+plain configuration: the settings service and managed policies refuse names that look like
+credentials ([`isCredentialEnvironmentVariableName`](../../packages/contracts/src/providerInstance.ts)),
+and [startup cleanup](../../apps/server/src/provider/legacyCredentialCleanup.ts) deletes what
+earlier builds stored.
 
 ## Provider updates run only through the owning installer
 

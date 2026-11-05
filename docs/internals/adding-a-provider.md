@@ -36,8 +36,9 @@ capabilities, never the driver kind.
 
 ## Process, account, and setup boundaries
 
-- **Instances.** Session state, catalogs, and credentials belong to a provider instance, not the
-  driver. Remove ambient credentials the instance did not configure, so two instances cannot
+- **Instances.** Session state, catalogs, and the CLI login an instance uses belong to the
+  instance, not the driver. aprende never holds the credential itself; see
+  [providers](./providers.md#providers-sign-in-with-the-learners-own-cli). Remove ambient credentials the instance did not configure, so two instances cannot
   silently share an account or billing.
 - **Status checks.** Background status and model refreshes must not open a session that can start
   MCP servers, run hooks, or launch a login. Keep heavier probes behind an explicit refresh.
@@ -113,7 +114,7 @@ A provider lives in its own `packages/provider-<name>` package, with
   Settings live in `providerInstances`; new providers are off by default.
 - **Package boundaries.** Server code imports only `@aprende/provider-core/server/*`, contracts,
   and shared. It reaches the server through `ProviderHost` (paths, settings, background demand,
-  attachments, stored credentials), never through `apps/server`. Tests use `@aprende/provider-testing`.
+  attachments), never through `apps/server`. Tests use `@aprende/provider-testing`.
 - **Server registration:** the driver's entry in
   [`builtInDrivers.ts`](../../apps/server/src/provider/builtInDrivers.ts). The driver carries its
   adapter driver. Also its position in the [status order](../../apps/server/src/provider/providerStatusCache.ts), a

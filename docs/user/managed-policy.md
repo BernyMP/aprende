@@ -40,7 +40,8 @@ The desktop app includes the `aprende` command; see [The `aprende` command](./in
 and beside each control the policy locks, with a link to `supportUrl` if you set one. [`settings`](#settings)
 sets defaults and locks, and [`limits`](#limits) restricts what aprende may do.
 
-Every user on the machine can read the policy, so do not put credentials in it.
+Every user on the machine can read the policy, so do not put credentials in it. aprende refuses
+provider variables named like one.
 
 ## Where the policy goes
 
@@ -250,10 +251,8 @@ marked unavailable, and users can still turn those providers off.
 that routes Claude through Amazon Bedrock or a base URL for a company gateway. `binaryPath` and
 `launchArgs` work only for providers that have those settings. With `"locked": true`, users cannot
 change the fields you set. With `"locked": false`, the fields fill in only what the user left
-empty. A `codex` entry that is locked, or any `codex` entry under `maxRuntimeMode`, also rules out
-[Connect with ChatGPT](./providers-codex.md#connect-with-chatgpt), since that runtime would skip
-your fields. In the same way, an `opencode` entry like that rules out a server URL, so OpenCode
-starts the binary you set.
+empty. aprende refuses a policy whose provider variables are named like a credential, such as
+`*_API_KEY` or `*_TOKEN`: learners sign in with their own CLI.
 
 ### Updates
 

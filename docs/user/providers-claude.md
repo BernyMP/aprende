@@ -1,8 +1,10 @@
 # Claude
 
-aprende uses Claude Code's login and configuration. Start with the default provider
-for one account; [provider setup](./install.md#providers) covers installation and
-shared provider settings.
+aprende uses Claude Code's own login and configuration: run `claude auth login`
+on the environment's machine, and aprende never asks for, stores or passes on an
+API key or account credential. Start with the default provider for one account;
+[provider setup](./install.md#providers) covers installation and shared provider
+settings.
 
 ## Separate accounts or configurations
 
@@ -37,8 +39,11 @@ threads can switch only between Claude instances with the same config directory.
 Separate account directories stay isolated, including their local conversation
 state. Claude does not have Codex's shared-home and shadow-home arrangement.
 
-For presets that differ only in API keys or endpoints, use the instance's
+For presets that differ only in endpoints or other CLI settings, use the instance's
 **Environment variables**. Variable assignments do not belong in **Launch arguments**.
+Credentials belong in Claude Code's own configuration, not in aprende: aprende
+refuses variables named like one, such as `*_API_KEY`, `*_TOKEN`, `*SECRET*` or
+`*PASSWORD*`.
 
 Claude Code's verbose mode can stay enabled when you use Claude for text generation, including
 thread titles. On a remote connection,
@@ -108,14 +113,18 @@ row in the thread; open it to see every step.
 ## OpenRouter
 
 Create a Claude instance with its own config directory, such as
-`~/.claude_openrouter`, and keep **Binary path** set to `claude`. In that instance's
-**Environment variables**, use:
+`~/.claude_openrouter`, and keep **Binary path** set to `claude`. Put the router
+settings in that directory's `settings.json`, which Claude Code reads itself:
 
-| Variable               | Value                                     |
-| ---------------------- | ----------------------------------------- |
-| `ANTHROPIC_BASE_URL`   | `https://openrouter.ai/api`               |
-| `ANTHROPIC_AUTH_TOKEN` | Your OpenRouter API key, marked Sensitive |
-| `ANTHROPIC_API_KEY`    | An explicitly empty value                 |
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+    "ANTHROPIC_AUTH_TOKEN": "<your OpenRouter API key>",
+    "ANTHROPIC_API_KEY": ""
+  }
+}
+```
 
 If that Claude config directory has a cached Anthropic login, run `/logout` in a
 Claude Code session using that directory before starting the router setup. Cached
@@ -136,6 +145,6 @@ requirements, use the
 
 A local router uses an ordinary Claude provider instance. Give it a separate
 config directory and put the router's endpoint and credential variables in that
-instance's **Environment variables**. The router must run where the environment
+directory's `settings.json`, as for OpenRouter. The router must run where the environment
 can reach it. Follow the [Claude Code Router instructions](https://github.com/musistudio/claude-code-router)
 for its installation and routing configuration.
