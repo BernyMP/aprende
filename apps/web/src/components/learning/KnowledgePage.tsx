@@ -154,7 +154,6 @@ function KnowledgeList(props: {
       </div>
       {selection.length > 0 ? (
         <PracticeBar
-          key={[...selected].join(",")}
           selection={selection}
           projects={projects}
           defaultProjectId={defaultPracticeProjectId(selection, sessions)}
@@ -261,12 +260,14 @@ function PracticeBar(props: {
   readonly defaultProjectId: ProjectId | null;
   readonly onClear: () => void;
 }) {
-  const [projectId, setProjectId] = useState(
-    props.defaultProjectId ?? props.projects[0]?.id ?? null,
-  );
+  const [chosenProjectId, setProjectId] = useState<ProjectId | null>(null);
   const [starting, setStarting] = useState(false);
   const startPractice = usePracticeSession();
-  const project = props.projects.find((candidate) => candidate.id === projectId);
+  const project =
+    props.projects.find((candidate) => candidate.id === chosenProjectId) ??
+    props.projects.find((candidate) => candidate.id === props.defaultProjectId) ??
+    props.projects[0];
+  const projectId = project?.id ?? null;
 
   const practice = async () => {
     if (project === undefined) return;
