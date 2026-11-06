@@ -15,9 +15,19 @@ const LEGACY_SECRET_FILE = /^provider-(?:auth|env|config)-[\w-]+\.bin$/;
  */
 export const removeLegacyProviderCredentials = Effect.fn("removeLegacyProviderCredentials")(
   function* () {
-    const { secretsDir } = yield* ServerConfig.ServerConfig;
+    const { secretsDir, stateDir } = yield* ServerConfig.ServerConfig;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    // A secrets folder that resolves outside aprende's state is not ours to clean.
+    const realPath = (target: string) => fs.realPath(target).pipe(Effect.option);
+    const [realSecrets, realState] = [yield* realPath(secretsDir), yield* realPath(stateDir)];
+    if (
+      realSecrets._tag === "None" ||
+      realState._tag === "None" ||
+      realSecrets.value !== path.join(realState.value, "secrets")
+    ) {
+      return { secrets: [] };
+    }
     const names = yield* fs
       .readDirectory(secretsDir)
       .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []));

@@ -58,3 +58,19 @@ it.effect("removes stored provider credentials once and leaves Codex homes alone
     Effect.provide(Layer.merge(layerTest, Logger.layer([logger], { mergeWithExisting: false }))),
   );
 });
+
+it.effect("leaves a secrets folder that resolves outside aprende's state alone", () =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const { secretsDir } = yield* ServerConfig.ServerConfig;
+    const outside = yield* fs.makeTempDirectoryScoped({ prefix: "aprende-outside-secrets-" });
+    const foreign = path.join(outside, "provider-auth-0a1b2c.bin");
+    yield* fs.writeFileString(foreign, "not aprende's");
+    yield* fs.remove(secretsDir, { recursive: true }).pipe(Effect.ignore);
+    yield* fs.symlink(outside, secretsDir);
+
+    assert.deepEqual(yield* removeLegacyProviderCredentials(), { secrets: [] });
+    assert.isTrue(yield* fs.exists(foreign));
+  }).pipe(Effect.scoped, Effect.provide(layerTest)),
+);
