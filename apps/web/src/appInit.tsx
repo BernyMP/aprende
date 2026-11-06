@@ -23,8 +23,6 @@ import {
   subscribeDraftThreadPromotion,
   useComposerDraftStore,
 } from "./composerDraftStore";
-import { startDefaultThemeAdoption } from "./hooks/useDefaultTheme";
-import { startEnvironmentThemeRepaint } from "./hooks/useEnvironmentTheme";
 import { readLocalStorageValue, subscribeLocalStorageKey } from "./hooks/useLocalStorage";
 import {
   getClientSettings,
@@ -167,9 +165,7 @@ export function startAppServices(): AppRouter {
 
   startClientAppearance();
   startDocumentTitle();
-  startEnvironmentThemeRepaint();
   startBrowserChromeThemeSync(router);
-  startDefaultThemeAdoption();
   startModelPreferencesMigration();
   installChatRouteCommands(router);
   installCommandPaletteCommands(router);

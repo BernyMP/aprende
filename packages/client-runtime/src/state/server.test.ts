@@ -3,7 +3,6 @@ import {
   ServerSelfUpdateError,
   ProviderInstanceId,
   ServerObservability,
-  EnvironmentThemeId,
   type ServerConfig,
   type ServerConfigStreamEvent,
   type ServerLifecycleWelcomePayload,
@@ -61,7 +60,6 @@ import {
   waitForDesktopUpdateTarget,
   runDesktopCommitWithReconnectObserver,
 } from "./server.ts";
-import { applyServerConfigProjection } from "./serverConfigProjection.ts";
 
 const CONFIG = {
   availableEditors: [],
@@ -71,8 +69,18 @@ const CONFIG = {
   observability: null,
   providers: [],
   settings: {},
-  environment: { capabilities: { environmentThemes: true } },
+  environment: { capabilities: {} },
 } as unknown as ServerConfig;
+
+const withStall = (config: ServerConfig): ServerConfig => ({
+  ...config,
+  lastEventLoopStall: {
+    detectedAt: "2026-10-20T07:50:37.633Z",
+    durationMs: 1000,
+    loadAverage: 1,
+    cpuCount: 8,
+  },
+});
 
 const snapshotEvent = (config: ServerConfig): ServerConfigStreamEvent => ({
   version: 1,
@@ -404,7 +412,7 @@ const makeConfigPersistenceHarness = Effect.fn("test.makeConfigPersistenceHarnes
     saveServerConfig,
     clear: () => Effect.void,
   });
-  const state = yield* makeEnvironmentServerConfigState({ environmentThemes: true }).pipe(
+  const state = yield* makeEnvironmentServerConfigState({}).pipe(
     Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
     Effect.provideService(Persistence.EnvironmentCacheStore, cache),
   );
@@ -517,7 +525,7 @@ describe("server state projection", () => {
       }),
   );
 
-  it.effect("saves once across transient themes and stall updates", () =>
+  it.effect("saves once across stall updates", () =>
     Effect.gen(function* () {
       const saved = yield* Ref.make<ReadonlyArray<ServerConfig>>([]);
       yield* Effect.scoped(
@@ -528,36 +536,10 @@ describe("server state projection", () => {
           yield* h.send(snapshotEvent(CONFIG));
           yield* TestClock.adjust("500 millis");
           expect((yield* Ref.get(saved)).length).toBe(1);
-          for (const event of [
-            {
-              version: 1,
-              type: "environmentThemesUpdated",
-              payload: {
-                themes: [
-                  {
-                    id: EnvironmentThemeId.make("theme-test"),
-                    name: "Test theme",
-                    appearance: "dark",
-                  },
-                ],
-              },
-            },
-            snapshotEvent({
-              ...CONFIG,
-              lastEventLoopStall: {
-                detectedAt: "2026-10-20T07:50:37.633Z",
-                durationMs: 1000,
-                loadAverage: 1,
-                cpuCount: 8,
-              },
-            }),
-          ] satisfies ReadonlyArray<ServerConfigStreamEvent>) {
-            const projection = yield* h.send(event);
-            expect(projection.latestEvent).toBe(event);
-            if (event.type === "environmentThemesUpdated")
-              expect(projection.config.environmentThemes).toEqual(event.payload.themes);
-            yield* TestClock.adjust("10 seconds");
-          }
+          const event = snapshotEvent(withStall(CONFIG));
+          const projection = yield* h.send(event);
+          expect(projection.latestEvent).toBe(event);
+          yield* TestClock.adjust("10 seconds");
         }),
       );
       expect(yield* Ref.get(saved)).toEqual([CONFIG]);
@@ -576,7 +558,7 @@ describe("server state projection", () => {
           yield* h.send(snapshotEvent(CONFIG));
           yield* TestClock.adjust("500 millis");
           yield* h.send(snapshotEvent(changed));
-          yield* h.send({ version: 1, type: "environmentThemesUpdated", payload: { themes: [] } });
+          yield* h.send(snapshotEvent(withStall(changed)));
         }),
       );
       expect(yield* Ref.get(saved)).toEqual([CONFIG, changed]);
@@ -600,7 +582,7 @@ describe("server state projection", () => {
           );
           yield* h.send(snapshotEvent(CONFIG));
           yield* TestClock.adjust("500 millis");
-          yield* h.send({ version: 1, type: "environmentThemesUpdated", payload: { themes: [] } });
+          yield* h.send(snapshotEvent(withStall(CONFIG)));
           yield* TestClock.adjust("10 seconds");
         }),
       );
@@ -779,31 +761,6 @@ describe("server state projection", () => {
         ready("0.0.30"),
       ),
     ).toBe(true);
-  });
-
-  it("keeps published themes across a reconnect snapshot", () => {
-    const themes = [
-      {
-        id: "nightfall",
-        name: "Nightfall",
-        appearance: "dark",
-        canvas: "#1a1b26",
-        accent: "#7aa2f7",
-      },
-    ] as const;
-
-    const withThemes = applyServerConfigProjection(
-      applyServerConfigProjection(Option.none(), { version: 1, type: "snapshot", config: CONFIG }),
-      { version: 1, type: "environmentThemesUpdated", payload: { themes } },
-    );
-    expect(Option.getOrThrow(withThemes).config.environmentThemes).toEqual(themes);
-
-    const afterReconnect = applyServerConfigProjection(withThemes, {
-      version: 1,
-      type: "snapshot",
-      config: CONFIG,
-    });
-    expect(Option.getOrThrow(afterReconnect).config.environmentThemes).toEqual(themes);
   });
 
   it("keeps a current welcome on ready and rejects a buffered welcome from the old session", () => {

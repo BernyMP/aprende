@@ -42,7 +42,6 @@ import * as CommandOutputHub from "./orchestration-v2/CommandOutputHub.ts";
 import * as DocumentText from "./provider/DocumentText.ts";
 import * as DirectEndpoints from "./environment/DirectEndpoints.ts";
 import * as EnvironmentAuth from "./auth/EnvironmentAuth.ts";
-import * as EnvironmentTheme from "./environmentTheme.ts";
 import * as HostResources from "./resourceTelemetry/HostResources.ts";
 import * as ManagedProjectFolders from "./project/ManagedProjectFolders.ts";
 import * as ScratchThreadPromotion from "./project/ScratchThreadPromotion.ts";
@@ -632,7 +631,6 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(AgentSessionScanner.AgentSessionScanner)({}),
   Layer.mock(BackgroundPolicy.BackgroundPolicy)({}),
   Layer.mock(CommandOutputHub.CommandOutputHub)({}),
-  Layer.mock(EnvironmentTheme.EnvironmentThemeService)({}),
   Layer.mock(HostResources.HostResources)({}),
   Layer.mock(McpAppRequests.McpAppRequests)({}),
   Layer.mock(ModelManifest.ModelManifest)({}),

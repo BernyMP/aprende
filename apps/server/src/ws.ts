@@ -71,7 +71,6 @@ import {
 import { RpcGroup, RpcSerialization, RpcServer } from "effect/rpc";
 
 import * as ServerConfig from "./config.ts";
-import * as EnvironmentTheme from "./environmentTheme.ts";
 import * as Keybindings from "./keybindings.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
 import * as ThreadManagementService from "./orchestration-v2/ThreadManagementService.ts";
@@ -1214,7 +1213,6 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
       const agentSessionScanner = yield* AgentSessionScanner.AgentSessionScanner;
       const agentSessionImporter = yield* AgentSessionImporter.AgentSessionImporter;
       const keybindings = yield* Keybindings.Keybindings;
-      const environmentTheme = yield* EnvironmentTheme.EnvironmentThemeService;
       const externalLauncher = yield* ExternalLauncher.ExternalLauncher;
       const remoteOpenTargets = yield* RemoteOpenTargets.RemoteOpenTargets;
       const directEndpoints = yield* DirectEndpoints.DirectEndpoints;
@@ -2143,17 +2141,6 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
                 })),
                 Stream.debounce(Duration.millis(PROVIDER_STATUS_DEBOUNCE_MS)),
               );
-              // Gate capability-specific events; older clients reject them and lose their config subscription.
-              const environmentThemeUpdates =
-                input.environmentThemes === true
-                  ? environmentTheme.streamChanges.pipe(
-                      Stream.map((themes) => ({
-                        version: 1 as const,
-                        type: "environmentThemesUpdated" as const,
-                        payload: { themes },
-                      })),
-                    )
-                  : Stream.empty;
               const settingsUpdates = settingsChanges.pipe(
                 Stream.map((settings) => ({
                   version: 1 as const,
@@ -2164,10 +2151,7 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
 
               const liveUpdates = Stream.merge(
                 keybindingsUpdates,
-                Stream.merge(
-                  providerStatusUpdates,
-                  Stream.merge(settingsUpdates, environmentThemeUpdates),
-                ),
+                Stream.merge(providerStatusUpdates, settingsUpdates),
               );
 
               const remoteResult = yield* Effect.sync(() => remoteTargets.pollUnsafe());

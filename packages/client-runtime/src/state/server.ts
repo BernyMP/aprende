@@ -56,7 +56,6 @@ import {
   applyServerConfigProjection,
   reuseUnchanged,
   type ServerConfigProjection,
-  withoutEnvironmentThemes,
 } from "./serverConfigProjection.ts";
 
 import { applyPracticeTerminalEvent, EMPTY_PRACTICE_TERMINAL } from "./practiceTerminal.ts";
@@ -363,7 +362,6 @@ const cachedConfigSnapshotEvent = (config: ServerConfig): ServerConfigStreamEven
 });
 
 export interface ServerConfigSubscriptionOptions {
-  readonly environmentThemes?: boolean;
   readonly usageLimitsCommand?: boolean;
 }
 
@@ -420,8 +418,8 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
     );
     const state = yield* SubscriptionRef.make<Option.Option<ServerConfigProjection>>(
       Option.map(cachedConfig, (cached) => ({
-        config: withoutEnvironmentThemes(cached),
-        latestEvent: cachedConfigSnapshotEvent(withoutEnvironmentThemes(cached)),
+        config: cached,
+        latestEvent: cachedConfigSnapshotEvent(cached),
         source: "cache" as const,
       })),
     );
@@ -433,7 +431,7 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
       config: ServerConfig,
     ) {
       // A cached stall would read as a fresh freeze on the next launch.
-      const { environmentThemes: _themes, lastEventLoopStall: _stall, ...cacheable } = config;
+      const { lastEventLoopStall: _stall, ...cacheable } = config;
       if (lastPersisted !== undefined && sameCacheValue(lastPersisted, cacheable)) {
         return true;
       }
@@ -477,10 +475,10 @@ export const makeEnvironmentServerConfigState = Effect.fn("EnvironmentServerConf
 
     yield* runCachePersistence(persistence, persistPending).pipe(Effect.forkScoped);
 
-    yield* subscribe(WS_METHODS.subscribeServerConfig, {
-      ...(subscription.environmentThemes === true ? { environmentThemes: true } : {}),
-      ...(subscription.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),
-    }).pipe(
+    yield* subscribe(
+      WS_METHODS.subscribeServerConfig,
+      subscription.usageLimitsCommand === true ? { usageLimitsCommand: true } : {},
+    ).pipe(
       Stream.runForEach((event) =>
         Effect.gen(function* () {
           const next = applyServerConfigProjection(yield* SubscriptionRef.get(state), event);
@@ -746,7 +744,6 @@ export function createServerEnvironmentAtoms<R, E>(
     readonly initialConfigValueAtom: (
       environmentId: EnvironmentId,
     ) => Atom.Atom<ServerConfig | null>;
-    readonly environmentThemes?: boolean;
     readonly usageLimitsCommand?: boolean;
   },
 ) {
@@ -759,10 +756,10 @@ export function createServerEnvironmentAtoms<R, E>(
   const configProjectionFamily = Atom.family((environmentId: EnvironmentId) =>
     runtime
       .atom(
-        serverConfigStateChanges(environmentId, {
-          ...(options.environmentThemes === true ? { environmentThemes: true } : {}),
-          ...(options.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),
-        }),
+        serverConfigStateChanges(
+          environmentId,
+          options.usageLimitsCommand === true ? { usageLimitsCommand: true } : {},
+        ),
       )
       .pipe(
         Atom.setIdleTTL(5 * 60_000),
