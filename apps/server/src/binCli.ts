@@ -27,7 +27,6 @@ import { claudeHistoryCommand } from "./cli/claudeHistory.ts";
 import { sshHelperCommand } from "./cli/sshHelper.ts";
 import { serviceCommand } from "./cli/service.ts";
 import { servicePreflightCommand } from "./cli/servicePreflight.ts";
-import { themeCommand } from "./cli/theme.ts";
 import { traceCommand } from "./cli/trace.ts";
 import { statusCommand, upCommand } from "./cli/up.ts";
 
@@ -66,7 +65,6 @@ export const makeCli = () =>
       sshHelperCommand,
 
       servicePreflightCommand,
-      themeCommand,
       traceCommand,
       doctorCommand,
       policyCommand,

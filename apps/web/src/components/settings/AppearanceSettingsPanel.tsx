@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import { useState } from "react";
 import {
   DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE,
   DEFAULT_UNIFIED_SETTINGS,
@@ -18,13 +17,10 @@ import {
   type SidebarStageBackdropVariant,
   useEnvironmentStageLabel,
 } from "../SidebarStageBackdrop";
-import { useCustomThemes } from "../../hooks/useCustomThemes";
-import { useEnvironmentIdentificationMode } from "../../hooks/useSettings";
-import { useTheme } from "../../hooks/useTheme";
+import { type AppearanceMode, useTheme } from "../../hooks/useTheme";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
-import { ThemeLibrary } from "./ThemeSettings";
 import {
   SettingResetButton,
   SettingsPageContainer,
@@ -73,6 +69,12 @@ function environmentIdentificationOptions(
   ];
 }
 
+const APPEARANCE_MODE_LABELS: Record<AppearanceMode, string> = {
+  system: "System",
+  light: "Light",
+  dark: "Dark",
+};
+
 const CHAT_WIDTH_LABELS: Record<ChatWidth, string> = {
   comfortable: "Comfortable",
   wide: "Wide",
@@ -85,18 +87,7 @@ const EFFORT_DISPLAY_LABELS: Record<EffortDisplay, string> = {
 };
 
 export function AppearanceSettingsPanel() {
-  const {
-    appearanceMode,
-    refreshTheme,
-    resolvedTheme,
-    setAppearanceMode,
-    setTheme,
-    setThemeHalf,
-    theme,
-    themeHalves,
-  } = useTheme();
-  const customThemes = useCustomThemes();
-  const [isImportThemeOpen, setIsImportThemeOpen] = useState(false);
+  const { appearanceMode, setAppearanceMode } = useTheme();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const environmentStageLabel = useEnvironmentStageLabel();
@@ -107,20 +98,9 @@ export function AppearanceSettingsPanel() {
     environmentIdentificationOptionList.find(
       ([value]) => value === settings.environmentIdentificationMode,
     )?.[1] ?? ENVIRONMENT_IDENTIFICATION_LABELS[settings.environmentIdentificationMode];
-  const effectiveEnvironmentIdentificationMode = useEnvironmentIdentificationMode();
-  const themeHidesEnvironmentArtwork =
-    effectiveEnvironmentIdentificationMode === "pill" &&
-    resolveSidebarStageBackdropVariant(
-      environmentStageLabel,
-      settings.environmentIdentificationMode,
-    ) !== null;
-  const environmentIdentificationDescription = themeHidesEnvironmentArtwork
-    ? environmentStageVariant
-      ? "Only built-in themes show artwork, so this theme shows the version pill."
-      : "Only built-in themes show artwork."
-    : environmentStageVariant
-      ? "Choose how Dev and Nightly environments are identified."
-      : "Show Dev or Nightly artwork in the sidebar header.";
+  const environmentIdentificationDescription = environmentStageVariant
+    ? "Choose how Dev and Nightly environments are identified."
+    : "Show Dev or Nightly artwork in the sidebar header.";
   const glassOpacityRatio =
     (settings.glassOpacity - MIN_GLASS_OPACITY) / (MAX_GLASS_OPACITY - MIN_GLASS_OPACITY);
   const glassOpacitySliderStyle = {
@@ -144,25 +124,39 @@ export function AppearanceSettingsPanel() {
 
   return (
     <SettingsPageContainer>
-      <SettingsSection id="appearance" title="Colors & themes" variant="plain" hideTitle>
-        <div id={searchableSetting("theme").id}>
-          <ThemeLibrary
-            appearanceMode={appearanceMode}
-            customThemes={customThemes}
-            initialAppearance={resolvedTheme}
-            refreshTheme={refreshTheme}
-            isImportOpen={isImportThemeOpen}
-            setAppearanceMode={setAppearanceMode}
-            setTheme={setTheme}
-            setThemeHalf={setThemeHalf}
-            theme={theme}
-            themeHalves={themeHalves}
-            onImportOpenChange={setIsImportThemeOpen}
-          />
-        </div>
-      </SettingsSection>
-
       <SettingsSection id="appearance-interface" title="Interface">
+        <SettingsRow
+          {...searchableSetting("color-scheme")}
+          description="Follow your system, or keep the app light or dark."
+          resetAction={
+            appearanceMode !== "system" ? (
+              <SettingResetButton
+                label="color scheme"
+                onClick={() => setAppearanceMode("system")}
+              />
+            ) : null
+          }
+          control={
+            <div className="w-full sm:w-40">
+              <Select
+                value={appearanceMode}
+                onValueChange={(value) => {
+                  if (value === "system" || value === "light" || value === "dark")
+                    setAppearanceMode(value);
+                }}
+              >
+                <SelectTrigger size="sm" className="w-full min-w-0" aria-label="Color scheme">
+                  <SelectValue>{APPEARANCE_MODE_LABELS[appearanceMode]}</SelectValue>
+                </SelectTrigger>
+                <SelectPopup align="end" alignItemWithTrigger={false}>
+                  <SelectItem value="system">System (default)</SelectItem>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                </SelectPopup>
+              </Select>
+            </div>
+          }
+        />
         <SettingsRow
           {...searchableSetting("setting-appearance-contrast")}
           description="Adjust the contrast of colors and borders across the interface."

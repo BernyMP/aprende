@@ -42,7 +42,6 @@ import {
 import {
   applyServerConfigProjection,
   type ServerConfigProjection,
-  withoutEnvironmentThemes,
 } from "../state/serverConfigProjection.ts";
 import { environmentMismatchError } from "../connection/errors.ts";
 
@@ -62,7 +61,6 @@ export interface RpcSession {
 }
 
 export interface RpcSessionOptions {
-  readonly environmentThemes?: boolean;
   readonly usageLimitsCommand?: boolean;
 }
 
@@ -89,15 +87,10 @@ type ServerConfigSubscription = Stream.Stream<
 type ServerConfigSubscriptionInput = Parameters<
   WsRpcProtocolClient[typeof WS_METHODS.subscribeServerConfig]
 >[0];
-type EnvironmentThemesUpdatedEvent = Extract<
-  ServerConfigStreamEvent,
-  { readonly type: "environmentThemesUpdated" }
->;
 
 interface ServerConfigReplayState {
   readonly projection: ServerConfigProjection;
   readonly revision: number;
-  readonly themesEvent: EnvironmentThemesUpdatedEvent | undefined;
 }
 
 interface BufferedServerConfigEvent {
@@ -109,12 +102,7 @@ interface BufferedServerConfigEvent {
 function serverConfigReplayEvents(
   state: ServerConfigReplayState,
 ): ReadonlyArray<ServerConfigStreamEvent> {
-  const snapshot = {
-    version: 1 as const,
-    type: "snapshot" as const,
-    config: withoutEnvironmentThemes(state.projection.config),
-  };
-  return [snapshot, ...(state.themesEvent === undefined ? [] : [state.themesEvent])];
+  return [{ version: 1 as const, type: "snapshot" as const, config: state.projection.config }];
 }
 
 const PING_TIMEOUT_SECONDS = Duration.toSeconds(PING_TIMEOUT);
@@ -150,10 +138,8 @@ export const make = Effect.fn("RpcSessionFactory.make")(function* (
   options: RpcSessionOptions = {},
 ) {
   const webSocketConstructor = yield* Socket.WebSocketConstructor;
-  const serverConfigInput: ServerConfigSubscriptionInput = {
-    ...(options.environmentThemes === true ? { environmentThemes: true } : {}),
-    ...(options.usageLimitsCommand === true ? { usageLimitsCommand: true } : {}),
-  };
+  const serverConfigInput: ServerConfigSubscriptionInput =
+    options.usageLimitsCommand === true ? { usageLimitsCommand: true } : {};
   // Config state merges the snapshots it fetches back in, so no subscriber needs them broadcast.
   const onDemandSnapshots = (input: ServerConfigSubscriptionInput) => ({
     ...input,
@@ -270,10 +256,6 @@ export const make = Effect.fn("RpcSessionFactory.make")(function* (
                 onNone: () => 1,
                 onSome: (state) => state.revision + 1,
               }),
-              themesEvent:
-                event.type === "environmentThemesUpdated"
-                  ? event
-                  : Option.getOrUndefined(current)?.themesEvent,
             } satisfies ServerConfigReplayState;
             return [
               Option.some({ event, replay: next, revision: next.revision }),

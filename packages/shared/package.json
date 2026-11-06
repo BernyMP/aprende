@@ -23,10 +23,6 @@
       "types": "./src/themePalettes.ts",
       "import": "./src/themePalettes.ts"
     },
-    "./themePreview": {
-      "types": "./src/themePreview.ts",
-      "import": "./src/themePreview.ts"
-    },
     "./textDirection": {
       "types": "./src/textDirection.ts",
       "import": "./src/textDirection.ts"

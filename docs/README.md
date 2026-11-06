@@ -12,7 +12,7 @@ with T3 Tools Inc. Many internal notes below describe architecture inherited fro
 - [Working with threads](./user/thread-sidebar.md)
 - [Permission modes](./user/permission-modes.md)
 - [Project settings](./user/project-settings.md)
-- [Appearance and themes](./user/appearance.md)
+- [Appearance](./user/appearance.md)
 - [Keyboard shortcuts](./user/keybindings.md)
 - [SnapShots](./user/snap-shot.md)
 - [Visual replies](./user/html-renders.md)

@@ -1,4 +1,6 @@
-export const CONTEXT_CHIP_ACCENTS = {
+// Base hues per chip kind. index.css carries them solved for contrast on the
+// Scholar palette as --context-chip-<kind>.
+const CONTEXT_CHIP_ACCENTS = {
   image: "oklch(0.62 0.136 237)",
   video: "oklch(0.62 0.16 48)",
   file: "oklch(0.62 0.136 237)",
@@ -24,7 +26,3 @@ export const CONTEXT_CHIP_ACCENTS = {
 } as const;
 
 export type ContextChipAccentKind = keyof typeof CONTEXT_CHIP_ACCENTS;
-
-export function contextChipColorVariable(kind: ContextChipAccentKind): string {
-  return `--context-chip-${kind}`;
-}

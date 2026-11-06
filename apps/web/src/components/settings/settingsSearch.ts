@@ -199,15 +199,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "color-scheme",
     title: "Color scheme",
     to: "/settings/appearance",
-    searchTerms: ["appearance light dark system mode"],
-    targetId: "appearance",
-  },
-  {
-    id: "theme",
-    title: "Themes",
-    to: "/settings/appearance",
-    searchTerms: ["appearance colors palette custom import"],
-    targetId: "appearance",
+    searchTerms: ["appearance light dark system mode theme"],
   },
   {
     // Prefixed because the slider control already owns the `appearance-contrast` id.

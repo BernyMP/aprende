@@ -44,7 +44,6 @@ import {
   MessageSquareDashedIcon,
   LibraryIcon,
   LinkIcon,
-  PaletteIcon,
   RotateCcwIcon,
   SettingsIcon,
   MonitorIcon,
@@ -178,7 +177,7 @@ import {
 } from "./CommandPaletteProjectItems";
 import { CommandPaletteSubmitButton, NewProjectSummary } from "./CommandPaletteAddProject";
 import { useCommandPaletteThreadItems } from "./CommandPaletteThreadItems";
-import { useCommandPaletteThemeItems } from "./CommandPaletteThemeItems";
+import { useChangeAppearanceItem } from "./CommandPaletteAppearanceItem";
 import {
   CommandPaletteVirtualizedResults,
   scrollCommandPaletteRowIntoView,
@@ -214,11 +213,6 @@ function openIntentView(intent: CommandPaletteOpenIntent | null): CommandPalette
       return {
         addonIcon: <SquarePenIcon className={ADDON_ICON_CLASS} />,
         groups: [{ value: NEW_THREAD_IN_GROUP, label: "Projects", items: [] }],
-      };
-    case "change-theme":
-      return {
-        addonIcon: <PaletteIcon className={ADDON_ICON_CLASS} />,
-        groups: [{ value: "themes", label: "Change theme", items: [] }],
       };
     case "search":
     case undefined:
@@ -407,7 +401,7 @@ function OpenCommandPaletteDialog(props: {
   const threads = useVisibleThreadShells().filter((thread) => !isSidebarHiddenThread(thread));
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const providersByEnvironment = useEnvironmentProviders();
-  const { changeThemeItem, changeAppearanceItem, themeEditorItem } = useCommandPaletteThemeItems();
+  const changeAppearanceItem = useChangeAppearanceItem();
   const currentView = viewStack.at(-1)?.view ?? null;
   const threadSearchQuery = currentView === null && !isActionsOnly ? deferredQuery : "";
   const [browseGeneration, setBrowseGeneration] = useState(0);
@@ -1213,10 +1207,7 @@ function OpenCommandPaletteDialog(props: {
     });
   }
 
-  actionItems.push(changeThemeItem);
   actionItems.push(changeAppearanceItem);
-
-  actionItems.push(themeEditorItem);
 
   actionItems.push({
     kind: "action",
@@ -1364,11 +1355,9 @@ function OpenCommandPaletteDialog(props: {
                 items: projectThreadItems.length > 0 ? projectThreadItems : [addProjectAction],
               },
             ]
-          : currentView?.groups[0]?.value === "themes"
-            ? changeThemeItem.groups
-            : currentView?.groups[0]?.value === "appearance"
-              ? changeAppearanceItem.groups
-              : (currentView?.groups ?? rootGroups);
+          : currentView?.groups[0]?.value === "appearance"
+            ? changeAppearanceItem.groups
+            : (currentView?.groups ?? rootGroups);
 
   const filteredGroups = filterCommandPaletteGroups({
     activeGroups,

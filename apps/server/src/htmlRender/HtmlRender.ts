@@ -12,11 +12,7 @@ import {
   injectHtmlRenderBootstrap,
   type HtmlRenderReference,
 } from "@aprende/shared/htmlRender";
-import {
-  T3_CODE_DARK_THEME_COLORS,
-  T3_CODE_LIGHT_THEME_COLORS,
-  type ThemeAppearance,
-} from "@aprende/shared/themePalettes";
+import { APP_THEME_COLORS, type ThemeAppearance } from "@aprende/shared/themePalettes";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -326,7 +322,7 @@ const MAX_CONCURRENT_BROWSERS = 2;
 const MEASURE_TIMEOUT = "6 seconds";
 
 const MEASURE_FRAGMENT = htmlRenderThemeFragment(
-  htmlRenderTheme(T3_CODE_DARK_THEME_COLORS, "dark", HTML_RENDER_MEASURE_FONTS),
+  htmlRenderTheme(APP_THEME_COLORS.dark, "dark", HTML_RENDER_MEASURE_FONTS),
 );
 
 const make = Effect.gen(function* () {
@@ -477,7 +473,7 @@ const make = Effect.gen(function* () {
     const inlined = yield* inline(input.html);
     const executable = yield* previewBrowser.executable;
     const theme = htmlRenderTheme(
-      appearance === "light" ? T3_CODE_LIGHT_THEME_COLORS : T3_CODE_DARK_THEME_COLORS,
+      APP_THEME_COLORS[appearance],
       appearance,
       HTML_RENDER_MEASURE_FONTS,
     );

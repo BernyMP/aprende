@@ -156,7 +156,7 @@ export function TerminalFontPreview({ family, size }: { family: string; size: nu
   const mountRef = useRef<HTMLDivElement>(null);
   const [surface, setSurface] = useState<GhosttyTerminalSurface | null>(null);
   const [initialFont] = useState(() => previewTerminalFont(family, size));
-  const { theme, resolvedTheme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   // The box grows with the font so the whole transcript shows without scrolling.
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- applies the font to the Ghostty preview surface and resizes its DOM box to fit the rows
@@ -172,14 +172,13 @@ export function TerminalFontPreview({ family, size }: { family: string; size: nu
     });
   }, [surface, family, size]);
 
-  // Palette changes may preserve light/dark mode; re-read terminal tokens for every theme change.
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- pushes theme tokens read from the DOM's computed styles into the Ghostty preview surface
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount || !surface) return;
     surface.setTheme(terminalThemeFromApp(mount));
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- The tokens come from the DOM's computed styles, which a theme change rewrites.
-  }, [surface, theme, resolvedTheme]);
+  }, [surface, resolvedTheme]);
 
   const mountSurface = (mount: HTMLDivElement) => {
     mountRef.current = mount;

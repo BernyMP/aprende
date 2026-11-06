@@ -2,7 +2,6 @@ import {
   DEFAULT_SERVER_SETTINGS,
   type EditorId,
   type EnvironmentId,
-  type EnvironmentTheme,
   type ServerConfig,
   type ServerConfigStreamEvent,
   type ServerLifecycleLegacyThreadMigrationPayload,
@@ -30,10 +29,8 @@ import { primaryEnvironmentIdAtom } from "./primaryEnvironment";
 import { environmentSession } from "./session";
 import { reuseProvidersIgnoringCheckedAt } from "./serverProviders.logic";
 
-// Subscribe to every environment's themes; primary can change without reconnecting or updating the subscription.
 export const serverEnvironment = createServerEnvironmentAtoms(connectionAtomRuntime, {
   initialConfigValueAtom: environmentSession.initialConfigValueAtom,
-  environmentThemes: true,
   usageLimitsCommand: true,
 });
 export const environmentUpdateStatesAtom = environmentAtomList(
@@ -169,13 +166,6 @@ export const primaryServerAvailableEditorsAtom = Atom.make(
   (get): ReadonlyArray<EditorId> =>
     get(primaryServerConfigAtom)?.availableEditors ?? EMPTY_AVAILABLE_EDITORS,
 ).pipe(Atom.withLabel("web-primary-server-available-editors"));
-
-const EMPTY_ENVIRONMENT_THEMES: ReadonlyArray<EnvironmentTheme> = [];
-
-export const primaryServerEnvironmentThemesAtom = Atom.make(
-  (get): ReadonlyArray<EnvironmentTheme> =>
-    get(primaryServerConfigAtom)?.environmentThemes ?? EMPTY_ENVIRONMENT_THEMES,
-).pipe(Atom.withLabel("web-primary-server-environment-themes"));
 
 export const providersIgnoringCheckedAtAtom = Atom.family((environmentId: EnvironmentId) =>
   Atom.make((get): ReadonlyArray<ServerProvider> =>

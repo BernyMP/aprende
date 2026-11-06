@@ -8,13 +8,6 @@ export interface ServerConfigProjection {
   readonly source: "cache" | "live";
 }
 
-/** Published themes are current machine state, so a cache could restore a set the machine no longer reports. */
-export function withoutEnvironmentThemes(config: ServerConfig): ServerConfig {
-  if (config.environmentThemes === undefined) return config;
-  const { environmentThemes: _themes, ...rest } = config;
-  return rest;
-}
-
 /**
  * Provider pushes, reconnects, and settings writes resend unchanged data.
  * Reuse deep-equal objects so memoized UI can skip unchanged providers, models, and skills.
@@ -62,15 +55,7 @@ export function applyServerConfigProjection(
 ): Option.Option<ServerConfigProjection> {
   switch (event.type) {
     case "snapshot": {
-      // Wire snapshots never contain published themes. Keep the previous set
-      // until the server sends its authoritative theme event.
-      const carriedThemes = Option.isSome(current)
-        ? current.value.config.environmentThemes
-        : undefined;
-      const config: ServerConfig = {
-        ...event.config,
-        ...(carriedThemes === undefined ? {} : { environmentThemes: carriedThemes }),
-      };
+      const config = event.config;
       return Option.some({
         // Every reconnect re-sends the whole config, usually unchanged apart from timestamps.
         config: Option.isSome(current) ? reuseUnchanged(current.value.config, config) : config,
@@ -109,14 +94,5 @@ export function applyServerConfigProjection(
           source: "live",
         };
       });
-    case "environmentThemesUpdated":
-      return Option.map(current, (projection) => ({
-        config: {
-          ...projection.config,
-          environmentThemes: event.payload.themes.length > 0 ? event.payload.themes : undefined,
-        },
-        latestEvent: event,
-        source: "live",
-      }));
   }
 }

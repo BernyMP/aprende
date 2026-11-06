@@ -150,10 +150,6 @@ const DEFAULT_BINDINGS = compile([
     whenAst: whenNot(whenIdentifier("terminalFocus")),
   },
   {
-    shortcut: modShortcut("t", { altKey: true, shiftKey: true }),
-    command: "themeEditor.toggle",
-  },
-  {
     shortcut: modShortcut("f"),
     command: "chat.find",
     whenAst: whenAnd(

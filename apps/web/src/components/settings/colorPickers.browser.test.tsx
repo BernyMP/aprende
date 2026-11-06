@@ -1,14 +1,12 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { act, render } from "../../../test/render";
 import { ProviderAccentColorPicker } from "./ProviderAccentColorPicker";
-import { ThemeColorField } from "./ThemeColorPicker";
 
 const HUE = "Accent color hue";
-const PLANE = "Accent color saturation and brightness";
 
 async function renderPicker(ui: ReactNode) {
   await using stack = new AsyncDisposableStack();
@@ -53,68 +51,6 @@ function pointer(label: string, type: string, xFraction: number, yFraction = 0.5
     }),
   );
 }
-
-async function renderThemeField(value: string) {
-  const onChange = vi.fn();
-  const field = (current: string) => (
-    <ThemeColorField role="accent" value={current} onChange={onChange} />
-  );
-  await using stack = new AsyncDisposableStack();
-  const screen = stack.use(await renderPicker(field(value)));
-  await open("Choose Accent color color");
-  stack.move();
-  return Object.assign(screen, {
-    onChange,
-    echo: (current: string) => screen.rerender(field(current)),
-  });
-}
-
-function ControlledThemeField() {
-  const [value, setValue] = useState("#408080");
-  return <ThemeColorField role="accent" value={value} onChange={(_, next) => setValue(next)} />;
-}
-
-describe("theme color field", () => {
-  it("jumps hue to both endpoints without changing saturation or brightness", async () => {
-    await using _screen = await render(<ControlledThemeField />);
-    await open("Choose Accent color color");
-
-    await press(HUE, "Home");
-    expect(slider(HUE).getAttribute("aria-valuenow")).toBe("0");
-    expect(byLabel<HTMLInputElement>("Accent color picker hex value").value).toBe("#804040");
-
-    await press(HUE, "End");
-    expect(slider(HUE).getAttribute("aria-valuenow")).toBe("360");
-    expect(byLabel<HTMLInputElement>("Accent color picker hex value").value).toBe("#804040");
-
-    await press(HUE, "ArrowRight", true);
-    expect(slider(HUE).getAttribute("aria-valuenow")).toBe("10");
-    expect(byLabel<HTMLInputElement>("Accent color picker hex value").value).toBe("#804b40");
-  });
-
-  it("keeps the selected hue when a grey color is echoed back from theme settings", async () => {
-    await using screen = await renderThemeField("#ff0000");
-    const { onChange, echo } = screen;
-
-    await press(HUE, "ArrowRight", true);
-    await act(async () => {
-      pointer(PLANE, "pointerdown", 0, 0);
-      pointer(PLANE, "pointerup", 0, 0);
-    });
-    expect(onChange).toHaveBeenLastCalledWith("accent", "#ffffff");
-
-    await echo("#ffffff");
-    expect(slider(HUE).getAttribute("aria-valuenow")).toBe("10");
-  });
-
-  it("keeps a translucent color's alpha when a hex value is typed", async () => {
-    await using screen = await renderThemeField("#22ccff80");
-    const { onChange } = screen;
-
-    await userEvent.fill(byLabel("Accent color picker hex value"), "#ff0000");
-    expect(onChange).toHaveBeenLastCalledWith("accent", "#ff000080");
-  });
-});
 
 async function renderAccentPicker(value: string) {
   const onCommit = vi.fn();

@@ -168,6 +168,22 @@ function encodeWhenAst(node: KeybindingWhenNode): string {
   }
 }
 
+// Older builds wrote these defaults into keybindings.json; drop them instead of reporting them.
+const RETIRED_KEYBINDING_COMMANDS: ReadonlySet<string> = new Set([
+  "theme.select",
+  "themeEditor.toggle",
+]);
+
+function isRetiredKeybindingEntry(entry: unknown): boolean {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "command" in entry &&
+    typeof entry.command === "string" &&
+    RETIRED_KEYBINDING_COMMANDS.has(entry.command)
+  );
+}
+
 const RawKeybindingsEntries = fromLenientJson(Schema.Array(Schema.Unknown));
 const RawKeybindingsEntriesPrettyJson = fromJsonStringPretty(Schema.Array(Schema.Unknown));
 const decodeKeybindingRuleExit = Schema.decodeUnknownExit(KeybindingRule);
@@ -299,16 +315,18 @@ const make = Effect.gen(function* () {
       ),
     );
 
-    return rawConfig.map((entry) => {
-      const decodedRule = decodeKeybindingRuleExit(entry);
-      if (
-        decodedRule._tag === "Success" &&
-        decodeResolvedKeybindingFromConfigExit(decodedRule.value)._tag === "Success"
-      ) {
-        return { value: decodedRule.value, rule: decodedRule.value };
-      }
-      return { value: entry, rule: null };
-    });
+    return rawConfig
+      .filter((entry) => !isRetiredKeybindingEntry(entry))
+      .map((entry) => {
+        const decodedRule = decodeKeybindingRuleExit(entry);
+        if (
+          decodedRule._tag === "Success" &&
+          decodeResolvedKeybindingFromConfigExit(decodedRule.value)._tag === "Success"
+        ) {
+          return { value: decodedRule.value, rule: decodedRule.value };
+        }
+        return { value: entry, rule: null };
+      });
   });
 
   const loadRuntimeCustomKeybindingsConfig = Effect.fn(function* (): Effect.fn.Return<
@@ -335,6 +353,7 @@ const make = Effect.gen(function* () {
     const keybindings: KeybindingRule[] = [];
     const issues: ServerConfigIssue[] = [];
     for (const [index, entry] of decodedEntries.value.entries()) {
+      if (isRetiredKeybindingEntry(entry)) continue;
       const decodedRule = decodeKeybindingRuleExit(entry);
       if (decodedRule._tag === "Failure") {
         const detail = Cause.pretty(decodedRule.cause);

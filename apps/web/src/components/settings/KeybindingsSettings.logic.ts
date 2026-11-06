@@ -217,7 +217,7 @@ const KEYBINDING_GROUPS = [
   { id: "composer", title: "Composer", prefixes: ["composer", "modelPicker"] },
   { id: "terminal", title: "Terminal", prefixes: ["terminal"] },
   { id: "preview", title: "Preview & diff", prefixes: ["preview", "diff"] },
-  { id: "appearance", title: "Appearance", prefixes: ["theme", "appearance", "themeEditor"] },
+  { id: "appearance", title: "Appearance", prefixes: ["appearance"] },
   { id: "scripts", title: "Project scripts", prefixes: ["script"] },
 ] as const;
 const OTHER_KEYBINDING_GROUP = { id: "other", title: "Other" } as const;
