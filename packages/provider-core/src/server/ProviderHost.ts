@@ -6,11 +6,8 @@ import type {
 } from "@aprende/contracts";
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import type * as Stream from "effect/Stream";
-
-import type { ProviderCredentialError } from "./errors.ts";
 
 export interface ProviderHostPaths {
   readonly cwd: string;
@@ -19,14 +16,6 @@ export interface ProviderHostPaths {
   readonly providerStatusCacheDir: string;
   /** Where chat attachments are stored; agents that sandbox file reads must be granted it. */
   readonly attachmentsDir: string;
-}
-
-export interface ProviderCredentials {
-  /** Instances whose bindings are equal share these credentials. */
-  readonly binding: { readonly owner: "t3"; readonly key: string };
-  readonly get: Effect.Effect<Option.Option<Uint8Array>, ProviderCredentialError>;
-  readonly set: (credentials: Uint8Array) => Effect.Effect<void, ProviderCredentialError>;
-  readonly remove: Effect.Effect<void, ProviderCredentialError>;
 }
 
 export class ProviderHost extends Context.Service<
@@ -47,9 +36,5 @@ export class ProviderHost extends Context.Service<
     /** Absolute attachment path, or null if the ID does not resolve inside attachmentsDir. */
     readonly resolveAttachmentPath: (attachment: ChatAttachment) => string | null;
     readonly resolveExtractedTextPath?: (path: string) => Effect.Effect<string | undefined>;
-    readonly credentials: (
-      namespace: string,
-      bindingId: string,
-    ) => Effect.Effect<ProviderCredentials>;
   }
 >()("@aprende/provider-core/server/ProviderHost") {}

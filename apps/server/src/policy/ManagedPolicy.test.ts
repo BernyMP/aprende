@@ -51,13 +51,21 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
             defaultAutoPull: { value: true, locked: false },
             usageLimitSources: { value: {}, locked: true },
             secretProviders: { value: {}, locked: true },
+            // Earlier builds wrote a `sensitive` flag on every provider variable.
+            "providerInstances.codex": {
+              value: {
+                driver: "codex",
+                environment: [{ name: "CODEX_HOME", value: "/opt/codex", sensitive: false }],
+              },
+              locked: true,
+            },
           },
         }),
       );
       assert.deepEqual(policy.summary, {
         organization: "Example Corp",
         supportUrl: "https://it.example/t3",
-        lockedSettings: ["storageCleanup.logsAfterDays"],
+        lockedSettings: ["storageCleanup.logsAfterDays", "providerInstances.codex"],
       });
       const wholeObject = yield* loadFrom(
         JSON.stringify({
@@ -147,6 +155,19 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
               },
             },
           }),
+          // Every user could read it, and learners sign in with their own CLI.
+          JSON.stringify({
+            ...base,
+            settings: {
+              "providerInstances.codex": {
+                value: {
+                  driver: "codex",
+                  environment: [{ name: "OPENAI_API_KEY", value: "sk-policy-test" }],
+                },
+                locked: true,
+              },
+            },
+          }),
         ],
         (contents) =>
           loadFrom(contents).pipe(
@@ -154,13 +175,15 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
             Effect.map((error) => error.reason),
           ),
       );
-      assert.lengthOf(reasons, 11);
+      assert.lengthOf(reasons, 12);
       assert.include(reasons[3], "storageCleanup.logsAfterDayz");
       assert.include(reasons[6], "adds entries users could not remove");
       assert.include(reasons[7], "adds entries users could not remove");
       assert.include(reasons[8], 'manage "defaultModelSelection" as a whole');
       assert.include(reasons[9], 'manage "idleCompaction" instead');
       assert.include(reasons[10], 'lock "providerInstances.codex" as a whole');
+      assert.include(reasons[11], "OPENAI_API_KEY");
+      assert.notInclude(reasons[11], "sk-policy-test");
     }),
   );
 
@@ -200,7 +223,7 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
     () =>
       Effect.gen(function* () {
         const codex = ProviderDriverKind.make("codex");
-        const variable = (name: string, value: string) => ({ name, value, sensitive: false });
+        const variable = (name: string, value: string) => ({ name, value });
         const settings = {
           ...DEFAULT_SERVER_SETTINGS,
           providerInstances: {
@@ -407,6 +430,14 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
           withProviders({
             instances: { codex: { locked: true, environment: [{ name: "1BAD", value: "" }] } },
           }),
+          withProviders({
+            instances: {
+              claudeAgent: {
+                locked: true,
+                environment: [{ name: "ANTHROPIC_AUTH_TOKEN", value: "sk-pin-test" }],
+              },
+            },
+          }),
           // No provider could run at all.
           withProviders({ allowedDrivers: [] }),
         ],
@@ -416,7 +447,8 @@ it.layer(NodeServices.layer)("ManagedPolicy.load", (it) => {
             Effect.map((error) => error.reason),
           ),
       );
-      assert.lengthOf(reasons, 6);
+      assert.lengthOf(reasons, 7);
+      assert.include(reasons[5], "ANTHROPIC_AUTH_TOKEN");
       assert.include(reasons[0], "notAProvider");
       assert.include(reasons[1], "notAProvider");
       assert.include(reasons[2], "launchArgs");

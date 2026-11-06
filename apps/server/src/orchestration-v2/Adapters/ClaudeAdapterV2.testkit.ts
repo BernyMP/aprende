@@ -1039,7 +1039,7 @@ function layerClaudeProviderAdapterRegistryReplay(
             {
               instanceId: ClaudeAdapterV2.CLAUDE_DEFAULT_INSTANCE_ID,
               displayName: undefined,
-              environment: [{ name: "CLAUDE_CODE_TMPDIR", value: tmpRoot, sensitive: false }],
+              environment: [{ name: "CLAUDE_CODE_TMPDIR", value: tmpRoot }],
               enabled: true,
               config: DEFAULT_CLAUDE_SETTINGS,
             },

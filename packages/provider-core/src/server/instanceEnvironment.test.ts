@@ -19,9 +19,9 @@ describe("mergeProviderInstanceEnvironment", () => {
       };
       const environment = yield* mergeProviderInstanceEnvironment(
         [
-          { name: "CODEX_HOME", value, sensitive: false },
-          { name: "CLAUDE_CONFIG_DIR", value, sensitive: false },
-          { name: "CUSTOM_VALUE", value, sensitive: false },
+          { name: "CODEX_HOME", value },
+          { name: "CLAUDE_CONFIG_DIR", value },
+          { name: "CUSTOM_VALUE", value },
         ],
         baseEnv,
       );
@@ -47,7 +47,7 @@ describe("mergeProviderInstanceEnvironment", () => {
 
       expect(
         yield* mergeProviderInstanceEnvironment(
-          [{ name: "CUSTOM_VALUE", value: "~/.custom", sensitive: false }],
+          [{ name: "CUSTOM_VALUE", value: "~/.custom" }],
           baseEnv,
         ),
       ).toEqual({ ...baseEnv, CUSTOM_VALUE: "~/.custom" });
@@ -59,15 +59,15 @@ describe("mergeProviderInstanceEnvironment", () => {
       expect(
         yield* mergeProviderInstanceEnvironment(
           [
-            { name: "OPENROUTER_API_KEY", value: "sk-or-test", sensitive: true },
-            { name: "ANTHROPIC_API_KEY", value: "", sensitive: false },
+            { name: "ANTHROPIC_BASE_URL", value: "https://router.example.test" },
+            { name: "HTTPS_PROXY", value: "" },
           ],
-          { ANTHROPIC_API_KEY: "inherited", OPENAI_API_KEY: "inherited", PATH: "/bin" },
+          { HTTPS_PROXY: "inherited", NO_PROXY: "inherited", PATH: "/bin" },
         ),
       ).toMatchObject({
-        OPENROUTER_API_KEY: "sk-or-test",
-        ANTHROPIC_API_KEY: "",
-        OPENAI_API_KEY: "inherited",
+        ANTHROPIC_BASE_URL: "https://router.example.test",
+        HTTPS_PROXY: "",
+        NO_PROXY: "inherited",
         PATH: "/bin",
       });
     }),
@@ -76,16 +76,13 @@ describe("mergeProviderInstanceEnvironment", () => {
   it.effect("replaces every inherited spelling of a name on Windows, and only there", () =>
     Effect.gen(function* () {
       const merge = (platform: NodeJS.Platform) =>
-        mergeProviderInstanceEnvironment(
-          [{ name: "Https_Proxy", value: "http://gateway", sensitive: false }],
-          { HTTPS_PROXY: "http://mine", PATH: "/bin" },
-        ).pipe(Effect.provideService(HostProcess.Platform, platform));
+        mergeProviderInstanceEnvironment([{ name: "Https_Proxy", value: "http://gateway" }], {
+          HTTPS_PROXY: "http://mine",
+          PATH: "/bin",
+        }).pipe(Effect.provideService(HostProcess.Platform, platform));
       // A home variable in another spelling is still expanded.
       expect(
-        yield* mergeProviderInstanceEnvironment(
-          [{ name: "Codex_Home", value: "~/corp", sensitive: false }],
-          {},
-        ).pipe(
+        yield* mergeProviderInstanceEnvironment([{ name: "Codex_Home", value: "~/corp" }], {}).pipe(
           Effect.provideService(HostProcess.Platform, "win32"),
           Effect.provideService(HostProcess.HomeDirectory, "/home/ada"),
         ),

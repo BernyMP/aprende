@@ -4,9 +4,7 @@ import type {
   AgentSessionProjectCandidate,
   EnvironmentId,
   ProjectId,
-  ProviderInstanceId,
   ScopedProjectRef,
-  ServerConfig,
   ServerProvider,
 } from "@aprende/contracts";
 import { scopeProjectRef } from "@aprende/client-runtime/environment";
@@ -17,7 +15,6 @@ import {
 import {
   AgentSessionSource,
   CommandId,
-  defaultInstanceIdForDriver,
   AuthOrchestrationOperateScope,
   isManagedDriverAllowed,
   ProviderDriverKind,
@@ -47,7 +44,6 @@ import { newProjectId } from "../../lib/utils";
 import { agentSessionImport } from "../../state/agentSessions";
 import { readProjects, waitForProject } from "../../state/entities";
 import { useEnvironments, usePrimaryEnvironment } from "../../state/environments";
-import { managedInstanceLocks } from "../../state/managedPolicy";
 import { resolveOnboardingSetup } from "../../onboarding/targetEnvironment.logic";
 import { useProjectScans } from "../../onboarding/useProjectScans";
 import { projectEnvironment } from "../../state/projects";
@@ -57,10 +53,6 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { connectPairing } from "../../connection/onboarding";
 import { getProviderSummary } from "../settings/providerStatus";
 import { providerClients } from "../settings/providerDriverMeta";
-import { ChatGptWelcomeCoordinator } from "../settings/ChatGptWelcomeCoordinator";
-import { AddManagedCodexAccountDialog, CodexSetupSection } from "../settings/CodexSetupSection";
-import { readCodexSetupMode } from "../settings/CodexSetupSection.logic";
-import { buildProviderInstanceUpdatePatch } from "../settings/SettingsPanels.logic";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { AppMark } from "../AppMark";
 import { Alert, AlertDescription } from "../ui/alert";
@@ -257,7 +249,6 @@ export function WelcomeWizard({
           )}
         </WizardPanel>
       </WizardPopup>
-      <ChatGptWelcomeCoordinator />
     </Dialog>
   );
 }
@@ -598,12 +589,6 @@ function ConnectedAgentsStep({
   });
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
   const [setupSession, setSetupSession] = useState<AgentSetupSession | null>(null);
-  const [addingAccount, setAddingAccount] = useState(false);
-  const [createdAccount, setCreatedAccount] = useState<{
-    instanceId: ProviderInstanceId;
-    displayName: string;
-    autoStart: boolean;
-  } | null>(null);
 
   // oxlint-disable-next-line aprende/no-unreasoned-state-sync -- asks the environment to refresh its provider list when the environment changes
   useEffect(() => {
@@ -612,12 +597,6 @@ function ConnectedAgentsStep({
 
   const byDriver = selectOnboardingProvidersByDriver(providers);
   const managedPolicy = serverConfig?.managedPolicy;
-  // A policy that owns Codex's launch settings also rules out ChatGPT's own runtime.
-  const chatGptAllowed =
-    managedInstanceLocks(managedPolicy, ProviderDriverKind.make("codex"))?.configKeys.has(
-      "setupMode",
-    ) !== true;
-
   const primaryAgents = PRIMARY_AGENT_DRIVERS.filter((driver) =>
     isManagedDriverAllowed(managedPolicy, ProviderDriverKind.make(driver)),
   ).flatMap((driver) => {
@@ -627,99 +606,36 @@ function ConnectedAgentsStep({
       ? instances.map((provider) => ({ driver, provider, instanceId: provider.instanceId }))
       : [{ driver, provider: byDriver.get(driver), instanceId: byDriver.get(driver)?.instanceId }];
   });
-  if (createdAccount) {
-    const index = primaryAgents.findIndex(
-      (agent) => agent.instanceId === createdAccount.instanceId,
-    );
-    const [existing] = index >= 0 ? primaryAgents.splice(index, 1) : [];
-    primaryAgents.unshift(
-      existing ?? {
-        driver: "codex",
-        provider: undefined,
-        instanceId: createdAccount.instanceId,
-      },
-    );
-  }
   return (
     <section>
       <h2 className="mb-2 text-sm font-medium">{machineLabel}</h2>
       <div className="space-y-1.5">
-        {primaryAgents.map(({ driver, provider, instanceId }) =>
-          driver === "codex" && serverConfig !== null ? (
-            <OnboardingCodexSetup
-              key={instanceId ?? driver}
-              environmentId={environmentId}
-              provider={provider}
-              serverConfig={serverConfig}
-              createdAccount={instanceId === createdAccount?.instanceId ? createdAccount : null}
-              onAutoStartConsumed={() =>
-                setCreatedAccount((account) => (account ? { ...account, autoStart: false } : null))
-              }
-              setupOpen={setupSession?.driver === driver}
-              onShowSetup={() => {
-                if (provider === undefined) return;
-                setSetupSession({
-                  driver,
-                  command: provider.installed
-                    ? resolveOnboardingProviderLoginCommand(
-                        provider,
-                        serverConfig.settings,
-                        serverConfig.environment.platform.os,
-                      )
-                    : resolveOnboardingProviderInstallCommand(
-                        driver,
-                        serverConfig.environment.platform.os,
-                      ),
-                });
-              }}
-            />
-          ) : (
-            <AgentCard
-              key={driver}
-              driver={driver}
-              provider={provider}
-              setupOpen={setupSession?.driver === driver}
-              setupAvailable={serverConfig !== null}
-              onShowSetup={() => {
-                if (provider === undefined || serverConfig === null) return;
-                setSetupSession({
-                  driver,
-                  command: provider.installed
-                    ? resolveOnboardingProviderLoginCommand(
-                        provider,
-                        serverConfig.settings,
-                        serverConfig.environment.platform.os,
-                      )
-                    : resolveOnboardingProviderInstallCommand(
-                        driver,
-                        serverConfig.environment.platform.os,
-                      ),
-                });
-              }}
-            />
-          ),
-        )}
+        {primaryAgents.map(({ driver, provider, instanceId }) => (
+          <AgentCard
+            key={instanceId ?? driver}
+            driver={driver}
+            provider={provider}
+            setupOpen={setupSession?.driver === driver}
+            setupAvailable={serverConfig !== null}
+            onShowSetup={() => {
+              if (provider === undefined || serverConfig === null) return;
+              setSetupSession({
+                driver,
+                command: provider.installed
+                  ? resolveOnboardingProviderLoginCommand(
+                      provider,
+                      serverConfig.settings,
+                      serverConfig.environment.platform.os,
+                    )
+                  : resolveOnboardingProviderInstallCommand(
+                      driver,
+                      serverConfig.environment.platform.os,
+                    ),
+              });
+            }}
+          />
+        ))}
       </div>
-      {chatGptAllowed &&
-      providers?.some(
-        (provider) =>
-          provider.driver === "codex" && getOnboardingProviderState(provider) === "ready",
-      ) ? (
-        <div className="mt-3">
-          <Button size="xs" variant="ghost-muted" onClick={() => setAddingAccount(true)}>
-            Connect another ChatGPT account
-          </Button>
-        </div>
-      ) : null}
-      {addingAccount ? (
-        <AddManagedCodexAccountDialog
-          environmentId={environmentId}
-          onClose={() => setAddingAccount(false)}
-          onAccountCreated={(instanceId, displayName) =>
-            setCreatedAccount({ instanceId, displayName, autoStart: true })
-          }
-        />
-      ) : null}
       {setupSession !== null ? (
         <AgentSetupCommand
           session={setupSession}
@@ -731,90 +647,6 @@ function ConnectedAgentsStep({
         />
       ) : null}
     </section>
-  );
-}
-
-function OnboardingCodexSetup({
-  createdAccount,
-  onAutoStartConsumed,
-  environmentId,
-  provider,
-  serverConfig,
-  setupOpen,
-  onShowSetup,
-}: {
-  readonly environmentId: EnvironmentId;
-  readonly provider: ServerProvider | undefined;
-  readonly serverConfig: ServerConfig;
-  readonly setupOpen: boolean;
-  readonly onShowSetup: () => void;
-  readonly createdAccount: {
-    instanceId: ProviderInstanceId;
-    displayName: string;
-    autoStart: boolean;
-  } | null;
-  readonly onAutoStartConsumed: () => void;
-}) {
-  const update = useAtomCommand(serverEnvironment.updateSettings, "Codex setup settings");
-  const instanceId =
-    createdAccount?.instanceId ??
-    provider?.instanceId ??
-    defaultInstanceIdForDriver(ProviderDriverKind.make("codex"));
-  const settings = serverConfig.settings;
-  const instance = settings.providerInstances[instanceId] ?? {
-    driver: ProviderDriverKind.make("codex"),
-    config: createdAccount ? { enabled: true, setupMode: "managed" } : {},
-  };
-  const mode = readCodexSetupMode(instance.config);
-  const existingChosen =
-    mode === "existing" &&
-    instance.config !== null &&
-    typeof instance.config === "object" &&
-    "setupMode" in instance.config &&
-    instance.config.setupMode === "existing";
-  const changeMode = (setupMode: "managed" | "existing") => {
-    void update({
-      environmentId,
-      input: {
-        patch: buildProviderInstanceUpdatePatch({
-          settings,
-          instanceId,
-          instance: {
-            ...instance,
-            enabled: true,
-            config: {
-              ...(instance.config !== null && typeof instance.config === "object"
-                ? instance.config
-                : {}),
-              enabled: true,
-              setupMode,
-            },
-          },
-        }),
-      },
-    });
-  };
-  return existingChosen ? (
-    <AgentCard
-      driver="codex"
-      provider={provider}
-      setupOpen={setupOpen}
-      setupAvailable
-      onShowSetup={onShowSetup}
-    />
-  ) : (
-    <CodexSetupSection
-      presentation="onboarding"
-      autoStart={createdAccount?.autoStart === true}
-      displayName={createdAccount?.displayName}
-      onAutoStartConsumed={onAutoStartConsumed}
-      environmentId={environmentId}
-      instanceId={instanceId}
-      provider={provider}
-      mode={mode}
-      enabled={provider?.enabled ?? true}
-      onModeChange={changeMode}
-    />
   );
 }
 

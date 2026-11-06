@@ -49,8 +49,6 @@ export type EnvironmentRpcTag = keyof WsRpcProtocolClient & string;
 type RpcMethod<TTag extends EnvironmentRpcTag> = WsRpcProtocolClient[TTag];
 
 export type EnvironmentSubscriptionRpcTag =
-  | typeof WS_METHODS.providerAuthSubscribe
-  | typeof WS_METHODS.providerInstallSubscribe
   | typeof ORCHESTRATION_V2_WS_METHODS.subscribeShell
   | typeof ORCHESTRATION_V2_WS_METHODS.subscribeThread
   | typeof ORCHESTRATION_V2_WS_METHODS.subscribeCommandOutput
@@ -64,9 +62,7 @@ export type EnvironmentSubscriptionRpcTag =
   | typeof WS_METHODS.serverGetDatabaseStorage
   | typeof WS_METHODS.subscribeResourceTelemetry;
 
-export type EnvironmentStreamCommandRpcTag =
-  | typeof WS_METHODS.chatGptHandoffSubscribe
-  | typeof WS_METHODS.serverUpdateServerWithProgress;
+export type EnvironmentStreamCommandRpcTag = typeof WS_METHODS.serverUpdateServerWithProgress;
 
 export type EnvironmentStreamRpcTag =
   | EnvironmentSubscriptionRpcTag

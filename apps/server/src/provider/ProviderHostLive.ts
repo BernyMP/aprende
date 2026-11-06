@@ -1,17 +1,13 @@
 import * as ProviderHost from "@aprende/provider-core/server/ProviderHost";
-import { ProviderCredentialError } from "@aprende/provider-core/server/errors";
-import * as Digest from "effect/crypto/Digest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 
 import { resolveAttachmentPath } from "../attachmentStore.ts";
-import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ServerConfig from "../config.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as DocumentText from "./DocumentText.ts";
-import * as ProviderCredentialStore from "./ProviderCredentialStore.ts";
 
 export const layer = Layer.effect(
   ProviderHost.ProviderHost,
@@ -19,8 +15,6 @@ export const layer = Layer.effect(
     const config = yield* ServerConfig.ServerConfig;
     const serverSettings = yield* ServerSettings.ServerSettingsService;
     const backgroundPolicy = yield* BackgroundPolicy.BackgroundPolicy;
-    const secrets = yield* ServerSecretStore.ServerSecretStore;
-    const digest = yield* Digest.Digest;
     const fileSystem = yield* FileSystem.FileSystem;
     return ProviderHost.ProviderHost.of({
       paths: {
@@ -46,31 +40,6 @@ export const layer = Layer.effect(
         },
         Effect.provideService(FileSystem.FileSystem, fileSystem),
       ),
-      credentials: Effect.fn("ProviderHost.credentials")(function (namespace, bindingId) {
-        return ProviderCredentialStore.make(namespace, bindingId).pipe(
-          Effect.map((store) => ({
-            binding: store.binding,
-            get: store.get.pipe(
-              Effect.mapError((cause) => new ProviderCredentialError({ operation: "get", cause })),
-            ),
-            set: (credentials: Uint8Array) =>
-              store
-                .set(credentials)
-                .pipe(
-                  Effect.mapError(
-                    (cause) => new ProviderCredentialError({ operation: "set", cause }),
-                  ),
-                ),
-            remove: store.remove.pipe(
-              Effect.mapError(
-                (cause) => new ProviderCredentialError({ operation: "remove", cause }),
-              ),
-            ),
-          })),
-          Effect.provideService(ServerSecretStore.ServerSecretStore, secrets),
-          Effect.provideService(Digest.Digest, digest),
-        );
-      }),
     });
   }),
 );

@@ -4,7 +4,6 @@ import {
   ProviderInstanceId,
   type ServerProvider,
 } from "@aprende/contracts";
-import { CHATGPT_USAGE_URL } from "@aprende/shared/usageLimits";
 import { describe, expect, it } from "vite-plus/test";
 
 import { render } from "../../../test/render";
@@ -12,7 +11,7 @@ import { UsageLimitsPooled } from "./UsageLimitsPooled";
 
 const checkedAt = "2026-10-25T16:00:00.000Z";
 
-function managedChatGpt(instanceId: string, displayName: string): ServerProvider {
+function externallyTracked(instanceId: string, displayName: string): ServerProvider {
   return {
     instanceId: ProviderInstanceId.make(instanceId),
     driver: ProviderDriverKind.make("codex"),
@@ -29,14 +28,14 @@ function managedChatGpt(instanceId: string, displayName: string): ServerProvider
     usageLimits: {
       checkedAt,
       windows: [],
-      unavailable: { reason: "unsupported", message: "Track usage in ChatGPT." },
-      externalUsage: { label: "ChatGPT usage", url: CHATGPT_USAGE_URL },
+      unavailable: { reason: "unsupported", message: "Track usage on the provider's site." },
+      externalUsage: { label: "Account usage", url: "https://usage.example.test" },
     },
   };
 }
 
-describe("UsageLimitsPooled ChatGPT usage card", () => {
-  it("names the managed connections it covers", async () => {
+describe("UsageLimitsPooled external usage card", () => {
+  it("names the connections it covers", async () => {
     const presentations = new Map([
       [
         EnvironmentId.make("desk"),
@@ -44,8 +43,8 @@ describe("UsageLimitsPooled ChatGPT usage card", () => {
           entry: { target: { label: "Desk" } },
           serverConfig: {
             providers: [
-              managedChatGpt("chatgpt_work", "ChatGPT Work"),
-              managedChatGpt("chatgpt_personal", "ChatGPT Personal"),
+              externallyTracked("codex_work", "Codex Work"),
+              externallyTracked("codex_personal", "Codex Personal"),
             ],
           },
         },
@@ -56,10 +55,8 @@ describe("UsageLimitsPooled ChatGPT usage card", () => {
     );
 
     await expect
-      .element(screen.getByText("ChatGPT Work on Desk, ChatGPT Personal on Desk"))
+      .element(screen.getByText("Codex Work on Desk, Codex Personal on Desk"))
       .toBeVisible();
-    await expect
-      .element(screen.getByText("View usage in ChatGPT with your connected account."))
-      .toBeVisible();
+    await expect.element(screen.getByText("Track usage on the provider's site.")).toBeVisible();
   });
 });

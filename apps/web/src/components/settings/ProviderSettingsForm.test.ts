@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { makeProviderSettingsSchema, ProviderDriverKind, TrimmedString } from "@aprende/contracts";
-import * as Schema from "effect/Schema";
+import { ProviderDriverKind } from "@aprende/contracts";
 
 import { providerClients } from "./providerDriverMeta";
 import {
@@ -11,22 +10,6 @@ import {
 } from "./ProviderSettingsForm";
 
 describe("ProviderSettingsForm helpers", () => {
-  it("keeps every masked field as a stored secret", () => {
-    const settingsSchema = makeProviderSettingsSchema({
-      token: TrimmedString.pipe(
-        Schema.annotateKey({ providerSettingsForm: { control: "password" } }),
-      ),
-      label: TrimmedString,
-    });
-
-    expect(
-      deriveProviderSettingsFields({ settingsSchema }).map(({ key, secret }) => ({ key, secret })),
-    ).toEqual([
-      { key: "token", secret: true },
-      { key: "label", secret: undefined },
-    ]);
-  });
-
   it("preserves unknown config keys while omitting empty configurable fields", () => {
     const codex = providerClients.get(ProviderDriverKind.make("codex"));
     expect(codex).toBeDefined();

@@ -6,7 +6,6 @@
  * README.md for how to run it and add cases.
  */
 import * as NodeChildProcess from "node:child_process";
-import * as NodeCrypto from "node:crypto";
 import * as NodeUtil from "node:util";
 import * as NodeVM from "node:vm";
 import * as NodeZlib from "node:zlib";
@@ -34,7 +33,6 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { taskPrompt } from "../../apps/server/src/mcp/delegatedTaskModes.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
-import * as Contracts from "@aprende/contracts";
 import { EnvironmentId, ORCHESTRATOR_MCP_RUNNING_TASK_NEXT, ThreadId } from "@aprende/contracts";
 import { projectComposerContextForProvider } from "@aprende/shared/composerContextReferences";
 import { formatThreadLink } from "@aprende/shared/threadLinks";
@@ -52,13 +50,6 @@ import {
   makeClaudeQueryOptions,
 } from "../../apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts";
 import { proxyConfig } from "../shared/proxy.ts";
-import {
-  argvForm,
-  gradeSecret,
-  scriptSources,
-  SecretExpect,
-  secretDiagnostics,
-} from "./secret-grading.ts";
 /** Agent models by id, with the display name a harness gives them. */
 const MODELS = {
   "claude-sonnet-5-5": "Sonnet 5.5",
@@ -163,10 +154,7 @@ const McpToolUseExpect = Schema.Struct({
   newThreads: Schema.optional(Schema.Array(Schema.Unknown)),
   /** The last step with tool calls includes this tool, then the turn ends. */
   endsTurnAfter: Schema.optional(Schema.String),
-  /**
-   * Regexes that no shell command may match. In a case with `secret` checks, a command also carries
-   * the source of the scripts it runs that the agent wrote earlier in the sample.
-   */
+  /** Regexes that no shell command may match. */
   shellMustNot: Schema.optional(Schema.Array(Schema.String)),
   /** Regexes that some shell command must match, each. */
   shellMust: Schema.optional(Schema.Array(Schema.String)),
@@ -175,11 +163,6 @@ const McpToolUseExpect = Schema.Struct({
   textMustNot: Schema.optional(Schema.Array(Schema.String)),
   /** Case-sensitive regexes on the final answer: the last response's text, once the turn ended. */
   finalTextMust: Schema.optional(Schema.Array(Schema.String)),
-  /**
-   * Secret checks: chat asks in text and question tools, where fixture values went, and how the
-   * files request_secret returned were read. See `SecretExpect` in secret-grading.ts.
-   */
-  secret: Schema.optional(SecretExpect),
 });
 
 /**
@@ -381,17 +364,6 @@ const alwaysLoaded = new Set(
     })
     .map((tool) => `${T3_PREFIX}${tool.name}`),
 );
-// Refs whose request_secret takes `value` save a secret the user already pasted, with no card.
-export const savesPastedSecrets = appTools.some(
-  (tool) =>
-    tool.name === `${T3_PREFIX}request_secret` &&
-    isRecord(tool.input_schema) &&
-    isRecord(tool.input_schema.properties) &&
-    "value" in tool.input_schema.properties,
-);
-/** A request_secret call that hands T3 a pasted secret, on a ref that takes one. */
-const pastedSecret = (name: string, input: Readonly<Record<string, unknown>>) =>
-  savesPastedSecrets && name === "request_secret" && typeof input.value === "string";
 
 /** T3's Claude Code options for an eval thread: its system prompt append and its hooks. */
 const claudeQueryOptions = (model: Model) => {
@@ -703,9 +675,6 @@ type Sample = {
   nextTask: number;
   /** Threads the agent launched in this sample, by id, so reading one shows its own brief. */
   readonly threads: Map<string, { readonly title: string; readonly brief: string }>;
-  /** Files T3's request_secret saved in this sample, in call order. */
-  readonly secretFiles: Array<string>;
-  secretRequests: number;
 };
 
 const SHELL_TOOLS = new Set(["Bash", "Read", "Edit", "Write", "WebFetch"]);
@@ -729,8 +698,6 @@ export const makeSample = (testCase: McpToolUseCase, base: Base): Sample => {
     codeStore: {},
     nextTask: Math.max(0, ...taskNumbers) + 1,
     threads: new Map(),
-    secretFiles: [],
-    secretRequests: 0,
   };
 };
 
@@ -968,18 +935,6 @@ export const t3Default = (
       };
     case "task_cancel":
       return { taskId: input.taskId, status: "cancel_requested" };
-    case "request_secret": {
-      // T3 names a ref and a file with 32 hex characters, new for each request, in its secrets dir.
-      const id = NodeCrypto.createHash("sha256")
-        .update(`${sample.testCase.id}:${sample.secretRequests++}`)
-        .digest("hex")
-        .slice(0, 32);
-      const home =
-        /^\/(?:home|Users)\/[^/]+/.exec(sample.base.environment.cwd)?.[0] ?? "/home/user";
-      return input.delivery === "file" || pastedSecret(name, input)
-        ? { status: "saved", file: `${home}/.aprende/userdata/secrets/files/${id}` }
-        : { status: "saved", secretRef: `secret-ref:${id}` };
-    }
     case "t3_thread_read": {
       const threadId = valueText(input.threadId);
       const launched = sample.threads.get(threadId);
@@ -1014,12 +969,6 @@ export const t3Default = (
 /** The machine the fake threads live on. */
 const EVAL_ENVIRONMENT_ID = EnvironmentId.make("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee");
 
-// The note T3 adds when a secret card ends unsaved, on refs that have one (looked up by name so
-// the runner still builds on refs without it).
-const unsavedSecretNote = (Contracts as Record<string, unknown>).SECRET_REQUEST_UNSAVED_NOTE as
-  | Readonly<Record<string, string>>
-  | undefined;
-
 /** Fields T3 adds to real thread and task results, applied to mocks and defaults alike. */
 const withProductFields = (name: string, value: unknown): unknown => {
   if (!isRecord(value)) return value;
@@ -1039,10 +988,6 @@ const withProductFields = (name: string, value: unknown): unknown => {
   const listed = (key: string) =>
     Array.isArray(value[key]) ? { ...value, [key]: value[key].map((item) => linked(item)) } : value;
   switch (name) {
-    case "request_secret": {
-      const note = typeof value.status === "string" ? unsavedSecretNote?.[value.status] : undefined;
-      return note === undefined || value.note !== undefined ? value : { ...value, note };
-    }
     case "delegate_task":
     case "task_status": {
       const task = linked(value, "childThreadId") as Record<string, unknown>;
@@ -1159,11 +1104,6 @@ export const shellRequest = (sample: Sample, call: Omit<ShellEntry, "output">, m
     ...(shellMocks.length > 0
       ? [`Commands that match these regexes print exactly this output: ${valueText(shellMocks)}`]
       : []),
-    ...(sample.secretFiles.length > 0
-      ? [
-          `T3's request_secret saved these files in this sample: ${sample.secretFiles.join(", ")}. Each exists, is readable only by the user, and holds exactly the value the user gave, typed into T3's private card or pasted in chat and saved by the agent, the right one for the task, with no trailing newline. A program that reads it, as in "$(cat <file>)", < <file> or a --*-file flag, gets that value. What appears in the output is whatever that program prints: one that prints or logs its input shows the value. No other file in that directory exists.`,
-        ]
-      : []),
     ...(context ? [`The agent was told: ${context}`] : []),
     `The agent's task: ${testCase.prompt}`,
     ...namedPathsLine(testCase),
@@ -1252,13 +1192,8 @@ const simulate = Effect.fn("evaluateMcpToolUse.simulate")(function* (
   return output;
 });
 
-/** Tells the shell simulator about a file request_secret saved, so it exists for later commands. */
-const savedSecretFile = (sample: Sample, result: unknown) => {
-  if (isRecord(result) && typeof result.file === "string") sample.secretFiles.push(result.file);
-};
-
 /** The result for one tool call. */
-export const answerToolCall = Effect.fn("evaluateMcpToolUse.answerToolCall")(function* (
+const answerToolCall = Effect.fn("evaluateMcpToolUse.answerToolCall")(function* (
   sample: Sample,
   config: Config,
   call: typeof ToolUse.Type,
@@ -1288,9 +1223,7 @@ export const answerToolCall = Effect.fn("evaluateMcpToolUse.answerToolCall")(fun
     return loadTools(tools, call.id, found);
   }
   const mock = testCase.setup.mocks?.[name];
-  // A pasted secret is saved without a card, so a mocked card outcome does not apply.
-  if (mock !== undefined && mock !== "default" && !pastedSecret(name, input)) {
-    if (name === "request_secret") savedSecretFile(sample, mock);
+  if (mock !== undefined && mock !== "default") {
     return toolResult(
       call.id,
       name === "orchestrator_capabilities"
@@ -1300,7 +1233,6 @@ export const answerToolCall = Effect.fn("evaluateMcpToolUse.answerToolCall")(fun
   }
   if (isT3Name(call.name)) {
     const value = t3Default(sample, name, input);
-    if (name === "request_secret") savedSecretFile(sample, value);
     return toolResult(
       call.id,
       name === "orchestrator_capabilities"
@@ -1390,16 +1322,21 @@ const withOptionsObject = (input: unknown) => {
   return { ...input, target: { ...input.target, options } };
 };
 
-/** What the user wrote in the case's thread: its context, prior user turns and the prompt. */
-export const pastedText = ({ prompt, setup }: Pick<McpToolUseCase, "prompt" | "setup">) =>
-  [
-    setup.context ?? "",
-    ...(setup.priorTurns ?? []).flatMap((turn) => (turn.role === "user" ? [turn.text ?? ""] : [])),
-    prompt,
-  ].join("\n");
+/**
+ * A program's argv written as a list of string literals, as in `subprocess.run(['adb', 'pair',
+ * host])`, read as the command line it runs, so a regex like `adb\s+pair` matches it.
+ * The list may span lines.
+ */
+const argvForm = (text: string) =>
+  text.replace(/\[\s*((['"])(?:[^[\]]|\[[^[\]\n]*\])*)\]/g, (_, items: string) =>
+    items
+      .split(",")
+      .map((item) => item.trim().replace(/^(['"])(.*)\1$/, "$2"))
+      .filter((item) => item.length > 0)
+      .join(" "),
+  );
 
-/** `pasted` is the thread's user text (`pastedText`), for request_secret's `value`. */
-export const gradeSample = (expect: McpToolUseCase["expect"], run: SampleRun, pasted = "") => {
+export const gradeSample = (expect: McpToolUseCase["expect"], run: SampleRun) => {
   const checks: Array<{ readonly check: string; readonly pass: boolean }> = [];
   const add = (check: string, pass: boolean) => checks.push({ check, pass });
   const calls = run.calls.map((call) => ({ ...call, input: withOptionsObject(call.input) }));
@@ -1433,13 +1370,9 @@ export const gradeSample = (expect: McpToolUseCase["expect"], run: SampleRun, pa
     const ended = run.stopReason === "end_turn" && last.includes(expect.endsTurnAfter);
     add(`endsTurnAfter ${expect.endsTurnAfter}`, ended);
   }
-  // Bash and Monitor both take a shell `command`. Secret cases also check, one by one, the scripts
-  // the agent wrote and a command ran: `node run.mjs signup.mjs` after a Write of signup.mjs.
-  const sources = expect.secret === undefined ? [] : scriptSources(calls);
-  const shell = calls.flatMap((call, i) =>
-    isRecord(call.input) && typeof call.input.command === "string"
-      ? [call.input.command, ...(sources[i] ?? [])]
-      : [],
+  // Bash and Monitor both take a shell `command`.
+  const shell = calls.flatMap((call) =>
+    isRecord(call.input) && typeof call.input.command === "string" ? [call.input.command] : [],
   );
   const test = (pattern: string, value: string) => new RegExp(pattern).test(value);
   for (const p of expect.shellMustNot ?? [])
@@ -1454,16 +1387,14 @@ export const gradeSample = (expect: McpToolUseCase["expect"], run: SampleRun, pa
   for (const p of expect.textMustNot ?? []) add(`textMustNot /${p}/`, !test(p, run.text));
   for (const p of expect.finalTextMust ?? [])
     add(`finalTextMust /${p}/`, run.stopReason === "end_turn" && test(p, run.finalText ?? ""));
-  checks.push(...gradeSecret(expect.secret, run, pasted));
   return checks;
 };
 
 // Checks that can only go from pass to fail as a sample goes on.
-const SETTLED =
-  /^(?:(?:notCalls|callsMustNot|shellMustNot|maxCalls|textMustNot) |secret\.(?:chatAsk|askTools|values|fileUse|noCardDemand|afterDecline) )/;
+const SETTLED = /^(?:notCalls|callsMustNot|shellMustNot|maxCalls|textMustNot) /;
 /** True once the sample has failed for good, so the rest of it cannot change the result. */
-export const failedEarly = (expect: McpToolUseCase["expect"], run: SampleRun, pasted = "") =>
-  gradeSample(expect, run, pasted).some((check) => !check.pass && SETTLED.test(check.check));
+export const failedEarly = (expect: McpToolUseCase["expect"], run: SampleRun) =>
+  gradeSample(expect, run).some((check) => !check.pass && SETTLED.test(check.check));
 
 const requestBody = ({ base, tools }: Sample, effort: string, messages: unknown) => ({
   model: base.model,
@@ -1723,13 +1654,7 @@ const runSample = Effect.fn("evaluateMcpToolUse.runSample")(function* (
       finalText = texts.join("\n\n");
       break;
     }
-    if (
-      failedEarly(
-        testCase.expect,
-        { calls, text: said.join("\n\n"), stopReason },
-        pastedText(testCase),
-      )
-    ) {
+    if (failedEarly(testCase.expect, { calls, text: said.join("\n\n"), stopReason })) {
       stopReason = "failed_early";
       break;
     }
@@ -1798,13 +1723,7 @@ const runSample = Effect.fn("evaluateMcpToolUse.runSample")(function* (
     // Claude Code adds this text after a ToolSearch that loaded tools.
     const loaded = results.some((result) => Array.isArray(result.content));
     messages.push({ role: "user", content: [...results, ...(loaded ? [text(TOOL_LOADED)] : [])] });
-    if (
-      failedEarly(
-        testCase.expect,
-        { calls, text: said.join("\n\n"), stopReason },
-        pastedText(testCase),
-      )
-    ) {
+    if (failedEarly(testCase.expect, { calls, text: said.join("\n\n"), stopReason })) {
       stopReason = "failed_early";
       break;
     }
@@ -2156,14 +2075,11 @@ const main = Effect.gen(function* () {
           ),
         }),
         onSuccess: (sample) => {
-          const checks = gradeSample(testCase.expect, sample, pastedText(testCase));
-          const { secret } = testCase.expect;
+          const checks = gradeSample(testCase.expect, sample);
           return {
             ...identity,
             pass: checks.every((check) => check.pass),
             checks,
-            // Not graded: how the agent handled a secret it needed, for a person reading the run.
-            ...(secret ? { secret: secretDiagnostics(sample, secret) } : {}),
             ...sample,
           };
         },

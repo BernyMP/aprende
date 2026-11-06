@@ -93,9 +93,6 @@ import { useManagedPolicy } from "~/state/managedPolicy";
 import { ExpandableText } from "./ExpandableText";
 import { IntervalSecondsField } from "./IntervalSecondsField";
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
-import { ProviderAuthenticationSection } from "./ProviderAuthenticationSection";
-import { CodexSetupSection, CodexManagedRuntimeFields } from "./CodexSetupSection";
-import { readCodexSetupMode } from "./CodexSetupSection.logic";
 import { providerClients } from "./providerDriverMeta";
 import { searchableSetting } from "./settingsSearch";
 import { CompactIdleThreadsRow } from "./SettingsPanels";
@@ -840,7 +837,6 @@ export function EnvironmentProviderSettings({
       <ProviderInstanceRow
         key={row.instanceId}
         environmentId={environmentId}
-        environmentLabel={environmentLabel}
         instanceId={row.instanceId}
         driver={row.driver}
         explicitInstance={row.explicitInstance}
@@ -1103,7 +1099,6 @@ const NO_MODELS: ReadonlyArray<string> = [];
 /** Stable props let this boundary return cached cards even when settings rebuild parent row elements. */
 function ProviderInstanceRow({
   environmentId,
-  environmentLabel,
   instanceId,
   driver,
   explicitInstance,
@@ -1123,7 +1118,6 @@ function ProviderInstanceRow({
   actions,
 }: {
   readonly environmentId: EnvironmentId;
-  readonly environmentLabel: string;
   readonly instanceId: ProviderInstanceId;
   readonly driver: ProviderDriverKind;
   readonly explicitInstance: ProviderInstanceConfig | undefined;
@@ -1166,7 +1160,6 @@ function ProviderInstanceRow({
         onReset: () => actions.writeProjectOverride(instanceId, undefined),
       }
     : undefined;
-  const codexSetupMode = driver === "codex" ? readCodexSetupMode(instance.config) : null;
   const recommendedVersion = liveProvider?.compatibilityAdvisory?.recommendedVersion;
   const canInstallRecommended =
     !readOnly &&
@@ -1187,53 +1180,7 @@ function ProviderInstanceRow({
       selected={selected}
       onSelect={mode === "list" ? () => actions.selectInstance(instanceId) : undefined}
       readOnly={readOnly}
-      runtime={
-        mode === "editor" && codexSetupMode === "managed" ? (
-          <CodexManagedRuntimeFields
-            environmentId={environmentId}
-            instanceId={instanceId}
-            provider={liveProvider}
-          />
-        ) : undefined
-      }
       canWriteSettings={canWriteSettings}
-      setup={
-        mode === "editor" && codexSetupMode === "managed" ? (
-          <CodexSetupSection
-            environmentId={environmentId}
-            instanceId={instanceId}
-            provider={liveProvider}
-            mode={codexSetupMode}
-            enabled={resolveProviderInstanceEnabled(instance)}
-            readOnly={readOnly}
-            onModeChange={(setupMode) =>
-              actions.enableInstance(instanceId, {
-                ...instance,
-                enabled: true,
-                config: {
-                  ...(instance.config !== null && typeof instance.config === "object"
-                    ? instance.config
-                    : {}),
-                  enabled: true,
-                  setupMode,
-                },
-              })
-            }
-          />
-        ) : mode === "editor" &&
-          !readOnly &&
-          liveProvider &&
-          liveProvider.setup?.canAuthenticate ? (
-          <ProviderAuthenticationSection
-            key={`${environmentId}:${instanceId}`}
-            environmentId={environmentId}
-            environmentLabel={environmentLabel}
-            instanceId={instanceId}
-            provider={liveProvider}
-            readOnly={readOnly}
-          />
-        ) : null
-      }
       onUpdate={(next) => actions.updateInstance(instanceId, instance, next)}
       onDelete={
         mode === "editor" && !isDefault

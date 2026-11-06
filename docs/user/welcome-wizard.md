@@ -44,8 +44,7 @@ keeps **Update now** working in Settings. Other providers can be enabled in
 Settings.
 
 The setup terminal uses the home directory and environment configured for the
-selected provider instance. Sensitive values remain redacted in Settings and
-terminal metadata while the terminal process can use them.
+selected provider instance.
 
 ## Import your projects
 

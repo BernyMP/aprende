@@ -11,7 +11,8 @@ it inherited are being removed. aprende is not affiliated with T3 Tools Inc. Que
 ## What do I need to use aprende?
 
 The `claude` (Claude Code) or `codex` (Codex CLI) command, installed and logged in on your machine.
-aprende runs it with your own login and never asks for or stores API keys or account credentials.
+aprende runs it with your own login and never asks for, stores or passes on API keys or account
+credentials. There is no aprende account or sign-in.
 [Provider setup](./install.md#providers)
 
 ## How much does aprende cost?

@@ -11,11 +11,11 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react";
-import { Lock as LockGlyph, LockOpen } from "lucide";
 import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
-import { Fragment, useState, type ReactElement, type ReactNode } from "react";
+import { useState, type ReactElement, type ReactNode } from "react";
 import {
+  isCredentialEnvironmentVariableName,
   isProviderDriverKind,
   resolveProviderInstanceEnabled,
   type ProviderInstanceConfig,
@@ -38,9 +38,7 @@ import { useStableCallback } from "../../hooks/useStableCallback";
 import { normalizeProviderAccentColor } from "../../providerInstances";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { MorphIcon } from "~/components/MorphIcon";
 import { DraftInput } from "../ui/draft-input";
-import { SecretInput } from "./SecretInput";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Switch } from "../ui/switch";
 import { ManagedControl, ManagedNotice } from "../ManagedPolicy";
@@ -48,10 +46,7 @@ import { managedInstanceLocks, useManagedPolicy } from "../../state/managedPolic
 import { disallowedProviderMessage, isManagedDriverAllowed } from "@aprende/contracts";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import type {
-  ProviderClientDefinition,
-  ProviderEnvironmentField,
-} from "@aprende/provider-core/client";
+import type { ProviderClientDefinition } from "@aprende/provider-core/client";
 import {
   deriveProviderSettingsFields,
   ProviderSettingsForm,
@@ -63,8 +58,6 @@ import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import { ProviderAccentColorPicker } from "./ProviderAccentColorPicker";
 import { RedactedSensitiveText } from "./RedactedSensitiveText";
 import { SettingResetButton, SettingsRow, SettingsSection } from "./settingsLayout";
-import { FoldedSettingsSection } from "./FoldedSettingsSection";
-import { readCodexSetupMode } from "./CodexSetupSection.logic";
 import {
   getProviderVersionAdvisoryPresentation,
   PROVIDER_STATUS_STYLES,
@@ -98,21 +91,13 @@ type EnvironmentDraftRow = {
   readonly id: string;
   readonly name: string;
   readonly value: ProviderInstanceEnvironmentVariable["value"];
-  readonly sensitive: boolean;
-  readonly valueRedacted?: boolean;
 };
 
 function makeEnvironmentDraftRow(
   variable: ProviderInstanceEnvironmentVariable,
   index: number,
 ): EnvironmentDraftRow {
-  return {
-    id: `${index}:${variable.name}`,
-    name: variable.name,
-    value: variable.value,
-    sensitive: variable.sensitive,
-    ...(variable.valueRedacted !== undefined ? { valueRedacted: variable.valueRedacted } : {}),
-  };
+  return { id: `${index}:${variable.name}`, name: variable.name, value: variable.value };
 }
 
 const toEnvironmentDraftRows = (environment: ReadonlyArray<ProviderInstanceEnvironmentVariable>) =>
@@ -126,13 +111,7 @@ function providerEnvironmentsEqual(
     left.length === right.length &&
     left.every((variable, index) => {
       const other = right[index];
-      return (
-        other !== undefined &&
-        variable.name === other.name &&
-        variable.value === other.value &&
-        variable.sensitive === other.sensitive &&
-        variable.valueRedacted === other.valueRedacted
-      );
+      return other !== undefined && variable.name === other.name && variable.value === other.value;
     })
   );
 }
@@ -191,114 +170,6 @@ function ProviderAuthEmail(props: { readonly email: string | undefined }) {
   );
 }
 
-function readProviderEnvironmentVariable(
-  environment: ReadonlyArray<ProviderInstanceEnvironmentVariable> | undefined,
-  name: string,
-): ProviderInstanceEnvironmentVariable | undefined {
-  return environment?.find((variable) => variable.name === name);
-}
-
-function providerEnvironmentWithoutNames(
-  environment: ReadonlyArray<ProviderInstanceEnvironmentVariable> | undefined,
-  names: ReadonlySet<string>,
-): ReadonlyArray<ProviderInstanceEnvironmentVariable> {
-  return (environment ?? []).filter((variable) => !names.has(variable.name));
-}
-
-export function nextProviderEnvironmentWithFieldValue(
-  environment: ReadonlyArray<ProviderInstanceEnvironmentVariable> | undefined,
-  field: ProviderEnvironmentField,
-  value: string,
-): ReadonlyArray<ProviderInstanceEnvironmentVariable> {
-  const trimmed = value.trim();
-  const next: ProviderInstanceEnvironmentVariable[] = [];
-  let found = false;
-
-  for (const variable of environment ?? []) {
-    if (variable.name !== field.name) {
-      next.push(variable);
-      continue;
-    }
-    found = true;
-    if (trimmed.length > 0) {
-      next.push({
-        name: variable.name,
-        value: trimmed,
-        sensitive: field.sensitive ?? true,
-      });
-    }
-  }
-
-  if (!found && trimmed.length > 0) {
-    next.push({
-      name: field.name,
-      value: trimmed,
-      sensitive: field.sensitive ?? true,
-    });
-  }
-
-  return next;
-}
-
-function ProviderEnvironmentFieldRow(props: {
-  readonly field: ProviderEnvironmentField;
-  readonly variable: ProviderInstanceEnvironmentVariable | undefined;
-  readonly idPrefix: string;
-  readonly onCommit: (field: ProviderEnvironmentField, value: string) => void;
-  readonly onRemove: (field: ProviderEnvironmentField) => void;
-  readonly managedReason?: string | undefined;
-}) {
-  const inputId = `${props.idPrefix}-environment-${props.field.name}`;
-  const value = props.variable?.valueRedacted ? "" : (props.variable?.value ?? "");
-
-  return (
-    <SettingsRow
-      title={<label htmlFor={inputId}>{props.field.label}</label>}
-      description={props.field.description}
-      managed={props.managedReason}
-      control={
-        <div className="flex w-full min-w-0 items-center gap-2 @min-[32rem]/settings-row:w-56">
-          {props.field.sensitive === false ? (
-            <DraftInput
-              id={inputId}
-              size="sm"
-              className="min-w-0 flex-1"
-              autoComplete="off"
-              value={value}
-              onCommit={(next) => props.onCommit(props.field, next)}
-              placeholder={props.field.placeholder}
-              spellCheck={false}
-            />
-          ) : (
-            <SecretInput
-              id={inputId}
-              size="sm"
-              className="min-w-0 flex-1"
-              value={value}
-              onCommit={(next) => props.onCommit(props.field, next)}
-              placeholder={props.field.placeholder}
-              configured={props.variable?.valueRedacted === true}
-              spellCheck={false}
-              aria-label={props.field.label}
-            />
-          )}
-          {props.variable ? (
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost-destructive"
-              onClick={() => props.onRemove(props.field)}
-              aria-label={`Clear ${props.field.label}`}
-            >
-              <XIcon className="size-3.5" />
-            </Button>
-          ) : null}
-        </div>
-      }
-    />
-  );
-}
-
 export function ProviderEnvironmentSection(props: {
   readonly environment: ReadonlyArray<ProviderInstanceEnvironmentVariable>;
   readonly onChange: (environment: ReadonlyArray<ProviderInstanceEnvironmentVariable>) => void;
@@ -323,19 +194,13 @@ export function ProviderEnvironmentSection(props: {
     const published: ProviderInstanceEnvironmentVariable[] = [];
     for (const row of nextRows) {
       const name = row.name.trim();
+      // The server refuses credentials too; holding the save here keeps the row editable.
+      if (isCredentialEnvironmentVariableName(name)) return;
       if (!ENVIRONMENT_VARIABLE_NAME_PATTERN.test(name)) {
-        if (
-          name.length > 0 ||
-          row.value !== "" ||
-          row.sensitive !== true ||
-          row.valueRedacted !== undefined
-        ) {
-          return;
-        }
+        if (name.length > 0 || row.value !== "") return;
         continue;
       }
-      const { id: _id, ...rest } = row;
-      published.push({ ...rest, name });
+      published.push({ name, value: row.value });
     }
     setDraft({ rows: nextRows, seen: draft.seen, lastPublished: published });
     props.onChange(published);
@@ -344,15 +209,7 @@ export function ProviderEnvironmentSection(props: {
   const updateVariable = (id: string, patch: Partial<Omit<EnvironmentDraftRow, "id">>) => {
     // A row named like a pinned variable renders as the policy's, with no way to edit or remove it.
     if (patch.name !== undefined && props.managed?.names.has(patch.name)) return;
-    const nextRows = rows.map((row) =>
-      row.id === id
-        ? {
-            ...row,
-            ...patch,
-            ...(patch.value !== undefined ? { valueRedacted: false } : {}),
-          }
-        : row,
-    );
+    const nextRows = rows.map((row) => (row.id === id ? { ...row, ...patch } : row));
     setRows(nextRows);
     publishRows(nextRows);
   };
@@ -364,20 +221,12 @@ export function ProviderEnvironmentSection(props: {
   };
 
   const addVariable = () =>
-    setRows([
-      ...rows,
-      {
-        id: nextEnvironmentVariableDraftId(),
-        name: "",
-        value: "",
-        sensitive: true,
-      },
-    ]);
+    setRows([...rows, { id: nextEnvironmentVariableDraftId(), name: "", value: "" }]);
 
   return (
     <SettingsRow
       title="Variables"
-      description="API keys, base URLs, and other per-instance CLI settings."
+      description="CLI settings for this instance, such as CLAUDE_CONFIG_DIR or a base URL. Sign-in uses your own CLI login (claude login or codex login), so aprende never stores keys."
       control={
         <Button type="button" size="sm" variant="outline" onClick={addVariable}>
           <PlusIcon className="size-3" />
@@ -398,117 +247,54 @@ export function ProviderEnvironmentSection(props: {
                 </div>
               );
             }
-            const nameInput = (
-              <DraftInput
-                size="sm"
-                font="mono"
-                className="min-w-0 flex-1"
-                value={variable.name}
-                onCommit={(name) => updateVariable(variable.id, { name: name.trim() })}
-                disabled={variable.valueRedacted === true}
-                placeholder="VARIABLE_NAME"
-                spellCheck={false}
-                aria-label={`Environment variable name ${index + 1}`}
-              />
-            );
-            const removeButton = (
-              <Button
-                type="button"
-                size="icon-micro"
-                variant="ghost-destructive"
-                onClick={() => removeVariable(variable.id)}
-                aria-label={`Remove environment variable ${variable.name || index + 1}`}
+            const credential = isCredentialEnvironmentVariableName(variable.name);
+            return (
+              <div
+                key={variable.id}
+                className="flex min-w-0 flex-col gap-1.5 rounded-lg border p-2"
               >
-                <XIcon className="size-3" />
-              </Button>
-            );
-            const sensitiveToggle =
-              typeof variable.value === "string" ? (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        type="button"
-                        size="icon-micro"
-                        variant="ghost-muted"
-                        disabled={variable.valueRedacted === true}
-                        onClick={() => {
-                          const sensitive = !variable.sensitive;
-                          updateVariable(variable.id, {
-                            sensitive,
-                            ...(sensitive && variable.valueRedacted === undefined
-                              ? {}
-                              : { valueRedacted: sensitive ? variable.valueRedacted : false }),
-                          });
-                        }}
-                        aria-pressed={variable.sensitive}
-                        aria-label={`Mark environment variable ${variable.name || index + 1} as sensitive`}
-                      >
-                        <MorphIcon
-                          className="size-3"
-                          icon={variable.sensitive ? LockGlyph : LockOpen}
-                        />
-                      </Button>
-                    }
-                  />
-                  <TooltipPopup side="top">
-                    {variable.sensitive ? "Sensitive, stored separately" : "Plain text"}
-                  </TooltipPopup>
-                </Tooltip>
-              ) : null;
-            const layout = (source: ReactNode, value: ReactNode) => (
-              <div className="flex min-w-0 flex-col gap-1.5 rounded-lg border p-2">
                 <div className="flex min-w-0 items-center gap-1.5">
-                  {nameInput}
-                  {source}
-                  {removeButton}
+                  <DraftInput
+                    size="sm"
+                    font="mono"
+                    className="min-w-0 flex-1"
+                    value={variable.name}
+                    onCommit={(name) => updateVariable(variable.id, { name: name.trim() })}
+                    placeholder="VARIABLE_NAME"
+                    spellCheck={false}
+                    aria-label={`Environment variable name ${index + 1}`}
+                    aria-invalid={credential || undefined}
+                  />
+                  <Button
+                    type="button"
+                    size="icon-micro"
+                    variant="ghost-destructive"
+                    onClick={() => removeVariable(variable.id)}
+                    aria-label={`Remove environment variable ${variable.name || index + 1}`}
+                  >
+                    <XIcon className="size-3" />
+                  </Button>
                 </div>
-                <div className="flex min-w-0 items-start gap-1.5">
-                  {value}
-                  {sensitiveToggle}
-                </div>
+                {credential ? (
+                  <p role="alert" className="text-xs text-destructive">
+                    aprende doesn't store credentials. Sign in with the CLI instead.
+                  </p>
+                ) : (
+                  <DraftInput
+                    size="sm"
+                    font="mono"
+                    className="min-w-0 flex-1"
+                    value={variable.value}
+                    onCommit={(value) => updateVariable(variable.id, { value })}
+                    autoComplete="off"
+                    placeholder="value"
+                    spellCheck={false}
+                    aria-label={`Environment variable value ${index + 1}`}
+                  />
+                )}
               </div>
             );
-            return (
-              <Fragment key={variable.id}>
-                {variable.sensitive
-                  ? layout(
-                      null,
-                      <SecretInput
-                        size="sm"
-                        font="mono"
-                        className="min-w-0 flex-1"
-                        value={variable.valueRedacted ? "" : variable.value}
-                        onCommit={(value) => updateVariable(variable.id, { value })}
-                        placeholder="value"
-                        configured={variable.valueRedacted === true}
-                        spellCheck={false}
-                        aria-label={`Environment variable value ${index + 1}`}
-                      />,
-                    )
-                  : layout(
-                      null,
-                      <DraftInput
-                        size="sm"
-                        font="mono"
-                        className="min-w-0 flex-1"
-                        value={variable.valueRedacted ? "" : variable.value}
-                        onCommit={(value) => updateVariable(variable.id, { value })}
-                        autoComplete="off"
-                        placeholder="value"
-                        spellCheck={false}
-                        aria-label={`Environment variable value ${index + 1}`}
-                      />,
-                    )}
-              </Fragment>
-            );
           })}
-          <p className="text-xs text-muted-foreground">
-            Sensitive values are stored separately and never returned to the app.
-            {rows.some((row) => row.valueRedacted === true)
-              ? " Enter a new value to rename a saved one or make it plain text."
-              : null}
-          </p>
         </div>
       ) : null}
     </SettingsRow>
@@ -605,8 +391,6 @@ interface ProviderInstanceCardProps {
   readonly onUpdate: (nextInstance: ProviderInstanceConfig) => void;
   readonly onDelete?: (() => void) | undefined;
   readonly headerAction?: ReactNode | undefined;
-  readonly setup?: ReactNode;
-  readonly runtime?: ReactNode;
   readonly hiddenModels: ReadonlyArray<string>;
   readonly favoriteModels: ReadonlyArray<string>;
   readonly modelOrder: ReadonlyArray<string>;
@@ -639,8 +423,6 @@ export function ProviderInstanceCard({
   onUpdate,
   onDelete,
   headerAction,
-  setup,
-  runtime,
   hiddenModels,
   favoriteModels,
   modelOrder,
@@ -793,27 +575,6 @@ export function ProviderInstanceCard({
         : (rest as ProviderInstanceConfig),
     );
   };
-  const environmentFields = driverOption?.environmentFields ?? [];
-  const environmentFieldNames = new Set(environmentFields.map((field) => field.name));
-  const genericEnvironment = providerEnvironmentWithoutNames(
-    instance.environment,
-    environmentFieldNames,
-  );
-  const updateGenericEnvironment = (
-    environment: ReadonlyArray<ProviderInstanceEnvironmentVariable>,
-  ) => {
-    const dedicatedEnvironment = (instance.environment ?? []).filter((variable) =>
-      environmentFieldNames.has(variable.name),
-    );
-    updateEnvironment([...dedicatedEnvironment, ...environment]);
-  };
-  const updateEnvironmentField = (field: ProviderEnvironmentField, value: string) => {
-    updateEnvironment(nextProviderEnvironmentWithFieldValue(instance.environment, field, value));
-  };
-  const removeEnvironmentField = (field: ProviderEnvironmentField) => {
-    updateEnvironment(providerEnvironmentWithoutNames(instance.environment, new Set([field.name])));
-  };
-
   const titleIconNode = (
     <ProviderInstanceIcon
       driverKind={driverKind ?? instance.driver}
@@ -1166,52 +927,7 @@ export function ProviderInstanceCard({
         />
       </SettingsSection>
 
-      {setup || environmentFields.length > 0 ? (
-        <SettingsSection title="Setup">
-          {setup}
-          {environmentFields.length > 0 ? (
-            <div
-              inert={readOnly}
-              aria-disabled={readOnly || undefined}
-              className={readOnly ? "opacity-50 select-none" : undefined}
-            >
-              {environmentFields.map((field) => (
-                <ProviderEnvironmentFieldRow
-                  key={field.name}
-                  field={field}
-                  variable={readProviderEnvironmentVariable(instance.environment, field.name)}
-                  idPrefix={`provider-instance-${instanceId}`}
-                  onCommit={updateEnvironmentField}
-                  onRemove={removeEnvironmentField}
-                  managedReason={
-                    instanceLocks?.wholeEnvironment ||
-                    instanceLocks?.environmentNames.has(field.name)
-                      ? instanceLocks.reason
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
-          ) : null}
-        </SettingsSection>
-      ) : null}
-
-      {instance.driver === "codex" && readCodexSetupMode(instance.config) === "managed" ? (
-        <div
-          inert={readOnly}
-          aria-disabled={readOnly || undefined}
-          className={readOnly ? "opacity-50 select-none" : undefined}
-        >
-          <FoldedSettingsSection
-            key={instanceId}
-            id={`provider-instance-${instanceId}-runtime`}
-            title="Runtime"
-            headerPlacement="outside"
-          >
-            {runtime ?? runtimeFields}
-          </FoldedSettingsSection>
-        </div>
-      ) : !driverOption || deriveProviderSettingsFields(driverOption).length > 0 ? (
+      {!driverOption || deriveProviderSettingsFields(driverOption).length > 0 ? (
         <SettingsSection
           title="Runtime"
           inert={readOnly}
@@ -1233,8 +949,8 @@ export function ProviderInstanceCard({
         ) : null}
         <div className={instanceLocks?.wholeEnvironment ? "opacity-50" : undefined}>
           <ProviderEnvironmentSection
-            environment={genericEnvironment}
-            onChange={updateGenericEnvironment}
+            environment={instance.environment ?? []}
+            onChange={updateEnvironment}
             managed={
               instanceLocks && {
                 names: instanceLocks.environmentNames,

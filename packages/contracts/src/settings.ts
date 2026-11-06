@@ -438,7 +438,7 @@ const makeBinaryPathSetting = (fallback: string) =>
     Schema.withDecodingDefault(Effect.succeed(fallback)),
   );
 
-export type ProviderSettingsFormControl = "text" | "password" | "textarea" | "switch" | "select";
+export type ProviderSettingsFormControl = "text" | "textarea" | "switch" | "select";
 
 export interface ProviderSettingsFormOption {
   readonly value: string;
@@ -454,14 +454,6 @@ export interface ProviderSettingsFormAnnotation {
   readonly options?: ReadonlyArray<ProviderSettingsFormOption> | undefined;
 }
 
-export function secretSettingsFields(schema: {
-  readonly fields: Readonly<Record<string, Schema.Top>>;
-}): ReadonlyArray<string> {
-  return Object.entries(schema.fields).flatMap(([field, fieldSchema]) => {
-    return isSecretSetting(fieldSchema) ? [field] : [];
-  });
-}
-
 export interface ProviderSettingsFormSchemaAnnotation {
   readonly order?: readonly string[] | undefined;
 }
@@ -469,21 +461,10 @@ export interface ProviderSettingsFormSchemaAnnotation {
 declare module "effect/Schema" {
   namespace Annotations {
     interface Annotations {
-      /** Store this credential separately and expose only whether it is configured to clients. */
-      readonly settingsSecret?: boolean | undefined;
       readonly providerSettingsForm?: ProviderSettingsFormAnnotation | undefined;
       readonly providerSettingsFormSchema?: ProviderSettingsFormSchemaAnnotation | undefined;
     }
   }
-}
-
-/** A masked form field is a credential too, so none is saved or sent to clients as plain text. */
-export function isSecretSetting(schema: Schema.Top): boolean {
-  const annotations = Schema.resolveAnnotationsKey(schema) ?? Schema.resolveAnnotations(schema);
-  return (
-    annotations?.settingsSecret === true ||
-    annotations?.providerSettingsForm?.control === "password"
-  );
 }
 
 export type ProviderSettingsOrder<Fields extends Schema.Struct.Fields> = readonly Extract<
@@ -507,9 +488,6 @@ export function makeProviderSettingsSchema<const Fields extends Schema.Struct.Fi
 
 export const CodexSettings = makeProviderSettingsSchema(
   {
-    setupMode: Schema.optionalKey(Schema.Literals(["managed", "existing"])).pipe(
-      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
-    ),
     enabled: Schema.Boolean.pipe(
       Schema.withDecodingDefault(Effect.succeed(true)),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
@@ -1033,10 +1011,7 @@ export const ServerSettingsOperation = Schema.Literals([
   "read-file",
   "read-provider-history",
   "read-project-settings",
-  "read-secret",
-  "remove-secret",
-  "remove-stale-secret",
-  "write-secret",
+  "save-credential-variable",
   "write-file",
   "prepare-directory",
   "write-managed-setting",
@@ -1066,6 +1041,9 @@ export class ServerSettingsError extends Schema.TaggedError<ServerSettingsError>
   override get message(): string {
     if (this.operation === "write-managed-setting") {
       return `${this.managedSetting ?? "This setting"} is managed by ${this.managedBy ?? "your organization"} and cannot be changed.`;
+    }
+    if (this.operation === "save-credential-variable") {
+      return `${this.environmentVariable ?? "This variable"} looks like a credential, and aprende never stores credentials. Sign in with the provider's own CLI instead, such as \`claude login\` or \`codex login\`.`;
     }
     if (this.operation === "use-disallowed-provider") {
       return disallowedProviderMessage(

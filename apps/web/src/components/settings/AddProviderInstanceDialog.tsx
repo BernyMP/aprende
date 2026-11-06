@@ -28,7 +28,6 @@ import { normalizeProviderAccentColor } from "../../providerInstances";
 import { managedInstanceLocks, useManagedPolicy } from "../../state/managedPolicy";
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
 import { Button } from "../ui/button";
-import { ChatGptConnectionButton } from "./ChatGptConnectionButton";
 import { Dialog } from "../ui/dialog";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
@@ -47,7 +46,6 @@ import {
   type WizardNavigation,
 } from "./AddProviderInstanceDialog.logic";
 import { AddProviderInstanceWizardSteps } from "./AddProviderInstanceWizardSteps";
-import { AddManagedCodexAccountDialog } from "./CodexSetupSection";
 import { MultipleAccountsNote } from "./MultipleAccountsNote";
 
 const INSTANCE_ID_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
@@ -137,7 +135,6 @@ export function AddProviderInstanceDialog({
   const canManageProviders = useEnvironmentScope(environmentId, AuthProvidersManageScope);
 
   const [wizardStep, setWizardStep] = useState(0);
-  const [addingChatGptAccount, setAddingChatGptAccount] = useState(false);
   // Drivers the administrator's policy leaves out are not offered at all.
   const managedPolicy = useManagedPolicy(environmentId);
   const driverOptions = providerClients.definitions.filter((option) =>
@@ -226,7 +223,6 @@ export function AddProviderInstanceDialog({
     );
   };
 
-  // A policy that owns this driver's launch settings also rules out ChatGPT's own runtime.
   const driverLocks = managedInstanceLocks(managedPolicy, driver);
 
   const handleSave = async () => {
@@ -235,10 +231,7 @@ export function AddProviderInstanceDialog({
     setHasAttemptedSubmit(true);
     if (instanceIdError !== null) return;
 
-    const config =
-      driver === "codex"
-        ? { ...configByDriver[driver], setupMode: "existing" }
-        : (configByDriver[driver] ?? {});
+    const config = configByDriver[driver] ?? {};
     const hasConfig = Object.keys(config).length > 0;
     const normalizedAccentColor = normalizeProviderAccentColor(accentColor);
 
@@ -274,15 +267,6 @@ export function AddProviderInstanceDialog({
     });
     onOpenChange(false);
   };
-
-  if (addingChatGptAccount) {
-    return (
-      <AddManagedCodexAccountDialog
-        environmentId={environmentId}
-        onClose={() => onOpenChange(false)}
-      />
-    );
-  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -422,19 +406,7 @@ export function AddProviderInstanceDialog({
             >
               {wizardStep === 0 ? "Cancel" : "Back"}
             </Button>
-            {wizardStep === 0 && driver === "codex" ? (
-              <>
-                <Button variant="outline" size="sm" onClick={() => navigateToStep(1)}>
-                  Configure manually
-                </Button>
-                {driverLocks?.configKeys.has("setupMode") ? null : (
-                  <ChatGptConnectionButton
-                    size="sm"
-                    onClick={() => setAddingChatGptAccount(true)}
-                  />
-                )}
-              </>
-            ) : wizardStep < 2 ? (
+            {wizardStep < 2 ? (
               <Button size="sm" onClick={() => navigateToStep(wizardStep + 1)}>
                 Next
               </Button>

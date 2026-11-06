@@ -24,7 +24,6 @@ import * as Option from "effect/Option";
 import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 
-import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ContextHandoffService from "./ContextHandoffService.ts";
 import { isActiveRun } from "./CommandPolicy.ts";
@@ -106,7 +105,6 @@ export const layer: Layer.Layer<
   | EventSink.EventSinkV2
   | ContextHandoffService.ContextHandoffServiceV2
   | IdAllocator.IdAllocatorV2
-  | ProviderAuthService.ProviderAuthService
   | ProjectionStore.ProjectionStoreV2
   | ProviderSessionManager.ProviderSessionManagerV2
   | RunExecutionService.RunExecutionServiceV2
@@ -119,7 +117,6 @@ export const layer: Layer.Layer<
     const eventSink = yield* EventSink.EventSinkV2;
     const contextHandoffService = yield* ContextHandoffService.ContextHandoffServiceV2;
     const idAllocator = yield* IdAllocator.IdAllocatorV2;
-    const providerAuth = yield* ProviderAuthService.ProviderAuthService;
     const projectionStore = yield* ProjectionStore.ProjectionStoreV2;
     const providerSessions = yield* ProviderSessionManager.ProviderSessionManagerV2;
     const runExecution = yield* RunExecutionService.RunExecutionServiceV2;
@@ -440,90 +437,34 @@ export const layer: Layer.Layer<
           });
         },
       );
-      if (message.attachments.length === 0 && message.text.trimStart().startsWith("/")) {
-        const isEmptyCompaction =
-          message.text.trim().toLowerCase() === "/compact" && !projection.hasConversation;
-        // Preparation may select a new provider; account commands still target the last native session.
-        const nativeThreads = new Map(
-          projection.providerThreads
-            .filter(
-              (candidate) => candidate.ownerNodeId === null && candidate.nativeThreadRef !== null,
-            )
-            .map((candidate) => [candidate.id, candidate]),
-        );
-        const previousNativeRun = projection.runs.reduce<OrchestrationV2Run | undefined>(
-          (previous, candidate) =>
-            candidate.ordinal < run.ordinal &&
-            candidate.providerThreadId !== null &&
-            nativeThreads.has(candidate.providerThreadId) &&
-            (previous === undefined || candidate.ordinal > previous.ordinal)
-              ? candidate
-              : previous,
-          undefined,
-        );
-        const nativeThread = nativeThreads.get(
-          previousNativeRun?.providerThreadId ??
-            projection.thread.activeProviderThreadId ??
-            providerThread.id,
-        );
-        const authInstanceId = nativeThread?.providerInstanceId ?? run.providerInstanceId;
-        const authResult = isEmptyCompaction
-          ? null
-          : yield* Effect.result(
-              providerAuth.tryHandlePromptCommand({
-                instanceId: authInstanceId,
-                text: projectComposerContextForProvider({
-                  text: message.text,
-                  records: message.context?.records ?? [],
-                }),
-                hasAttachments: false,
-              }),
-            );
-        if (isEmptyCompaction || authResult?._tag === "Failure" || authResult?.success) {
-          const now = yield* DateTime.now;
-          const failure = isEmptyCompaction
-            ? makeProviderFailure({
-                class: "validation_error",
-                message: "Start a conversation before compacting this thread.",
-              })
-            : authResult?._tag === "Failure"
-              ? makeProviderFailure({
-                  class: "permission_error",
-                  message: authResult.failure.detail,
-                })
-              : undefined;
-          const status = failure === undefined ? "completed" : "failed";
-          yield* settleRunBeforeStart({
-            signal: isEmptyCompaction ? "empty-compaction" : "provider-sign-out",
-            status,
-            now,
-            startedAt: now,
-            providerInstanceId: authInstanceId,
-            itemProviderThreadId: nativeThread?.id ?? providerThread.id,
-            item:
-              failure !== undefined
-                ? {
-                    type: "error",
-                    title: isEmptyCompaction
-                      ? "Cannot compact an empty thread"
-                      : "Provider sign-out failed",
-                    failure,
-                  }
-                : {
-                    type: "command_execution",
-                    title: "Provider signed out",
-                    input: message.text.trim(),
-                    output: "Provider signed out",
-                    exitCode: 0,
-                  },
-            providerThreadUpdate: {
-              ...providerThread,
-              status: providerThread.nativeThreadRef === null ? "not_loaded" : "idle",
-              updatedAt: now,
-            },
-          });
-          return;
-        }
+      if (
+        message.attachments.length === 0 &&
+        message.text.trim().toLowerCase() === "/compact" &&
+        !projection.hasConversation
+      ) {
+        const now = yield* DateTime.now;
+        yield* settleRunBeforeStart({
+          signal: "empty-compaction",
+          status: "failed",
+          now,
+          startedAt: now,
+          providerInstanceId: run.providerInstanceId,
+          itemProviderThreadId: providerThread.id,
+          item: {
+            type: "error",
+            title: "Cannot compact an empty thread",
+            failure: makeProviderFailure({
+              class: "validation_error",
+              message: "Start a conversation before compacting this thread.",
+            }),
+          },
+          providerThreadUpdate: {
+            ...providerThread,
+            status: providerThread.nativeThreadRef === null ? "not_loaded" : "idle",
+            updatedAt: now,
+          },
+        });
+        return;
       }
       const selectInheritedBackgroundItems = (
         current: ProjectionStore.ProjectionRuntimeRecoveryState,

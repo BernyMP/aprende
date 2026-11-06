@@ -76,8 +76,8 @@ it.layer(NodeServices.layer)("ClaudeHome", (it) => {
           KEEP: "1",
         };
         const instance = [
-          { name: "CLAUDE_CODE_ENTRYPOINT", value: "instance", sensitive: false },
-          { name: "CLAUDE_EFFORT", value: "low", sensitive: false },
+          { name: "CLAUDE_CODE_ENTRYPOINT", value: "instance" },
+          { name: "CLAUDE_EFFORT", value: "low" },
         ];
 
         expect(yield* mergeClaudeProcessEnvironment({ homePath }, undefined, host)).toEqual({

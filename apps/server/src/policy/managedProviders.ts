@@ -3,6 +3,7 @@ import {
   CodexSettings,
   defaultInstanceIdForDriver,
   disallowedProviderMessage,
+  isCredentialEnvironmentVariableName,
   type ManagedProviderInstance,
   type ManagedProviderLimits,
   type ManagedPolicySummary,
@@ -32,19 +33,6 @@ const known = (
     ProviderDriverKind.make(driverKind),
     { label, configFields: new Set(Object.keys(settingsSchema.fields)), hasDefaultInstance },
   ] as const;
-
-/**
- * Fields that make an instance launch without the settings a pin sets: managed Codex runs T3's own
- * runtime against OpenAI. A policy
- * that owns a pin owns these too, holding each at the value given here, which clients still send
- * when they add an instance.
- */
-const PIN_BYPASS_FIELDS: ReadonlyMap<
-  ProviderDriverKind,
-  Readonly<Record<string, unknown>>
-> = new Map<ProviderDriverKind, Readonly<Record<string, unknown>>>([
-  [ProviderDriverKind.make("codex"), { setupMode: "existing" }],
-]);
 
 /** Drivers this build knows, by the names users see; a policy naming any other is refused. */
 const KNOWN_DRIVERS: ReadonlyMap<ProviderDriverKind, KnownDriver> = new Map([
@@ -178,12 +166,7 @@ const sameValue = (left: unknown, right: unknown) =>
 const sameVariable = (
   left: ProviderInstanceEnvironmentVariable | undefined,
   right: ProviderInstanceEnvironmentVariable | undefined,
-) =>
-  left === right ||
-  (left !== undefined &&
-    right !== undefined &&
-    left.value === right.value &&
-    left.sensitive === right.sensitive);
+) => left === right || (left !== undefined && right !== undefined && left.value === right.value);
 
 const pinnedFields = (pin: ManagedProviderInstance): ReadonlyArray<PinnedConfigField> =>
   PINNED_CONFIG_FIELDS.filter((field) => pin[field] !== undefined);
@@ -220,7 +203,6 @@ const overlayInstance = (
   const pinnedEnvironment = (rule.pin?.environment ?? []).map((variable) => ({
     name: variable.name,
     value: variable.value,
-    sensitive: false,
   }));
   const pinnedByName = new Map(
     pinnedEnvironment.map((variable) => [variableKey(variable.name), variable]),
@@ -291,20 +273,25 @@ export function makeManagedProviders(
     if (new Set(names).size !== names.length) {
       return { _tag: "Invalid", reason: `instances.${driver}.environment repeats a variable` };
     }
+    const credential = (pin.environment ?? []).find((variable) =>
+      isCredentialEnvironmentVariableName(variable.name),
+    );
+    if (credential !== undefined) {
+      return {
+        _tag: "Invalid",
+        reason: `instances.${driver}.environment sets ${credential.name}, which looks like a credential; learners sign in with their own CLI`,
+      };
+    }
     pins.set(driver, pin);
   }
 
   const rules = new Map<ProviderDriverKind, DriverRule>();
   for (const [driver, known] of KNOWN_DRIVERS) {
     const pin = pins.get(driver);
-    const bypasses = pin === undefined ? [] : Object.keys(PIN_BYPASS_FIELDS.get(driver) ?? {});
     if (maxRuntimeMode !== undefined) {
       rules.set(driver, {
         pin,
-        config: [
-          ...LAUNCH_CONFIG_FIELDS.filter((field) => known.configFields.has(field)),
-          ...bypasses,
-        ],
+        config: LAUNCH_CONFIG_FIELDS.filter((field) => known.configFields.has(field)),
         fill: [],
         environment: "all",
       });
@@ -319,9 +306,7 @@ export function makeManagedProviders(
         );
       rules.set(driver, {
         pin,
-        config: pin.locked
-          ? [...pinnedFields(pin), ...bypasses, ...(homeLocked ? home.fields : [])]
-          : [],
+        config: pin.locked ? [...pinnedFields(pin), ...(homeLocked ? home.fields : [])] : [],
         fill: pin.locked ? [] : pinnedFields(pin),
         environment: pin.locked ? "locked" : "fill",
       });
@@ -382,7 +367,6 @@ export function makeManagedProviders(
     const storedUnchanged = (variable: ProviderInstanceEnvironmentVariable) =>
       (stored?.environment ?? []).some((existing) => sameVariable(variable, existing));
     const echoed = (variable: ProviderInstanceEnvironmentVariable) =>
-      !variable.sensitive &&
       pinned.some((pin) => pin.name === variable.name && pin.value === variable.value);
     if (rule.environment === "all") {
       // Only the pinned variables were shown, so the user's own stay as stored.
@@ -437,15 +421,10 @@ export function makeManagedProviders(
     rule: DriverRule,
   ): Locked | { readonly _tag: "Kept"; readonly instance: ProviderInstanceConfig | undefined } => {
     const config = { ...configRecord(next) };
-    const harmless = PIN_BYPASS_FIELDS.get(next.driver) ?? {};
     for (const field of [...rule.config, ...rule.fill]) {
       const value = configValue(next, field);
       const storedValue = configValue(stored, field);
-      if (
-        sameValue(value, pinnedValue(rule.pin, field)) ||
-        sameValue(value, storedValue) ||
-        (field in harmless && sameValue(value, harmless[field]))
-      ) {
+      if (sameValue(value, pinnedValue(rule.pin, field)) || sameValue(value, storedValue)) {
         if (storedValue === undefined) delete config[field];
         else config[field] = configRecord(stored)[field];
       } else if (rule.config.includes(field)) {

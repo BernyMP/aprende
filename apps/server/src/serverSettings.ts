@@ -53,17 +53,16 @@ import {
   fallbackTextGenerationModelSelection,
   isModelSelectionProviderEnabled,
 } from "@aprende/shared/serverSettings";
-import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
 
-import { mapSettingsSecrets, type SettingsSecret } from "./settingsSecrets.ts";
+import {
+  dropProviderCredentialVariables,
+  findProviderCredentialVariable,
+} from "./providerEnvironmentCredentials.ts";
 
 const encodeServerSettings = Schema.encodeEffect(ServerSettings);
 const encodeServerSettingsJson = Schema.encodeUnknownEffect(fromJsonStringPretty(ServerSettings));
 const decodeServerSettings = Schema.decodeUnknownEffect(ServerSettings);
-
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
 
 // Conflicting flags resolve to false to preserve user disables.
 const foldProviderInstanceEnabledFlags = (settings: ServerSettings): ServerSettings => {
@@ -121,14 +120,6 @@ const normalizeServerSettings = (
         }),
     ),
   );
-
-export function redactServerSettingsForClient(settings: ServerSettings): ServerSettings {
-  return mapSettingsSecrets(settings, (secret) =>
-    secret.sensitive
-      ? { value: "", redacted: secret.redacted || secret.value.length > 0 }
-      : { value: secret.value, redacted: false },
-  );
-}
 
 export function applyProviderInstanceMutation(
   settings: ServerSettings,
@@ -484,7 +475,6 @@ const make = Effect.gen(function* () {
   const { settingsPath } = yield* ServerConfig.ServerConfig;
   const fs = yield* FileSystem.FileSystem;
   const pathService = yield* Path.Path;
-  const secretStore = yield* ServerSecretStore.ServerSecretStore;
   const sql = yield* SqlClient.SqlClient;
   const {
     settings: managed,
@@ -566,47 +556,34 @@ const make = Effect.gen(function* () {
     ),
   );
 
-  const moveInlineSettingsSecrets = Effect.fn("serverSettings.moveInlineSettingsSecrets")(
-    function* (settings: ServerSettings) {
-      const pending: SettingsSecret[] = [];
-      mapSettingsSecrets(settings, (secret) => {
-        if (secret.kind === "field" && !secret.redacted && secret.value.length > 0) {
-          pending.push(secret);
-        }
-        return secret;
-      });
-      const moved = new Set<string>();
-      for (const secret of pending) {
-        const stored = yield* secretStore
-          .set(secret.secretName, textEncoder.encode(secret.value))
-          .pipe(
-            Effect.as(true),
-            Effect.catch(() =>
-              Effect.logWarning("failed to move a settings secret into the secret store").pipe(
-                Effect.as(false),
-              ),
-            ),
-          );
-        if (stored) moved.add(secret.secretName);
-      }
-      if (moved.size === 0) return settings;
-      return mapSettingsSecrets(settings, (secret) =>
-        moved.has(secret.secretName) ? { value: "", redacted: true } : secret,
-      );
-    },
-  );
-
   const loadSettingsFromDisk = Effect.gen(function* () {
     let settings = managed.defaults;
     let legacyProviders: Readonly<Record<string, unknown>> | undefined;
     let parseFailure = Option.none<unknown>();
+    let credentialsScrubbed = false;
 
     if (yield* readConfigExists) {
       const raw = yield* readRawConfig;
       const parsed = decodeSettingsFileJsonExit(raw);
+      const scrubbed = Exit.isFailure(parsed)
+        ? undefined
+        : dropProviderCredentialVariables(parsed.value);
       const decoded = Exit.isFailure(parsed)
         ? parsed
-        : decodePersistedServerSettingsExit(managed.withDefaults(parsed.value));
+        : decodePersistedServerSettingsExit(
+            managed.withDefaults(scrubbed?.settings ?? parsed.value),
+          );
+      if (scrubbed !== undefined && Exit.isSuccess(parsed)) {
+        credentialsScrubbed = scrubbed.settings !== parsed.value;
+        if (scrubbed.dropped.length > 0) {
+          yield* Effect.logWarning("removed provider variables that held credentials", {
+            path: settingsPath,
+            variables: scrubbed.dropped.map(
+              (variable) => `${variable.instanceId}.${variable.name}`,
+            ),
+          });
+        }
+      }
       const legacySettings = decodeLegacyProviderSettingsJsonExit(raw);
       if (legacySettings._tag === "Success") {
         legacyProviders = legacySettings.value.providers;
@@ -664,11 +641,13 @@ const make = Effect.gen(function* () {
     const folded = settingsFileTrusted
       ? foldLegacyProjectSettings(loaded, legacyProjectRows)
       : loaded;
-    const migrated = settingsFileTrusted ? yield* moveInlineSettingsSecrets(folded) : folded;
-    if (migrated !== loaded || (settingsFileTrusted && legacyProviders !== undefined)) {
-      yield* writeSettingsAtomically(migrated);
+    if (
+      folded !== loaded ||
+      (settingsFileTrusted && (credentialsScrubbed || legacyProviders !== undefined))
+    ) {
+      yield* writeSettingsAtomically(folded);
     }
-    return { settings: migrated, parseFailure };
+    return { settings: folded, parseFailure };
   });
 
   const settingsCache = yield* Cache.makeWith((_key: typeof cacheKey) => loadSettingsFromDisk, {
@@ -683,225 +662,7 @@ const make = Effect.gen(function* () {
     Effect.andThen(Cache.get(settingsCache, cacheKey)),
   );
 
-  const materializeSettingsSecrets = Effect.fn("serverSettings.materializeSettingsSecrets")(
-    function* (settings: ServerSettings): Effect.fn.Return<ServerSettings, ServerSettingsError> {
-      const storedSecrets = new Map<string, string>();
-      const pending = new Map<string, SettingsSecret>();
-      mapSettingsSecrets(settings, (secret) => {
-        if (secret.sensitive && secret.redacted) pending.set(secret.secretName, secret);
-        return secret;
-      });
-      for (const secret of pending.values()) {
-        const value = yield* secretStore.get(secret.secretName).pipe(
-          Effect.mapError(
-            (cause) =>
-              new ServerSettingsError({
-                settingsPath,
-                operation: "read-secret",
-                providerInstanceId: secret.providerInstanceId,
-                environmentVariable: secret.environmentVariable,
-                cause,
-              }),
-          ),
-        );
-        storedSecrets.set(
-          secret.secretName,
-          Option.isSome(value) ? textDecoder.decode(value.value) : "",
-        );
-      }
-      return mapSettingsSecrets(settings, (secret) => ({
-        value:
-          secret.sensitive && secret.redacted
-            ? (storedSecrets.get(secret.secretName) ?? "")
-            : secret.value,
-        redacted: secret.sensitive && secret.kind === "environment" && secret.redacted,
-      }));
-    },
-  );
-
-  // Background sweeps read settings every few seconds; reading secret files each time is wasted.
-  // Every secret write rewrites the settings file, so a new cached object implies fresh secrets.
-  // A read that overlaps a secret write may see files a rollback then restores, so it is not kept.
-  let materialized: { readonly source: ServerSettings; readonly value: ServerSettings } | null =
-    null;
-  let secretWriteGeneration = 0;
-  const invalidateMaterialized = Effect.sync(() => {
-    secretWriteGeneration++;
-    materialized = null;
-  });
-  const getMaterializedSettings = getSettingsFromCache.pipe(
-    Effect.flatMap((source) => {
-      if (materialized?.source === source) return Effect.succeed(materialized.value);
-      const generation = secretWriteGeneration;
-      return materializeSettingsSecrets(source).pipe(
-        Effect.map(toEffective),
-        Effect.tap((value) =>
-          Effect.sync(() => {
-            if (generation === secretWriteGeneration) materialized = { source, value };
-          }),
-        ),
-      );
-    }),
-  );
-
-  const materializeChanges = (changes: Stream.Stream<ServerSettings>) =>
-    changes.pipe(
-      Stream.mapEffect((settings) =>
-        materializeSettingsSecrets(settings).pipe(
-          Effect.catch((error: ServerSettingsError) =>
-            Effect.logWarning("failed to materialize settings secrets", {
-              operation: error.operation,
-              providerInstanceId: error.providerInstanceId,
-              environmentVariable: error.environmentVariable,
-              cause: error.cause,
-            }).pipe(Effect.as(settings)),
-          ),
-        ),
-      ),
-      Stream.map(toEffective),
-    );
-
-  type SecretChange = {
-    readonly secretName: string;
-    readonly providerInstanceId?: string;
-    readonly environmentVariable?: string;
-  } & (
-    | { readonly kind: "write"; readonly value: Uint8Array }
-    | { readonly kind: "remove"; readonly operation: "remove-secret" | "remove-stale-secret" }
-  );
-
-  const persistSettingsSecrets = (current: ServerSettings, next: ServerSettings) =>
-    Effect.sync(() => {
-      const previous = new Map<string, SettingsSecret>();
-      mapSettingsSecrets(current, (secret) => {
-        previous.set(secret.secretName, secret);
-        return secret;
-      });
-      const changes: SecretChange[] = [];
-      const nextSecretNames = new Set<string>();
-      const settings = mapSettingsSecrets(next, (secret) => {
-        const metadata = {
-          secretName: secret.secretName,
-          ...(secret.providerInstanceId !== undefined
-            ? { providerInstanceId: secret.providerInstanceId }
-            : {}),
-          ...(secret.environmentVariable !== undefined
-            ? { environmentVariable: secret.environmentVariable }
-            : {}),
-        };
-        if (!secret.sensitive) {
-          changes.push({ ...metadata, kind: "remove", operation: "remove-secret" });
-          return { value: secret.value, redacted: false };
-        }
-        const old = previous.get(secret.secretName);
-        const inlineValue =
-          old?.sensitive && !old.redacted && old.value.length > 0 ? old.value : undefined;
-        const value = secret.redacted ? inlineValue : secret.value;
-        if (value === undefined) {
-          nextSecretNames.add(secret.secretName);
-          return { value: "", redacted: true };
-        }
-        if (value.length === 0) {
-          changes.push({ ...metadata, kind: "remove", operation: "remove-secret" });
-          return { value: "", redacted: false };
-        }
-        nextSecretNames.add(secret.secretName);
-        changes.push({ ...metadata, kind: "write", value: textEncoder.encode(value) });
-        return { value: "", redacted: true };
-      });
-      for (const secret of previous.values()) {
-        if (!secret.sensitive || nextSecretNames.has(secret.secretName)) continue;
-        if (changes.some((change) => change.secretName === secret.secretName)) continue;
-        changes.push({
-          kind: "remove",
-          secretName: secret.secretName,
-          operation: "remove-stale-secret",
-          ...(secret.providerInstanceId !== undefined
-            ? { providerInstanceId: secret.providerInstanceId }
-            : {}),
-          ...(secret.environmentVariable !== undefined
-            ? { environmentVariable: secret.environmentVariable }
-            : {}),
-        });
-      }
-      return { settings, changes };
-    });
-
-  const rollbackSettingsSecretWrites = (
-    writes: ReadonlyArray<{
-      readonly secretName: string;
-      readonly previousValue: Option.Option<Uint8Array>;
-      readonly providerInstanceId?: string;
-      readonly environmentVariable?: string;
-    }>,
-  ) =>
-    Effect.forEach(
-      writes.toReversed(),
-      (write) =>
-        (Option.isSome(write.previousValue)
-          ? secretStore.set(write.secretName, write.previousValue.value)
-          : secretStore.remove(write.secretName)
-        ).pipe(
-          Effect.catch((cause) =>
-            Effect.logWarning("failed to roll back settings secret", {
-              providerInstanceId: write.providerInstanceId,
-              environmentVariable: write.environmentVariable,
-              cause,
-            }),
-          ),
-        ),
-      { discard: true },
-    );
-
-  const applySettingsSecretChanges = (changes: ReadonlyArray<SecretChange>) => {
-    const applied: Array<{
-      readonly secretName: string;
-      readonly previousValue: Option.Option<Uint8Array>;
-      readonly providerInstanceId?: string;
-      readonly environmentVariable?: string;
-    }> = [];
-    const rollback = Effect.suspend(() => rollbackSettingsSecretWrites(applied));
-    return Effect.forEach(
-      changes,
-      (change) =>
-        Effect.gen(function* () {
-          const previousValue = yield* secretStore.get(change.secretName).pipe(
-            Effect.mapError(
-              (cause) =>
-                new ServerSettingsError({
-                  settingsPath,
-                  operation: "read-secret",
-                  providerInstanceId: change.providerInstanceId,
-                  environmentVariable: change.environmentVariable,
-                  cause,
-                }),
-            ),
-          );
-          // A store operation may mutate before reporting an error (for example chmod after rename).
-          applied.push({ ...change, previousValue });
-          yield* (
-            change.kind === "write"
-              ? secretStore.set(change.secretName, change.value)
-              : secretStore.remove(change.secretName)
-          ).pipe(
-            Effect.mapError(
-              (cause) =>
-                new ServerSettingsError({
-                  settingsPath,
-                  operation: change.kind === "write" ? "write-secret" : change.operation,
-                  providerInstanceId: change.providerInstanceId,
-                  environmentVariable: change.environmentVariable,
-                  cause,
-                }),
-            ),
-          );
-        }),
-      { discard: true },
-    ).pipe(
-      Effect.tapError(() => rollback),
-      Effect.as(rollback),
-    );
-  };
+  const getEffectiveSettings = getSettingsFromCache.pipe(Effect.map(toEffective));
 
   const updateAndPersistSettings = (
     patch: ServerSettingsPatch,
@@ -918,7 +679,15 @@ const make = Effect.gen(function* () {
           });
         }
         const updated = yield* update(current);
-        // Vet before secrets: a variable the policy hides from clients is not one they removed.
+        const credential = findProviderCredentialVariable(updated);
+        if (credential !== undefined) {
+          return yield* new ServerSettingsError({
+            settingsPath,
+            operation: "save-credential-variable",
+            providerInstanceId: credential.instanceId,
+            environmentVariable: credential.name,
+          });
+        }
         const vetted = managed.vetWrite(current, yield* normalizeServerSettings(updated), patch);
         if (vetted._tag === "Locked") {
           return yield* new ServerSettingsError({
@@ -946,35 +715,16 @@ const make = Effect.gen(function* () {
             managedBy: managedPolicy?.organization,
           });
         }
-        const persisted = yield* persistSettingsSecrets(current, vettedProviders.settings);
-        const next = yield* normalizeServerSettings(persisted.settings);
-        const materializedNext = yield* Effect.uninterruptibleMask(() =>
-          Effect.gen(function* () {
-            yield* invalidateMaterialized;
-            const rollbackSecretChanges = yield* applySettingsSecretChanges(persisted.changes);
-            const materializedExit = yield* Effect.exit(materializeSettingsSecrets(next));
-            if (Exit.isFailure(materializedExit)) {
-              yield* rollbackSecretChanges;
-              return yield* Effect.failCause(materializedExit.cause);
-            }
-            const writeExit = yield* Effect.exit(writeSettingsAtomically(next));
-            if (Exit.isFailure(writeExit)) {
-              yield* rollbackSecretChanges;
-              return yield* Effect.failCause(writeExit.cause);
-            }
-            return materializedExit.value;
-          }).pipe(Effect.ensuring(invalidateMaterialized)),
-        );
+        const next = yield* normalizeServerSettings(vettedProviders.settings);
+        yield* writeSettingsAtomically(next);
         yield* Cache.set(settingsCache, cacheKey, { settings: next, parseFailure: Option.none() });
-        const resolved = toEffective(materializedNext);
-        materialized = { source: next, value: resolved };
         yield* emitChange(next);
-        return resolved;
+        return toEffective(next);
       }),
     );
 
   const withSettingsSnapshot: ServerSettingsService["Service"]["withSettingsSnapshot"] = (use) =>
-    writeSemaphore.withPermits(1)(getMaterializedSettings.pipe(Effect.flatMap(use)));
+    writeSemaphore.withPermits(1)(getEffectiveSettings.pipe(Effect.flatMap(use)));
 
   const revalidateAndEmit = writeSemaphore.withPermits(1)(
     Effect.gen(function* () {
@@ -1080,7 +830,7 @@ const make = Effect.gen(function* () {
     managedPolicy,
     start,
     ready: Deferred.await(startedDeferred),
-    getSettings: getMaterializedSettings,
+    getSettings: getEffectiveSettings,
     updateSettings: (patch) =>
       updateAndPersistSettings(patch, (current) =>
         Effect.succeed(applyServerSettingsPatch(current, patch)),
@@ -1095,11 +845,13 @@ const make = Effect.gen(function* () {
       ),
     withSettingsSnapshot,
     get streamChanges() {
-      return materializeChanges(Stream.fromPubSub(changesPubSub));
+      return Stream.fromPubSub(changesPubSub).pipe(Stream.map(toEffective));
     },
     get subscribeChanges() {
       return PubSub.subscribe(changesPubSub).pipe(
-        Effect.map((subscription) => materializeChanges(Stream.fromSubscription(subscription))),
+        Effect.map((subscription) =>
+          Stream.fromSubscription(subscription).pipe(Stream.map(toEffective)),
+        ),
       );
     },
   } satisfies ServerSettingsService["Service"];

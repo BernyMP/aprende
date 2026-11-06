@@ -18,13 +18,12 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
-import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ServerConfig from "./config.ts";
 import * as SqlitePersistence from "./persistence/Sqlite.ts";
 import { writeFileStringAtomically } from "@aprende/shared/atomicWrite";
@@ -36,7 +35,6 @@ const decodeServerSettingsJson = Schema.decodeUnknownEffect(Schema.fromJsonStrin
 
 const layerServerSettings = (policy?: ManagedPolicyDocument) =>
   ServerSettingsModule.layer.pipe(
-    Layer.provide(ServerSecretStore.layer),
     Layer.provide(ManagedPolicy.layerTest(policy)),
     Layer.provideMerge(Layer.fresh(SqlitePersistence.layerMemory)),
     Layer.provideMerge(
@@ -46,32 +44,6 @@ const layerServerSettings = (policy?: ManagedPolicyDocument) =>
         }),
       ),
     ),
-  );
-
-const layerServerSettingsWithSecrets = () =>
-  ServerSettingsModule.layer.pipe(
-    Layer.provideMerge(ServerSecretStore.layer),
-    Layer.provide(ManagedPolicy.layerTest()),
-    Layer.provideMerge(Layer.fresh(SqlitePersistence.layerMemory)),
-    Layer.provideMerge(
-      Layer.fresh(
-        ServerConfig.layerTest(process.cwd(), {
-          prefix: "aprende-server-settings-test-",
-        }),
-      ),
-    ),
-  );
-
-const layerFailingSecretStore = (cause: ServerSecretStore.SecretStoreError) =>
-  Layer.succeed(
-    ServerSecretStore.ServerSecretStore,
-    ServerSecretStore.ServerSecretStore.of({
-      get: () => Effect.fail(cause),
-      set: () => Effect.void,
-      create: () => Effect.void,
-      getOrCreateRandom: () => Effect.succeed(new Uint8Array()),
-      remove: () => Effect.void,
-    }),
   );
 
 const recordProviderUsage = (provider: string, instanceId: string | null = provider) =>
@@ -896,481 +868,108 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("server settings"
     }).pipe(Effect.provide(layerServerSettings())),
   );
 
-  it.effect("reads settings secrets once per settings change", () => {
-    let reads = 0;
-    const layerSecret = Layer.effect(
-      ServerSecretStore.ServerSecretStore,
-      Effect.map(ServerSecretStore.ServerSecretStore, (store) => ({
-        ...store,
-        get: (name: string) =>
-          Effect.suspend(() => {
-            reads++;
-            return store.get(name);
-          }),
-      })),
-    ).pipe(Layer.provide(ServerSecretStore.layer));
-    const layerSettings = ServerSettingsModule.layer.pipe(
-      Layer.provide(layerSecret),
-      Layer.provide(ManagedPolicy.layerTest()),
-      Layer.provideMerge(Layer.fresh(SqlitePersistence.layerMemory)),
-      Layer.provideMerge(
-        Layer.fresh(
-          ServerConfig.layerTest(process.cwd(), { prefix: "aprende-settings-secret-cache-test-" }),
-        ),
-      ),
-    );
+  it.effect("drops provider variables that held credentials when settings load", () => {
+    const logs: string[] = [];
+    const logger = Logger.make(({ message }) => logs.push(JSON.stringify(message)));
     return Effect.gen(function* () {
-      const instanceId = ProviderInstanceId.make("codex_cached");
-      const service = yield* ServerSettingsModule.ServerSettingsService;
-      const save = (value: string) =>
-        service.updateSettings({
+      const serverConfig = yield* ServerConfig.ServerConfig;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
+      yield* fileSystem.writeFileString(
+        serverConfig.settingsPath,
+        JSON.stringify({
           providerInstances: {
-            [instanceId]: {
-              driver: ProviderDriverKind.make("codex"),
-              environment: [{ name: "API_TOKEN", value, sensitive: true }],
-              config: {},
-            },
-          },
-        });
-      const token = service.getSettings.pipe(
-        Effect.map((settings) => settings.providerInstances[instanceId]?.environment?.[0]?.value),
-      );
-      yield* save("sk-first");
-      reads = 0;
-      assert.equal(yield* token, "sk-first");
-      assert.equal(yield* token, "sk-first");
-      assert.equal(reads, 0);
-      yield* save("sk-second");
-      assert.equal(yield* token, "sk-second");
-    }).pipe(Effect.provide(layerSettings));
-  });
-
-  it.effect("keeps the inline value on disk when secret migration fails", () => {
-    const cause = new ServerSecretStore.SecretStorePersistError({
-      resource: "provider environment secret",
-      cause: new Error("Secret storage unavailable"),
-    });
-    const layerSecret = Layer.effect(
-      ServerSecretStore.ServerSecretStore,
-      Effect.map(ServerSecretStore.ServerSecretStore, (store) => ({
-        ...store,
-        set: () => Effect.fail(cause),
-      })),
-    ).pipe(Layer.provide(ServerSecretStore.layer));
-    const layerSettings = ServerSettingsModule.layer.pipe(
-      Layer.provide(ManagedPolicy.layerTest()),
-      Layer.provide(layerSecret),
-      Layer.provideMerge(Layer.fresh(SqlitePersistence.layerMemory)),
-      Layer.provideMerge(
-        Layer.fresh(
-          ServerConfig.layerTest(process.cwd(), {
-            prefix: "aprende-inline-secret-failure-test-",
-          }),
-        ),
-      ),
-    );
-    return Effect.gen(function* () {
-      const instanceId = ProviderInstanceId.make("codex_personal");
-      const service = yield* ServerSettingsModule.ServerSettingsService;
-      const config = yield* ServerConfig.ServerConfig;
-      const fs = yield* FileSystem.FileSystem;
-      const original =
-        '{"providerInstances":{"codex_personal":{"driver":"codex","environment":[{"name":"API_TOKEN","value":"inline-test-token","sensitive":true}],"config":{}}}}';
-      yield* fs.writeFileString(config.settingsPath, original);
-      const error = yield* Effect.flip(
-        service.updateSettings({
-          providerInstances: {
-            [instanceId]: {
-              driver: ProviderDriverKind.make("codex"),
-              environment: [{ name: "API_TOKEN", value: "", sensitive: true, valueRedacted: true }],
-              config: {},
+            codex_personal: {
+              driver: "codex",
+              environment: [
+                { name: "API_TOKEN", value: "", sensitive: true, valueRedacted: true },
+                { name: "TOOL_HOME", value: "inline-sensitive-value", sensitive: true },
+                { name: "OPENAI_API_KEY", value: "sk-plain-test-key" },
+                { name: "OPENAI_BASE_URL", value: "https://example.test" },
+              ],
             },
           },
         }),
       );
-      assert.equal(error.operation, "write-secret");
-      assert.strictEqual(error.cause, cause);
-      assert.equal(yield* fs.readFileString(config.settingsPath), original);
-      const settings = yield* service.getSettings;
-      assert.equal(
-        settings.providerInstances[instanceId]?.environment?.[0]?.value,
-        "inline-test-token",
+
+      const settings = yield* serverSettings.getSettings;
+
+      assert.deepEqual(
+        settings.providerInstances[ProviderInstanceId.make("codex_personal")]?.environment,
+        [{ name: "OPENAI_BASE_URL", value: "https://example.test" }],
       );
-    }).pipe(Effect.provide(layerSettings));
-  });
-
-  it.effect.each(
-    [
-      {
-        label: "preserves an inline secret on a redacted settings save",
-        variable: { name: "API_TOKEN", value: "", sensitive: true, valueRedacted: true },
-        expected: "inline-test-token",
-      },
-      {
-        label: "preserves the effective last inline secret when names are duplicated",
-        variable: { name: "API_TOKEN", value: "", sensitive: true, valueRedacted: true },
-        expected: "last-inline-test-token",
-        duplicate: true,
-      },
-      {
-        label: "replaces an inline secret with an explicit value",
-        variable: { name: "API_TOKEN", value: "replacement-test-token", sensitive: true },
-        expected: "replacement-test-token",
-      },
-      {
-        label: "clears an inline secret with an explicit empty value",
-        variable: { name: "API_TOKEN", value: "", sensitive: true },
-        expected: "",
-      },
-    ].map((testCase) => [testCase.label, testCase] as const),
-  )("%s", ([, { variable, expected, duplicate }]) =>
-    Effect.gen(function* () {
-      const instanceId = ProviderInstanceId.make("codex_personal");
-      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-      const serverConfig = yield* ServerConfig.ServerConfig;
-      const fileSystem = yield* FileSystem.FileSystem;
-      yield* fileSystem.writeFileString(
-        serverConfig.settingsPath,
-        duplicate
-          ? '{"providerInstances":{"codex_personal":{"driver":"codex","environment":[{"name":"API_TOKEN","value":"inline-test-token","sensitive":true},{"name":"API_TOKEN","value":"last-inline-test-token","sensitive":true}],"config":{}}}}'
-          : '{"providerInstances":{"codex_personal":{"driver":"codex","environment":[{"name":"API_TOKEN","value":"inline-test-token","sensitive":true}],"config":{}}}}',
-      );
-      const initial = yield* serverSettings.getSettings;
-      assert.equal(
-        initial.providerInstances[instanceId]?.environment?.[0]?.value,
-        "inline-test-token",
-      );
-
-      const next = yield* serverSettings.updateSettings({
-        providerInstances: {
-          [instanceId]: {
-            driver: ProviderDriverKind.make("codex"),
-            displayName: "Renamed provider",
-            environment: duplicate ? [variable, variable] : [variable],
-            config: {},
-          },
-        },
-      });
-      assert.equal(next.providerInstances[instanceId]?.environment?.[0]?.value, expected);
-      const raw = yield* fileSystem.readFileString(serverConfig.settingsPath);
-      assert.notInclude(raw, "inline-test-token");
-      assert.notInclude(raw, "replacement-test-token");
-
-      const reloaded = yield* Effect.gen(function* () {
-        const fresh = yield* ServerSettingsModule.ServerSettingsService;
-        return yield* fresh.getSettings;
-      }).pipe(
-        Effect.provide(
-          Layer.fresh(ServerSettingsModule.layer).pipe(
-            Layer.provide(Layer.merge(ServerSecretStore.layer, ManagedPolicy.layerTest())),
-          ),
-        ),
-      );
-      assert.equal(reloaded.providerInstances[instanceId]?.environment?.[0]?.value, expected);
-    }).pipe(Effect.provide(layerServerSettings())),
-  );
-
-  it.effect.each([true, false])(
-    "preserves duplicate secret operation order (sensitive last: %s)",
-    (sensitiveLast) =>
-      Effect.gen(function* () {
-        const service = yield* ServerSettingsModule.ServerSettingsService;
-        const instanceId = ProviderInstanceId.make("codex_duplicate");
-        const secret = { name: "API_TOKEN", value: "secret-last", sensitive: true };
-        const plain = { name: "API_TOKEN", value: "plain-last", sensitive: false };
-        const next = yield* service.updateSettings({
-          providerInstances: {
-            [instanceId]: {
-              driver: ProviderDriverKind.make("codex"),
-              environment: sensitiveLast ? [plain, secret] : [secret, plain],
-              config: {},
-            },
-          },
-        });
-        assert.equal(
-          next.providerInstances[instanceId]?.environment?.at(-1)?.value,
-          sensitiveLast ? "secret-last" : "plain-last",
-        );
-        assert.equal(
-          next.providerInstances[instanceId]?.environment?.find((v) => v.sensitive)?.value,
-          sensitiveLast ? "secret-last" : "",
-        );
-      }).pipe(Effect.provide(layerServerSettings())),
-  );
-
-  it.effect("keeps sensitive provider environment values out of the settings file", () =>
-    Effect.gen(function* () {
-      const service = yield* ServerSettingsModule.ServerSettingsService;
-      const config = yield* ServerConfig.ServerConfig;
-      const fs = yield* FileSystem.FileSystem;
-      const store = yield* ServerSecretStore.ServerSecretStore;
-      const instanceId = ProviderInstanceId.make("codex_secrets");
-      const saved = yield* service.updateSettings({
-        providerInstances: {
-          [instanceId]: {
-            driver: ProviderDriverKind.make("codex"),
-            environment: [
-              { name: "API_TOKEN", value: "env-secret", sensitive: true },
-              { name: "BASE_URL", value: "https://example.test", sensitive: false },
-            ],
-          },
-        },
-      });
-      const values = ["env-secret"];
-      const client = ServerSettingsModule.redactServerSettingsForClient(saved);
-      const disk = yield* fs.readFileString(config.settingsPath);
-      for (const value of values) {
-        assert.include(JSON.stringify(saved), value);
-        assert.notInclude(JSON.stringify(client), value);
-        assert.notInclude(disk, value);
+      const disk = yield* fileSystem.readFileString(serverConfig.settingsPath);
+      for (const removed of ["API_TOKEN", "TOOL_HOME", "OPENAI_API_KEY", "sensitive"]) {
+        assert.notInclude(disk, removed);
       }
-      assert.include(JSON.stringify(client), "https://example.test");
-      const echoed = yield* service.updateSettings({
-        providerInstances: client.providerInstances,
-      });
-      for (const value of values) assert.include(JSON.stringify(echoed), value);
-      const secretNames = ["provider-env-Y29kZXhfc2VjcmV0cw-QVBJX1RPS0VO"];
-      for (const name of secretNames) {
-        assert.isTrue(Option.isSome(yield* store.get(name)), name);
+      assert.include(disk, "https://example.test");
+      const logged = logs.join("\n");
+      assert.include(logged, "codex_personal.OPENAI_API_KEY");
+      for (const value of ["inline-sensitive-value", "sk-plain-test-key"]) {
+        assert.notInclude(logged, value);
       }
-      yield* service.updateSettings({ providerInstances: {} });
-      for (const name of secretNames) {
-        assert.isTrue(Option.isNone(yield* store.get(name)));
-      }
-    }).pipe(Effect.provide(layerServerSettingsWithSecrets())),
-  );
-
-  it.effect("keeps the retired keys for another load when a token cannot be copied", () => {
-    const cause = new ServerSecretStore.SecretStoreReadError({
-      resource: "bitbucket-access-token",
-      cause: PlatformError.systemError({
-        _tag: "PermissionDenied",
-        module: "FileSystem",
-        method: "readFile",
-        pathOrDescriptor: "bitbucket-access-token",
-        description: "Secret backend unavailable.",
-      }),
-    });
-    const layerSettings = ServerSettingsModule.layer.pipe(
-      Layer.provide(ManagedPolicy.layerTest()),
-      Layer.provide(layerFailingSecretStore(cause)),
-      Layer.provideMerge(Layer.fresh(SqlitePersistence.layerMemory)),
-      Layer.provideMerge(
-        Layer.fresh(
-          ServerConfig.layerTest(process.cwd(), {
-            prefix: "aprende-server-settings-legacy-failure-test-",
-          }),
-        ),
+    }).pipe(
+      Effect.provide(
+        Layer.merge(layerServerSettings(), Logger.layer([logger], { mergeWithExisting: false })),
       ),
     );
-    return Effect.gen(function* () {
+  });
+
+  it.effect.each([
+    "OPENAI_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_OAUTH_TOKEN",
+    "api_key",
+    "client_secret_file",
+    "DB_PASSWORD",
+  ])("refuses to save the provider variable %s, named like a credential", (name) =>
+    Effect.gen(function* () {
       const serverConfig = yield* ServerConfig.ServerConfig;
       const fileSystem = yield* FileSystem.FileSystem;
       const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-      const legacy = JSON.stringify({
-        bitbucket: { email: "me@example.com", accessToken: "\u2022\u2022\u2022\u2022\u2022\u2022" },
+      const instanceId = ProviderInstanceId.make("codex_personal");
+      const environment = [{ name: "CODEX_HOME", value: "/tmp/codex-personal" }];
+      yield* serverSettings.updateSettings({
+        providerInstances: {
+          [instanceId]: { driver: ProviderDriverKind.make("codex"), environment },
+        },
       });
-      yield* fileSystem.writeFileString(serverConfig.settingsPath, legacy);
+      const before = yield* fileSystem.readFileString(serverConfig.settingsPath);
 
-      yield* Effect.exit(serverSettings.getSettings);
-
-      assert.equal(yield* fileSystem.readFileString(serverConfig.settingsPath), legacy);
-    }).pipe(Effect.provide(layerSettings));
-  });
-
-  it.effect("rolls back provider secret changes when the settings file commit fails", () =>
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      let failRename = false;
-      let settingsPathToFail: string | undefined;
-      let readDuringWrite: Effect.Effect<void> = Effect.void;
-      const writeFailure = PlatformError.systemError({
-        _tag: "PermissionDenied",
-        module: "FileSystem",
-        method: "rename",
-        description: "Forced settings write failure.",
-      });
-      const failingFileSystem = FileSystem.FileSystem.of({
-        ...fileSystem,
-        rename: (fromPath, toPath) =>
-          failRename && toPath === settingsPathToFail
-            ? readDuringWrite.pipe(Effect.andThen(Effect.fail(writeFailure)))
-            : fileSystem.rename(fromPath, toPath),
-      });
-      const instanceId = ProviderInstanceId.make("antigravity_write_failure");
-      const layerSettings = layerServerSettings().pipe(
-        Layer.provideMerge(Layer.succeed(FileSystem.FileSystem, failingFileSystem)),
-      );
-
-      yield* Effect.gen(function* () {
-        const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-        settingsPathToFail = (yield* ServerConfig.ServerConfig).settingsPath;
-        yield* serverSettings.updateProviderInstance({
+      const error = yield* serverSettings
+        .updateProviderInstance({
           operation: "upsert",
           instanceId,
           instance: {
-            driver: ProviderDriverKind.make("antigravity"),
-            environment: [{ name: "OPENROUTER_API_KEY", value: "sk-kept", sensitive: true }],
-            config: { apiKey: "config-kept" },
+            driver: ProviderDriverKind.make("codex"),
+            environment: [...environment, { name, value: "test-credential-value" }],
           },
-        });
+        })
+        .pipe(Effect.flip);
 
-        failRename = true;
-        readDuringWrite = Effect.ignore(serverSettings.getSettings);
-        const failedUpdate = yield* serverSettings
-          .updateProviderInstance({
-            operation: "upsert",
-            instanceId,
-            instance: {
-              driver: ProviderDriverKind.make("antigravity"),
-              environment: [{ name: "OPENROUTER_API_KEY", value: "sk-new", sensitive: true }],
-              config: { apiKey: "config-new" },
-            },
-          })
-          .pipe(Effect.result);
-        assert.equal(failedUpdate._tag, "Failure");
-        assert.equal(
-          (yield* serverSettings.getSettings).providerInstances[instanceId]?.environment?.[0]
-            ?.value,
-          "sk-kept",
-        );
-        assert.propertyVal(
-          (yield* serverSettings.getSettings).providerInstances[instanceId]?.config,
-          "apiKey",
-          "config-kept",
-        );
-
-        const failed = yield* serverSettings
-          .updateProviderInstance({ operation: "remove", instanceId })
-          .pipe(Effect.result);
-        assert.equal(failed._tag, "Failure");
-        assert.equal(
-          (yield* serverSettings.getSettings).providerInstances[instanceId]?.environment?.[0]
-            ?.value,
-          "sk-kept",
-        );
-        assert.propertyVal(
-          (yield* serverSettings.getSettings).providerInstances[instanceId]?.config,
-          "apiKey",
-          "config-kept",
-        );
-      }).pipe(Effect.provide(layerSettings));
-    }),
+      assert.equal(error.operation, "save-credential-variable");
+      assert.equal(error.environmentVariable, name);
+      assert.include(error.message, "codex login");
+      assert.equal(yield* fileSystem.readFileString(serverConfig.settingsPath), before);
+    }).pipe(Effect.provide(layerServerSettings())),
   );
 
-  it.effect.each(["response materialization", "partially committed write"] as const)(
-    "rolls back provider secret changes after %s fails",
-    (failure) => {
-      const textDecoder = new TextDecoder();
-      const secrets = new Map<string, Uint8Array>();
-      let rejectNewSecret = false;
-      const layerSecretStore = Layer.succeed(
-        ServerSecretStore.ServerSecretStore,
-        ServerSecretStore.ServerSecretStore.of({
-          get: (name) =>
-            Effect.suspend(() => {
-              const value = secrets.get(name);
-              if (
-                failure === "response materialization" &&
-                rejectNewSecret &&
-                value !== undefined &&
-                textDecoder.decode(value) === "sk-new"
-              ) {
-                return Effect.fail(
-                  new ServerSecretStore.SecretStoreReadError({
-                    resource: `secret ${name}`,
-                    cause: "Forced response materialization failure.",
-                  }),
-                );
-              }
-              return Effect.succeed(
-                value === undefined ? Option.none() : Option.some(Uint8Array.from(value)),
-              );
-            }),
-          set: (name, value) =>
-            Effect.suspend(() => {
-              secrets.set(name, Uint8Array.from(value));
-              return failure === "partially committed write" &&
-                rejectNewSecret &&
-                textDecoder.decode(value) === "sk-new"
-                ? Effect.fail(
-                    new ServerSecretStore.SecretStorePersistError({
-                      resource: `secret ${name}`,
-                      cause: "chmod failed after rename",
-                    }),
-                  )
-                : Effect.void;
-            }),
-          create: (name, value) =>
-            Effect.sync(() => {
-              secrets.set(name, Uint8Array.from(value));
-            }),
-          getOrCreateRandom: (name, bytes) =>
-            Effect.sync(() => {
-              const value = secrets.get(name) ?? new Uint8Array(bytes);
-              secrets.set(name, value);
-              return Uint8Array.from(value);
-            }),
-          remove: (name) =>
-            Effect.sync(() => {
-              secrets.delete(name);
-            }),
-        }),
-      );
-      const layerSettings = ServerSettingsModule.layer.pipe(
-        Layer.provide(ManagedPolicy.layerTest()),
-        Layer.provide(ManagedPolicy.layerTest()),
-        Layer.provideMerge(Layer.fresh(SqlitePersistence.layerMemory)),
-        Layer.provide(layerSecretStore),
-        Layer.provideMerge(
-          Layer.fresh(
-            ServerConfig.layerTest(process.cwd(), {
-              prefix: "aprende-server-settings-materialization-failure-test-",
-            }),
-          ),
-        ),
-      );
-      const instanceId = ProviderInstanceId.make("codex_materialization_failure");
-
-      return Effect.gen(function* () {
-        const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
-        yield* serverSettings.updateSettings({
-          providerInstances: {
-            [instanceId]: {
-              driver: ProviderDriverKind.make("antigravity"),
-              environment: [{ name: "OPENROUTER_API_KEY", value: "sk-kept", sensitive: true }],
-              config: { apiKey: "config-kept" },
-            },
-          },
-        });
-
-        rejectNewSecret = true;
-        const failedUpdate = yield* serverSettings
-          .updateSettings({
-            providerInstances: {
-              [instanceId]: {
-                driver: ProviderDriverKind.make("antigravity"),
-                environment: [{ name: "OPENROUTER_API_KEY", value: "sk-new", sensitive: true }],
-                config: { apiKey: "config-new" },
-              },
-            },
-          })
-          .pipe(Effect.result);
-
-        assert.equal(failedUpdate._tag, "Failure");
-        rejectNewSecret = false;
-        assert.equal(
-          (yield* serverSettings.getSettings).providerInstances[instanceId]?.environment?.[0]
-            ?.value,
-          "sk-kept",
-        );
-        assert.propertyVal(
-          (yield* serverSettings.getSettings).providerInstances[instanceId]?.config,
-          "apiKey",
-          "config-kept",
-        );
-      }).pipe(Effect.provide(layerSettings));
-    },
+  it.effect("saves provider variables that configure the CLI", () =>
+    Effect.gen(function* () {
+      const serverSettings = yield* ServerSettingsModule.ServerSettingsService;
+      const instanceId = ProviderInstanceId.make("claude_work");
+      const environment = [
+        { name: "CLAUDE_CONFIG_DIR", value: "~/.claude-work" },
+        { name: "ANTHROPIC_BASE_URL", value: "https://proxy.example.test" },
+        { name: "CLAUDE_CODE_MAX_OUTPUT_TOKENS", value: "32000" },
+      ];
+      const saved = yield* serverSettings.updateSettings({
+        providerInstances: {
+          [instanceId]: { driver: ProviderDriverKind.make("claudeAgent"), environment },
+        },
+      });
+      assert.deepEqual(saved.providerInstances[instanceId]?.environment, environment);
+    }).pipe(Effect.provide(layerServerSettings())),
   );
 
   it.effect("folds legacy project overrides into projectSettingsOverrides once", () =>
@@ -1762,7 +1361,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
     const claude = ProviderDriverKind.make("claudeAgent");
     const codex = ProviderDriverKind.make("codex");
     const cursor = ProviderDriverKind.make("acpRegistry");
-    const bedrock = { name: "CLAUDE_CODE_USE_BEDROCK", value: "1", sensitive: false };
+    const bedrock = { name: "CLAUDE_CODE_USE_BEDROCK", value: "1" };
     const policy: ManagedPolicyDocument = {
       schemaVersion: 1,
       organization: "Example Corp",
@@ -1847,51 +1446,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
       }).pipe(Effect.provide(layerServerSettings(policy))),
     );
 
-    it.effect("keeps a locked Codex pin from being bypassed by managed setup", () =>
-      Effect.gen(function* () {
-        const service = yield* ServerSettingsModule.ServerSettingsService;
-        const config = yield* ServerConfig.ServerConfig;
-        const fs = yield* FileSystem.FileSystem;
-        const codexId = ProviderInstanceId.make("codex_chatgpt");
-        yield* fs.writeFileString(
-          config.settingsPath,
-          JSON.stringify({
-            providerInstances: { [codexId]: { driver: codex, config: { setupMode: "managed" } } },
-          }),
-        );
-
-        const effective = (yield* service.getSettings).providerInstances[codexId];
-        assert.deepEqual(effective?.config, { binaryPath: "/opt/gateway/codex" });
-        // A stored value stays for when the policy is gone; a new one is refused.
-        const refused = yield* service
-          .updateProviderInstance({
-            operation: "upsert",
-            instanceId: ProviderInstanceId.make("codex_new"),
-            instance: { driver: codex, config: { setupMode: "managed" } },
-          })
-          .pipe(Effect.flip);
-        assert.equal(refused.managedSetting, "providerInstances.codex_new.config.setupMode");
-        // Adding a Codex instance sends the default setup, which leaves the pin in charge.
-        yield* service.updateProviderInstance({
-          operation: "upsert",
-          instanceId: ProviderInstanceId.make("codex_cli"),
-          instance: { driver: codex, config: { setupMode: "existing" } },
-        });
-      }).pipe(
-        Effect.provide(
-          layerServerSettings({
-            schemaVersion: 1,
-            organization: "Example Corp",
-            limits: {
-              providers: {
-                instances: { [codex]: { locked: true, binaryPath: "/opt/gateway/codex" } },
-              },
-            },
-          }),
-        ),
-      ),
-    );
-
     it.effect("pins instance fields at read time and refuses edits to locked ones", () =>
       Effect.gen(function* () {
         const service = yield* ServerSettingsModule.ServerSettingsService;
@@ -1899,7 +1453,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         const fs = yield* FileSystem.FileSystem;
         const claudeId = ProviderInstanceId.make("claudeAgent");
         const codexId = ProviderInstanceId.make("codex");
-        const userVariable = { name: "MY_FLAG", value: "on", sensitive: false };
+        const userVariable = { name: "MY_FLAG", value: "on" };
         yield* fs.writeFileString(
           config.settingsPath,
           JSON.stringify({
@@ -2003,11 +1557,12 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
       },
     };
 
-    it.effect("keeps the secret of a variable it hides when the instance is saved", () => {
-      const shared = ServerSecretStore.layer.pipe(
-        Layer.provideMerge(Layer.fresh(SqlitePersistence.layerMemory)),
+    it.effect("keeps a variable it hides when the instance is saved", () => {
+      const shared = Layer.fresh(SqlitePersistence.layerMemory).pipe(
         Layer.provideMerge(
-          Layer.fresh(ServerConfig.layerTest(process.cwd(), { prefix: "aprende-hidden-secret-" })),
+          Layer.fresh(
+            ServerConfig.layerTest(process.cwd(), { prefix: "aprende-hidden-variable-" }),
+          ),
         ),
       );
       const withPolicy = <A, E>(
@@ -2023,7 +1578,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           ),
         );
       const claudeId = ProviderInstanceId.make("claudeAgent");
-      const token = { name: "ANTHROPIC_API_KEY", value: "sk-kept", sensitive: true };
+      const token = { name: "CLAUDE_CONFIG_DIR", value: "/tmp/claude-kept" };
       return Effect.gen(function* () {
         yield* withPolicy(undefined, (service) =>
           service.updateProviderInstance({
@@ -2062,7 +1617,6 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         const userVariable = {
           name: "CLAUDE_CONFIG_DIR",
           value: "/tmp/allow-all",
-          sensitive: false,
         };
         const storedClaude = {
           driver: claude,
@@ -2095,7 +1649,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
           autoCompactWindow: "300000",
         });
         assert.deepEqual(claudeInstance.environment, [
-          { name: "CLAUDE_CODE_USE_BEDROCK", value: "1", sensitive: false },
+          { name: "CLAUDE_CODE_USE_BEDROCK", value: "1" },
         ]);
         assert.deepEqual(effective.providerInstances[registryId]?.config, { agentId: "devin" });
 
@@ -2116,7 +1670,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))(
         assert.equal(binary.managedSetting, "providerInstances.claudeAgent.config.binaryPath");
         const environment = yield* refused({
           ...claudeInstance,
-          environment: [{ name: "NODE_OPTIONS", value: "--require /tmp/x.js", sensitive: false }],
+          environment: [{ name: "NODE_OPTIONS", value: "--require /tmp/x.js" }],
         });
         assert.equal(environment.managedSetting, "providerInstances.claudeAgent.environment");
         const commandArgs = yield* service

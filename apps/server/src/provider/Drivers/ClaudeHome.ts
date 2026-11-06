@@ -132,3 +132,33 @@ export const claudeSignedOutMessage = (input: {
       : "";
   return `Claude could not authenticate. For subscription login, run \`claude auth login\` on this environment's machine${configuration}, then start a new thread. For API-key authentication, check this instance's configured credentials.`;
 };
+
+const decodeClaudeAccountConfig = Schema.decodeEffect(
+  Schema.fromJsonString(
+    Schema.Struct({
+      oauthAccount: Schema.optional(
+        Schema.Struct({ organizationUuid: Schema.optional(Schema.String) }),
+      ),
+    }),
+  ),
+);
+
+/** The `.claude.json` beside a custom config dir, or in the home directory by default. */
+export const claudeAccountConfigPath = Effect.fn("claudeAccountConfigPath")(function* (
+  configDir: string | undefined,
+) {
+  const path = yield* Path.Path;
+  return configDir
+    ? path.join(configDir, ".claude.json")
+    : path.join(yield* HostProcess.HomeDirectory, ".claude.json");
+});
+
+/** Identifies the signed-in organization without reading the login token. */
+export const readClaudeOrganizationId = Effect.fn("readClaudeOrganizationId")(
+  function* (accountConfigPath: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const config = yield* decodeClaudeAccountConfig(yield* fs.readFileString(accountConfigPath));
+    return config.oauthAccount?.organizationUuid?.trim() || undefined;
+  },
+  Effect.orElseSucceed(() => undefined),
+);

@@ -12,7 +12,6 @@ import {
   ProviderTurnId,
   ProviderDriverKind,
   ProviderInstanceId,
-  ProviderSetupError,
   RunAttemptId,
   RunId,
   ThreadId,
@@ -31,7 +30,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as ContextHandoffService from "./ContextHandoffService.ts";
 import { withInlineContext } from "./ContextHandoffDelivery.ts";
 import * as EventSink from "./EventSink.ts";
@@ -50,9 +48,7 @@ const isDomainEvent = Schema.is(OrchestrationV2DomainEvent);
 function makeLocalCommandHarness(input: {
   readonly text: string;
   readonly worktreePath?: string;
-  readonly previousNativeSession?: boolean;
   readonly previousMessages?: ReadonlyArray<string>;
-  readonly logoutFailure?: string;
   readonly openFailure?: unknown;
   readonly ensureThreadFailure?: unknown;
   readonly historyReadFailureAfterFallback?: unknown;
@@ -88,7 +84,6 @@ function makeLocalCommandHarness(input: {
   const providerThreadId = ProviderThreadId.make("new-provider-thread");
   const providerSessionId = ProviderSessionId.make("new-provider-session");
   const oldProviderThreadId = ProviderThreadId.make("existing-native-provider-thread");
-  const oldInstanceId = ProviderInstanceId.make("antigravity-personal");
   const newInstanceId = ProviderInstanceId.make("codex-personal");
   const checkpointScopeId = CheckpointScopeId.make("scope-native-account-command");
   const messageId = MessageId.make("message-native-account-command");
@@ -149,21 +144,7 @@ function makeLocalCommandHarness(input: {
       worktreePath: input.worktreePath ?? null,
       lineage: { parentThreadId: null, relationshipToParent: null, rootThreadId: threadId },
     } as OrchestrationV2ThreadProjection["thread"],
-    runs: [
-      ...(input.previousNativeSession
-        ? [
-            {
-              ...run,
-              id: RunId.make("previous-native-run"),
-              ordinal: 1,
-              status: "completed" as const,
-              providerInstanceId: oldInstanceId,
-              providerThreadId: oldProviderThreadId,
-            },
-          ]
-        : []),
-      run,
-    ],
+    runs: [run],
     attempts: [
       {
         id: attemptId,
@@ -198,25 +179,7 @@ function makeLocalCommandHarness(input: {
         completedAt: null,
       },
     ],
-    providerThreads: [
-      ...(input.previousNativeSession
-        ? [
-            {
-              ...providerThread,
-              id: oldProviderThreadId,
-              providerInstanceId: oldInstanceId,
-              driver: ProviderDriverKind.make("antigravity"),
-              lastRunOrdinal: 1,
-              nativeThreadRef: {
-                driver: ProviderDriverKind.make("antigravity"),
-                nativeId: "existing-session",
-                strength: "strong" as const,
-              },
-            },
-          ]
-        : []),
-      providerThread,
-    ],
+    providerThreads: [providerThread],
     messages: [
       ...(input.previousMessages ?? []).map((text, index) => ({
         ...message,
@@ -628,17 +591,6 @@ function makeLocalCommandHarness(input: {
         )
       : Effect.void,
   );
-  const tryHandlePromptCommand = vi.fn(() =>
-    input.logoutFailure === undefined
-      ? Effect.succeed(true)
-      : Effect.fail(
-          new ProviderSetupError({
-            instanceId: oldInstanceId,
-            operation: "logout",
-            detail: input.logoutFailure,
-          }),
-        ),
-  );
   const writeIfRunCurrent = vi.fn(({ events: incoming, activeAttemptId, expectedStatus }) =>
     "writeFailure" in input
       ? Effect.fail(
@@ -748,7 +700,6 @@ function makeLocalCommandHarness(input: {
                   } as unknown as ProviderAdapter.ProviderAdapterV2SessionRuntime),
             ),
         }),
-        Layer.mock(ProviderAuthService.ProviderAuthService)({ tryHandlePromptCommand }),
         Layer.mock(RunExecutionService.RunExecutionServiceV2)({ startRootRun }),
         Layer.mock(RuntimePolicy.RuntimePolicyV2)({
           resolve: resolveRuntimePolicy,
@@ -779,9 +730,7 @@ function makeLocalCommandHarness(input: {
     startTurn,
     forkThread,
     interruptTurn,
-    tryHandlePromptCommand,
     events,
-    oldInstanceId,
     newInstanceId,
     attemptId,
     projection: () => projection,
@@ -1257,39 +1206,6 @@ effectIt.effect("does not mistake a failed state read for a superseded run", () 
   }),
 );
 
-effectIt.effect(
-  "signs out the existing native provider before opening the newly selected provider",
-  () =>
-    Effect.gen(function* () {
-      const harness = makeLocalCommandHarness({ text: "/logout", previousNativeSession: true });
-
-      yield* harness.start;
-      yield* harness.start;
-
-      expect(harness.tryHandlePromptCommand).toHaveBeenCalledExactlyOnceWith({
-        instanceId: harness.oldInstanceId,
-        text: "/logout",
-        hasAttachments: false,
-      });
-      expect(harness.open).not.toHaveBeenCalled();
-      expect(harness.startRootRun).not.toHaveBeenCalled();
-      const projection = harness.projection();
-      expect(projection.runs.at(-1)?.status).toBe("completed");
-      expect(projection.attempts[0]?.status).toBe("completed");
-      expect(projection.nodes[0]?.status).toBe("completed");
-      expect(projection.turnItems).toMatchObject([
-        {
-          type: "command_execution",
-          title: "Provider signed out",
-          output: "Provider signed out",
-          status: "completed",
-        },
-      ]);
-      expect(projection.providerTurns).toEqual([]);
-      expect(projection.checkpoints).toEqual([]);
-    }),
-);
-
 for (const previousMessages of [[], ["/compact", " /COMPACT "]]) {
   effectIt.effect(
     `rejects compaction without conversation context after ${previousMessages.length} prior compactions`,
@@ -1300,7 +1216,6 @@ for (const previousMessages of [[], ["/compact", " /COMPACT "]]) {
         yield* harness.start;
 
         expect(harness.open).not.toHaveBeenCalled();
-        expect(harness.tryHandlePromptCommand).not.toHaveBeenCalled();
         expect(harness.startRootRun).not.toHaveBeenCalled();
         expect(harness.projection().runs.at(-1)?.status).toBe("failed");
         expect(harness.projection().turnItems).toMatchObject([

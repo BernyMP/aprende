@@ -1,8 +1,6 @@
 import * as CodexErrors from "effect-codex-app-server/errors";
 import { vi } from "vite-plus/test";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
-import * as CodexInstallation from "./CodexInstallation.ts";
-import * as CodexManagedTokenBroker from "./CodexManagedTokenBroker.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -331,12 +329,6 @@ const layerTestNodeServices = Layer.mergeAll(
   ProviderLatestVersions.layer,
   NodeServices.layer,
   NodeCrypto.layer,
-  Layer.mock(CodexManagedTokenBroker.CodexManagedTokenBroker)({
-    endpoint: Effect.succeed("unused-private-pipe"),
-  }),
-  Layer.mock(CodexInstallation.CodexInstallation)({
-    managedDirectory: "unused-managed-installation",
-  }),
   Layer.mock(ServerSecretStore.ServerSecretStore)({}),
   Layer.succeed(ServerEnvironment.ServerEnvironmentIdentity, {
     getEnvironmentId: Effect.succeed(EnvironmentId.make("00000000-0000-4000-8000-000000000001")),
@@ -2407,8 +2399,8 @@ it.layer(
             ? Effect.fail(
                 new ServerSettingsError({
                   settingsPath: "<memory>",
-                  operation: "read-secret",
-                  cause: new Error("secret materialization failed"),
+                  operation: "read-file",
+                  cause: new Error("settings read failed"),
                 }),
               )
             : settings.getSettings;
@@ -2638,9 +2630,7 @@ it.layer(
       {
         source: "instance HTTP endpoint overriding Anthropic",
         baseUrl: "https://api.anthropic.com",
-        overrides: [
-          { name: "ANTHROPIC_BASE_URL", value: "http://localhost:8080", sensitive: false },
-        ],
+        overrides: [{ name: "ANTHROPIC_BASE_URL", value: "http://localhost:8080" }],
       },
     ])("keeps Claude ready with an empty first-party account: $source", ({ baseUrl, overrides }) =>
       Effect.gen(function* () {
@@ -2743,7 +2733,7 @@ it.layer(
     ])("keeps Claude logged out when the instance endpoint is %s", (baseUrl) =>
       Effect.gen(function* () {
         const environment = yield* mergeProviderInstanceEnvironment(
-          [{ name: "ANTHROPIC_BASE_URL", value: baseUrl, sensitive: false }],
+          [{ name: "ANTHROPIC_BASE_URL", value: baseUrl }],
           { ANTHROPIC_BASE_URL: "https://proxy.example/api" },
         );
         const status = yield* checkClaudeProviderStatus(
