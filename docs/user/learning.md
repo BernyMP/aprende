@@ -105,7 +105,7 @@ follows how often you study (see [About you](#about-you)).
   examples.
 - **Diagrams** and **Explanations:** how often you want a diagram, and how long explanations run.
 
-In your first session the tutor asks the first two on cards and saves your answers. It may suggest
+While either of the first two is not set, the tutor asks for it on a card and saves your answer. It may suggest
 a change later; nothing changes unless you choose it. These change how the tutor teaches, never
 whether you do the work: it still asks you to predict and check, and it gives hints, not answers,
 on problems you are working.

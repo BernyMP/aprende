@@ -187,7 +187,7 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
     case "checks":
       return made.some(isGradedCard);
     case "collectsProfile":
-      return collectsProfile(made);
+      return collectsProfile(made, check.fields);
     case "reviewTargets":
       return made.some((call) => call.name === "pose_problem");
     case "noHandout":
@@ -197,12 +197,9 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
   }
 }
 
-const collectsProfile = (made: ReadonlyArray<Call>) => {
+const collectsProfile = (made: ReadonlyArray<Call>, fields: ReadonlyArray<string>) => {
   const saved = made.filter((call) => call.name === "set_profile");
-  return (
-    saved.some((call) => typeof call.input.goalKind === "string") &&
-    saved.some((call) => typeof call.input.returnCadence === "string")
-  );
+  return fields.every((field) => saved.some((call) => typeof call.input[field] === "string"));
 };
 
 const asksAboutStudyHabits = (call: Call) =>
@@ -227,8 +224,8 @@ export function ruleVerdict(
         : { pass: true, reason: `Asked with ${graded.name} (${purposeOf(graded) ?? "problem"}).` };
     }
     case "collectsProfile":
-      return collectsProfile(made)
-        ? { pass: true, reason: "set_profile saved goalKind and returnCadence." }
+      return collectsProfile(made, check.fields)
+        ? { pass: true, reason: `set_profile saved ${check.fields.join(" and ")}.` }
         : {
             pass: false,
             reason: `set_profile calls: ${JSON.stringify(made.filter((call) => call.name === "set_profile").map((call) => call.input))}`,

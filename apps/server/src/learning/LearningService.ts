@@ -417,6 +417,7 @@ export const layer = Layer.effect(
     const dbError = (message: string) => (cause: unknown) => fail(message, cause);
     const changed = (threadId: ThreadId) => PubSub.publish(changes, threadId);
     const profileLock = yield* Semaphore.make(1);
+    // The server runs on the learner's machine, so its zone is the learner's day.
     const zone = DateTime.zoneMakeLocal();
 
     const reviewsOf = Effect.fn("LearningService.reviewsOf")(function* (

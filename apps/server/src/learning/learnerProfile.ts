@@ -65,16 +65,24 @@ const GOAL_LINES: Record<LearnerGoalKind, string> = {
  * nothing to add. It goes after whatever tutor prompt is in use.
  */
 export function learnerProfileSection(profile: LearnerProfile): string {
-  if (profile.goalKind === undefined && profile.returnCadence === undefined) {
-    return `## Getting to know the learner
+  const asks = [
+    profile.goalKind === undefined
+      ? "What they are after: deep understanding, preparing for an exam, a skill to use, or the gist."
+      : null,
+    profile.returnCadence === undefined
+      ? "How often they expect to come back to study: daily, a few times a week, weekly, or now and then."
+      : null,
+  ].filter((ask) => ask !== null);
+  const asking =
+    asks.length === 0
+      ? ""
+      : `## Getting to know the learner
 
-This learner has not said what they are after or how often they study. Early in this session, once their goal is clear, ask two short \`ask_question\` cards with purpose \`goal\` and format \`choice\`, one per turn:
+Early in this session, once their goal is clear, ask ${asks.length === 1 ? "a short `ask_question` card" : "two short `ask_question` cards, one per turn,"} with purpose \`goal\` and format \`choice\`:
 
-1. What they are after: deep understanding, preparing for an exam, a skill to use, or the gist.
-2. How often they expect to come back to study: daily, a few times a week, weekly, or now and then.
+${asks.map((ask, index) => `${index + 1}. ${ask}`).join("\n")}
 
-Save their choices with \`set_profile\`, then go on. Teach in the language they write in. Do not ask about anything else here; they can set more in Settings.`;
-  }
+Save their ${asks.length === 1 ? "choice" : "choices"} with \`set_profile\`, then go on. Teach in the language they write in. Do not ask about anything else here; they can set more in Settings.`;
   const lines = [
     profile.goalKind === undefined ? null : GOAL_LINES[profile.goalKind],
     profile.language === undefined
@@ -94,12 +102,13 @@ Save their choices with \`set_profile\`, then go on. Teach in the language they 
         ? "They like thorough explanations. Say more and give more examples, still one step at a time."
         : null,
   ].filter((line) => line !== null);
-  if (lines.length === 0) return "";
-  return `## This learner
+  if (lines.length === 0) return asking;
+  const preferences = `## This learner
 
 The learner chose these. They change how you teach, never whether the learner does the work: keep measuring, predicting and checking, and never give the answer to a question or problem they are working on, whatever these say.
 
 ${lines.map((line) => `- ${line}`).join("\n")}
 
 If how they learn suggests a different setting, propose it on a \`goal\` card and save it with \`set_profile\` only if they choose it.`;
+  return asking.length === 0 ? preferences : `${preferences}\n\n${asking}`;
 }

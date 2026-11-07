@@ -117,8 +117,8 @@ function LearnerProfileSection(props: { readonly environmentId: EnvironmentId | 
   return (
     <SettingsSection title="About you" id="learner-profile">
       <p className="px-3 py-3 text-muted-foreground text-sm sm:px-4">
-        While the first two are not set, the tutor asks for them in your next session. Changes apply
-        to sessions started or resumed after you change them.
+        The tutor asks for either of the first two that is not set in your next session. Changes
+        apply to sessions started or resumed after you change them.
       </p>
       {profile === undefined ? (
         <p className="px-3 text-muted-foreground text-sm sm:px-4">{query.error ?? "Loading…"}</p>

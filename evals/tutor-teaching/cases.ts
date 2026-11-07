@@ -26,8 +26,11 @@ export type Check =
   | { readonly type: "noHandout" }
   /** Nothing the tutor says endorses learning styles. */
   | { readonly type: "noLearningStyles" }
-  /** set_profile saves the goal kind and return cadence. */
-  | { readonly type: "collectsProfile" }
+  /** set_profile saves these profile fields. */
+  | {
+      readonly type: "collectsProfile";
+      readonly fields: ReadonlyArray<"goalKind" | "returnCadence">;
+    }
   /** A saved profile is not asked for again. */
   | { readonly type: "noProfileQuestions" }
   /** A review poses a recall problem naming the due proposition. */
@@ -190,7 +193,25 @@ export const cases: ReadonlyArray<TutorCase> = [
       reply: "Sounds good.",
     },
     maxTurns: 5,
-    check: { type: "collectsProfile" },
+    check: { type: "collectsProfile", fields: ["goalKind", "returnCadence"] },
+  },
+  {
+    id: "missing-cadence-asked",
+    kind: "guard",
+    source: SOURCE,
+    experience:
+      "A learner saved what they are after but not how often they study, so reviews would stay on the daily schedule unless the tutor asks.",
+    profile: { goalKind: "understanding" },
+    persona: {
+      opening: "I want to understand how public-key cryptography works.",
+      goal: "Understand why someone can encrypt to me with my public key but only I can decrypt.",
+      choose: ["weekly"],
+      knowsFirst: 1,
+      problems: "giveUp",
+      reply: "Sounds good.",
+    },
+    maxTurns: 4,
+    check: { type: "collectsProfile", fields: ["returnCadence"] },
   },
   {
     id: "saved-profile-not-asked-again",

@@ -118,16 +118,19 @@ describe("ruleVerdict", () => {
     const saved = (input: Record<string, unknown>) => [
       { user: "a", events: [call("set_profile", input)] },
     ];
-    expect(ruleVerdict({ type: "collectsProfile" }, saved({ goalKind: "exam" }))?.pass).toBe(false);
+    const check = {
+      type: "collectsProfile" as const,
+      fields: ["goalKind", "returnCadence"] as const,
+    };
+    expect(ruleVerdict(check, saved({ goalKind: "exam" }))?.pass).toBe(false);
     const separately = [
       { user: "a", events: [call("set_profile", { returnCadence: "daily" })] },
       { user: "b", events: [call("set_profile", { goalKind: "exam" })] },
     ];
-    expect(ruleVerdict({ type: "collectsProfile" }, separately)?.pass).toBe(true);
-    expect(
-      ruleVerdict({ type: "collectsProfile" }, saved({ goalKind: "exam", returnCadence: "daily" }))
-        ?.pass,
-    ).toBe(true);
+    expect(ruleVerdict(check, separately)?.pass).toBe(true);
+    expect(ruleVerdict(check, saved({ goalKind: "exam", returnCadence: "daily" }))?.pass).toBe(
+      true,
+    );
   });
 });
 
