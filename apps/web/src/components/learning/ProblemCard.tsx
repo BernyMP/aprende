@@ -1,5 +1,7 @@
 import {
   LEARNING_CHECK_TIMEOUT_SECONDS,
+  LEARNING_CONFIDENCE_LABELS,
+  type LearningConfidence,
   type LearningCheckOutcome,
   type LearningCheckRun,
   type LearningProblemView,
@@ -36,7 +38,7 @@ const OUTCOME = {
 
 interface WorkDraft {
   readonly text: string;
-  readonly confidence: number;
+  readonly confidence: LearningConfidence | undefined;
   readonly thinking: string;
 }
 
@@ -278,7 +280,7 @@ function OpenProblem(props: {
 }) {
   const { problem } = props;
   const [draft, setDraftState] = useState<WorkDraft>(
-    () => workDrafts.get(problem.id) ?? { text: "", confidence: 50, thinking: "" },
+    () => workDrafts.get(problem.id) ?? { text: "", confidence: undefined, thinking: "" },
   );
   const [pending, setPending] = useState(false);
   const [revealing, setRevealing] = useState(false);
@@ -316,7 +318,7 @@ function OpenProblem(props: {
         ...target,
         gaveUp,
         ...(draft.text.trim() ? { text: draft.text } : {}),
-        ...(gaveUp ? {} : { confidence: draft.confidence }),
+        ...(gaveUp || draft.confidence === undefined ? {} : { confidence: draft.confidence }),
         ...(draft.thinking.trim() ? { thinking: draft.thinking } : {}),
       },
     });
@@ -404,7 +406,9 @@ function SubmittedWork(props: { readonly problem: LearningProblemView }) {
           attempt.check === undefined
             ? null
             : `Check on submit: ${checkLabel(attempt.check).label}.`,
-          attempt.confidence === undefined ? null : `You were ${attempt.confidence}% sure.`,
+          attempt.confidence === undefined
+            ? null
+            : `You were ${LEARNING_CONFIDENCE_LABELS[attempt.confidence].toLowerCase()}.`,
           props.problem.hintCount === 0
             ? null
             : `You used ${props.problem.hintsUsed} of ${props.problem.hintCount} hints.`,

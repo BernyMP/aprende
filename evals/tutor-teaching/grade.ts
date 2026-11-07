@@ -1,5 +1,6 @@
 import type {
   LearningAnswer,
+  LearningConfidence,
   LearningProblemMode,
   LearningQuestionPurpose,
 } from "@aprende/contracts";
@@ -67,7 +68,7 @@ function answerQuestion(persona: Persona, call: Call, measuresBefore: number): s
     readonly selected?: ReadonlyArray<number>;
     readonly text?: string;
     readonly dontKnow?: boolean;
-    readonly confidence?: number;
+    readonly confidence?: LearningConfidence;
     readonly thinking?: string;
   }): LearningAnswer => {
     const dontKnow = input.dontKnow === true;
@@ -105,7 +106,7 @@ function answerQuestion(persona: Persona, call: Call, measuresBefore: number): s
     answer({
       selected: question.correctOptions,
       ...(question.format === "recall" ? { text: question.modelAnswer ?? "" } : {}),
-      confidence: 90,
+      confidence: "certain",
       thinking: "I've worked with this kind of thing a lot.",
     }),
   );
@@ -126,7 +127,7 @@ function answerProblem(persona: Persona, call: Call): string {
       ? {
           text: text(call.input.modelSolution),
           gaveUp: false,
-          confidence: 85,
+          confidence: "certain" as const,
           submittedAt: answeredAt,
         }
       : { gaveUp: true, submittedAt: answeredAt };

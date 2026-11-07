@@ -164,7 +164,7 @@ describe("formatAnswerMessage", () => {
     const text = formatAnswerMessage(question, {
       selectedOptions: [0],
       dontKnow: false,
-      confidence: 80,
+      confidence: "certain",
       thinking: "  I guessed  ",
       correct: false,
       answeredAt: "2026-11-04T00:00:00.000Z",
@@ -172,7 +172,7 @@ describe("formatAnswerMessage", () => {
     expect(learningAnswerMessageQuestionId(text)).toBe("q-123");
     expect(text).toContain("Their answer: A) One");
     expect(text).toContain("Result: incorrect. Correct: B) Two");
-    expect(text).toContain("Confidence: 80%");
+    expect(text).toContain("Confidence: Certain");
     expect(text).toContain("Their thinking: I guessed");
     expect(learningAnswerMessageQuestionId("Hello [Answer to question q-1]")).toBeNull();
   });
@@ -269,7 +269,7 @@ describe("formatSolutionMessage", () => {
       {
         text: "The second one.",
         gaveUp: false,
-        confidence: 40,
+        confidence: "guessing",
         thinking: " no cycle ",
         submittedAt: "2026-11-04T00:00:00.000Z",
       },
@@ -282,7 +282,7 @@ describe("formatSolutionMessage", () => {
     expect(text).toContain("Retest of: prob-0");
     expect(text).toContain("Their work: The second one.");
     expect(text).toContain("Hints used: 2 of 3");
-    expect(text).toContain("Confidence: 40%");
+    expect(text).toContain("Confidence: Guessing");
     expect(text).toContain("Their thinking: no cycle");
   });
 
