@@ -170,6 +170,9 @@ import {
   LearningSubscribeThreadInput,
   LearningThreadState,
   LearningTutorPrompt,
+  LearnerProfilePatch,
+  LearnerProfileState,
+  LearningSnoozeReviewInput,
 } from "./learning.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
 
@@ -243,6 +246,9 @@ export const WS_METHODS = {
   learningGetTutorPrompt: "learning.getTutorPrompt",
   learningSetTutorPrompt: "learning.setTutorPrompt",
   learningGetKnowledge: "learning.getKnowledge",
+  learningSnoozeReview: "learning.snoozeReview",
+  learningGetProfile: "learning.getProfile",
+  learningSetProfile: "learning.setProfile",
 
   subscribeServerConfig: "subscribeServerConfig",
   subscribeServerLifecycle: "subscribeServerLifecycle",
@@ -794,6 +800,23 @@ const WsLearningGetKnowledgeRpc = Rpc.make(WS_METHODS.learningGetKnowledge, {
   error: LearningRpcError,
 });
 
+const WsLearningSnoozeReviewRpc = Rpc.make(WS_METHODS.learningSnoozeReview, {
+  payload: LearningSnoozeReviewInput,
+  error: LearningRpcError,
+});
+
+const WsLearningGetProfileRpc = Rpc.make(WS_METHODS.learningGetProfile, {
+  payload: Schema.Struct({}),
+  success: LearnerProfileState,
+  error: LearningRpcError,
+});
+
+const WsLearningSetProfileRpc = Rpc.make(WS_METHODS.learningSetProfile, {
+  payload: LearnerProfilePatch,
+  success: LearnerProfileState,
+  error: LearningRpcError,
+});
+
 const WsSubscribeAuthAccessRpc = Rpc.make(WS_METHODS.subscribeAuthAccess, {
   payload: Schema.Struct({}),
   success: AuthAccessStreamEvent,
@@ -852,6 +875,9 @@ export const WsRpcGroup = RpcGroup.make(
   WsLearningGetTutorPromptRpc,
   WsLearningSetTutorPromptRpc,
   WsLearningGetKnowledgeRpc,
+  WsLearningSnoozeReviewRpc,
+  WsLearningGetProfileRpc,
+  WsLearningSetProfileRpc,
   WsServerReportClientActivityRpc,
   WsProjectsListEntriesRpc,
   WsProjectsListIgnoredFilesRpc,

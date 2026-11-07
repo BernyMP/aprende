@@ -27,14 +27,21 @@ describe("RPC authorization scopes", () => {
     expect(new Set(Object.keys(RPC_REQUIRED_SCOPES))).toEqual(new Set(WsRpcGroup.requests.keys()));
   });
 
-  it("keeps learner answers and practice, which start tutor turns or run code, behind operate scope", () => {
+  it("keeps learner answers, practice and review, which start tutor turns, run code or change the schedule, behind operate scope", () => {
     for (const method of [
       WS_METHODS.learningAnswer,
       WS_METHODS.learningRevealHint,
       WS_METHODS.learningSubmitSolution,
       WS_METHODS.learningRunCheck,
+      WS_METHODS.learningSnoozeReview,
     ]) {
       expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
+    }
+  });
+
+  it("keeps the learner profile, which every tutor prompt includes, behind settings write scope", () => {
+    for (const method of [WS_METHODS.learningSetTutorPrompt, WS_METHODS.learningSetProfile]) {
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthSettingsWriteScope);
     }
   });
 

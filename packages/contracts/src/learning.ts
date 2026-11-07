@@ -13,6 +13,8 @@ export const LEARNING_TOOL_NAMES = [
   "set_plan",
   "graph_search",
   "graph_record",
+  "review_due",
+  "set_profile",
 ] as const;
 export type LearningToolName = (typeof LEARNING_TOOL_NAMES)[number];
 
@@ -359,11 +361,112 @@ export const LearningKnowledgeSession = Schema.Struct({
 });
 export type LearningKnowledgeSession = typeof LearningKnowledgeSession.Type;
 
+/**
+ * Where a proposition stands in spaced review. `dueAt` already counts a snooze; `box` is its
+ * Leitner box, and each box doubles the wait.
+ */
+export const LearningReview = Schema.Struct({
+  propositionId: TrimmedNonEmptyString,
+  box: Schema.Int,
+  dueAt: IsoDateTime,
+  due: Schema.Boolean,
+  lastReviewedAt: Schema.NullOr(IsoDateTime),
+  snoozedUntil: Schema.NullOr(IsoDateTime),
+});
+export type LearningReview = typeof LearningReview.Type;
+
 export const LearningKnowledgeView = Schema.Struct({
   ...LearningKnowledge.fields,
   sessions: Schema.Array(LearningKnowledgeSession),
+  reviews: Schema.Array(LearningReview),
 });
 export type LearningKnowledgeView = typeof LearningKnowledgeView.Type;
+
+/** What `review_due` gives the tutor: the most overdue first, up to its limit. */
+export const LearningDueReviews = Schema.Struct({
+  total: Schema.Int,
+  propositions: Schema.Array(
+    Schema.Struct({
+      id: TrimmedNonEmptyString,
+      name: Schema.String,
+      statement: Schema.String,
+      box: Schema.Int,
+      dueAt: IsoDateTime,
+    }),
+  ),
+});
+export type LearningDueReviews = typeof LearningDueReviews.Type;
+
+const LEARNING_MAX_SNOOZE_DAYS = 365;
+
+export const LearningSnoozeReviewInput = Schema.Struct({
+  propositionIds: Schema.Array(TrimmedNonEmptyString).check(Schema.isMinLength(1)),
+  /** null ends the snooze. */
+  days: Schema.NullOr(
+    Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: LEARNING_MAX_SNOOZE_DAYS })),
+  ),
+});
+export type LearningSnoozeReviewInput = typeof LearningSnoozeReviewInput.Type;
+
+/** What the learner is after. Not a learning style: it changes the path, never the checks. */
+export const LearnerGoalKind = Schema.Literals(["understanding", "exam", "skill", "gist"]);
+export type LearnerGoalKind = typeof LearnerGoalKind.Type;
+
+/** How often the learner expects to come back. It sets the first spaced-review interval. */
+export const LearnerReturnCadence = Schema.Literals([
+  "daily",
+  "fewTimesAWeek",
+  "weekly",
+  "occasionally",
+]);
+export type LearnerReturnCadence = typeof LearnerReturnCadence.Type;
+
+export const LearnerDiagrams = Schema.Literals(["often", "whenUseful", "rarely"]);
+export type LearnerDiagrams = typeof LearnerDiagrams.Type;
+
+export const LearnerExplanationLength = Schema.Literals(["brief", "standard", "detailed"]);
+export type LearnerExplanationLength = typeof LearnerExplanationLength.Type;
+
+export const LEARNER_LANGUAGE_MAX_CHARS = 80;
+export const LEARNER_INTERESTS_MAX_CHARS = 300;
+
+const profileFields = {
+  goalKind: LearnerGoalKind,
+  returnCadence: LearnerReturnCadence,
+  language: TrimmedNonEmptyString.check(Schema.isMaxLength(LEARNER_LANGUAGE_MAX_CHARS)),
+  interests: TrimmedNonEmptyString.check(Schema.isMaxLength(LEARNER_INTERESTS_MAX_CHARS)),
+  diagrams: LearnerDiagrams,
+  explanationLength: LearnerExplanationLength,
+};
+
+/** The learner's preferences. A field is missing until they choose it. */
+export const LearnerProfile = Schema.Struct({
+  goalKind: Schema.optional(profileFields.goalKind),
+  returnCadence: Schema.optional(profileFields.returnCadence),
+  language: Schema.optional(profileFields.language),
+  interests: Schema.optional(profileFields.interests),
+  diagrams: Schema.optional(profileFields.diagrams),
+  explanationLength: Schema.optional(profileFields.explanationLength),
+});
+export type LearnerProfile = typeof LearnerProfile.Type;
+
+/** A partial change: a missing field stays as it is, and null clears it. */
+export const LearnerProfilePatch = Schema.Struct({
+  goalKind: Schema.optional(Schema.NullOr(profileFields.goalKind)),
+  returnCadence: Schema.optional(Schema.NullOr(profileFields.returnCadence)),
+  language: Schema.optional(Schema.NullOr(profileFields.language)),
+  interests: Schema.optional(Schema.NullOr(profileFields.interests)),
+  diagrams: Schema.optional(Schema.NullOr(profileFields.diagrams)),
+  explanationLength: Schema.optional(Schema.NullOr(profileFields.explanationLength)),
+});
+export type LearnerProfilePatch = typeof LearnerProfilePatch.Type;
+
+export const LearnerProfileState = Schema.Struct({
+  profile: LearnerProfile,
+  /** False until the learner or the tutor first saves it; the tutor asks for it until then. */
+  saved: Schema.Boolean,
+});
+export type LearnerProfileState = typeof LearnerProfileState.Type;
 
 const ANSWER_MESSAGE_PATTERN = /^\[Answer to question ([A-Za-z0-9-]+)\]/;
 const SOLUTION_MESSAGE_PATTERN = /^\[Work on problem ([A-Za-z0-9-]+)\]/;

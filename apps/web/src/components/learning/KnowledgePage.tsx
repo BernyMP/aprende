@@ -2,11 +2,12 @@ import type {
   EnvironmentId,
   LearningKnowledgeView,
   LearningProposition,
+  LearningReview,
   ProjectId,
 } from "@aprende/contracts";
 import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 import { useAtomValue } from "@effect/atom-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { flushSync } from "react-dom";
 
@@ -15,6 +16,7 @@ import { useLiveRefresh } from "~/hooks/useLiveRefresh";
 import { useEnvironmentQuery } from "~/state/query";
 import { primaryEnvironmentIdAtom } from "~/state/primaryEnvironment";
 import { serverEnvironment } from "~/state/server";
+import { useAtomCommand } from "~/state/use-atom-command";
 import { useProjects } from "~/state/entities";
 
 import { Button } from "../ui/button";
@@ -24,13 +26,22 @@ import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
-import { defaultPracticeProjectId, propositionMatches } from "./knowledge.logic";
+import {
+  REVIEW_BATCH_SIZE,
+  defaultPracticeProjectId,
+  dueForReview,
+  propositionMatches,
+  type PracticeKind,
+} from "./knowledge.logic";
 import { usePracticeSession } from "./usePracticeSession";
 
 const ALL_SUBJECTS = "all";
 const propositionElementId = (id: string) => `knowledge-${id}`;
+const SNOOZE_DAYS = 7;
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-export function KnowledgePage() {
+export function KnowledgePage(props: { readonly dueOnly: boolean }) {
   const environmentId = useAtomValue(primaryEnvironmentIdAtom);
   const query = useEnvironmentQuery(
     environmentId === null
@@ -46,7 +57,12 @@ export function KnowledgePage() {
           <span className="text-sm font-medium text-foreground">Knowledge</span>
         </WorkspacePageHeader>
         {environmentId !== null && query.data !== null ? (
-          <KnowledgeList environmentId={environmentId} knowledge={query.data} />
+          <KnowledgeList
+            environmentId={environmentId}
+            knowledge={query.data}
+            dueOnly={props.dueOnly}
+            onChanged={query.refresh}
+          />
         ) : (
           <p className="px-6 py-4 text-muted-foreground text-sm">{query.error ?? "Loading…"}</p>
         )}
@@ -58,8 +74,12 @@ export function KnowledgePage() {
 function KnowledgeList(props: {
   readonly environmentId: EnvironmentId;
   readonly knowledge: LearningKnowledgeView;
+  readonly dueOnly: boolean;
+  readonly onChanged: () => void;
 }) {
-  const { propositions, chains, sessions } = props.knowledge;
+  const { propositions, chains, sessions, reviews } = props.knowledge;
+  const navigate = useNavigate();
+  const snooze = useAtomCommand(serverEnvironment.snoozeReview, { label: "change review" });
   const projects = useProjects().filter(
     (project) => project.environmentId === props.environmentId && !project.archivedAt,
   );
@@ -82,11 +102,13 @@ function KnowledgeList(props: {
   }
 
   const sessionsById = new Map(sessions.map((session) => [session.threadId, session]));
+  const reviewsById = new Map(reviews.map((review) => [review.propositionId, review]));
+  const due = dueForReview(propositions, reviews);
   const propositionsById = new Map(propositions.map((entry) => [entry.id, entry]));
   const subjects = projects.filter((project) =>
     sessions.some((session) => session.projectId === project.id),
   );
-  const visible = propositions.filter(
+  const visible = (props.dueOnly ? due : propositions).filter(
     (proposition) =>
       propositionMatches(proposition, search) &&
       (subject === ALL_SUBJECTS ||
@@ -114,6 +136,18 @@ function KnowledgeList(props: {
   };
 
   const selection = propositions.filter((proposition) => selected.has(proposition.id));
+  const reviewBatch = due.slice(0, REVIEW_BATCH_SIZE);
+
+  const setDueOnly = (dueOnly: boolean) =>
+    void navigate({ to: "/knowledge", search: dueOnly ? { view: "due" } : {}, replace: true });
+
+  const changeSnooze = async (propositionId: string, days: number | null) => {
+    const result = await snooze({
+      environmentId: props.environmentId,
+      input: { propositionIds: [propositionId], days },
+    });
+    if (result._tag === "Success") props.onChanged();
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -151,18 +185,47 @@ function KnowledgeList(props: {
             </SelectPopup>
           </Select>
         ) : null}
+        <Button
+          size="sm"
+          variant={props.dueOnly ? "secondary" : "outline"}
+          aria-pressed={props.dueOnly}
+          onClick={() => setDueOnly(!props.dueOnly)}
+        >
+          Due for review ({due.length})
+        </Button>
       </div>
       {selection.length > 0 ? (
         <PracticeBar
+          kind="practice"
+          label={`${selection.length} selected`}
           selection={selection}
           projects={projects}
           defaultProjectId={defaultPracticeProjectId(selection, sessions)}
-          onClear={() => setSelected(new Set())}
+          onDone={() => setSelected(new Set())}
+        />
+      ) : reviewBatch.length > 0 ? (
+        <PracticeBar
+          kind="review"
+          label={
+            due.length === 1
+              ? "1 idea is due for review"
+              : due.length > reviewBatch.length
+                ? `${due.length} ideas are due; review the ${reviewBatch.length} most overdue`
+                : `${due.length} ideas are due for review`
+          }
+          selection={reviewBatch}
+          projects={projects}
+          defaultProjectId={defaultPracticeProjectId(reviewBatch, sessions)}
+          onDone={() => setDueOnly(false)}
         />
       ) : null}
       <div className="scrollbar-gutter-both min-h-0 flex-1 overflow-y-auto">
         {visible.length === 0 ? (
-          <p className="px-6 py-4 text-muted-foreground text-sm">No propositions match.</p>
+          <p className="px-6 py-4 text-muted-foreground text-sm">
+            {props.dueOnly && due.length === 0
+              ? "Nothing is due for review. Ideas come back here as their review date arrives."
+              : "No propositions match."}
+          </p>
         ) : (
           <ul className="mx-auto flex max-w-3xl flex-col divide-y divide-border px-4 sm:px-6">
             {visible.map((proposition) => (
@@ -173,6 +236,8 @@ function KnowledgeList(props: {
                 chains={chains.filter((chain) => chain.conclusion === proposition.id)}
                 propositionsById={propositionsById}
                 sessionsById={sessionsById}
+                review={reviewsById.get(proposition.id)}
+                onSnooze={(days) => void changeSnooze(proposition.id, days)}
                 checked={selected.has(proposition.id)}
                 onCheckedChange={(checked) => toggle(proposition.id, checked)}
                 onReveal={reveal}
@@ -191,6 +256,8 @@ function PropositionRow(props: {
   readonly chains: LearningKnowledgeView["chains"];
   readonly propositionsById: ReadonlyMap<string, LearningProposition>;
   readonly sessionsById: ReadonlyMap<string, LearningKnowledgeView["sessions"][number]>;
+  readonly review: LearningReview | undefined;
+  readonly onSnooze: (days: number | null) => void;
   readonly checked: boolean;
   readonly onCheckedChange: (checked: boolean) => void;
   readonly onReveal: (id: string) => void;
@@ -232,6 +299,9 @@ function PropositionRow(props: {
             ))}
           </p>
         ))}
+        {props.review === undefined ? null : (
+          <ReviewStatus review={props.review} onSnooze={props.onSnooze} />
+        )}
         {taughtIn.length > 0 ? (
           <p className="text-muted-foreground text-xs">
             Taught in{" "}
@@ -254,11 +324,41 @@ function PropositionRow(props: {
   );
 }
 
+function ReviewStatus(props: {
+  readonly review: LearningReview;
+  readonly onSnooze: (days: number | null) => void;
+}) {
+  const { review } = props;
+  const snoozed = review.snoozedUntil !== null && !review.due;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 text-muted-foreground text-xs">
+      <span className={review.due ? "font-medium text-foreground" : undefined}>
+        {review.due
+          ? "Due for review"
+          : snoozed
+            ? `Snoozed until ${shortDate(review.dueAt)}`
+            : `Next review ${shortDate(review.dueAt)}`}
+      </span>
+      {review.due ? (
+        <Button size="xs" variant="ghost-muted" onClick={() => props.onSnooze(SNOOZE_DAYS)}>
+          Snooze a week
+        </Button>
+      ) : snoozed ? (
+        <Button size="xs" variant="ghost-muted" onClick={() => props.onSnooze(null)}>
+          Unsnooze
+        </Button>
+      ) : null}
+    </p>
+  );
+}
+
 function PracticeBar(props: {
+  readonly kind: PracticeKind;
+  readonly label: string;
   readonly selection: ReadonlyArray<LearningProposition>;
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly defaultProjectId: ProjectId | null;
-  readonly onClear: () => void;
+  readonly onDone: () => void;
 }) {
   const [chosenProjectId, setProjectId] = useState<ProjectId | null>(null);
   const [starting, setStarting] = useState(false);
@@ -272,14 +372,14 @@ function PracticeBar(props: {
   const practice = async () => {
     if (project === undefined) return;
     setStarting(true);
-    const started = await startPractice(project, props.selection);
+    const started = await startPractice(project, props.selection, props.kind);
     setStarting(false);
-    if (started) props.onClear();
+    if (started) props.onDone();
   };
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-4 py-2 sm:px-6">
-      <span className="text-sm">{props.selection.length} selected</span>
+      <span className="text-sm">{props.label}</span>
       {props.projects.length > 1 ? (
         <Select
           value={projectId ?? ""}
@@ -304,11 +404,13 @@ function PracticeBar(props: {
         disabled={starting || project === undefined}
         onClick={() => void practice()}
       >
-        {starting ? "Starting…" : "Practice"}
+        {starting ? "Starting…" : props.kind === "review" ? "Review" : "Practice"}
       </Button>
-      <Button size="sm" variant="ghost" disabled={starting} onClick={props.onClear}>
-        Clear
-      </Button>
+      {props.kind === "practice" ? (
+        <Button size="sm" variant="ghost" disabled={starting} onClick={props.onDone}>
+          Clear
+        </Button>
+      ) : null}
     </div>
   );
 }

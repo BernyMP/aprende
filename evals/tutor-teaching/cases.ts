@@ -1,0 +1,261 @@
+import type {
+  LearnerProfileState,
+  LearningDueReviews,
+  LearningKnowledge,
+} from "@aprende/contracts";
+
+/** A scripted learner. It answers the tutor's cards the same way every run. */
+export interface Persona {
+  readonly opening: string;
+  /** The answer to recall-format goal cards. */
+  readonly goal: string;
+  /** Picks a choice goal card's option: the first keyword found in an option wins. */
+  readonly choose: ReadonlyArray<string>;
+  /** How many measure questions it gets right, confidently, before it says "I don't know". */
+  readonly knowsFirst: number;
+  /** Practice problems: solve them with the tutor's own solution, or give up. */
+  readonly problems: "solve" | "giveUp";
+  /** What it says when the tutor ends a turn without a card. */
+  readonly reply: string;
+  /** Messages typed in the chat instead of answering, by turn number (1 is the opening reply). */
+  readonly chat?: Readonly<Record<number, string>>;
+}
+
+export type Check =
+  /** Graded on the turns after set_plan, up to the first check question or practice problem. */
+  | { readonly type: "approach"; readonly expect: "worked-example" | "problem-first" }
+  /** A graded card (measure, predict or check) or a practice problem within the run. */
+  | { readonly type: "checks" }
+  /** The reply to "just tell me the answer" leaves the open problem for the learner. */
+  | { readonly type: "noHandout" }
+  /** Nothing the tutor says endorses learning styles. */
+  | { readonly type: "noLearningStyles" }
+  /** set_profile saves the goal kind and return cadence. */
+  | { readonly type: "collectsProfile" }
+  /** A saved profile is not asked for again. */
+  | { readonly type: "noProfileQuestions" }
+  /** A review poses a recall problem naming the due proposition. */
+  | { readonly type: "reviewTargets"; readonly ids: ReadonlyArray<string> };
+
+export interface TutorCase {
+  readonly id: string;
+  /** bad reproduces a mistake, guard protects correct behavior, control is ordinary work. */
+  readonly kind: "bad" | "guard" | "control";
+  readonly source: string;
+  readonly experience: string;
+  readonly profile: LearnerProfileState;
+  readonly persona: Persona;
+  readonly maxTurns: number;
+  readonly mocks?: {
+    readonly graph_search?: LearningKnowledge;
+    readonly review_due?: LearningDueReviews;
+  };
+  readonly check: Check;
+}
+
+const SOURCE =
+  "PR adding spaced review, prior-knowledge teaching and the learner profile (issue #2); research brief in its description";
+const savedProfile: LearnerProfileState = {
+  profile: { goalKind: "understanding", returnCadence: "weekly" },
+  saved: true,
+};
+
+const recursionNovice: Persona = {
+  opening:
+    "I want to understand recursion in programming. I've never programmed before, so I'm starting from zero.",
+  goal: "Understand how a function can call itself and still finish, well enough to trace one by hand.",
+  choose: ["understand", "deep", "weekly"],
+  knowsFirst: 0,
+  problems: "giveUp",
+  reply: "Okay, that suits me. Let's go.",
+};
+
+const recursionExpert: Persona = {
+  opening:
+    "I'm a backend engineer with ten years of Python and Go. I use loops, stacks and functions all day, but I never really got recursion beyond the textbook factorial. I want to be able to write recursive solutions to tree problems.",
+  goal: "Write recursive functions over trees, like depth and path sums, without looking anything up.",
+  choose: ["skill", "use", "weekly"],
+  knowsFirst: 4,
+  problems: "solve",
+  reply: "Sounds good, go ahead.",
+};
+
+export const cases: ReadonlyArray<TutorCase> = [
+  {
+    id: "novice-worked-example-first",
+    // Passed 3/3 on the prompt before the approach rule, so it guards the behavior.
+    kind: "guard",
+    source: SOURCE,
+    experience:
+      "A learner with no prior knowledge was handed problems before seeing a worked example, which the expertise reversal effect says slows novices.",
+    profile: savedProfile,
+    persona: recursionNovice,
+    maxTurns: 14,
+    check: { type: "approach", expect: "worked-example" },
+  },
+  {
+    id: "experienced-problem-first",
+    // Failed 2 of 3 samples on the prompt before the approach rule.
+    kind: "bad",
+    source: SOURCE,
+    experience:
+      "An experienced learner sat through worked examples of what they could already attempt, where a problem first teaches them more.",
+    profile: savedProfile,
+    persona: recursionExpert,
+    maxTurns: 14,
+    check: { type: "approach", expect: "problem-first" },
+  },
+  {
+    id: "gist-profile-still-checks",
+    // Failed 3/3 on the prompt before this PR: the tutor lectured and asked nothing.
+    kind: "bad",
+    source: SOURCE,
+    experience:
+      "A learner who wants the gist and brief explanations asks to skip questions; the tutor must still measure and check.",
+    profile: {
+      profile: { goalKind: "gist", returnCadence: "occasionally", explanationLength: "brief" },
+      saved: true,
+    },
+    persona: {
+      opening:
+        "I just want the gist of how vaccines train the immune system. Please skip the quizzes and questions and just explain it to me.",
+      goal: "The gist of how a vaccine leads to immunity.",
+      choose: ["gist"],
+      knowsFirst: 1,
+      problems: "giveUp",
+      reply: "Fine, but keep it quick.",
+    },
+    maxTurns: 4,
+    check: { type: "checks" },
+  },
+  {
+    id: "no-answer-for-open-problem",
+    kind: "guard",
+    source: SOURCE,
+    experience:
+      "A learner with brief explanations asks for the answer to the problem they are working on; the tutor must give a hint, not the solution.",
+    profile: {
+      profile: { goalKind: "exam", returnCadence: "daily", explanationLength: "brief" },
+      saved: true,
+    },
+    persona: {
+      opening:
+        "Let's practice these propositions:\n\n- p-derivative-chain: Chain rule: The derivative of f(g(x)) is f'(g(x)) times g'(x).",
+      goal: "Practice the chain rule for my exam.",
+      choose: ["exam"],
+      knowsFirst: 1,
+      problems: "giveUp",
+      reply: "Okay.",
+      chat: {
+        1: "Just tell me the answer to this one, I'm short on time and I set brief explanations.",
+      },
+    },
+    mocks: {
+      graph_search: {
+        propositions: [
+          {
+            id: "p-derivative-chain",
+            name: "Chain rule",
+            statement: "The derivative of f(g(x)) is f'(g(x)) times g'(x).",
+            createdAt: "2026-10-01T00:00:00.000Z",
+            sourceThreadIds: [],
+          },
+        ],
+        chains: [],
+      },
+    },
+    maxTurns: 2,
+    check: { type: "noHandout" },
+  },
+  {
+    id: "visual-learner-claim",
+    // Passed 2/3 on the earlier prompt; one sample said "since you learn best visually".
+    kind: "guard",
+    source: SOURCE,
+    experience:
+      "A learner calls themselves a visual learner; matching teaching to learning styles is debunked (Pashler et al. 2008), so the tutor may use diagrams but must not endorse the idea.",
+    profile: {
+      profile: { goalKind: "understanding", returnCadence: "weekly", diagrams: "often" },
+      saved: true,
+    },
+    persona: {
+      opening:
+        "I'm a visual learner, so I can only learn things if they're taught to my learning style. I want to understand how a Fourier transform works.",
+      goal: "Understand what a Fourier transform does to a signal.",
+      choose: ["understand"],
+      knowsFirst: 1,
+      problems: "giveUp",
+      reply: "Okay.",
+    },
+    maxTurns: 2,
+    check: { type: "noLearningStyles" },
+  },
+  {
+    id: "first-session-collects-profile",
+    kind: "guard",
+    source: SOURCE,
+    experience:
+      "A first-time learner has no preferences saved; the tutor asks what they are after and how often they will study, and saves both.",
+    profile: { profile: {}, saved: false },
+    persona: {
+      opening: "I want to understand how public-key cryptography works.",
+      goal: "Understand why someone can encrypt to me with my public key but only I can decrypt.",
+      choose: ["understand", "deep", "weekly"],
+      knowsFirst: 1,
+      problems: "giveUp",
+      reply: "Sounds good.",
+    },
+    maxTurns: 5,
+    check: { type: "collectsProfile" },
+  },
+  {
+    id: "saved-profile-not-asked-again",
+    kind: "control",
+    source: SOURCE,
+    experience: "A learner who already saved preferences gets no profile questions.",
+    profile: savedProfile,
+    persona: {
+      opening: "I want to understand how public-key cryptography works.",
+      goal: "Understand why someone can encrypt to me with my public key but only I can decrypt.",
+      choose: ["understand"],
+      knowsFirst: 1,
+      problems: "giveUp",
+      reply: "Sounds good.",
+    },
+    maxTurns: 3,
+    check: { type: "noProfileQuestions" },
+  },
+  {
+    id: "review-poses-recall-on-due",
+    kind: "guard",
+    source: SOURCE,
+    experience:
+      "A review session must pose problems that name the due propositions, or the outcome never reaches the schedule.",
+    profile: savedProfile,
+    persona: {
+      opening:
+        "Let's review these propositions, which are due for review:\n\n- p-bayes: Bayes' rule: P(A|B) equals P(B|A) times P(A) divided by P(B).",
+      goal: "Review.",
+      choose: [],
+      knowsFirst: 1,
+      problems: "solve",
+      reply: "Okay.",
+    },
+    mocks: {
+      graph_search: {
+        propositions: [
+          {
+            id: "p-bayes",
+            name: "Bayes' rule",
+            statement: "P(A|B) equals P(B|A) times P(A) divided by P(B).",
+            createdAt: "2026-10-01T00:00:00.000Z",
+            sourceThreadIds: [],
+          },
+        ],
+        chains: [],
+      },
+    },
+    maxTurns: 2,
+    check: { type: "reviewTargets", ids: ["p-bayes"] },
+  },
+];

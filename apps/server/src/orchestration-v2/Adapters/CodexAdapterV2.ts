@@ -103,7 +103,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { resolveAttachmentPath, resolveAttachmentPathById } from "../../attachmentStore.ts";
 import { getCodexServiceTierOptionValue } from "../../codexModelOptions.ts";
 import { ServerConfig } from "../../config.ts";
-import { readTutorPrompt } from "../../learning/tutorPrompt.ts";
+import { readTutorInstructions } from "../../learning/tutorPrompt.ts";
 import { expandHomePath } from "@aprende/provider-core/server/pathExpansion";
 import {
   describeMcpElicitation,
@@ -1653,11 +1653,11 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
   const continuationRequests = adapterOptions.continuationRequests;
   const path = yield* Path.Path;
   // Read per thread start or resume, so a prompt edited in Settings applies to the next session.
-  const tutorInstructions = readTutorPrompt({
+  const tutorInstructions = readTutorInstructions({
     fileSystem,
     path,
     stateDir: serverConfig.stateDir,
-  }).pipe(Effect.map(({ prompt }) => prompt));
+  });
 
   return ProviderAdapter.ProviderAdapterV2.of({
     instanceId: adapterOptions.instanceId,

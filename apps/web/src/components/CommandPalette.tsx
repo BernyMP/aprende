@@ -1223,6 +1223,18 @@ function OpenCommandPaletteDialog(props: {
 
   actionItems.push({
     kind: "action",
+    value: "action:knowledge-review",
+    searchTerms: ["review", "due", "spaced", "repetition", "knowledge", "practice", "remember"],
+    title: "Review what's due",
+    icon: <LibraryIcon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: "knowledge.review",
+    run: async () => {
+      await navigate({ to: "/knowledge", search: { view: "due" } });
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
     value: "action:usage",
     searchTerms: ["usage", "use", "tokens", "cost", "spend", "limits", "stats", "analytics"],
     title: "Open usage",

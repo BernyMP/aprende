@@ -137,6 +137,14 @@ const KEYBINDING_SEARCH_ITEMS = STATIC_KEYBINDING_COMMANDS.filter(
 
 export const SETTINGS_SEARCH_ITEMS = [
   {
+    id: "learner-profile",
+    title: "About you",
+    to: "/settings/tutor",
+    searchTerms: [
+      "learner profile preferences goal exam gist skill study review language interests examples diagrams explanations",
+    ],
+  },
+  {
     id: "tutor-prompt",
     title: "Tutor prompt",
     to: "/settings/tutor",
