@@ -5,7 +5,9 @@ A session starts with what you want to understand. Type your goal in the compose
 
 ## How a session goes
 
-1. **Your goal.** The tutor asks a few questions until the goal is concrete enough to test.
+1. **Your goal.** The tutor asks a few questions until the goal is concrete enough to test. In your
+   first session it also asks what you are after and how often you plan to study (see
+   [About you](#about-you)).
 2. **Where you are.** Before teaching, the tutor asks questions that find where your understanding
    ends on each thing the goal depends on. It then shows a summary of what is solid and where to
    start.
@@ -14,7 +16,9 @@ A session starts with what you want to understand. Type your goal in the compose
    highlights the step you are on.
 4. **One step at a time.** For each step you first guess what comes next, then get the explanation,
    then check yourself with a question that applies it. Check questions stay folded until you choose
-   **Check your understanding**, so you can finish reading first.
+   **Check your understanding**, so you can finish reading first. Where you are new to the subject,
+   steps start with a fully worked example and hand more of each next example to you. Where you
+   already know the ground, steps start with a problem for you to try.
 
 ## Answering
 
@@ -75,8 +79,40 @@ To practice, select the ideas you want and choose **Practice**. aprende starts a
 subject that taught them most recently, or another subject you pick, and the tutor starts posing
 problems on exactly those ideas.
 
+## Review
+
+Ideas you learned come back for review, spaced further apart each time you recall them. Bringing
+an idea back from memory just as it starts to fade is what makes it last.
+
+Each idea shows when its next review is. **Due for review** lists the ones due now; open it from
+**Knowledge**, from the command palette (**Review what's due**), or press `mod+alt+r` (customize
+`knowledge.review` in **Settings → Keybindings**). **Review** starts a session on the most overdue
+ideas, up to 10, where the tutor asks you to recall them.
+
+How a review goes sets the next one. Solving a problem without hints sends the idea twice as far
+out; needing hints or being unsure keeps the same gap; a miss starts it over at the shortest gap. Practicing an idea before it is due does not count toward its schedule. The first gap
+follows how often you study (see [About you](#about-you)).
+
+**Snooze a week** puts off a due idea; **Unsnooze** brings it back.
+
+## About you
+
+**Settings → Tutor → About you** holds a few choices the tutor follows:
+
+- **What you're after:** deep understanding, preparing for an exam, a skill to use, or the gist.
+- **How often you study:** sets how soon ideas come back for review.
+- **Teach in** and **Examples from:** the language to teach in, and things you care about for
+  examples.
+- **Diagrams** and **Explanations:** how often you want a diagram, and how long explanations run.
+
+While either of the first two is not set, the tutor asks for it on a card and saves your answer. It may suggest
+a change later; nothing changes unless you choose it. These change how the tutor teaches, never
+whether you do the work: it still asks you to predict and check, and it gives hints, not answers,
+on problems you are working.
+
 ## The tutor prompt
 
-**Settings → Tutor** shows the instructions the tutor follows. You can edit them, for example to ask
-for more worked examples, and restore the default at any time. Changes apply to sessions you start
-or resume after saving.
+**Settings → Tutor → Tutor prompt** shows the instructions the tutor follows. You can edit them and
+restore the default at any time. Your choices under **About you** are added after whichever prompt
+is in use, so you keep them, and later improvements to the default, without editing it. Changes
+apply to sessions you start or resume after saving.

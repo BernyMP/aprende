@@ -24,12 +24,12 @@ import { useOrchestrationCommand } from "~/state/use-orchestration-command";
 
 import { waitForStartedServerThread } from "../ChatView.logic";
 import { toastManager } from "../ui/toast";
-import { buildPracticeMessage } from "./knowledge.logic";
+import { buildPracticeMessage, type PracticeKind } from "./knowledge.logic";
 
 const failed = (description: string) =>
   toastManager.add({ type: "error", title: "Could not start practice", description });
 
-/** Starts a session in the project with its default model and asks the tutor to practice. */
+/** Starts a session in the project with its default model and asks the tutor to practice or review. */
 export function usePracticeSession() {
   const navigate = useNavigate();
   const startTurn = useOrchestrationCommand(threadEnvironment.startTurn, { reportFailure: false });
@@ -37,6 +37,7 @@ export function usePracticeSession() {
   return async (
     project: EnvironmentProject,
     propositions: ReadonlyArray<LearningProposition>,
+    kind: PracticeKind = "practice",
   ): Promise<boolean> => {
     const { environmentId } = project;
     if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
@@ -64,10 +65,11 @@ export function usePracticeSession() {
 
     const threadId = newThreadId();
     const createdAt = new Date().toISOString();
+    const label = kind === "review" ? "Review" : "Practice";
     const title = truncate(
       propositions.length === 1
-        ? `Practice: ${propositions[0]!.name}`
-        : `Practice: ${propositions.length} propositions`,
+        ? `${label}: ${propositions[0]!.name}`
+        : `${label}: ${propositions.length} propositions`,
     );
     const runtimeMode = projectSettings.defaultRuntimeMode;
     const result = await startTurn({
@@ -77,7 +79,7 @@ export function usePracticeSession() {
         message: {
           messageId: newMessageId(),
           role: "user",
-          text: buildPracticeMessage(propositions),
+          text: buildPracticeMessage(propositions, kind),
           attachments: [],
         },
         modelSelection: selection,

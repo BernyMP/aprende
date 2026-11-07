@@ -73,6 +73,7 @@ import type * as ProviderContinuationRequests from "@aprende/provider-core/serve
 import * as ModelManifest from "../../provider/ModelManifest.ts";
 import { resolveProviderCompatibility } from "../../provider/providerCompatibility.ts";
 import * as CodexAdapterV2 from "./CodexAdapterV2.ts";
+import { learnerProfileSection } from "../../learning/learnerProfile.ts";
 import { DEFAULT_TUTOR_PROMPT } from "../../learning/tutorPrompt.ts";
 import { TUTOR_MCP_TOOL_NAMES } from "@aprende/contracts";
 import { withCodexReplayChildMetadata } from "./CodexAdapterV2.testkit.ts";
@@ -1556,7 +1557,8 @@ describe("CodexAdapterV2 post-settle continuation", () => {
         {
           cwd: "/workspace",
           model: "gpt-5.4",
-          developerInstructions: DEFAULT_TUTOR_PROMPT,
+          // No profile saved yet, so the tutor is told to ask for it.
+          developerInstructions: `${DEFAULT_TUTOR_PROMPT}\n\n${learnerProfileSection({})}`,
           config: {
             "tools.update_plan.enabled": true,
             mcp_optional_startup_grace_ms: 10_000,

@@ -2,6 +2,9 @@ import {
   LEARNING_CHECK_TIMEOUT_SECONDS,
   LEARNING_MAX_OPTIONS,
   LEARNING_MAX_WORKSPACE_FILES,
+  LearnerProfile,
+  LearnerProfilePatch,
+  LearningDueReviews,
   LearningKnowledge,
   LearningMissType,
   LearningPlanEdge,
@@ -265,6 +268,41 @@ const GraphRecordTool = Tool.make("graph_record", {
   .annotate(Tool.Idempotent, false)
   .annotate(Tool.OpenWorld, false);
 
+const ReviewDueTool = Tool.make("review_due", {
+  description:
+    "List the propositions due for spaced review, most overdue first. Review them with pose_problem, naming their ids in targets: the outcome you give in conclude_problem schedules the next review.",
+  parameters: Schema.Struct({
+    limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 50 }))),
+  }),
+  success: LearningDueReviews,
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "List what is due for review")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, true)
+  .annotate(Tool.OpenWorld, false);
+
+const SetProfileTool = Tool.make("set_profile", {
+  description:
+    "Save the learner's preferences. Save only what they chose on a card or asked for in their own words. Fields you leave out stay as they are; null clears one.",
+  parameters: LearnerProfilePatch.annotate({
+    description:
+      "goalKind: understanding, exam, skill or gist. returnCadence: how often they will come back to study. language: the language to teach in. interests: what to draw examples from. diagrams and explanationLength: comfort, not a learning style.",
+  }),
+  success: Schema.Struct({ profile: LearnerProfile, message: Schema.String }),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Save their preferences")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, true)
+  .annotate(Tool.OpenWorld, false);
+
 export const LearnToolkit = Toolkit.make(
   AskQuestionTool,
   PoseProblemTool,
@@ -273,4 +311,6 @@ export const LearnToolkit = Toolkit.make(
   SetPlanTool,
   GraphSearchTool,
   GraphRecordTool,
+  ReviewDueTool,
+  SetProfileTool,
 );

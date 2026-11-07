@@ -1244,6 +1244,10 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:learning:knowledge",
       tag: WS_METHODS.learningGetKnowledge,
     }),
+    learnerProfile: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:learning:profile",
+      tag: WS_METHODS.learningGetProfile,
+    }),
     // A cold transcript scan is measured in seconds, so keep the result around
     // long enough that switching windows or re-rendering does not rescan.
     usageSummary: createEnvironmentRpcQueryAtomFamily(runtime, {
@@ -1418,6 +1422,16 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.learningSetTutorPrompt,
       scheduler: configScheduler,
       concurrency: configConcurrency,
+    }),
+    setLearnerProfile: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:set-profile",
+      tag: WS_METHODS.learningSetProfile,
+      scheduler: configScheduler,
+      concurrency: configConcurrency,
+    }),
+    snoozeReview: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:snooze-review",
+      tag: WS_METHODS.learningSnoozeReview,
     }),
     refreshUsageRates: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:refresh-usage-rates",

@@ -13,7 +13,10 @@ import {
   MessageId,
   type LearningAnswerInput,
   type LearningAnswerResult,
+  type LearnerProfilePatch,
+  type LearnerProfile,
   type LearningChain,
+  type LearningDueReviews,
   type LearningCheckRun,
   type LearningKnowledge,
   type LearningKnowledgeView,
@@ -26,8 +29,10 @@ import {
   type LearningProposition,
   type LearningQuestionView,
   type LearningRevealHintInput,
+  type LearningReview,
   type LearningRunCheckInput,
   type LearningSetTutorPromptInput,
+  type LearningSnoozeReviewInput,
   type LearningStrand,
   type LearningSubmitSolutionInput,
   type LearningThreadState,
@@ -74,6 +79,8 @@ import {
   type StoredQuestion,
   type WorkspaceDraft,
 } from "./learningLogic.ts";
+import { applyProfilePatch, readLearnerProfile, writeLearnerProfile } from "./learnerProfile.ts";
+import { nextReview, reviewView, type ReviewRow } from "./reviewSchedule.ts";
 import { DEFAULT_TUTOR_PROMPT, readTutorPrompt, writeTutorPrompt } from "./tutorPrompt.ts";
 
 export interface GraphRecordInput {
@@ -164,6 +171,15 @@ export class LearningService extends Context.Service<
       input: LearningSetTutorPromptInput,
     ) => Effect.Effect<LearningTutorPrompt, LearningError>;
     readonly getKnowledge: () => Effect.Effect<LearningKnowledgeView, LearningError>;
+    /** Propositions due for spaced review, the most overdue first. */
+    readonly dueForReview: (input: {
+      readonly limit?: number | undefined;
+    }) => Effect.Effect<LearningDueReviews, LearningError>;
+    readonly snoozeReview: (input: LearningSnoozeReviewInput) => Effect.Effect<void, LearningError>;
+    readonly getProfile: () => Effect.Effect<LearnerProfile, LearningError>;
+    readonly updateProfile: (
+      patch: LearnerProfilePatch,
+    ) => Effect.Effect<LearnerProfile, LearningError>;
   }
 >()("aprende/learning/LearningService") {}
 
@@ -215,6 +231,20 @@ interface SessionRow {
   readonly title: string;
   readonly created_at: string;
 }
+
+interface ReviewJoinRow {
+  readonly proposition_id: string;
+  readonly created_at: string;
+  readonly box: number | null;
+  readonly last_reviewed_at: string | null;
+  readonly snoozed_until: string | null;
+}
+
+const reviewRow = (row: ReviewJoinRow): ReviewRow => ({
+  box: row.box ?? 0,
+  lastReviewedAt: row.last_reviewed_at,
+  snoozedUntil: row.snoozed_until,
+});
 
 interface ChainRow {
   readonly chain_id: string;
@@ -386,6 +416,51 @@ export const layer = Layer.effect(
     const nowIso = DateTime.now.pipe(Effect.map(DateTime.formatIso));
     const dbError = (message: string) => (cause: unknown) => fail(message, cause);
     const changed = (threadId: ThreadId) => PubSub.publish(changes, threadId);
+    const profileLock = yield* Semaphore.make(1);
+    // The server runs on the learner's machine, so its zone is the learner's day.
+    const zone = DateTime.zoneMakeLocal();
+
+    const reviewsOf = Effect.fn("LearningService.reviewsOf")(function* (
+      propositionIds: ReadonlyArray<string> | null,
+    ) {
+      const rows =
+        propositionIds === null
+          ? yield* sql<ReviewJoinRow>`
+              SELECT p.proposition_id, p.created_at, r.box, r.last_reviewed_at, r.snoozed_until
+              FROM learning_propositions p
+              LEFT JOIN learning_reviews r ON r.proposition_id = p.proposition_id
+            `
+          : propositionIds.length === 0
+            ? []
+            : yield* sql<ReviewJoinRow>`
+              SELECT p.proposition_id, p.created_at, r.box, r.last_reviewed_at, r.snoozed_until
+              FROM learning_propositions p
+              LEFT JOIN learning_reviews r ON r.proposition_id = p.proposition_id
+              WHERE p.proposition_id IN ${sql.in(propositionIds)}
+            `;
+      const cadence = (yield* readLearnerProfile(promptLocation)).returnCadence;
+      const nowMs = DateTime.toEpochMillis(yield* DateTime.now);
+      return rows.map((row) => ({
+        row: reviewRow(row),
+        view: reviewView({
+          propositionId: row.proposition_id,
+          createdAt: row.created_at,
+          row: reviewRow(row),
+          cadence,
+          nowMs,
+          zone,
+        }),
+      }));
+    });
+
+    const saveReview = (propositionId: string, row: ReviewRow) => sql`
+      INSERT INTO learning_reviews (proposition_id, box, last_reviewed_at, snoozed_until)
+      VALUES (${propositionId}, ${row.box}, ${row.lastReviewedAt}, ${row.snoozedUntil})
+      ON CONFLICT (proposition_id) DO UPDATE SET
+        box = excluded.box,
+        last_reviewed_at = excluded.last_reviewed_at,
+        snoozed_until = excluded.snoozed_until
+    `;
 
     const readPlan = (threadId: ThreadId) =>
       sql<{
@@ -1042,12 +1117,40 @@ export const layer = Layer.effect(
         retest: input.retest,
         concludedAt: yield* nowIso,
       };
-      const concluded = yield* sql<{ problem_id: string }>`
-        UPDATE learning_problems SET status = 'concluded', conclusion_json = ${encodeConclusion(conclusion)}
-        WHERE problem_id = ${input.problemId} AND thread_id = ${threadId} AND status = 'submitted'
-        RETURNING problem_id
-      `.pipe(Effect.mapError(dbError("Could not save the verdict.")));
-      if (concluded.length === 0) {
+      const concluded = yield* sql
+        .withTransaction(
+          Effect.gen(function* () {
+            const rows = yield* sql<{ targets_json: string; hints_used: number }>`
+              UPDATE learning_problems SET status = 'concluded', conclusion_json = ${encodeConclusion(conclusion)}
+              WHERE problem_id = ${input.problemId} AND thread_id = ${threadId} AND status = 'submitted'
+              RETURNING targets_json, hints_used
+            `;
+            const row = rows[0];
+            if (row === undefined) return false;
+            const propositionIds = [
+              ...new Set(
+                decodeTargets(row.targets_json).flatMap((target) =>
+                  target.propositionId === null ? [] : [target.propositionId],
+                ),
+              ),
+            ];
+            for (const { row: current, view } of yield* reviewsOf(propositionIds)) {
+              const next = nextReview({
+                row: current,
+                due: view.due,
+                outcome: input.outcome,
+                hintsUsed: row.hints_used,
+                retest: input.retest,
+                targetCount: propositionIds.length,
+                now: conclusion.concludedAt,
+              });
+              if (next !== null) yield* saveReview(view.propositionId, next);
+            }
+            return true;
+          }),
+        )
+        .pipe(Effect.mapError(dbError("Could not save the verdict.")));
+      if (!concluded) {
         const current = yield* readProblem(threadId, input.problemId);
         return yield* fail(
           current.status === "open"
@@ -1084,9 +1187,11 @@ export const layer = Layer.effect(
             UNION SELECT thread_id FROM learning_chains
           )
         `;
+        const reviews: Array<LearningReview> = (yield* reviewsOf(null)).map(({ view }) => view);
         return {
           propositions,
           chains,
+          reviews,
           sessions: sessions.map((row) => ({
             threadId: row.thread_id as ThreadId,
             projectId: row.project_id as ProjectId,
@@ -1097,6 +1202,75 @@ export const layer = Layer.effect(
       },
       Effect.mapError(dbError("Could not read the knowledge graph.")),
     );
+
+    const dueForReview: LearningService["Service"]["dueForReview"] = Effect.fn(
+      "LearningService.dueForReview",
+    )(
+      function* (input) {
+        const due = (yield* reviewsOf(null))
+          .map(({ view }) => view)
+          .filter((view) => view.due)
+          .toSorted((left, right) => left.dueAt.localeCompare(right.dueAt));
+        const shown = due.slice(0, input.limit ?? 20);
+        const names = new Map(
+          (yield* listPropositions({ words: [], limit: Number.MAX_SAFE_INTEGER })).map(
+            (proposition) => [proposition.id, proposition],
+          ),
+        );
+        return {
+          total: due.length,
+          propositions: shown.flatMap((view) => {
+            const proposition = names.get(view.propositionId);
+            return proposition === undefined
+              ? []
+              : [
+                  {
+                    id: proposition.id,
+                    name: proposition.name,
+                    statement: proposition.statement,
+                    box: view.box,
+                    dueAt: view.dueAt,
+                  },
+                ];
+          }),
+        };
+      },
+      Effect.mapError(dbError("Could not read what is due for review.")),
+    );
+
+    const snoozeReview: LearningService["Service"]["snoozeReview"] = Effect.fn(
+      "LearningService.snoozeReview",
+    )(
+      function* (input) {
+        const until =
+          input.days === null
+            ? null
+            : DateTime.formatIso(DateTime.add(yield* DateTime.now, { days: input.days }));
+        // Only the snooze column, so a review concluded meanwhile keeps its box.
+        yield* sql`
+          INSERT INTO learning_reviews (proposition_id, box, last_reviewed_at, snoozed_until)
+          SELECT proposition_id, 0, NULL, ${until} FROM learning_propositions
+          WHERE proposition_id IN ${sql.in([...new Set(input.propositionIds)])}
+          ON CONFLICT (proposition_id) DO UPDATE SET snoozed_until = excluded.snoozed_until
+        `;
+      },
+      Effect.mapError(dbError("Could not change the review.")),
+    );
+
+    const getProfile: LearningService["Service"]["getProfile"] = () =>
+      readLearnerProfile(promptLocation);
+
+    const updateProfile: LearningService["Service"]["updateProfile"] = (patch) =>
+      Object.values(patch).every((value) => value === undefined)
+        ? Effect.fail(fail("Name at least one preference to save."))
+        : Semaphore.withPermit(
+            profileLock,
+            Effect.gen(function* () {
+              const next = applyProfilePatch(yield* readLearnerProfile(promptLocation), patch);
+              yield* writeLearnerProfile(promptLocation, next);
+              return next;
+            }),
+          ).pipe(Effect.mapError(dbError("Could not save your preferences.")));
 
     return LearningService.of({
       askQuestion,
@@ -1116,6 +1290,10 @@ export const layer = Layer.effect(
       getTutorPrompt,
       setTutorPrompt,
       getKnowledge,
+      dueForReview,
+      snoozeReview,
+      getProfile,
+      updateProfile,
     });
   }),
 );

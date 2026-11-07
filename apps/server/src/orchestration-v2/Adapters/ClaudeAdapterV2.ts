@@ -170,7 +170,7 @@ import {
   type CompiledClaudeModelSelection,
 } from "../../claudeModelOptions.ts";
 import * as ServerConfig from "../../config.ts";
-import { DEFAULT_TUTOR_PROMPT, readTutorPrompt } from "../../learning/tutorPrompt.ts";
+import { DEFAULT_TUTOR_PROMPT, readTutorInstructions } from "../../learning/tutorPrompt.ts";
 import * as ServerSettings from "../../serverSettings.ts";
 import { expandHomePath } from "@aprende/provider-core/server/pathExpansion";
 import { spawnAndCollect } from "@aprende/provider-core/server/snapshotProbe";
@@ -1954,6 +1954,8 @@ export const CLAUDE_READ_ONLY_T3_MCP_ALLOWED_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__set_plan",
   "mcp__aprende__graph_search",
   "mcp__aprende__graph_record",
+  "mcp__aprende__review_due",
+  "mcp__aprende__set_profile",
   "mcp__aprende__html_preview",
   "mcp__aprende__html_render",
 ];
@@ -10833,8 +10835,11 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           const tutorPrompt =
             adapterOptions.stateDir === undefined
               ? undefined
-              : (yield* readTutorPrompt({ fileSystem, path, stateDir: adapterOptions.stateDir }))
-                  .prompt;
+              : yield* readTutorInstructions({
+                  fileSystem,
+                  path,
+                  stateDir: adapterOptions.stateDir,
+                });
           const closedExistingNativeThreadId = existing !== null ? existing.nativeThreadId : null;
           if (existing !== null) {
             yield* existing.query.close.pipe(Effect.ignore);

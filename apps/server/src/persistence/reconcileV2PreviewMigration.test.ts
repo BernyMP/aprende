@@ -64,6 +64,7 @@ describe("V2 preview upgrade", () => {
         [82, "DropRetiredCleanupEffects"],
         [83, "LearningProblemWorkspaces"],
         [84, "DropScheduledTasksAndPullRequests"],
+        [85, "LearningReviews"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -165,6 +166,7 @@ describe("V2 preview upgrade", () => {
         [82, "DropRetiredCleanupEffects"],
         [83, "LearningProblemWorkspaces"],
         [84, "DropScheduledTasksAndPullRequests"],
+        [85, "LearningReviews"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );

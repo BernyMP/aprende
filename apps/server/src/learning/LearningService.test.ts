@@ -28,7 +28,9 @@ import * as ThreadManagementService from "../orchestration-v2/ThreadManagementSe
 import * as ProcessRunner from "../processRunner.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
+import { learnerProfileSection } from "./learnerProfile.ts";
 import * as LearningService from "./LearningService.ts";
+import { readTutorInstructions } from "./tutorPrompt.ts";
 
 const threadId = ThreadId.make("thread-learning");
 const otherThreadId = ThreadId.make("thread-learning-other");
@@ -108,9 +110,9 @@ const makeLayer = (
         ),
       ),
     ),
-    Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "aprende-learning-" })),
+    Layer.provideMerge(ServerConfig.layerTest(process.cwd(), { prefix: "aprende-learning-" })),
     Layer.provideMerge(SqlitePersistence.layerMemory),
-    Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+    Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
   );
 
 const measureQuestion = {
@@ -467,6 +469,90 @@ it.effect("links propositions across sessions instead of duplicating them", () =
         found.propositions.map((entry) => entry.name),
         ["Order", "Edges"],
       );
+    }).pipe(Effect.provide(makeLayer(sent)));
+  }),
+);
+
+it.effect("schedules practiced propositions for spaced review from practice outcomes", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const recorded = yield* learning.recordGraph(threadId, {
+        propositions: [
+          { key: "edge", name: "Edges", statement: "Edges point forward." },
+          { key: "order", name: "Order", statement: "Prerequisites come first." },
+        ],
+        chains: [],
+      });
+      const [edgeId, orderId] = recorded.propositions.map((entry) => entry.id);
+      const dueIds = Effect.map(learning.dueForReview({}), (due) =>
+        due.propositions.map((entry) => entry.id),
+      );
+      const boxOf = (id: string) =>
+        Effect.map(
+          learning.getKnowledge(),
+          (knowledge) => knowledge.reviews.find((review) => review.propositionId === id)!.box,
+        );
+      const practice = Effect.fn(function* (
+        targets: ReadonlyArray<string>,
+        outcome: "solved" | "missed",
+      ) {
+        const { problemId } = yield* learning.poseProblem(threadId, { ...problemDraft, targets });
+        yield* learning.submitSolution({ threadId, problemId, text: "Work.", gaveUp: false });
+        yield* learning.concludeProblem(threadId, {
+          problemId,
+          outcome,
+          verdict: "Judged.",
+          retest: false,
+        });
+      });
+
+      assert.deepEqual(yield* dueIds, []);
+      yield* TestClock.adjust("1 day");
+      assert.sameMembers(yield* dueIds, [edgeId, orderId]);
+
+      yield* practice([edgeId!], "solved");
+      assert.equal(yield* boxOf(edgeId!), 1);
+      assert.deepEqual(yield* dueIds, [orderId]);
+      yield* practice([edgeId!], "missed");
+      assert.equal(yield* boxOf(edgeId!), 0);
+
+      yield* learning.snoozeReview({ propositionIds: [orderId!], days: 7 });
+      assert.deepEqual(yield* dueIds, []);
+      yield* learning.snoozeReview({ propositionIds: [orderId!], days: null });
+      assert.deepEqual(yield* dueIds, [orderId]);
+
+      // A weekly learner's first review waits a week, applied to what is already scheduled.
+      yield* learning.updateProfile({ returnCadence: "weekly" });
+      assert.deepEqual(yield* dueIds, []);
+    }).pipe(Effect.provide(makeLayer(sent)));
+  }),
+);
+
+it.effect("adds the learner profile to what the tutor runs on, never to the editable prompt", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      assert.deepEqual(yield* learning.getProfile(), {});
+      const empty = yield* learning.updateProfile({}).pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(empty));
+
+      yield* learning.updateProfile({ goalKind: "exam", language: "Spanish" });
+      const saved = yield* learning.updateProfile({ language: null, explanationLength: "brief" });
+      assert.deepEqual(saved, { goalKind: "exam", explanationLength: "brief" });
+      const prompt = yield* learning.getTutorPrompt();
+      assert.isTrue(prompt.isDefault);
+      assert.equal(prompt.prompt, prompt.defaultPrompt);
+
+      const { stateDir } = yield* ServerConfig;
+      const instructions = yield* readTutorInstructions({
+        fileSystem: yield* FileSystem.FileSystem,
+        path: yield* Path.Path,
+        stateDir,
+      });
+      assert.equal(instructions, `${prompt.defaultPrompt}\n\n${learnerProfileSection(saved)}`);
     }).pipe(Effect.provide(makeLayer(sent)));
   }),
 );
