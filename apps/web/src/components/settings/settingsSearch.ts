@@ -118,6 +118,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     ],
   },
   {
+    id: "confidence-rating",
+    title: "Ask how sure I am",
+    to: "/settings/tutor",
+    searchTerms: ["confidence rating sure certain guessing question cards hide"],
+  },
+  {
     id: "tutor-prompt",
     title: "Tutor prompt",
     to: "/settings/tutor",

@@ -1,4 +1,5 @@
 import {
+  LEARNING_CONFIDENCE_LABELS,
   LEARNING_CHECK_TIMEOUT_SECONDS,
   LEARNING_MAX_OPTIONS,
   LEARNING_MAX_WORKSPACE_FILE_CHARS,
@@ -216,7 +217,7 @@ export function formatAnswerMessage(question: StoredQuestion, answer: LearningAn
     lines.push("Result: not graded by the app. Grade it against your model answer.");
   }
   if (answer.confidence !== undefined && !answer.dontKnow) {
-    lines.push(`Confidence: ${answer.confidence}%`);
+    lines.push(`Confidence: ${LEARNING_CONFIDENCE_LABELS[answer.confidence]}`);
   }
   const thinking = answer.thinking?.trim();
   if (thinking) lines.push(`Their thinking: ${thinking}`);
@@ -412,7 +413,8 @@ export function formatSolutionMessage(
       lines.push(...describeCheck(workspace.checkCommand, check));
   }
   lines.push(`Hints used: ${hintsUsed} of ${problem.hintCount}`);
-  if (attempt.confidence !== undefined) lines.push(`Confidence: ${attempt.confidence}%`);
+  if (attempt.confidence !== undefined)
+    lines.push(`Confidence: ${LEARNING_CONFIDENCE_LABELS[attempt.confidence]}`);
   const thinking = attempt.thinking?.trim();
   if (thinking) lines.push(`Their thinking: ${thinking}`);
   lines.push("Judge it against your model solution, then call conclude_problem.");

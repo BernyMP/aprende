@@ -9,6 +9,7 @@ import { LEARNER_INTERESTS_MAX_CHARS, LEARNER_LANGUAGE_MAX_CHARS } from "@aprend
 import { useState } from "react";
 
 import { useLiveRefresh } from "~/hooks/useLiveRefresh";
+import { updateClientSettings, useClientSettings } from "~/hooks/useSettings";
 import { primaryEnvironmentIdAtom } from "~/state/primaryEnvironment";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
@@ -16,8 +17,10 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
 import { FoldedSettingsSection } from "./FoldedSettingsSection";
+import { searchableSetting } from "./settingsSearch";
 import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
 
 const NOT_SET = "unset";
@@ -71,6 +74,7 @@ export function TutorSettingsPanel() {
   return (
     <SettingsPageContainer>
       <LearnerProfileSection environmentId={environmentId} />
+      <CardsSection />
       <FoldedSettingsSection
         id="tutor-prompt"
         title="Tutor prompt"
@@ -152,6 +156,27 @@ function LearnerProfileSection(props: { readonly environmentId: EnvironmentId | 
           />
         </>
       )}
+    </SettingsSection>
+  );
+}
+
+function CardsSection() {
+  const enabled = useClientSettings((settings) => settings.confidenceRatingEnabled);
+  return (
+    <SettingsSection title="Cards">
+      <SettingsRow
+        {...searchableSetting("confidence-rating")}
+        description="Offer Guessing, Fairly sure and Certain on questions and problems. Always optional; it helps the tutor tell a lucky guess from real understanding."
+        control={
+          <Switch
+            checked={enabled}
+            onCheckedChange={(checked) =>
+              void updateClientSettings({ confidenceRatingEnabled: Boolean(checked) })
+            }
+            aria-label="Ask how sure I am"
+          />
+        }
+      />
     </SettingsSection>
   );
 }

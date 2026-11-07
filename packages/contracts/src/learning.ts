@@ -43,7 +43,15 @@ export type LearningQuestionFormat = typeof LearningQuestionFormat.Type;
 export const LearningQuestionStatus = Schema.Literals(["open", "answered", "skipped"]);
 export type LearningQuestionStatus = typeof LearningQuestionStatus.Type;
 
-export const LearningConfidence = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 }));
+/** How sure the learner was. Optional: learners may skip it or hide it in settings. */
+export const LearningConfidence = Schema.Literals(["guessing", "fairlySure", "certain"]);
+export type LearningConfidence = typeof LearningConfidence.Type;
+
+export const LEARNING_CONFIDENCE_LABELS: Record<LearningConfidence, string> = {
+  guessing: "Guessing",
+  fairlySure: "Fairly sure",
+  certain: "Certain",
+};
 
 export const LearningAnswer = Schema.Struct({
   selectedOptions: Schema.Array(Schema.Int),

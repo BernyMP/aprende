@@ -1,13 +1,21 @@
-import type { LearningQuestionView, ScopedThreadRef } from "@aprende/contracts";
+import {
+  LEARNING_CONFIDENCE_LABELS,
+  LearningConfidence,
+  type LearningQuestionView,
+  type ScopedThreadRef,
+} from "@aprende/contracts";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
+import { updateClientSettings, useClientSettings } from "~/hooks/useSettings";
 import { cn } from "~/lib/utils";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import ChatMarkdown from "../ChatMarkdown";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
+import { toastManager } from "../ui/toast";
+import { Toggle, ToggleGroup } from "../ui/toggle-group";
 
 const PURPOSE_LABEL: Record<LearningQuestionView["purpose"], string> = {
   goal: "About your goal",
@@ -56,13 +64,15 @@ function OpenQuestion(props: {
   const [unfolded, setUnfolded] = useState(question.purpose !== "check");
   const [selected, setSelected] = useState<ReadonlyArray<number>>([]);
   const [text, setText] = useState("");
-  const [confidence, setConfidence] = useState(50);
+  const [confidence, setConfidence] = useState<LearningConfidence>();
   const [thinking, setThinking] = useState("");
   const [pending, setPending] = useState(false);
   const answer = useAtomCommand(serverEnvironment.answerLearningQuestion, {
     label: "answer question",
   });
   const graded = question.purpose !== "goal";
+  // A prediction is a guess by design, so how sure the learner is says nothing.
+  const ratesConfidence = graded && question.purpose !== "predict";
 
   if (!unfolded) {
     return (
@@ -94,7 +104,7 @@ function OpenQuestion(props: {
         selectedOptions: dontKnow ? [] : selected,
         dontKnow,
         ...(question.format === "recall" && !dontKnow ? { text } : {}),
-        ...(graded && !dontKnow ? { confidence } : {}),
+        ...(confidence === undefined || dontKnow ? {} : { confidence }),
         ...(thinking.trim() ? { thinking } : {}),
       },
     });
@@ -154,7 +164,7 @@ function OpenQuestion(props: {
           onChange={(event) => setText(event.target.value)}
         />
       )}
-      {graded ? <ConfidenceField value={confidence} onChange={setConfidence} /> : null}
+      {ratesConfidence ? <ConfidenceField value={confidence} onChange={setConfidence} /> : null}
       <Textarea
         aria-label="Your thinking"
         size="sm"
@@ -182,26 +192,50 @@ function OpenQuestion(props: {
   );
 }
 
+const CONFIDENCE_LEVELS = LearningConfidence.literals;
+
 export function ConfidenceField(props: {
-  readonly value: number;
-  readonly onChange: (value: number) => void;
+  readonly value: LearningConfidence | undefined;
+  readonly onChange: (value: LearningConfidence | undefined) => void;
 }) {
+  const enabled = useClientSettings((settings) => settings.confidenceRatingEnabled);
+  if (!enabled) return null;
+  const hide = () => {
+    props.onChange(undefined);
+    void updateClientSettings({ confidenceRatingEnabled: false });
+    const toastId = toastManager.add({
+      type: "info",
+      title: "Confidence hidden",
+      description: "Turn it back on in Settings, under Tutor.",
+      actionProps: {
+        children: "Undo",
+        onClick: () => {
+          toastManager.close(toastId);
+          void updateClientSettings({ confidenceRatingEnabled: true });
+        },
+      },
+    });
+  };
   return (
-    <label className="flex flex-col gap-1.5 text-sm">
-      <span className="flex justify-between text-muted-foreground">
-        <span>How sure are you?</span>
-        <span className="tabular-nums">{props.value}%</span>
-      </span>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={5}
-        value={props.value}
-        onChange={(event) => props.onChange(Number(event.target.value))}
-        className="accent-primary"
-      />
-    </label>
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-muted-foreground">How sure are you?</span>
+      <ToggleGroup
+        aria-label="How sure are you?"
+        value={props.value === undefined ? [] : [props.value]}
+        onValueChange={(next) =>
+          props.onChange(CONFIDENCE_LEVELS.find((level) => level === next[0]))
+        }
+      >
+        {CONFIDENCE_LEVELS.map((level) => (
+          <Toggle key={level} value={level}>
+            {LEARNING_CONFIDENCE_LABELS[level]}
+          </Toggle>
+        ))}
+      </ToggleGroup>
+      <Button size="compact" type="button" variant="ghost" onClick={hide}>
+        Hide
+      </Button>
+    </div>
   );
 }
 
@@ -252,7 +286,9 @@ function AnsweredQuestion(props: {
           ? "You said you don't know yet."
           : [
               answer.correct === true ? "Correct." : answer.correct === false ? "Not quite." : null,
-              answer.confidence === undefined ? null : `You were ${answer.confidence}% sure.`,
+              answer.confidence === undefined
+                ? null
+                : `You were ${LEARNING_CONFIDENCE_LABELS[answer.confidence].toLowerCase()}.`,
             ]
               .filter((part) => part !== null)
               .join(" ")}

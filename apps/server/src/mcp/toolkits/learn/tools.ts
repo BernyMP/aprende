@@ -31,7 +31,7 @@ const dependencies = [
 ];
 
 const AskQuestionTool = Tool.make("ask_question", {
-  description: `Show the learner one question as a card. Commit the answer before they see it. After calling, end your turn without writing more: the answer, their confidence (0-100) and their thinking arrive as their next message. Asking a new question replaces an unanswered one.`,
+  description: `Show the learner one question as a card. Commit the answer before they see it. After calling, end your turn without writing more: the answer, their confidence (guessing, fairly sure or certain) if they rated it, and their thinking arrive as their next message. Asking a new question replaces an unanswered one.`,
   parameters: Schema.Struct({
     purpose: LearningQuestionPurpose.annotate({
       description:
@@ -80,7 +80,7 @@ const AskQuestionTool = Tool.make("ask_question", {
   .annotate(Tool.OpenWorld, false);
 
 const PoseProblemTool = Tool.make("pose_problem", {
-  description: `Show the learner one practice problem as a card. Commit a complete model solution and graded hints before they see it. For programming practice, add a workspace: the app writes your starter files into a new project folder, where the learner edits and runs them. After calling, end your turn without writing more: their work, the hints they used, their confidence (0-100) and their thinking arrive as their next message. Posing replaces an unanswered question or problem.`,
+  description: `Show the learner one practice problem as a card. Commit a complete model solution and graded hints before they see it. For programming practice, add a workspace: the app writes your starter files into a new project folder, where the learner edits and runs them. After calling, end your turn without writing more: their work, the hints they used, their confidence (guessing, fairly sure or certain) if they rated it, and their thinking arrive as their next message. Posing replaces an unanswered question or problem.`,
   parameters: Schema.Struct({
     mode: LearningProblemMode.annotate({
       description:

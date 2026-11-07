@@ -141,7 +141,7 @@ it.effect("keeps the committed answer on the server until the learner answers on
         questionId,
         selectedOptions: [correctIndex],
         dontKnow: false,
-        confidence: 70,
+        confidence: "fairlySure",
         thinking: "Prerequisites first.",
       });
       assert.isTrue(result.question.answer?.correct);
@@ -150,7 +150,7 @@ it.effect("keeps the committed answer on the server until the learner answers on
       const texts = yield* Ref.get(sent);
       assert.equal(texts.length, 1);
       assert.equal(learningAnswerMessageQuestionId(texts[0]!), questionId);
-      assert.include(texts[0]!, "Confidence: 70%");
+      assert.include(texts[0]!, "Confidence: Fairly sure");
 
       const again = yield* learning
         .answer({ threadId, questionId, selectedOptions: [correctIndex], dontKnow: false })
@@ -278,7 +278,7 @@ it.effect("keeps the solution and unrevealed hints on the server until the tutor
       assert.isTrue(Exit.isFailure(early));
 
       const work = { threadId, problemId, text: "Build, test, deploy.", gaveUp: false };
-      const submitted = yield* learning.submitSolution({ ...work, confidence: 30 });
+      const submitted = yield* learning.submitSolution({ ...work, confidence: "guessing" });
       assert.equal(submitted.problem.status, "submitted");
       assert.isNull(submitted.problem.modelSolution);
       assert.isTrue(Exit.isFailure(yield* learning.submitSolution(work).pipe(Effect.exit)));
@@ -289,7 +289,7 @@ it.effect("keeps the solution and unrevealed hints on the server until the tutor
       assert.equal(texts.length, 1);
       assert.equal(learningSolutionMessageProblemId(texts[0]!), problemId);
       assert.include(texts[0]!, "Hints used: 2 of 2");
-      assert.include(texts[0]!, "Confidence: 30%");
+      assert.include(texts[0]!, "Confidence: Guessing");
 
       const wrongThread = yield* learning
         .concludeProblem(otherThreadId, {
@@ -739,7 +739,7 @@ it.effect("runs the check once more on submit and hands the tutor the folder and
         threadId,
         problemId,
         gaveUp: false,
-        confidence: 80,
+        confidence: "certain",
       });
       assert.equal(problem.status, "submitted");
       assert.deepEqual(problem.attempt?.check, { exitCode: 0, timedOut: false });
