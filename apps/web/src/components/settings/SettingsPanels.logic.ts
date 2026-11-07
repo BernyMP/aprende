@@ -4,49 +4,16 @@ import type {
   ProviderInstanceConfig,
   ProviderInstanceId,
   ServerSettings,
-  SidebarProjectGroupingMode,
   UnifiedSettings,
 } from "@aprende/contracts";
 import { DEFAULT_UNIFIED_SETTINGS } from "@aprende/contracts/settings";
 import {
   getBackgroundActivityBaseProfile,
-  normalizeBackgroundActivitySettings,
   normalizeServerBackgroundActivitySettings,
   resolveServerBackgroundActivitySettings,
 } from "@aprende/shared/backgroundActivitySettings";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
-
-export function isProjectGroupingEnabled(mode: SidebarProjectGroupingMode): boolean {
-  return mode !== "separate";
-}
-
-export function projectGroupingModeFromToggle(
-  enabled: boolean,
-  lastEnabledMode: SidebarProjectGroupingMode = "repository",
-): SidebarProjectGroupingMode {
-  if (!enabled) return "separate";
-  return lastEnabledMode === "repository_path" ? "repository_path" : "repository";
-}
-
-const LAST_ENABLED_PROJECT_GROUPING_MODE_KEY = "aprende:last-enabled-project-grouping-mode";
-
-export function readLastEnabledProjectGroupingMode(): SidebarProjectGroupingMode {
-  try {
-    return localStorage.getItem(LAST_ENABLED_PROJECT_GROUPING_MODE_KEY) === "repository_path"
-      ? "repository_path"
-      : "repository";
-  } catch {
-    return "repository";
-  }
-}
-
-export function rememberEnabledProjectGroupingMode(mode: SidebarProjectGroupingMode): void {
-  if (mode === "separate") return;
-  try {
-    localStorage.setItem(LAST_ENABLED_PROJECT_GROUPING_MODE_KEY, mode);
-  } catch {}
-}
 
 export function hasChangedBackgroundActivitySettings(
   settings: Pick<
@@ -95,27 +62,6 @@ export function getChangedTypographySettingLabels(settings: TypographySettings):
       ? ["Terminal font"]
       : []),
   ];
-}
-
-export function resolveBackgroundActivityProfileOption(
-  settings: ServerSettings,
-): BackgroundActivityProfile | "advanced" {
-  const resolved = resolveServerBackgroundActivitySettings(settings);
-  const normalized = normalizeBackgroundActivitySettings({
-    schemaVersion: 1,
-    profile: "custom",
-    baseProfile: resolved.profile,
-    overrides: {
-      providerHealthRefreshInterval: resolved.providerHealthRefreshInterval,
-      hostPowerMonitorActiveInterval: resolved.hostPowerMonitorActiveInterval,
-      hostPowerMonitorIdleInterval: resolved.hostPowerMonitorIdleInterval,
-      pauseWhenHostLocked: resolved.pauseWhenHostLocked,
-      pauseWhenHostLowPower: resolved.pauseWhenHostLowPower,
-      pauseWhenClientLowPower: resolved.pauseWhenClientLowPower,
-      pauseWhenOnBattery: resolved.pauseWhenOnBattery,
-    },
-  });
-  return normalized.profile === "custom" ? "advanced" : normalized.profile;
 }
 
 export function backgroundActivitySharedPolicySettings(

@@ -5,18 +5,17 @@ also lists the command IDs and defaults available in your version.
 
 ## Composer controls
 
-In **Settings → Chat → Send shortcut**, choose whether Enter sends, requires
+In **Settings → General → Send shortcut**, choose whether Enter sends, requires
 `mod+Enter` for multiline prompts, or always requires `mod+Enter`. `Shift+Enter`
-inserts a new line. This applies to the web and desktop composer at desktop widths.
+inserts a new line. This applies to the composer at desktop widths.
 
-**Follow-up behavior** chooses Queue or Steer while the agent runs. Use
-`mod+Enter` to do the opposite for one message, even when the send shortcut
-requires a modifier. `mod+Alt+Enter` sends, keeps that thread running in the
+While the agent runs, sending steers it. Use `mod+Enter` to queue one message
+instead, even when the send shortcut requires a modifier. `mod+Alt+Enter` sends, keeps that thread running in the
 background, and opens a fresh new-thread composer. In a new thread, `mod+Enter`
 does the same. Change these shortcuts in **Settings → Keybindings** under
 **Composer: Opposite Queue or Steer Action**, **Composer: Start in Background**,
 or **Composer: Send and Start New Thread**. These bindings take priority over the
-send shortcut. Click the send button to use the configured follow-up behavior.
+send shortcut. Click the send button to steer.
 
 When a thread has queued messages, `mod+Shift+Enter` sends the first one as a steer
 while a turn is running, or as a new turn when the thread is stopped. Change it under
@@ -170,7 +169,4 @@ Keep that condition when remapping them if you want the same behavior.
 Use `Cmd+Q` on macOS or `Ctrl+Q` on Windows and Linux. In the default **Hold** mode,
 hold for 1.2 seconds or press twice within 500 milliseconds. Holding requires
 keyboard repeat; if repeat is disabled, use two presses or the application menu.
-
-Change **Settings → General → Confirmations → Quit shortcut** to **Direct** for a
-single press or **Double press** for two presses only. Choosing **Quit** from the
-application menu always quits immediately.
+Choosing **Quit** from the application menu always quits immediately.

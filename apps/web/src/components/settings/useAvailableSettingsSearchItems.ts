@@ -1,23 +1,10 @@
-import { AuthEnvironmentMaintainScope } from "@aprende/contracts";
-
-import { isElectron } from "~/env";
-import { isLocalEnvironmentDisabled } from "~/localEnvironment";
-import { desktopWslStateAtom } from "~/state/desktopWslState";
-import { useEnvironments, usePrimaryEnvironmentId } from "~/state/environments";
-import { useEnvironmentQuery } from "~/state/query";
-import { useEnvironmentScope } from "~/state/session";
-import { isWslSettingsRowVisible } from "./ConnectionsSettings.logic";
+import { useEnvironments } from "~/state/environments";
 import { isProviderSettingsEnvironmentAvailable } from "./ProviderSettingsPanel.logic";
-import {
-  filterAvailableSettingsSearchItems,
-  getThreadAutoSettlementSearchAvailability,
-} from "./settingsSearch";
+import { filterAvailableSettingsSearchItems } from "./settingsSearch";
 
 export function useAvailableSettingsSearchItems() {
   const { environments } = useEnvironments();
-  // Explicit booleans keep flags out of the filter cache so environment updates do not rebuild the list.
-  const hasEnvironment =
-    environments.some((environment) => environment.serverConfig !== null) === true;
+  // An explicit boolean keeps the flag out of the filter cache so environment updates do not rebuild the list.
   const hasProviderSettingsEnvironment =
     environments.some((environment) =>
       isProviderSettingsEnvironmentAvailable({
@@ -25,24 +12,6 @@ export function useAvailableSettingsSearchItems() {
         hasServerConfig: environment.serverConfig !== null,
       }),
     ) === true;
-  const hasThreadAutoSettlement =
-    getThreadAutoSettlementSearchAvailability(environments).eligibleEnvironmentIds.length > 0;
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const canMaintain = useEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope);
-  const localEnvironmentDisabled = isLocalEnvironmentDisabled() === true;
-  const canManageLocalBackend = !localEnvironmentDisabled && canMaintain;
-  const desktopWsl = useEnvironmentQuery(
-    isElectron && canManageLocalBackend ? desktopWslStateAtom : null,
-  );
-  const wslSettingsRowVisible =
-    isWslSettingsRowVisible({ state: desktopWsl.data, error: desktopWsl.error }) === true;
 
-  return filterAvailableSettingsSearchItems({
-    localEnvironmentDisabled,
-    hasEnvironment,
-    hasProviderSettingsEnvironment,
-    canManageLocalBackend,
-    isWslSettingsRowVisible: wslSettingsRowVisible,
-    hasThreadAutoSettlement,
-  });
+  return filterAvailableSettingsSearchItems({ hasProviderSettingsEnvironment });
 }

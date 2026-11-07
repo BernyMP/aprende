@@ -1,20 +1,16 @@
 import { useEffect, useRef, useState, type ComponentType, type KeyboardEvent } from "react";
 import {
   ArchiveIcon,
-  FlaskConicalIcon,
   BotIcon,
   createLucideIcon,
   InfoIcon,
-  MessageSquareTextIcon,
   MessagesSquareIcon,
   PanelsTopLeftIcon,
   KeyboardIcon,
   PaletteIcon,
   SearchIcon,
-  ServerIcon,
   GraduationCapIcon,
   Settings2Icon,
-  ShieldCheckIcon,
   WrenchIcon,
   XIcon,
 } from "lucide-react";
@@ -63,23 +59,18 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/general": Settings2Icon,
   "/settings/diagnostics": WrenchIcon,
   "/settings/appearance": PaletteIcon,
-  "/settings/chat": MessageSquareTextIcon,
   "/settings/projects": PanelsTopLeftIcon,
   "/settings/keybindings": KeyboardIcon,
   "/settings/snap-shot": SnapShotIcon,
   "/settings/providers": BotIcon,
   "/settings/threads": MessagesSquareIcon,
-  "/settings/connections": ServerIcon,
-  "/settings/access": ShieldCheckIcon,
-  "/settings/maintenance": WrenchIcon,
-  "/settings/labs": FlaskConicalIcon,
   "/settings/about": InfoIcon,
   "/settings/archived": ArchiveIcon,
 };
 
 // Detail pages without a nav entry highlight the page that links to them.
 const SETTINGS_DETAIL_PAGE_PARENTS: Readonly<Record<string, SettingsPath>> = {
-  "/settings/diagnostics": "/settings/maintenance",
+  "/settings/diagnostics": "/settings/about",
   "/settings/open-source-licenses": "/settings/about",
 };
 

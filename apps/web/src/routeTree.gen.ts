@@ -21,23 +21,17 @@ import { Route as ChatKnowledgeRouteImport } from './routes/_chat.knowledge'
 import { Route as ThreadsEnvironmentIdThreadIdRouteImport } from './routes/threads.$environmentId.$threadId'
 import { Route as ChatSettingsTutorRouteImport } from './routes/_chat.settings.tutor'
 import { Route as ChatSettingsThreadsRouteImport } from './routes/_chat.settings.threads'
-import { Route as ChatSettingsStorageRouteImport } from './routes/_chat.settings.storage'
 import { Route as ChatSettingsSnapShotRouteImport } from './routes/_chat.settings.snap-shot'
 import { Route as ChatSettingsProvidersRouteImport } from './routes/_chat.settings.providers'
 import { Route as ChatSettingsProjectsRouteImport } from './routes/_chat.settings.projects'
 import { Route as ChatSettingsOpenSourceLicensesRouteImport } from './routes/_chat.settings.open-source-licenses'
-import { Route as ChatSettingsMaintenanceRouteImport } from './routes/_chat.settings.maintenance'
-import { Route as ChatSettingsLabsRouteImport } from './routes/_chat.settings.labs'
 import { Route as ChatSettingsKeybindingsRouteImport } from './routes/_chat.settings.keybindings'
 import { Route as ChatSettingsGeneralRouteImport } from './routes/_chat.settings.general'
 import { Route as ChatSettingsDiagnosticsRouteImport } from './routes/_chat.settings.diagnostics'
-import { Route as ChatSettingsConnectionsRouteImport } from './routes/_chat.settings.connections'
-import { Route as ChatSettingsChatRouteImport } from './routes/_chat.settings.chat'
-import { Route as ChatSettingsBetaRouteImport } from './routes/_chat.settings.beta'
 import { Route as ChatSettingsArchivedRouteImport } from './routes/_chat.settings.archived'
 import { Route as ChatSettingsAppearanceRouteImport } from './routes/_chat.settings.appearance'
-import { Route as ChatSettingsAccessRouteImport } from './routes/_chat.settings.access'
 import { Route as ChatSettingsAboutRouteImport } from './routes/_chat.settings.about'
+import { Route as ChatSettingsSplatRouteImport } from './routes/_chat.settings.$'
 import { Route as ChatDraftDraftIdRouteImport } from './routes/_chat.draft.$draftId'
 import { Route as ChatEnvironmentIdThreadIdRouteImport } from './routes/_chat.$environmentId.$threadId'
 
@@ -101,11 +95,6 @@ const ChatSettingsThreadsRoute = ChatSettingsThreadsRouteImport.update({
   path: '/threads',
   getParentRoute: () => ChatSettingsRoute,
 } as any)
-const ChatSettingsStorageRoute = ChatSettingsStorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
-  getParentRoute: () => ChatSettingsRoute,
-} as any)
 const ChatSettingsSnapShotRoute = ChatSettingsSnapShotRouteImport.update({
   id: '/snap-shot',
   path: '/snap-shot',
@@ -127,16 +116,6 @@ const ChatSettingsOpenSourceLicensesRoute =
     path: '/open-source-licenses',
     getParentRoute: () => ChatSettingsRoute,
   } as any)
-const ChatSettingsMaintenanceRoute = ChatSettingsMaintenanceRouteImport.update({
-  id: '/maintenance',
-  path: '/maintenance',
-  getParentRoute: () => ChatSettingsRoute,
-} as any)
-const ChatSettingsLabsRoute = ChatSettingsLabsRouteImport.update({
-  id: '/labs',
-  path: '/labs',
-  getParentRoute: () => ChatSettingsRoute,
-} as any)
 const ChatSettingsKeybindingsRoute = ChatSettingsKeybindingsRouteImport.update({
   id: '/keybindings',
   path: '/keybindings',
@@ -152,21 +131,6 @@ const ChatSettingsDiagnosticsRoute = ChatSettingsDiagnosticsRouteImport.update({
   path: '/diagnostics',
   getParentRoute: () => ChatSettingsRoute,
 } as any)
-const ChatSettingsConnectionsRoute = ChatSettingsConnectionsRouteImport.update({
-  id: '/connections',
-  path: '/connections',
-  getParentRoute: () => ChatSettingsRoute,
-} as any)
-const ChatSettingsChatRoute = ChatSettingsChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => ChatSettingsRoute,
-} as any)
-const ChatSettingsBetaRoute = ChatSettingsBetaRouteImport.update({
-  id: '/beta',
-  path: '/beta',
-  getParentRoute: () => ChatSettingsRoute,
-} as any)
 const ChatSettingsArchivedRoute = ChatSettingsArchivedRouteImport.update({
   id: '/archived',
   path: '/archived',
@@ -177,14 +141,14 @@ const ChatSettingsAppearanceRoute = ChatSettingsAppearanceRouteImport.update({
   path: '/appearance',
   getParentRoute: () => ChatSettingsRoute,
 } as any)
-const ChatSettingsAccessRoute = ChatSettingsAccessRouteImport.update({
-  id: '/access',
-  path: '/access',
-  getParentRoute: () => ChatSettingsRoute,
-} as any)
 const ChatSettingsAboutRoute = ChatSettingsAboutRouteImport.update({
   id: '/about',
   path: '/about',
+  getParentRoute: () => ChatSettingsRoute,
+} as any)
+const ChatSettingsSplatRoute = ChatSettingsSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => ChatSettingsRoute,
 } as any)
 const ChatDraftDraftIdRoute = ChatDraftDraftIdRouteImport.update({
@@ -210,23 +174,17 @@ export interface FileRoutesByFullPath {
   '/projects/$projectKey': typeof ProjectsProjectKeyRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
+  '/settings/$': typeof ChatSettingsSplatRoute
   '/settings/about': typeof ChatSettingsAboutRoute
-  '/settings/access': typeof ChatSettingsAccessRoute
   '/settings/appearance': typeof ChatSettingsAppearanceRoute
   '/settings/archived': typeof ChatSettingsArchivedRoute
-  '/settings/beta': typeof ChatSettingsBetaRoute
-  '/settings/chat': typeof ChatSettingsChatRoute
-  '/settings/connections': typeof ChatSettingsConnectionsRoute
   '/settings/diagnostics': typeof ChatSettingsDiagnosticsRoute
   '/settings/general': typeof ChatSettingsGeneralRoute
   '/settings/keybindings': typeof ChatSettingsKeybindingsRoute
-  '/settings/labs': typeof ChatSettingsLabsRoute
-  '/settings/maintenance': typeof ChatSettingsMaintenanceRoute
   '/settings/open-source-licenses': typeof ChatSettingsOpenSourceLicensesRoute
   '/settings/projects': typeof ChatSettingsProjectsRoute
   '/settings/providers': typeof ChatSettingsProvidersRoute
   '/settings/snap-shot': typeof ChatSettingsSnapShotRoute
-  '/settings/storage': typeof ChatSettingsStorageRoute
   '/settings/threads': typeof ChatSettingsThreadsRoute
   '/settings/tutor': typeof ChatSettingsTutorRoute
   '/threads/$environmentId/$threadId': typeof ThreadsEnvironmentIdThreadIdRoute
@@ -242,23 +200,17 @@ export interface FileRoutesByTo {
   '/': typeof ChatIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
+  '/settings/$': typeof ChatSettingsSplatRoute
   '/settings/about': typeof ChatSettingsAboutRoute
-  '/settings/access': typeof ChatSettingsAccessRoute
   '/settings/appearance': typeof ChatSettingsAppearanceRoute
   '/settings/archived': typeof ChatSettingsArchivedRoute
-  '/settings/beta': typeof ChatSettingsBetaRoute
-  '/settings/chat': typeof ChatSettingsChatRoute
-  '/settings/connections': typeof ChatSettingsConnectionsRoute
   '/settings/diagnostics': typeof ChatSettingsDiagnosticsRoute
   '/settings/general': typeof ChatSettingsGeneralRoute
   '/settings/keybindings': typeof ChatSettingsKeybindingsRoute
-  '/settings/labs': typeof ChatSettingsLabsRoute
-  '/settings/maintenance': typeof ChatSettingsMaintenanceRoute
   '/settings/open-source-licenses': typeof ChatSettingsOpenSourceLicensesRoute
   '/settings/projects': typeof ChatSettingsProjectsRoute
   '/settings/providers': typeof ChatSettingsProvidersRoute
   '/settings/snap-shot': typeof ChatSettingsSnapShotRoute
-  '/settings/storage': typeof ChatSettingsStorageRoute
   '/settings/threads': typeof ChatSettingsThreadsRoute
   '/settings/tutor': typeof ChatSettingsTutorRoute
   '/threads/$environmentId/$threadId': typeof ThreadsEnvironmentIdThreadIdRoute
@@ -276,23 +228,17 @@ export interface FileRoutesById {
   '/_chat/': typeof ChatIndexRoute
   '/_chat/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/_chat/draft/$draftId': typeof ChatDraftDraftIdRoute
+  '/_chat/settings/$': typeof ChatSettingsSplatRoute
   '/_chat/settings/about': typeof ChatSettingsAboutRoute
-  '/_chat/settings/access': typeof ChatSettingsAccessRoute
   '/_chat/settings/appearance': typeof ChatSettingsAppearanceRoute
   '/_chat/settings/archived': typeof ChatSettingsArchivedRoute
-  '/_chat/settings/beta': typeof ChatSettingsBetaRoute
-  '/_chat/settings/chat': typeof ChatSettingsChatRoute
-  '/_chat/settings/connections': typeof ChatSettingsConnectionsRoute
   '/_chat/settings/diagnostics': typeof ChatSettingsDiagnosticsRoute
   '/_chat/settings/general': typeof ChatSettingsGeneralRoute
   '/_chat/settings/keybindings': typeof ChatSettingsKeybindingsRoute
-  '/_chat/settings/labs': typeof ChatSettingsLabsRoute
-  '/_chat/settings/maintenance': typeof ChatSettingsMaintenanceRoute
   '/_chat/settings/open-source-licenses': typeof ChatSettingsOpenSourceLicensesRoute
   '/_chat/settings/projects': typeof ChatSettingsProjectsRoute
   '/_chat/settings/providers': typeof ChatSettingsProvidersRoute
   '/_chat/settings/snap-shot': typeof ChatSettingsSnapShotRoute
-  '/_chat/settings/storage': typeof ChatSettingsStorageRoute
   '/_chat/settings/threads': typeof ChatSettingsThreadsRoute
   '/_chat/settings/tutor': typeof ChatSettingsTutorRoute
   '/threads/$environmentId/$threadId': typeof ThreadsEnvironmentIdThreadIdRoute
@@ -310,23 +256,17 @@ export interface FileRouteTypes {
     | '/projects/$projectKey'
     | '/$environmentId/$threadId'
     | '/draft/$draftId'
+    | '/settings/$'
     | '/settings/about'
-    | '/settings/access'
     | '/settings/appearance'
     | '/settings/archived'
-    | '/settings/beta'
-    | '/settings/chat'
-    | '/settings/connections'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/keybindings'
-    | '/settings/labs'
-    | '/settings/maintenance'
     | '/settings/open-source-licenses'
     | '/settings/projects'
     | '/settings/providers'
     | '/settings/snap-shot'
-    | '/settings/storage'
     | '/settings/threads'
     | '/settings/tutor'
     | '/threads/$environmentId/$threadId'
@@ -342,23 +282,17 @@ export interface FileRouteTypes {
     | '/'
     | '/$environmentId/$threadId'
     | '/draft/$draftId'
+    | '/settings/$'
     | '/settings/about'
-    | '/settings/access'
     | '/settings/appearance'
     | '/settings/archived'
-    | '/settings/beta'
-    | '/settings/chat'
-    | '/settings/connections'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/keybindings'
-    | '/settings/labs'
-    | '/settings/maintenance'
     | '/settings/open-source-licenses'
     | '/settings/projects'
     | '/settings/providers'
     | '/settings/snap-shot'
-    | '/settings/storage'
     | '/settings/threads'
     | '/settings/tutor'
     | '/threads/$environmentId/$threadId'
@@ -375,23 +309,17 @@ export interface FileRouteTypes {
     | '/_chat/'
     | '/_chat/$environmentId/$threadId'
     | '/_chat/draft/$draftId'
+    | '/_chat/settings/$'
     | '/_chat/settings/about'
-    | '/_chat/settings/access'
     | '/_chat/settings/appearance'
     | '/_chat/settings/archived'
-    | '/_chat/settings/beta'
-    | '/_chat/settings/chat'
-    | '/_chat/settings/connections'
     | '/_chat/settings/diagnostics'
     | '/_chat/settings/general'
     | '/_chat/settings/keybindings'
-    | '/_chat/settings/labs'
-    | '/_chat/settings/maintenance'
     | '/_chat/settings/open-source-licenses'
     | '/_chat/settings/projects'
     | '/_chat/settings/providers'
     | '/_chat/settings/snap-shot'
-    | '/_chat/settings/storage'
     | '/_chat/settings/threads'
     | '/_chat/settings/tutor'
     | '/threads/$environmentId/$threadId'
@@ -491,13 +419,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatSettingsThreadsRouteImport
       parentRoute: typeof ChatSettingsRoute
     }
-    '/_chat/settings/storage': {
-      id: '/_chat/settings/storage'
-      path: '/storage'
-      fullPath: '/settings/storage'
-      preLoaderRoute: typeof ChatSettingsStorageRouteImport
-      parentRoute: typeof ChatSettingsRoute
-    }
     '/_chat/settings/snap-shot': {
       id: '/_chat/settings/snap-shot'
       path: '/snap-shot'
@@ -526,20 +447,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatSettingsOpenSourceLicensesRouteImport
       parentRoute: typeof ChatSettingsRoute
     }
-    '/_chat/settings/maintenance': {
-      id: '/_chat/settings/maintenance'
-      path: '/maintenance'
-      fullPath: '/settings/maintenance'
-      preLoaderRoute: typeof ChatSettingsMaintenanceRouteImport
-      parentRoute: typeof ChatSettingsRoute
-    }
-    '/_chat/settings/labs': {
-      id: '/_chat/settings/labs'
-      path: '/labs'
-      fullPath: '/settings/labs'
-      preLoaderRoute: typeof ChatSettingsLabsRouteImport
-      parentRoute: typeof ChatSettingsRoute
-    }
     '/_chat/settings/keybindings': {
       id: '/_chat/settings/keybindings'
       path: '/keybindings'
@@ -561,27 +468,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatSettingsDiagnosticsRouteImport
       parentRoute: typeof ChatSettingsRoute
     }
-    '/_chat/settings/connections': {
-      id: '/_chat/settings/connections'
-      path: '/connections'
-      fullPath: '/settings/connections'
-      preLoaderRoute: typeof ChatSettingsConnectionsRouteImport
-      parentRoute: typeof ChatSettingsRoute
-    }
-    '/_chat/settings/chat': {
-      id: '/_chat/settings/chat'
-      path: '/chat'
-      fullPath: '/settings/chat'
-      preLoaderRoute: typeof ChatSettingsChatRouteImport
-      parentRoute: typeof ChatSettingsRoute
-    }
-    '/_chat/settings/beta': {
-      id: '/_chat/settings/beta'
-      path: '/beta'
-      fullPath: '/settings/beta'
-      preLoaderRoute: typeof ChatSettingsBetaRouteImport
-      parentRoute: typeof ChatSettingsRoute
-    }
     '/_chat/settings/archived': {
       id: '/_chat/settings/archived'
       path: '/archived'
@@ -596,18 +482,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatSettingsAppearanceRouteImport
       parentRoute: typeof ChatSettingsRoute
     }
-    '/_chat/settings/access': {
-      id: '/_chat/settings/access'
-      path: '/access'
-      fullPath: '/settings/access'
-      preLoaderRoute: typeof ChatSettingsAccessRouteImport
-      parentRoute: typeof ChatSettingsRoute
-    }
     '/_chat/settings/about': {
       id: '/_chat/settings/about'
       path: '/about'
       fullPath: '/settings/about'
       preLoaderRoute: typeof ChatSettingsAboutRouteImport
+      parentRoute: typeof ChatSettingsRoute
+    }
+    '/_chat/settings/$': {
+      id: '/_chat/settings/$'
+      path: '/$'
+      fullPath: '/settings/$'
+      preLoaderRoute: typeof ChatSettingsSplatRouteImport
       parentRoute: typeof ChatSettingsRoute
     }
     '/_chat/draft/$draftId': {
@@ -628,45 +514,33 @@ declare module '@tanstack/react-router' {
 }
 
 interface ChatSettingsRouteChildren {
+  ChatSettingsSplatRoute: typeof ChatSettingsSplatRoute
   ChatSettingsAboutRoute: typeof ChatSettingsAboutRoute
-  ChatSettingsAccessRoute: typeof ChatSettingsAccessRoute
   ChatSettingsAppearanceRoute: typeof ChatSettingsAppearanceRoute
   ChatSettingsArchivedRoute: typeof ChatSettingsArchivedRoute
-  ChatSettingsBetaRoute: typeof ChatSettingsBetaRoute
-  ChatSettingsChatRoute: typeof ChatSettingsChatRoute
-  ChatSettingsConnectionsRoute: typeof ChatSettingsConnectionsRoute
   ChatSettingsDiagnosticsRoute: typeof ChatSettingsDiagnosticsRoute
   ChatSettingsGeneralRoute: typeof ChatSettingsGeneralRoute
   ChatSettingsKeybindingsRoute: typeof ChatSettingsKeybindingsRoute
-  ChatSettingsLabsRoute: typeof ChatSettingsLabsRoute
-  ChatSettingsMaintenanceRoute: typeof ChatSettingsMaintenanceRoute
   ChatSettingsOpenSourceLicensesRoute: typeof ChatSettingsOpenSourceLicensesRoute
   ChatSettingsProjectsRoute: typeof ChatSettingsProjectsRoute
   ChatSettingsProvidersRoute: typeof ChatSettingsProvidersRoute
   ChatSettingsSnapShotRoute: typeof ChatSettingsSnapShotRoute
-  ChatSettingsStorageRoute: typeof ChatSettingsStorageRoute
   ChatSettingsThreadsRoute: typeof ChatSettingsThreadsRoute
   ChatSettingsTutorRoute: typeof ChatSettingsTutorRoute
 }
 
 const ChatSettingsRouteChildren: ChatSettingsRouteChildren = {
+  ChatSettingsSplatRoute: ChatSettingsSplatRoute,
   ChatSettingsAboutRoute: ChatSettingsAboutRoute,
-  ChatSettingsAccessRoute: ChatSettingsAccessRoute,
   ChatSettingsAppearanceRoute: ChatSettingsAppearanceRoute,
   ChatSettingsArchivedRoute: ChatSettingsArchivedRoute,
-  ChatSettingsBetaRoute: ChatSettingsBetaRoute,
-  ChatSettingsChatRoute: ChatSettingsChatRoute,
-  ChatSettingsConnectionsRoute: ChatSettingsConnectionsRoute,
   ChatSettingsDiagnosticsRoute: ChatSettingsDiagnosticsRoute,
   ChatSettingsGeneralRoute: ChatSettingsGeneralRoute,
   ChatSettingsKeybindingsRoute: ChatSettingsKeybindingsRoute,
-  ChatSettingsLabsRoute: ChatSettingsLabsRoute,
-  ChatSettingsMaintenanceRoute: ChatSettingsMaintenanceRoute,
   ChatSettingsOpenSourceLicensesRoute: ChatSettingsOpenSourceLicensesRoute,
   ChatSettingsProjectsRoute: ChatSettingsProjectsRoute,
   ChatSettingsProvidersRoute: ChatSettingsProvidersRoute,
   ChatSettingsSnapShotRoute: ChatSettingsSnapShotRoute,
-  ChatSettingsStorageRoute: ChatSettingsStorageRoute,
   ChatSettingsThreadsRoute: ChatSettingsThreadsRoute,
   ChatSettingsTutorRoute: ChatSettingsTutorRoute,
 }

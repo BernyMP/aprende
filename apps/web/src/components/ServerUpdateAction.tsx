@@ -24,7 +24,7 @@ import { type ComponentProps, useRef, useState } from "react";
 
 import { requestConfirmDialog } from "~/confirmDialog";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
-import { serverEnvironment, updateOutdatedServer } from "~/state/server";
+import { serverEnvironment } from "~/state/server";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { useServerConfigs } from "~/state/entities";
@@ -391,45 +391,6 @@ export function ServerUpdateAction({
       onClick={onClick}
     >
       {actionLabel}
-    </Button>
-  );
-}
-
-export function OutdatedServerUpdateAction({
-  environmentId,
-  serverLabel,
-  targetVersion,
-  label = "Update",
-}: {
-  readonly environmentId: EnvironmentId;
-  readonly serverLabel: string;
-  readonly targetVersion: string;
-  readonly label?: string;
-}) {
-  const update = useAtomCommand(updateOutdatedServer, { reportFailure: false });
-  const handleUpdate = async () => {
-    if (pendingUpdateEnvironmentIds.has(environmentId)) return;
-    pendingUpdateEnvironmentIds.add(environmentId);
-    const result = await update({ environmentId, input: { targetVersion } });
-    pendingUpdateEnvironmentIds.delete(environmentId);
-    if (result._tag === "Failure") {
-      if (isAtomCommandInterrupted(result)) return;
-      toastManager.add({
-        type: "error",
-        title: `${serverLabel} update failed`,
-        description: updateFailureMessage(squashAtomCommandFailure(result)),
-      });
-      return;
-    }
-    toastManager.add({
-      type: "success",
-      title: `${serverLabel} updated`,
-      description: `Reconnected on aprende@${result.value.targetVersion}.`,
-    });
-  };
-  return (
-    <Button size="xs" variant="outline" onClick={() => void handleUpdate()}>
-      {label}
     </Button>
   );
 }
