@@ -1,7 +1,7 @@
 # Appearance
 
-aprende has one theme, built for long study sessions: parchment pages, ink-dark text and quiet
-green accents. Open **Settings → Appearance** to follow the system appearance or stay in light or
+aprende has one theme, built for long study sessions: soft warm whites, stone grays and one quiet
+green accent. Open **Settings → Appearance** to follow the system appearance or stay in light or
 dark mode. The choice is saved separately on each device or browser.
 
 Use **Change appearance** in the command palette to choose System, Light, or Dark without leaving

@@ -1213,8 +1213,8 @@ html[data-theme-id="scholar"] {
   --app-theme-secondary: #efeeeb;
   --app-theme-secondary-foreground: #2f2e2c;
   --app-theme-muted: #f0efec;
-  --app-theme-muted-foreground: #676560;
-  --app-theme-placeholder: #6d6b66;
+  --app-theme-muted-foreground: #62605b;
+  --app-theme-placeholder: #6a6863;
   --app-theme-secondary-label: #686661;
   --app-theme-icon-muted: #686661;
   --app-theme-error: #d24d42;
@@ -1299,8 +1299,8 @@ html[data-theme-id="scholar"] {
     --app-theme-secondary: #2a2a28;
     --app-theme-secondary-foreground: #e6e5e1;
     --app-theme-muted: #262625;
-    --app-theme-muted-foreground: #9d9b95;
-    --app-theme-placeholder: #94928d;
+    --app-theme-muted-foreground: #a19f99;
+    --app-theme-placeholder: #999791;
     --app-theme-secondary-label: #a19f99;
     --app-theme-icon-muted: #a19f99;
     --app-theme-error: #e86154;
