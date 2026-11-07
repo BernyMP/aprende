@@ -908,9 +908,10 @@ function OpenCommandPaletteDialog(props: {
     },
   ];
 
-  const openConnectionSettings = () => {
+  // With no environment connected, home explains how to start one.
+  const openHome = () => {
     setOpen(false);
-    void navigate({ to: "/settings/connections" });
+    void navigate({ to: "/" });
   };
   const addProjectEntry = resolveAddProjectEntry(
     addProjectEnvironmentOptions,
@@ -920,7 +921,7 @@ function OpenCommandPaletteDialog(props: {
   const openAddProjectFlow = () => {
     switch (addProjectEntry.kind) {
       case "connect-environment":
-        openConnectionSettings();
+        openHome();
         return;
       case "choose-environment":
         pushPaletteView({
@@ -953,7 +954,7 @@ function OpenCommandPaletteDialog(props: {
                 icon: <SettingsIcon className={ITEM_ICON_CLASS} />,
                 keepOpen: true,
                 run: async () => {
-                  openConnectionSettings();
+                  openHome();
                 },
               },
             ],

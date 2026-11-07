@@ -1,19 +1,15 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import {
   ORCHESTRATION_PROTOCOL_HEADER,
   ORCHESTRATION_PROTOCOL_VERSION_TEXT,
 } from "@aprende/contracts";
-import * as SubscriptionRef from "effect/SubscriptionRef";
 import { FetchHttpClient, type HttpMethod } from "effect/http";
 
 import type { PreparedConnection, PreparedHttpAuthorization } from "../connection/model.ts";
-import * as EnvironmentSupervisor from "../connection/supervisor.ts";
 import {
   executeEnvironmentHttpRequest,
   makeEnvironmentHttpApiGroupClient,
   makeEnvironmentHttpApiUrlBuilder,
-  RemoteEnvironmentAuthFetchError,
   type RemoteEnvironmentRequestError,
 } from "../rpc/http.ts";
 
@@ -60,23 +56,6 @@ export const executeAuthenticatedEnvironmentHttpRequest = <
   executeEnvironmentRequest(input).pipe(
     Effect.withSpan("clientRuntime.state.executeAuthenticatedEnvironmentHttpRequest"),
   );
-
-/** Sends the request with this client's own credentials on the supervised environment. */
-export const executeConnectedEnvironmentHttpRequest = Effect.fn(
-  "clientRuntime.state.executeConnectedEnvironmentHttpRequest",
-)(function* <Group extends Parameters<typeof makeEnvironmentHttpApiGroupClient>[1], A, E, R>(
-  input: Omit<Parameters<typeof executeEnvironmentRequest<Group, A, E, R>>[0], "prepared">,
-) {
-  const supervisor = yield* EnvironmentSupervisor.EnvironmentSupervisor;
-  const prepared = yield* SubscriptionRef.get(supervisor.prepared);
-  if (Option.isNone(prepared)) {
-    return yield* new RemoteEnvironmentAuthFetchError({
-      message: "The environment is not connected.",
-      cause: supervisor.target._tag,
-    });
-  }
-  return yield* executeAuthenticatedEnvironmentHttpRequest({ ...input, prepared: prepared.value });
-});
 
 const executeEnvironmentRequest = Effect.fnUntraced(function* <
   Group extends Parameters<typeof makeEnvironmentHttpApiGroupClient>[1],

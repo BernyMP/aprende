@@ -1,12 +1,9 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId } from "@aprende/contracts";
 
 import {
   filterAvailableSettingsSearchItems,
   getSettingsSearchTargetScope,
-  getThreadAutoSettlementSearchAvailability,
   isSettingsSearchScopeAvailable,
-  movedSettingsPath,
   searchSettings,
   SETTINGS_SEARCH_ITEMS,
   type SettingsSearchItem,
@@ -20,10 +17,10 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
     searchTerms: ["long lines in code previews"],
   },
   {
-    id: "network-access",
-    title: "Network access",
-    to: "/settings/access",
-    searchTerms: ["remote pairing backend"],
+    id: "open-source-licenses",
+    title: "Open source licenses",
+    to: "/settings/about",
+    searchTerms: ["notices dependencies"],
   },
   {
     id: "providers",
@@ -46,23 +43,21 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
 describe("searchSettings", () => {
   it("matches titles, sections, and remembered setting details", () => {
     expect(searchSettings("word", ITEMS).map((item) => item.id)).toEqual(["word-wrap"]);
-    expect(searchSettings("network", ITEMS).map((item) => item.id)).toEqual(["network-access"]);
-    expect(searchSettings("sharing", ITEMS).map((item) => item.id)).toEqual(["network-access"]);
+    expect(searchSettings("licenses", ITEMS).map((item) => item.id)).toEqual([
+      "open-source-licenses",
+    ]);
+    expect(searchSettings("about", ITEMS).map((item) => item.id)).toEqual(["open-source-licenses"]);
     expect(searchSettings("claude", ITEMS).map((item) => item.id)).toEqual(["providers"]);
     expect(searchSettings("long lines", ITEMS).map((item) => item.id)).toEqual(["word-wrap"]);
-    for (const query of ["fallback", "fallback agent", "fallback model"]) {
-      expect(searchSettings(query)[0]).toMatchObject({
-        id: "fallback-model",
-        to: "/settings/threads",
-        scope: "environment-defaults",
-      });
-    }
+    expect(searchSettings("composer")[0]).toMatchObject({
+      id: "composer-rich-text",
+      to: "/settings/general",
+    });
   });
 
   it("matches normalized title substrings", () => {
     expect(searchSettings("  WORD   WRAP  ", ITEMS).map((item) => item.id)).toEqual(["word-wrap"]);
-    expect(searchSettings("glass").map((item) => item.id)).toEqual(["setting-glass-opacity"]);
-    expect(searchSettings("panel animations").map((item) => item.id)).toEqual(["panel-animations"]);
+    expect(searchSettings("render math").map((item) => item.id)).toEqual(["math-rendering"]);
     expect(searchSettings("schè\u{1ab0}me")[0]?.id).toBe("color-scheme");
     const localeLowerCase = vi
       .spyOn(String.prototype, "toLocaleLowerCase")
@@ -77,41 +72,24 @@ describe("searchSettings", () => {
   });
 
   it("matches query words across fields and ranks the strongest result first", () => {
-    expect(searchSettings("pairing remote", ITEMS).map((item) => item.id)).toEqual([
-      "network-access",
+    expect(searchSettings("dependencies notices", ITEMS).map((item) => item.id)).toEqual([
+      "open-source-licenses",
     ]);
-    expect(
-      searchSettings("remote pairing")
-        .slice(0, 2)
-        .map((item) => item.id),
-    ).toEqual(["network-access", "connections-environment"]);
+    expect(searchSettings("time format")[0]?.id).toBe("time-format");
   });
 
   it("hides desktop-only settings from browser search", () => {
-    expect(SETTINGS_SEARCH_ITEMS.some((item) => item.id === "quit-confirmation")).toBe(true);
-    expect(searchSettings("hold to quit")).toEqual([]);
-    expect(searchSettings("wsl")).toEqual([]);
+    expect(SETTINGS_SEARCH_ITEMS.some((item) => item.id === "update-track")).toBe(true);
     expect(searchSettings("update track")).toEqual([]);
   });
 
   it("hides settings whose controls are unavailable", () => {
-    const available = filterAvailableSettingsSearchItems({
-      hasEnvironment: false,
-      hasProviderSettingsEnvironment: false,
-      canManageLocalBackend: false,
-      isWslSettingsRowVisible: false,
-      hasThreadAutoSettlement: false,
-    });
-
-    const gatedIds = new Set<string>([
-      "network-access",
-      "provider-health-check-interval",
-      "tailscale-https",
-      "wsl-backend",
-      "auto-settle-inactive-threads",
-      "days-before-auto-settle",
-    ]);
-    expect(available.map((item) => item.id).filter((id) => gatedIds.has(id))).toEqual([]);
+    const ids = (hasProviderSettingsEnvironment: boolean) =>
+      filterAvailableSettingsSearchItems({ hasProviderSettingsEnvironment }).map((item) => item.id);
+    expect(ids(false)).not.toContain("provider-health-check-interval");
+    expect(ids(true)).toContain("provider-health-check-interval");
+    // Detail pages are not offered in search.
+    expect(ids(true)).not.toContain("snap-shot-enabled");
   });
 
   it("finds keybinding commands by label, command id, and default key", () => {
@@ -137,8 +115,6 @@ describe("searchSettings", () => {
 
   it("finds rows by the titles shown on their pages", () => {
     for (const [title, id] of [
-      ["Delete old browser artifacts", "storage-artifacts"],
-      ["Delete old rotated logs", "storage-artifacts"],
       ["Native sessions", "providers"],
       ["CODEX_HOME path", "providers"],
       ["Shadow home path", "providers"],
@@ -162,98 +138,5 @@ describe("settings search targets", () => {
     expect(isSettingsSearchScopeAvailable(target.scope, "all")).toBe(false);
     expect(isSettingsSearchScopeAvailable(target.scope, "project")).toBe(false);
     expect(isSettingsSearchScopeAvailable(target.scope, "environment")).toBe(true);
-  });
-
-  it("keeps environment-wide settings out of project scopes", () => {
-    const updates = getSettingsSearchTargetScope("provider-update-checks")!;
-    expect(updates.scope).toBe("environment-defaults");
-    expect(isSettingsSearchScopeAvailable(updates.scope, "environment")).toBe(true);
-    expect(isSettingsSearchScopeAvailable(updates.scope, "all")).toBe(true);
-    expect(isSettingsSearchScopeAvailable(updates.scope, "project")).toBe(false);
-    const fallback = getSettingsSearchTargetScope("fallback-model")!;
-    expect(fallback.scope).toBe("environment-defaults");
-    expect(isSettingsSearchScopeAvailable(fallback.scope, "environment")).toBe(true);
-    expect(isSettingsSearchScopeAvailable(fallback.scope, "all")).toBe(true);
-    expect(isSettingsSearchScopeAvailable(fallback.scope, "project")).toBe(false);
-    const streaming = getSettingsSearchTargetScope("response-streaming")!;
-    expect(streaming.scope).toBe("project-defaults");
-    expect(isSettingsSearchScopeAvailable(streaming.scope, "project")).toBe(true);
-    for (const id of ["legacy-plan-mode", "legacy-context-window-indicator", "boring-sidebar"]) {
-      expect(getSettingsSearchTargetScope(id)!.scope).toBeNull();
-    }
-  });
-});
-
-describe("auto-settlement search availability", () => {
-  function environment(id: string, { connected = true, loaded = true } = {}) {
-    return {
-      environmentId: EnvironmentId.make(id),
-      connection: { phase: connected ? ("connected" as const) : ("offline" as const) },
-      serverConfig: loaded ? { environment: { capabilities: {} } } : null,
-    };
-  }
-
-  const capable = environment("capable");
-  const offline = environment("offline", { connected: false });
-  const loading = environment("loading", { loaded: false });
-  const environments = [capable, offline, loading];
-
-  it("keeps results discoverable when one connected environment supports them", () => {
-    const availability = getThreadAutoSettlementSearchAvailability(environments);
-    expect(availability.eligibleEnvironmentIds).toEqual([capable.environmentId]);
-    const items = filterAvailableSettingsSearchItems({
-      hasEnvironment: true,
-      hasProviderSettingsEnvironment: true,
-      canManageLocalBackend: false,
-      isWslSettingsRowVisible: false,
-      hasThreadAutoSettlement: availability.eligibleEnvironmentIds.length > 0,
-    });
-    expect(searchSettings("auto-settle", items).map((item) => item.id)).toEqual([
-      "auto-settle-inactive-threads",
-      "days-before-auto-settle",
-    ]);
-  });
-
-  it.each([offline, loading])(
-    "does not render the target on $environmentId or silently fall back",
-    (selected) => {
-      expect(
-        getThreadAutoSettlementSearchAvailability(environments, {
-          kind: "environment",
-          environmentIds: [selected.environmentId],
-        }),
-      ).toEqual({ eligibleEnvironmentIds: [capable.environmentId], isTargetAvailable: false });
-    },
-  );
-
-  it("ignores offline and unloaded targets when all connected targets support the setting", () => {
-    const selected = [capable, offline, loading];
-    expect(
-      getThreadAutoSettlementSearchAvailability(selected, {
-        kind: "all",
-        environmentIds: selected.map((entry) => entry.environmentId),
-      }).isTargetAvailable,
-    ).toBe(true);
-  });
-});
-
-describe("movedSettingsPath", () => {
-  it("sends old links to the page their row moved to", () => {
-    expect(movedSettingsPath("/settings/general", "text-generation-model")).toBe(
-      "/settings/threads",
-    );
-    expect(movedSettingsPath("/settings/connections", "authorized-clients")).toBe(
-      "/settings/access",
-    );
-    expect(movedSettingsPath("/settings/connections", "network-access")).toBe("/settings/access");
-    expect(movedSettingsPath("/settings/storage", "")).toBe("/settings/maintenance");
-    expect(movedSettingsPath("/settings/beta", "")).toBe("/settings/labs");
-  });
-
-  it("leaves current pages alone", () => {
-    expect(movedSettingsPath("/settings/general", "time-format")).toBeNull();
-    expect(movedSettingsPath("/settings/projects", "project-defaults")).toBeNull();
-    expect(movedSettingsPath("/settings/connections", "remote-environments")).toBeNull();
-    expect(movedSettingsPath("/settings/appearance", "color-scheme")).toBeNull();
   });
 });

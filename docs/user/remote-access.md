@@ -1,20 +1,16 @@
 # Remote access
 
-Connect a phone, browser, or another desktop app to aprende running on a different
+Connect a browser or another desktop app to aprende running on a different
 machine. That machine must stay running and reachable while you work.
 
 ## Pair over a LAN or private network
 
 Use direct pairing when the other device can reach the host's network address.
 
-On a desktop host, open **Settings → Sharing & access**, enable **Network access**,
-then create a pairing link using an address the other device can reach. Changing
-network access restarts the desktop app. You can turn it off in the same place.
-
-For a command-line host, choose the local network in `aprende up`, or run:
+On the host, choose the local network in `aprende up`, or run:
 
 ```bash
-t3 up --lan
+aprende up --lan
 ```
 
 For a server in a terminal, run `aprende serve --lan`. Either way, aprende then
@@ -24,84 +20,44 @@ all that keeps other devices on them out.
 If a server is already running, generate a fresh link without restarting it:
 
 ```bash
-t3 pair
+aprende pair
 ```
 
-Scan the QR code on your phone or paste the pairing URL into **Add environment**
-in the receiving app. Connection settings are under **Settings → Environments**
-on web and desktop and **Settings → Environments** on mobile. A loopback address
-such as `127.0.0.1` reaches only the device opening the link.
+Open the printed pairing URL in a browser on the other device. A loopback
+address such as `127.0.0.1` reaches only the device opening the link.
 
 On a computer with the desktop app, you can open the printed `aprende://pair`
 app link instead. The desktop app asks you to confirm the server address, then
 adds it.
 
-If your HTTPS endpoint uses a certificate from your own certificate authority,
-install that CA on Android as a **CA certificate** in its security settings; the
-Android app then trusts it.
-
 Pairing authorizes that device for future connections. Use a fresh one-time link
-for each new device; you do not need the original token to reconnect. Links
-created in Settings can only be copied from the client that created them while
-its Sharing & access page stays open. If you leave or reload that page, create
-another link to share.
+for each new device; you do not need the original token to reconnect.
 
 ### Reach one machine several ways
 
 A machine can have more than one route: LAN, Tailscale, another VPN, a public
 URL, or SSH. Tailscale shares its `100.64.0.0/10` address range with
 other VPNs such as Cloudflare WARP, so an address in that range shows as VPN
-unless the machine confirms it is on Tailscale. To add a route, choose **Add
-route** in the machine's route list.
+unless the machine confirms it is on Tailscale.
 A pairing link for a saved machine is refused when it comes from an address
-that machine does not have yet; add that address with **Add route** instead.
-Pairing again over an address the machine already has still works. A new route
-is placed by speed, in that order, and you can reorder routes at any time.
+that machine does not have yet. Pairing again over an address the machine
+already has still works.
 
 While connected through a paired address, aprende also learns the
 machine's current LAN and Tailscale addresses and adds them as routes, so
 pairing once over Tailscale is enough to use the LAN at home. When the
 machine's LAN address changes, for example after it joins another Wi-Fi network,
 the learned route follows it. The machine must allow network access for its LAN
-address to be learned: **Network access** in the desktop app, or the
+address to be learned: the
 [local network](./background-service.md#local-network-access) choice in `aprende up`.
-You can reorder a learned route, but not remove it; it
-goes away with the route it was learned through, or when the machine stops
-reporting that address.
+A learned route goes away with the route it was learned through, or when the
+machine stops reporting that address.
 
 aprende connects over the first route that answers. Away from home, a LAN
 address that does not answer is checked briefly and skipped. It is only tried
 again, after the other routes, if none of them connect. While connected over a
 later route, aprende checks the earlier ones when your network changes, when you
 return to the app, and every minute, and moves back as soon as one works.
-
-On web and desktop, select the route count under the machine's name in
-**Settings → Environments** to see its routes. Drag a route to change the order,
-or remove it. On mobile, open the machine under **Settings → Environments** and
-choose **Edit**.
-
-Open **Permissions** next to **Routes** in web or desktop, or **Your permissions**
-in the mobile route details, to see what your current connection can do on that
-environment. For a remote environment, this is in its route details. Permissions
-shown there apply only to the route marked **In use**; other routes are not
-checked.
-
-### Balance new threads across machines
-
-Auto balance is off by default. On web and desktop, enable it in
-**Settings → Environments → Load balancing** to automatically choose a machine for
-new threads in projects grouped across connected environments. The section
-appears once two or more machines are switched on.
-Each machine starts at **Normal**. Choose **Prefer** to favor it when it has CPU and
-memory available, **Less often** to reduce its share, or **Manual only** to exclude
-it from automatic selection. These are preferences, not fixed traffic percentages.
-Preferences are saved separately in each client.
-
-The composer checks eligible machines when choosing a draft's environment, then keeps
-that choice stable. Choose **Auto balance** again to check current resources, or choose
-a specific machine to override it. Existing threads stay where they started. If resource checks are
-unavailable or all eligible machines are full, choose a machine manually to continue.
-Mobile keeps its manual environment selection.
 
 ## Connect an outside agent
 
@@ -111,14 +67,12 @@ threads on an environment through its MCP server. See
 
 ## Manage or revoke access
 
-On the host, **Settings → Sharing & access** lets authorized administrators create
-pairing links and revoke client sessions. Revoking an unused link prevents new
-pairings; revoke a device's session to remove its existing access. Command-line
-management is available through `aprende auth --help`.
-
-When the app connects to more than one environment, choose one at the top of the
-page. A desktop app with **Local environment** off can manage a background
-service on the same machine this way.
+Manage access from the command line on the host. `aprende auth pairing create`
+creates a pairing link, `aprende auth pairing list` shows unused ones, and
+`aprende auth pairing revoke <id>` prevents new pairings with one. To remove a
+device's existing access, find its session with `aprende auth session list` and
+run `aprende auth session revoke <session-id>`. `aprende auth --help` lists every
+command.
 
 A session with an open connection stays listed after its access credential
 expires.
@@ -138,9 +92,9 @@ access also needs to go without `orchestration:operate`.
 
 To change an existing client's permissions, create a fresh pairing link with the
 scopes it needs. In a browser opened directly on the environment, open that link
-to replace the browser's current grant. For mobile or a saved remote environment
-in web or desktop, use **Add Environment** with the fresh link or code; pairing
-the same environment replaces its saved grant. Reconnecting alone does not change
+to replace the browser's current grant. For a saved remote environment in the
+desktop app, open the fresh `aprende://pair` app link; pairing the same
+environment replaces its saved grant. Reconnecting alone does not change
 permissions.
 
 Grouping checkouts does not combine their permissions. Shared project settings
@@ -161,14 +115,3 @@ the workspace. These scopes control direct file access from the client.
 
 Treat pairing URLs and authorization codes as passwords. Do not include them in
 screenshots, logs, or bug reports.
-
-## Using the Desktop App as a Remote Only
-
-If a computer should only drive work running elsewhere, turn off its local environment. In the
-desktop app, open **Settings → Environments** and switch off **Local
-environment**. aprende restarts without a local server: no local agents or terminals run, WSL
-backends stay off, and other devices can no longer connect to this computer. Your projects,
-history, and saved connections are kept, and you keep working through pairing or SSH.
-
-Switch **Local environment** back on in the same place to restart with your previous local
-settings.

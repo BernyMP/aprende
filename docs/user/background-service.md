@@ -90,7 +90,7 @@ nobody is logged in at the Mac's screen can fail at the final start step; the
 service is still installed and will start at the next login.
 
 Windows background services are not supported. To keep a Windows host available,
-leave the desktop app running with its local environment enabled, or keep
+leave the desktop app running, or keep
 `aprende serve` running in a terminal. Minimize the desktop app rather than
 closing its last window, which stops its local server.
 
@@ -154,9 +154,7 @@ Downloads, it may need Full Disk Access for the `aprende` executable listed in
 aprende removes internal history older than a day on its own while it runs;
 your conversations are kept. Databases created before this shrank automatically
 still hold the freed space on disk until a one-time offline repair returns it
-and turns on automatic shrinking. Settings > Maintenance (web and desktop) or
-Settings > Maintenance (mobile) suggests the repair when at least 1 GiB can be
-reclaimed.
+and turns on automatic shrinking.
 
 Run `aprende doctor` on the machine that hosts the environment. It reports the
 database size and the space it can reclaim, then asks which repairs to run;

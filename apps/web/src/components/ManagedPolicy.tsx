@@ -1,4 +1,3 @@
-import type { ManagedPolicySummary } from "@aprende/contracts";
 import { BuildingIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -45,27 +44,5 @@ export function ManagedNotice({ children }: { children: ReactNode }) {
       <BuildingIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
       <span>{children}</span>
     </p>
-  );
-}
-
-/** "This environment is managed by <organization>", linking the support page when there is one. */
-export function ManagedByOrganization({ policy }: { policy: ManagedPolicySummary }) {
-  return (
-    <ManagedNotice>
-      This environment is managed by {policy.organization}.
-      {policy.supportUrl ? (
-        <>
-          {" "}
-          <a
-            href={policy.supportUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="text-foreground underline underline-offset-2"
-          >
-            Get help
-          </a>
-        </>
-      ) : null}
-    </ManagedNotice>
   );
 }

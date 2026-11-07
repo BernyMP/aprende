@@ -16,14 +16,11 @@ import { resolveDiffThemeName, type DiffThemeName } from "../../lib/diffRenderin
 import { PREFERRED_HIGHLIGHTER } from "../../lib/syntaxHighlighting";
 import { GhosttyTerminalSurface } from "~/terminal/ghostty/surface";
 
-const PREVIEW_SKILLS: ReadonlyArray<ServerProviderSkill> = [
-  { name: "frontend-design", path: ".agents/skills/frontend-design/SKILL.md", enabled: true },
-];
+const PREVIEW_SKILLS: ReadonlyArray<ServerProviderSkill> = [];
 
 const PROMPT_PREVIEW_TEXT =
-  "Use $frontend-design to fix the flaky test in " +
-  "[surface.test.ts](apps/web/src/terminal/ghostty/surface.test.ts) and align the header with " +
-  "[SettingsPanels.tsx](apps/web/src/components/settings/SettingsPanels.tsx) before shipping.";
+  "I think a hash map lookup is O(log n), because it has to search for the key. " +
+  "Where does that go wrong?";
 
 function noop() {}
 

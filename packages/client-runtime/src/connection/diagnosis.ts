@@ -149,16 +149,3 @@ export function presentConnectionDiagnosis(
     facts,
   };
 }
-
-const HOP_MARK = { ok: "ok", failed: "FAILED", unchecked: "not checked" } as const;
-
-/** One plain-text block for bug reports. */
-export function connectionDiagnosisText(hostLabel: string, diagnosis: ConnectionDiagnosis): string {
-  return [
-    `aprende connection to ${hostLabel}: ${diagnosis.headline}`,
-    "",
-    ...diagnosis.hops.map((hop) => `${hop.label}: ${HOP_MARK[hop.result]}`),
-    "",
-    ...diagnosis.facts.map(([label, value]) => `${label}: ${value}`),
-  ].join("\n");
-}

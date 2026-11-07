@@ -1,6 +1,3 @@
-import { Link } from "@tanstack/react-router";
-import { type ReactNode } from "react";
-
 import { APP_DISPLAY_NAME, DESKTOP_DOWNLOAD_URL } from "~/branding";
 import { isElectron } from "../env";
 import { isLocalEnvironmentDisabled } from "../localEnvironment";
@@ -32,54 +29,25 @@ export function HostedEmptyState() {
             </EmptyTitle>
             <EmptyDescription>
               {localEnvironmentOff
-                ? "Turn it back on, or connect a different computer."
-                : "Your agents run on your computer. Start aprende there first."}
+                ? "aprende will restart and run on this computer again."
+                : "Your tutor runs on your computer. Start aprende there first."}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             {localEnvironmentOff ? (
-              <Button render={<Link to="/settings/connections" />} size="sm">
-                Open Environments
+              <Button
+                size="sm"
+                onClick={() => void window.desktopBridge?.setLocalEnvironmentEnabled(true)}
+              >
+                Turn on this computer
               </Button>
             ) : (
-              <ol className="w-full space-y-4 text-left">
-                <PairingSteps />
-              </ol>
+              <RunOnComputer command="npx aprende" />
             )}
           </EmptyContent>
         </Empty>
       </div>
     </SidebarInset>
-  );
-}
-
-function PairingSteps() {
-  return (
-    <>
-      <SetupStep number={1}>
-        <RunOnComputer command="npx aprende pair" />
-      </SetupStep>
-      <SetupStep number={2}>
-        <Button render={<Link to="/settings/connections" />} size="sm">
-          Add pairing link
-        </Button>
-      </SetupStep>
-    </>
-  );
-}
-
-function SetupStep({
-  number,
-  children,
-}: {
-  readonly number: number;
-  readonly children: ReactNode;
-}) {
-  return (
-    <li className="flex gap-3">
-      <span className="w-2 shrink-0 pt-1 text-muted-foreground">{number}</span>
-      <div className="min-w-0 flex-1">{children}</div>
-    </li>
   );
 }
 

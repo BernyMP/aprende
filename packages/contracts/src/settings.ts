@@ -50,8 +50,8 @@ export const SidebarProjectGroupingMode = Schema.Literals([
 ]);
 export type SidebarProjectGroupingMode = typeof SidebarProjectGroupingMode.Type;
 const DEFAULT_SIDEBAR_PROJECT_GROUPING_MODE: SidebarProjectGroupingMode = "repository";
-export const MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS = 1;
-export const MAX_SIDEBAR_AUTO_SETTLE_AFTER_DAYS = 90;
+const MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS = 1;
+const MAX_SIDEBAR_AUTO_SETTLE_AFTER_DAYS = 90;
 export const SidebarAutoSettleAfterDays = Schema.Number.check(
   Schema.isBetween({
     minimum: MIN_SIDEBAR_AUTO_SETTLE_AFTER_DAYS,
@@ -61,8 +61,8 @@ export const SidebarAutoSettleAfterDays = Schema.Number.check(
 export type SidebarAutoSettleAfterDays = typeof SidebarAutoSettleAfterDays.Type;
 const DEFAULT_SIDEBAR_AUTO_SETTLE_AFTER_DAYS: SidebarAutoSettleAfterDays = 3;
 
-export const MAX_SNOOZE_PRESET_MINUTES = 30 * 24 * 60;
-export const MAX_SNOOZE_PRESETS = 8;
+const MAX_SNOOZE_PRESET_MINUTES = 30 * 24 * 60;
+const MAX_SNOOZE_PRESETS = 8;
 export const SnoozePresetDay = Schema.Literals([
   "today",
   "tomorrow",
@@ -99,8 +99,8 @@ export const DEFAULT_SNOOZE_PRESETS: ReadonlyArray<SnoozePresetSetting> = [
   { kind: "at", day: "monday", time: "09:00" },
 ];
 
-export const MIN_GLASS_OPACITY = 40;
-export const MAX_GLASS_OPACITY = 100;
+const MIN_GLASS_OPACITY = 40;
+const MAX_GLASS_OPACITY = 100;
 export const GlassOpacity = Schema.Int.check(
   Schema.isBetween({
     minimum: MIN_GLASS_OPACITY,
@@ -117,8 +117,8 @@ export const AppearanceContrast = Schema.Int.check(
 );
 export type AppearanceContrast = typeof AppearanceContrast.Type;
 const DEFAULT_APPEARANCE_CONTRAST: AppearanceContrast = 100;
-export const MIN_PANEL_ANIMATION_DURATION_MS = 0;
-export const MAX_PANEL_ANIMATION_DURATION_MS = 400;
+const MIN_PANEL_ANIMATION_DURATION_MS = 0;
+const MAX_PANEL_ANIMATION_DURATION_MS = 400;
 export const PanelAnimationDurationMs = Schema.Int.check(
   Schema.isBetween({
     minimum: MIN_PANEL_ANIMATION_DURATION_MS,
@@ -170,7 +170,7 @@ export const EnvironmentIdentificationMode = Schema.Literals([
   "none",
 ]);
 export type EnvironmentIdentificationMode = typeof EnvironmentIdentificationMode.Type;
-export const DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE: EnvironmentIdentificationMode = "artwork";
+const DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE: EnvironmentIdentificationMode = "artwork";
 
 export const SnapShotKeyChord = KeybindingShortcut.check(
   Schema.makeFilter(

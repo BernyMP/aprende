@@ -49,9 +49,8 @@ and other phone-only settings ignore the filter.
 ## Pin and archive projects
 
 Pinned projects come first in the project pickers: the project picker on a new thread, the
-new-thread list, the command palette, the sidebar project filter, and mobile. In the boring sidebar, pinned projects get the top
-folders, even with no active threads. Pin or unpin a project from its row in any of those lists,
-or press the thread pin shortcut (`mod+shift+p` by default) on the highlighted row. **Pin
+new-thread list, the command palette, and the sidebar project filter. Pin or unpin a project from
+its row in any of those lists, or press the thread pin shortcut (`mod+shift+p` by default) on the highlighted row. **Pin
 project** in the command palette and **Settings → Projects** work too. A list keeps its order
 while it is open, so a new pin moves up the next time you open it.
 
@@ -75,17 +74,6 @@ on each selected environment, and reset returns to the environment's shared list
 
 A project override wins over the environment setting, which wins over the built-in default.
 Browser access changes apply when an agent session next starts.
-
-## Storage cleanup
-
-Open **Settings → Maintenance** to set how long browser captures and rotated logs are kept, on one
-machine or all connected environments. Cleanup is off by default and runs on the server at
-startup, when the retention changes, and hourly. Offline machines keep their existing settings.
-Expired capture links stop working. Current logs, message attachments, and browser profiles are
-kept.
-
-Choose **Delete now** to run cleanup immediately. The latest results show what was removed or kept
-and why, plus any failures.
 
 ## Project icons
 

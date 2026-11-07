@@ -45,12 +45,10 @@ import {
 export const SETTINGS_DEVICE_ONLY_PATHS: ReadonlySet<string> = new Set([
   "/settings/general",
   "/settings/appearance",
-  "/settings/chat",
   "/settings/snap-shot",
-  "/settings/connections",
-  // Access picks its environment on the page itself.
-  "/settings/access",
   "/settings/about",
+  // Diagnostics always shows the one environment the layout selects.
+  "/settings/diagnostics",
 ]);
 
 interface SettingsScopeMenuProps {
@@ -79,12 +77,14 @@ export function SettingsScopeSentence() {
         <span className="shrink-0">Applying settings for</span>
         <ProjectScopeMenu {...props} />
       </span>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="shrink-0">
-          {scope.search.machine || scope.scope.kind === "checkout" ? "on" : "across"}
+      {environments.length > 1 ? (
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0">
+            {scope.search.machine || scope.scope.kind === "checkout" ? "on" : "across"}
+          </span>
+          <EnvironmentScopeMenu {...props} />
         </span>
-        <EnvironmentScopeMenu {...props} />
-      </span>
+      ) : null}
     </p>
   );
 }

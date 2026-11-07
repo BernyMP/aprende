@@ -1,9 +1,7 @@
 import { HOSTED_APP_CHANNEL } from "~/branding";
 import { isElectron } from "~/env";
-import { isMacPlatform, isWindowsPlatform, normalizeSearchText } from "~/lib/utils";
+import { isMacPlatform, normalizeSearchText } from "~/lib/utils";
 import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@aprende/contracts";
-import type { EnvironmentId } from "@aprende/contracts";
-import type { EnvironmentConnectionPhase } from "@aprende/client-runtime/connection";
 import { DEFAULT_KEYBINDINGS } from "@aprende/shared/keybindings";
 import * as Schema from "effect/Schema";
 import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
@@ -17,15 +15,10 @@ export type SettingsPath =
   | "/settings/general"
   | "/settings/diagnostics"
   | "/settings/appearance"
-  | "/settings/chat"
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
   | "/settings/threads"
-  | "/settings/connections"
-  | "/settings/access"
-  | "/settings/maintenance"
-  | "/settings/labs"
   | "/settings/about"
   | "/settings/archived";
 
@@ -46,24 +39,13 @@ export interface SettingsSearchItem {
   readonly scope?: SettingsSearchScope;
   readonly desktopOnly?: boolean;
   readonly macOnly?: boolean;
-  readonly windowsOnly?: boolean;
   readonly releaseChannelOnly?: boolean;
-  readonly environmentOnly?: boolean;
   readonly providerSettingsOnly?: boolean;
-  readonly localBackendManagementOnly?: boolean;
-  readonly localEnvironmentOnly?: boolean;
-  readonly wslAvailableOnly?: boolean;
   readonly secondary?: boolean;
-  readonly requiresThreadAutoSettlement?: boolean;
 }
 
 export interface SettingsSearchAvailability {
-  readonly localEnvironmentDisabled?: boolean;
-  readonly hasEnvironment: boolean;
   readonly hasProviderSettingsEnvironment: boolean;
-  readonly canManageLocalBackend: boolean;
-  readonly isWslSettingsRowVisible: boolean;
-  readonly hasThreadAutoSettlement: boolean;
 }
 
 export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
@@ -72,15 +54,10 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/projects": "Projects",
   "/settings/general": "General",
   "/settings/appearance": "Appearance",
-  "/settings/chat": "Chat",
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
   "/settings/threads": "Threads",
-  "/settings/connections": "Environments",
-  "/settings/access": "Sharing & access",
-  "/settings/maintenance": "Maintenance",
-  "/settings/labs": "Labs",
   "/settings/about": "About",
   "/settings/archived": "Archive",
 };
@@ -92,23 +69,19 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
 }> = [
   {
     heading: null,
-    paths: ["/settings/general", "/settings/appearance", "/settings/chat", "/settings/keybindings"],
-  },
-  {
-    heading: "Learning",
     paths: ["/settings/tutor", "/settings/providers", "/settings/threads", "/settings/projects"],
   },
   {
-    heading: "Connections",
-    paths: ["/settings/connections", "/settings/access"],
+    heading: "App",
+    paths: ["/settings/general", "/settings/appearance", "/settings/keybindings"],
   },
   {
     heading: null,
-    paths: ["/settings/maintenance", "/settings/labs", "/settings/about", "/settings/archived"],
+    paths: ["/settings/about", "/settings/archived"],
   },
 ];
 
-// Coding-only sections stay routable until they are removed, but are not offered.
+// Detail pages (Diagnostics, SnapShots) stay routable but are not offered in search.
 const SETTINGS_NAV_PATHS: ReadonlySet<SettingsPath> = new Set(
   SETTINGS_NAV_GROUPS.flatMap((group) => group.paths),
 );
@@ -151,22 +124,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["system prompt instructions teaching method tutor"],
   },
   {
-    id: "storage-delete-now",
-    title: "Delete now",
-    to: "/settings/maintenance",
-    scope: "environment-defaults",
-    searchTerms: ["storage cleanup run now results report removed kept failed"],
-  },
-  {
-    id: "storage-artifacts",
-    title: "Artifacts and logs",
-    to: "/settings/maintenance",
-    scope: "environment-defaults",
-    searchTerms: [
-      "disk storage delete old browser artifacts screenshots captures rotated logs cleanup retention",
-    ],
-  },
-  {
     id: "project-defaults",
     title: "Project defaults and overrides",
     to: "/settings/threads",
@@ -185,14 +142,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/threads",
     scope: "project-defaults",
     searchTerms: ["new thread project provider reasoning effort"],
-  },
-  {
-    id: "fallback-model",
-    title: "Fallback model",
-    to: "/settings/threads",
-    scope: "environment-defaults",
-    searchTerms: ["fallback agent provider out of usage new threads"],
-    environmentOnly: true,
   },
   {
     id: "default-permissions",
@@ -217,49 +166,16 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["colors borders interface"],
   },
   {
-    // Prefixed because the slider control already owns the `glass-opacity` id.
-    id: "setting-glass-opacity",
-    title: "Glass opacity",
-    to: "/settings/appearance",
-    searchTerms: ["transparent transparency solid menus dialogs composer"],
-  },
-  {
     id: "chat-width",
     title: "Chat width",
     to: "/settings/appearance",
     searchTerms: ["wide full width column layout messages composer monitor"],
   },
   {
-    id: "thread-details-items",
-    title: "Thread details",
-    to: "/settings/appearance",
-    searchTerms: [
-      "customize show hide panel card environment editor scripts branch git changes servers lineage usage limits 5 hour weekly quota tokens context window",
-    ],
-  },
-  {
-    id: "effort-display",
-    title: "Effort display",
-    to: "/settings/appearance",
-    searchTerms: ["reasoning effort thinking bars graph word label level composer"],
-  },
-  {
     id: "math-rendering",
     title: "Render math",
     to: "/settings/appearance",
     searchTerms: ["latex tex katex equations formulas markdown"],
-  },
-  {
-    id: "panel-animations",
-    title: "Panel animations",
-    to: "/settings/appearance",
-  },
-  {
-    id: "environment-identification",
-    title: "Environment identification",
-    to: "/settings/appearance",
-    searchTerms: ["dev nightly latest channel artwork pill label hide none"],
-    targetId: "appearance-interface",
   },
   {
     id: "interface-font",
@@ -305,62 +221,10 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["long lines code blocks diffs file previews"],
   },
   {
-    id: "project-grouping",
-    title: "Project grouping",
-    to: "/settings/general",
-    searchTerms: ["combine matching repositories environments sidebar"],
-  },
-  {
     id: "project-order",
     title: "Project order",
     to: "/settings/general",
     searchTerms: ["sort projects sidebar manual created recent"],
-  },
-  {
-    id: "snooze-options",
-    title: "Snooze options",
-    to: "/settings/threads",
-    searchTerms: ["snooze presets times later tonight tomorrow next week remind"],
-    environmentOnly: true,
-    scope: "environment-defaults",
-  },
-  {
-    id: "snooze-limited-threads",
-    title: "Snooze until limits reset",
-    to: "/settings/threads",
-    searchTerms: ["usage quota rate limit reset wake recover continue"],
-  },
-  {
-    id: "auto-resume-limited-threads",
-    title: "Resume after usage limits",
-    to: "/settings/threads",
-    searchTerms: ["usage quota rate limit reset recover continue"],
-  },
-  {
-    id: "working-shelf",
-    title: "Working section",
-    to: "/settings/general",
-    searchTerms: ["hide fold running monitoring threads inbox sidebar shelf"],
-  },
-  {
-    id: "boring-sidebar",
-    title: "Boring sidebar (group by project)",
-    to: "/settings/labs",
-    searchTerms: ["beta folders project tree legacy old classic sidebar"],
-  },
-  {
-    id: "boring-sidebar-multiline",
-    title: "Two-line folder rows",
-    to: "/settings/labs",
-    searchTerms: ["beta boring sidebar folder rows multiline branch pull request details"],
-  },
-  {
-    id: "auto-settle-inactive-threads",
-    title: "Auto-settle inactive threads",
-    to: "/settings/threads",
-    searchTerms: ["sidebar inactivity days no activity automatically"],
-    requiresThreadAutoSettlement: true,
-    scope: "project-defaults",
   },
   {
     id: "compact-idle-threads",
@@ -368,15 +232,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/providers",
     scope: "environment-defaults",
     searchTerms: ["claude context compaction idle cache tokens usage summary resume"],
-  },
-  {
-    id: "days-before-auto-settle",
-    title: "Days of inactivity before auto-settle",
-    to: "/settings/threads",
-    targetId: "auto-settle-inactive-threads",
-    searchTerms: ["thread timeout activity sidebar"],
-    requiresThreadAutoSettlement: true,
-    scope: "project-defaults",
   },
   {
     id: "thread-notifications",
@@ -397,60 +252,16 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["timestamp clock locale system browser os 12 hour 24 hour"],
   },
   {
-    id: "response-streaming",
-    title: "Response streaming",
-    to: "/settings/threads",
-    scope: "project-defaults",
-    searchTerms: ["output token paragraph buffered wait turn legacy"],
-  },
-  {
-    id: "skills-in-slash-menu",
-    title: "Show skills in slash menu",
-    to: "/settings/chat",
-    searchTerms: ["command menu dollar $ slash /"],
-  },
-  {
     id: "composer-rich-text",
     title: "Rich text composer",
-    to: "/settings/chat",
+    to: "/settings/general",
     searchTerms: ["composer rich text tiptap bold italic markdown styled wysiwyg"],
   },
   {
     id: "send-shortcut",
     title: "Send shortcut",
-    to: "/settings/chat",
+    to: "/settings/general",
     searchTerms: ["enter return command ctrl multiline prompt new line composer"],
-  },
-  {
-    id: "follow-up-behavior",
-    title: "Follow-up behavior",
-    to: "/settings/chat",
-    searchTerms: ["queue steer running turn send default behavior composer"],
-  },
-  {
-    id: "provider-update-checks",
-    title: "Provider update checks",
-    to: "/settings/maintenance",
-    searchTerms: ["installed cli versions newer available codex claude"],
-    scope: "environment-defaults",
-  },
-  {
-    id: "continue-threads-after-server-update",
-    title: "Continue threads after restarts",
-    to: "/settings/maintenance",
-    scope: "project-defaults",
-    searchTerms: [
-      "resume running active interrupted work restart reboot machine crash desktop update automatically",
-    ],
-  },
-  {
-    id: "background-activity",
-    title: "Background activity",
-    to: "/settings/maintenance",
-    scope: "environment-defaults",
-    searchTerms: [
-      "balanced performance battery saver advanced provider health refresh host power monitor idle policy",
-    ],
   },
   {
     id: "add-project-starts-in",
@@ -460,43 +271,17 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["base directory folder browser path home"],
   },
   {
-    id: "unpin-confirmation",
-    title: "Unpin confirmation",
-    to: "/settings/general",
-    searchTerms: ["ask before thread pinned section"],
-  },
-  {
-    id: "archive-confirmation",
-    title: "Archive confirmation",
-    to: "/settings/general",
-    searchTerms: ["ask before thread second click inline action"],
-  },
-  {
     id: "delete-confirmation",
     title: "Delete confirmation",
     to: "/settings/general",
     searchTerms: ["ask before thread chat history"],
   },
   {
-    id: "quit-confirmation",
-    title: "Quit shortcut",
-    to: "/settings/general",
-    searchTerms: ["confirmation desktop app exit direct hold double click press twice"],
-    desktopOnly: true,
-  },
-  {
     id: "text-generation-model",
-    title: "Text generation model",
+    title: "Title model",
     to: "/settings/threads",
     scope: "project-defaults",
     searchTerms: ["generated thread titles source control content default provider"],
-  },
-  {
-    id: "thread-title-instructions",
-    title: "Thread title instructions",
-    to: "/settings/threads",
-    scope: "project-defaults",
-    searchTerms: ["generated thread titles prompt custom style naming rename regenerate"],
   },
   {
     id: "app-version",
@@ -535,7 +320,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "diagnostics",
     title: "Diagnostics",
-    to: "/settings/maintenance",
+    to: "/settings/about",
     searchTerms: ["logs traces processes resource history failures spans cpu memory"],
   },
   {
@@ -548,18 +333,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "open-source-licenses",
     title: "Open source licenses",
     to: "/settings/about",
-  },
-  {
-    id: "legacy-plan-mode",
-    title: "Plan mode (legacy)",
-    to: "/settings/labs",
-    searchTerms: ["build plan composer old"],
-  },
-  {
-    id: "legacy-context-window-indicator",
-    title: "Context window indicator (legacy)",
-    to: "/settings/labs",
-    searchTerms: ["composer meter usage tokens circle old"],
   },
   {
     id: "keybindings",
@@ -623,62 +396,6 @@ export const SETTINGS_SEARCH_ITEMS = [
     providerSettingsOnly: true,
   },
   {
-    id: "environment-icon",
-    title: "Environment icon",
-    to: "/settings/access",
-    targetId: "connections-environment",
-    searchTerms: ["machine glyph sidebar mac mini studio laptop desktop server cloud vm"],
-  },
-  {
-    id: "local-environment",
-    title: "Local environment",
-    to: "/settings/connections",
-    searchTerms: ["turn off on disable enable local server agents remote only restart"],
-    desktopOnly: true,
-  },
-  {
-    id: "network-access",
-    title: "Network access",
-    to: "/settings/access",
-    targetId: "connections-environment",
-    searchTerms: ["expose backend remote pairing local machine interfaces host restart"],
-    localBackendManagementOnly: true,
-  },
-  {
-    id: "wsl-backend",
-    title: "WSL backend",
-    to: "/settings/access",
-    searchTerms: [
-      "windows subsystem linux distro second server projects stop windows backend restart wsl only",
-    ],
-    desktopOnly: true,
-    windowsOnly: true,
-    localBackendManagementOnly: true,
-    wslAvailableOnly: true,
-  },
-  {
-    id: "connections-environment",
-    title: "This machine",
-    to: "/settings/access",
-    searchTerms: [
-      "connections server backend local remote access administrative permissions scope pairing links qr code authorized clients sessions revoke endpoint",
-    ],
-  },
-  {
-    id: "remote-environments",
-    title: "Environments",
-    to: "/settings/connections",
-    searchTerms: ["add pair backend host code ssh config agent tunnel saved t3 connect"],
-  },
-  {
-    id: "load-balancing",
-    title: "Load balancing",
-    to: "/settings/connections",
-    searchTerms: [
-      "automatic machine environment resources cpu memory capacity preference weight shared projects",
-    ],
-  },
-  {
     id: "archive",
     title: "Archived threads",
     to: "/settings/archived",
@@ -696,48 +413,13 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/projects": "project",
   "/settings/general": null,
   "/settings/appearance": null,
-  "/settings/chat": null,
   "/settings/snap-shot": null,
   "/settings/keybindings": null,
   "/settings/providers": null,
   "/settings/threads": null,
-  "/settings/connections": "connections",
-  "/settings/access": "connections",
-  "/settings/maintenance": null,
-  "/settings/labs": null,
   "/settings/about": null,
   "/settings/archived": "project-defaults",
 };
-
-const RENAMED_SETTINGS_PATHS: Readonly<Record<string, SettingsPath>> = {
-  "/settings/storage": "/settings/maintenance",
-  "/settings/beta": "/settings/labs",
-};
-const SPLIT_SETTINGS_PATHS: ReadonlySet<string> = new Set([
-  "/settings/general",
-  "/settings/appearance",
-  "/settings/connections",
-  ...Object.keys(RENAMED_SETTINGS_PATHS),
-]);
-// Section anchors that moved but are not search results themselves.
-const MOVED_SECTION_ANCHORS: Readonly<Record<string, SettingsPath>> = {
-  "authorized-clients": "/settings/access",
-  "legacy-features": "/settings/labs",
-  "text-generation": "/settings/threads",
-  about: "/settings/about",
-};
-
-/** Where an old settings link now lives. Its anchor finds the page its row moved to. */
-export function movedSettingsPath(pathname: string, hash: string): SettingsPath | null {
-  if (!SPLIT_SETTINGS_PATHS.has(pathname)) return null;
-  const items: readonly SettingsSearchItem[] = SETTINGS_SEARCH_ITEMS;
-  const anchored = hash
-    ? (items.find((item) => item.id === hash) ?? items.find((item) => item.targetId === hash))
-    : undefined;
-  const to =
-    anchored?.to ?? MOVED_SECTION_ANCHORS[hash] ?? RENAMED_SETTINGS_PATHS[pathname] ?? null;
-  return to === pathname ? null : to;
-}
 
 export function getSettingsSearchTargetScope(targetId: string) {
   const items: readonly SettingsSearchItem[] = SETTINGS_SEARCH_ITEMS;
@@ -748,37 +430,8 @@ export function getSettingsSearchTargetScope(targetId: string) {
     ? {
         title: item.title,
         scope: item.scope ?? SETTINGS_CATEGORY_SCOPES[item.to],
-        ...(item.requiresThreadAutoSettlement ? { requiresThreadAutoSettlement: true } : {}),
       }
     : null;
-}
-
-interface AutoSettlementSearchEnvironment {
-  readonly environmentId: EnvironmentId;
-  readonly connection: { readonly phase: EnvironmentConnectionPhase };
-  readonly serverConfig: object | null;
-}
-
-export function getThreadAutoSettlementSearchAvailability(
-  environments: readonly AutoSettlementSearchEnvironment[],
-  scope?: Pick<ResolvedSettingsScope, "kind" | "environmentIds">,
-) {
-  const connected = environments.filter(
-    (environment) =>
-      environment.connection.phase === "connected" && environment.serverConfig !== null,
-  );
-  const eligibleEnvironmentIds = connected.map((environment) => environment.environmentId);
-  const selected = connected.filter((environment) =>
-    scope?.environmentIds.includes(environment.environmentId),
-  );
-  return {
-    eligibleEnvironmentIds,
-    isTargetAvailable:
-      scope !== undefined &&
-      scope.kind !== "unavailable" &&
-      selected.length > 0 &&
-      selected.every((environment) => eligibleEnvironmentIds.includes(environment.environmentId)),
-  };
 }
 
 export function isSettingsSearchScopeAvailable(
@@ -821,12 +474,7 @@ export function filterAvailableSettingsSearchItems(
   return items.filter(
     (item) =>
       SETTINGS_NAV_PATHS.has(item.to) &&
-      (!item.environmentOnly || availability.hasEnvironment) &&
-      (!item.providerSettingsOnly || availability.hasProviderSettingsEnvironment) &&
-      (!item.localBackendManagementOnly || availability.canManageLocalBackend) &&
-      (!item.localEnvironmentOnly || !availability.localEnvironmentDisabled) &&
-      (!item.wslAvailableOnly || availability.isWslSettingsRowVisible) &&
-      (!item.requiresThreadAutoSettlement || availability.hasThreadAutoSettlement),
+      (!item.providerSettingsOnly || availability.hasProviderSettingsEnvironment),
   );
 }
 
@@ -839,8 +487,7 @@ export function settingsForThisPlatform(
     (item) =>
       (isElectron || item.desktopOnly !== true) &&
       (!item.releaseChannelOnly || isElectron || HOSTED_APP_CHANNEL !== null) &&
-      (!item.macOnly || isMacPlatform(platform)) &&
-      (!item.windowsOnly || isWindowsPlatform(platform)),
+      (!item.macOnly || isMacPlatform(platform)),
   );
 }
 

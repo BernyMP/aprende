@@ -33,19 +33,19 @@ export const AuthOrchestrationOperateScope = "orchestration:operate" as const;
 export const AuthSettingsWriteScope = "settings:write" as const;
 export const AuthProvidersManageScope = "providers:manage" as const;
 export const AuthEnvironmentMaintainScope = "environment:maintain" as const;
-export const AuthPreviewOperateScope = "preview:operate" as const;
+const AuthPreviewOperateScope = "preview:operate" as const;
 export const AuthDiagnosticsReadScope = "diagnostics:read" as const;
-export const AuthTerminalReadScope = "terminal:read" as const;
+const AuthTerminalReadScope = "terminal:read" as const;
 export const AuthTerminalOperateScope = "terminal:operate" as const;
-export const AuthSourceControlWriteScope = "source-control:write" as const;
+const AuthSourceControlWriteScope = "source-control:write" as const;
 export const AuthFilesystemReadScope = "filesystem:read" as const;
 export const AuthFilesystemWriteScope = "filesystem:write" as const;
 /** Retained for decoding existing credentials; grants no current RPC access. */
 const AuthReviewWriteScope = "review:write" as const;
 export const AuthAccessReadScope = "access:read" as const;
 export const AuthAccessWriteScope = "access:write" as const;
-export const AuthRelayReadScope = "relay:read" as const;
-export const AuthRelayWriteScope = "relay:write" as const;
+const AuthRelayReadScope = "relay:read" as const;
+const AuthRelayWriteScope = "relay:write" as const;
 export const AuthEnvironmentScope = Schema.Literals([
   AuthOrchestrationReadScope,
   AuthOrchestrationOperateScope,
@@ -134,16 +134,6 @@ export function sessionGrantsScope(
   if (session.auth?.serverUpdateScope !== undefined) return false;
   const parent = legacyParents[scope];
   return parent !== undefined && session.scopes?.includes(parent) === true;
-}
-
-export function sessionHasLegacyPermissions(session: SessionGrantInput): boolean {
-  const permissions = session.permissions;
-  return (
-    session.authenticated &&
-    permissions !== undefined &&
-    permissions.every((scope) => legacyScopes.has(scope)) &&
-    Object.values(legacyParents).some((parent) => permissions.includes(parent))
-  );
 }
 
 // Shell and full-access agent scopes already confer access and relay authority.

@@ -160,11 +160,6 @@ export function isManagedSettingPath(
   );
 }
 
-/** The one shape users see when policy refuses something: "Example Corp's policy does not allow importing browser cookies." */
-function managedPolicyDeniedMessage(organization: string, capability: string): string {
-  return `${organization}'s policy does not allow ${capability}.`;
-}
-
 const RUNTIME_MODE_LABELS: Record<RuntimeMode, string> = {
   "approval-required": "Supervised",
   "auto-accept-edits": "Auto-accept edits",
@@ -200,27 +195,6 @@ export function clampManagedRuntimeMode(
   const ceiling = summary?.limits?.maxRuntimeMode;
   if (!isRuntimeModeAbove(mode, ceiling)) return mode;
   return modes.findLast((candidate) => !isRuntimeModeAbove(candidate, ceiling));
-}
-
-const CAPABILITY_LABELS = {
-  remoteClients: "connecting from other devices",
-  browserCookieImport: "importing browser cookies",
-} as const;
-
-/** Why a capability is unavailable on an environment with `summary`, or undefined when allowed. */
-export function managedCapabilityDenial(
-  summary: ManagedPolicySummary | undefined,
-  capability: keyof typeof CAPABILITY_LABELS,
-): string | undefined {
-  const limits = summary?.limits;
-  if (summary === undefined || limits === undefined) return undefined;
-  const denied =
-    capability === "remoteClients"
-      ? limits.clients !== undefined && !limits.clients.includes("remote")
-      : limits[capability] === false;
-  return denied
-    ? managedPolicyDeniedMessage(summary.organization, CAPABILITY_LABELS[capability])
-    : undefined;
 }
 
 /** Whether the policy lets `driver` run; clients name it with their own provider label. */

@@ -18,7 +18,7 @@ The composer writes Markdown and shows it styled as you type. When your cursor
 is on styled text, its Markdown shows instead, such as `**bold**`, and the
 markers edit like any other text: delete them to remove the style, or change
 `**` to `*` for italic. The style updates when your cursor leaves. To write
-plain Markdown with no styling, turn off **Settings → Chat → Rich text
+plain Markdown with no styling, turn off **Settings → General → Rich text
 composer**. Lines starting with `- `, `1. `, `- [ ] `, `> `, `# ` or `---`
 become lists, task lists, quotes, headings and rules; ` ``` ` followed by Enter
 opens a code block. What you typed is what the agent receives, markers and
@@ -61,16 +61,13 @@ See [images and videos](#images-and-videos-in-messages) for previewing and savin
 
 ## Send while the agent is working
 
-On web and desktop, choose **Settings → Chat → Follow-up behavior** to queue
-new messages for a later turn or steer the running turn immediately. The setting
-applies to this client; already queued messages keep their place. Queued messages
-are saved on the server and can be edited or removed before they send.
-When Enter sends, `Cmd+Enter` on macOS or `Ctrl+Enter` on Windows and Linux uses
-the opposite action: it steers when your default is Queue and queues when your
-default is Steer.
-If your **Send shortcut** requires `Cmd+Enter` or `Ctrl+Enter`, that shortcut uses
-your default follow-up behavior; add **Shift** to use the opposite action. This
-applies only to multiline messages when you choose the multiline send option.
+A message you send while the agent is working steers the running turn
+immediately. To queue it for a later turn instead, press `Cmd+Enter` on macOS or
+`Ctrl+Enter` on Windows and Linux when Enter sends. Queued messages are saved on
+the server and can be edited or removed before they send.
+If your **Send shortcut** in **Settings → General** requires `Cmd+Enter` or
+`Ctrl+Enter`, that shortcut steers; add **Shift** to queue. This applies only to
+multiline messages when you choose the multiline send option.
 
 Use `Cmd+Shift+Enter` on macOS or `Ctrl+Shift+Enter` on Windows and Linux to send
 the oldest queued message as a steer. This leaves the current draft intact and
@@ -82,10 +79,7 @@ Press `Option+Up` on macOS or `Alt+Up` on Windows and Linux with the cursor at t
 start of the composer to edit the most recently queued message. Change
 `thread.editQueuedMessage` to use another shortcut.
 
-Mobile has the same choice under **Settings → Chat**. While a turn is
-running the send button shows which action it will take. Long-press it to use the
-other action for a single message, or hold `Cmd` while sending from a hardware
-keyboard. The button only offers Steer when the running agent supports it.
+The send button only offers Steer when the running agent supports it.
 
 ## Queue messages offline on mobile
 
@@ -214,9 +208,9 @@ transcription or cancellation; only the message text is sent when you submit.
 ## Queued messages
 
 On web and desktop, the composer shows **Interrupt** while the agent is working and the draft is
-empty. Adding text or attachments replaces it with a send button that shows your
-[Follow-up behavior](#send-while-the-agent-is-working): a queue icon for Queue or a steer arrow for
-Steer. Click it or press your send shortcut to use that action. Hold `Cmd` on macOS or `Ctrl` on
+empty. Adding text or attachments replaces it with a send button that shows a steer arrow (see
+[send while the agent is working](#send-while-the-agent-is-working)). Click it or press your send
+shortcut to steer. Hold `Cmd` on macOS or `Ctrl` on
 Windows and Linux to switch the button to the opposite action, then click, or use the opposite-action
 shortcut described above.
 
@@ -244,8 +238,7 @@ Type `/` for commands or `$` to add a skill from the selected environment and
 provider. On mobile, both are also available before starting a thread on
 **New task**.
 
-The slash menu also includes skills unless you turn off **Settings → Chat →
-Show skills in slash menu**, under Advanced. Only skills enabled for the provider are listed.
+The slash menu also includes skills enabled for the provider.
 
 After you add or change skills, plugins, or MCP servers, use **Restart agent
 session** in the command palette on web and desktop. The conversation continues,
@@ -255,12 +248,7 @@ Provider commands must start the message to run. aprende commands such as
 `/model` and `/plan`, and skill mentions, work on any line.
 
 Send `/compact` in an existing conversation to reduce context usage when the
-provider supports it, even with the context meter turned off.
-
-On web and desktop, turn on **Settings → Labs → Legacy → Context
-window indicator (legacy)** to see context usage. The meter is off by default
-and appears once the provider reports usage. Open it for usage details and
-**Compact context** when the provider supports compaction.
+provider supports it.
 
 Claude instances can also compact idle threads for you. See
 [compact long conversations](./providers-claude.md#compact-long-conversations).

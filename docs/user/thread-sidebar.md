@@ -109,10 +109,6 @@ To generate a fresh title from the conversation, open a thread's menu and choose
 **Regenerate title**. The action is unavailable while title generation is in progress
 or when the connected environment needs a server update.
 
-To change how titles are written, add **Thread title instructions** in **Settings → Threads →
-Text generation**, under Advanced, such as a length limit or an identifier to put first. They apply to new and
-regenerated titles. Select a project to give it its own instructions.
-
 Agents connected through aprende can use the same server-owned metadata workflow to
 rename a thread or regenerate its title. These changes
 appear on web, desktop, and mobile without requiring the originating browser to remain
@@ -128,23 +124,8 @@ there. A thread returns to the top of the active list when it finishes, fails, o
 answer. The Working section lists the thread you last sent work to first. Pinned threads stay in
 the pinned section.
 
-This is on by default. Turn it off with **Settings → General → Working section** on web and desktop,
-or **Settings → General → Working section** on iOS and Android. Each device keeps its own
-choice.
-
-While this is on, the active list is ordered by when each thread last came back to you, so you
-cannot drag or move threads within it. Your saved order returns when you turn it off.
-
-### Group threads by project (beta)
-
-Turn on **Settings → Labs → Boring sidebar (group by project)** on web and desktop to put active
-threads in a folder for each project. Pinned projects come first. A project with no active
-threads has no folder unless it is pinned or you pick it in the project filter. An archived
-project's folder comes last and shows only while it has active threads. Click a folder to open or
-close it. A closed folder shows how many threads it holds, and a dot when one of them
-needs you. Use the pen button on a folder, or right-click it, to start a thread in that project.
-Pinned threads stay above the folders, and Snoozed and Settled stay below them. In this mode you
-cannot drag threads, and the Working section is off. Each device keeps its own choice.
+The active list is ordered by when each thread last came back to you, so you cannot drag or move
+threads within it.
 
 ## Settle finished work
 
@@ -161,7 +142,7 @@ settle every thread in that section between it and the one you release on.
 The **Un-settle** and **Wake** buttons work the same way in their sections.
 Press `Escape` while dragging to cancel.
 
-By default, environments settle inactive threads after three days. An empty thread's
+Environments settle inactive threads after three days. An empty thread's
 inactivity counts from when it was created. Work in progress, pending questions or approvals,
 and background work the agent is waiting on prevent automatic settlement.
 
@@ -170,9 +151,7 @@ choose **Auto-settle behavior**, and pick **Disabled**. The current option is ch
 **Enabled** to return to the usual rules. Manual settle, snooze, and archive still work while it
 is disabled.
 
-Change these rules in **Settings → Threads**.
-They continue to run when your apps are closed. On web and desktop, choose an environment at the
-top to change only its rules, or **All environments** to update connected environments together.
+These rules run on the environment, so they continue when your apps are closed.
 Mixed values show where the selected environments disagree. Mobile applies these
 rules to connected environments that support shared settings. Offline environments
 and older servers keep their previous values. Changing a rule does not reopen
@@ -209,8 +188,7 @@ Queued messages stay saved while the limit blocks the thread. They run after
 the continuation finishes. If the queue was held by a restart, resume it then.
 
 When the provider reports a reset time, choose **Resume at reset** to schedule a
-continuation. You can cancel it from the thread. Enable **Resume after
-usage limits** in **Settings → Threads** to schedule limit stops by default.
+continuation. You can cancel it from the thread.
 The environment must be running when the reset arrives; it resumes overdue
 continuations after a restart. Stopping the thread, sending a new message,
 archiving, or settling it prevents a pending continuation from starting.
@@ -218,8 +196,7 @@ archiving, or settling it prevents a pending continuation from starting.
 Choose **Snooze until reset** to hide the thread until its allowance returns.
 Snooze and auto-resume are independent: snooze alone wakes the thread without
 sending a message; enabling both wakes and continues it. **Wake now** cancels
-the snooze. Enable **Snooze until limits reset** in thread behavior settings to
-snooze limit stops by default. Providers without a reset time offer manual
+the snooze. Providers without a reset time offer manual
 retry and the normal snooze choices.
 
 On web and desktop, use **Agents** to follow work delegated to subagents.
@@ -244,8 +221,7 @@ Select a server to open it in the browser panel. **Stop** ends the server's job
 and keeps the agent, the terminal, and aprende running. Stop needs terminal
 access to the environment and is not available on Windows.
 
-To choose what the thread details card shows, right-click the card or open
-**Settings → Appearance → Thread details**. Hidden rows keep their keyboard
+To choose what the thread details card shows, right-click the card. Hidden rows keep their keyboard
 shortcuts, such as Open in editor and project scripts. **Reset to default** brings
 back the standard rows.
 
@@ -275,11 +251,8 @@ answer its questions.
 
 ## Snooze until later
 
-To change the choices in the snooze menu, open **Settings → Threads → Snooze options**.
-Each option is a duration, such as 3 hours, or a time on a day, such as 9:00 PM
-tomorrow. A weekday means the next one after today. Menus list the options soonest
-first and hide a today option after its time passes. Saved with **All environments**
-selected, the options apply to every connected environment, and the mobile app uses them too.
+The snooze menu offers 1 hour, 3 hours, 6 PM today, 9 AM tomorrow, and 9 AM next
+Monday. Menus list the options soonest first and hide a today option after its time passes.
 
 Choose **Snooze → Custom…** from a thread's menu to pick a date and time in your
 local time zone, or a duration in minutes, hours, or days. Durations start when

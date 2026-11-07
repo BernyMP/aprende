@@ -2,7 +2,7 @@
 
 The app you use and the server running your agents can be on different machines.
 When a server is behind your web or desktop app, the update button at the bottom
-of the sidebar and **Settings → Environments** offer to update it.
+of the sidebar offers to update it.
 
 ## Update everything at once
 
@@ -25,16 +25,15 @@ restarts.
 Each server checks that it can install the release before it restarts. If the
 release is not available to a server yet, its update fails, the server keeps
 running, and you can retry. The confirmation lists each machine it skips and
-why, such as a machine that is offline or needs a manual update. Use
-**Settings → Environments** for those.
+why, such as a machine that is offline or needs a manual update. See
+[update a connected server](#update-a-connected-server) for those.
 
 If a desktop app restarts on its old version, aprende tells you the update did
 not apply. It does not install that version again on its own, even when another
 device asks. Use the update button on that machine to retry.
 
 The confirmation counts the running threads that the restarts will interrupt,
-and how many can resume afterwards. See **Continue threads after restarts**
-below.
+and how many can resume afterwards. See [before you update](#before-you-update).
 
 ## Switch between Stable and Nightly
 
@@ -64,13 +63,9 @@ checks.
 Server updates restart the connection and can interrupt active agents and
 terminal commands. Saved threads, settings, and project files remain.
 
-**Settings → Maintenance → Continue threads after restarts** is on by default.
-It resumes supported active threads after an update, crash, or machine
-restart. Changes are saved to connected environments that support this setting;
-update older servers first. If a supported environment was offline or has a
-different value, use **Apply to all** in Settings after it connects.
-aprende must start again on that machine;
-the setting does not enable automatic startup. Terminal commands may still be
+aprende resumes supported active threads after an update, crash, or machine
+restart. aprende must start again on that machine; this does not enable
+automatic startup. Terminal commands may still be
 interrupted, and threads without saved provider resume state need a new message.
 A thread that finished its turn to wait on a subagent, a background task, or a
 command or monitor the agent said it was waiting on is woken and told that this work
@@ -175,31 +170,8 @@ offer a manual update command are not included.
 
 After a successful provider CLI update, aprende refreshes model discovery for
 every enabled instance of that provider using its own configuration. Connected
-clients receive the refreshed catalogs automatically. Provider update checks
-must be enabled to download the latest aprende model catalog.
+clients receive the refreshed catalogs automatically.
 
 Provider updates do not restart running chats. An existing session can keep
 using the previous CLI until it ends. If discovery fails, check the provider
 status and refresh it again.
-
-## Mobile updates
-
-To update an environment from your phone, open **Settings → Environments** and
-select it. **Check for updates** finds the latest release on that environment's
-current release channel. Keep the app open while the environment updates and
-reconnects. Hosts that cannot update remotely show instructions for updating on
-the machine instead.
-
-The same page lets you refresh provider status and update supported providers.
-These controls require a connected environment and permission to operate it.
-Provider update checks and restart continuation preferences are in
-**Settings → Maintenance**. If provider update checks are disabled, enable them
-there before refreshing to find newer versions. The same setting controls whether
-aprende downloads model catalog updates, so with it off new models may not appear
-until you enable it and refresh provider status.
-
-Install App Store or Google Play releases as usual. The mobile app can also
-download updates in the background and apply them when you next leave the app.
-It saves drafts and queued messages before restarting. If you keep the app open
-for a long time, it may ask to install immediately; choosing **Later** leaves the
-update queued for the next suitable moment.
