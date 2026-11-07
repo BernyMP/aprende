@@ -94,7 +94,7 @@ const SCHOLAR_LIGHT_COLORS: ThemeColors = {
   muted: "#f0efec",
   mutedForeground: "#62605b",
   placeholder: "#6a6863",
-  secondaryLabel: "#686661",
+  secondaryLabel: "#62605b",
   iconMuted: "#686661",
   error: "#d24d42",
   errorForeground: "#ac312a",
