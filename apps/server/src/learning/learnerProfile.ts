@@ -1,9 +1,4 @@
-import {
-  LearnerProfile,
-  type LearnerGoalKind,
-  type LearnerProfilePatch,
-  type LearnerProfileState,
-} from "@aprende/contracts";
+import { LearnerProfile, type LearnerGoalKind, type LearnerProfilePatch } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
@@ -22,17 +17,13 @@ const ProfileJson = Schema.fromJsonString(LearnerProfile);
 const decodeProfile = Schema.decodeUnknownOption(ProfileJson);
 const encodeProfile = Schema.encodeSync(ProfileJson);
 
-/** A file that exists but does not decode still counts as saved, so the tutor stops asking. */
+/** A missing or unreadable file is an empty profile. */
 export const readLearnerProfile = Effect.fn("LearnerProfile.read")(function* (
   location: ProfileLocation,
 ) {
   const text = yield* location.fileSystem.readFileString(profilePath(location)).pipe(Effect.option);
-  if (text._tag === "None") return { profile: {}, saved: false } as LearnerProfileState;
-  const profile = decodeProfile(text.value);
-  return {
-    profile: profile._tag === "Some" ? profile.value : {},
-    saved: true,
-  } as LearnerProfileState;
+  const profile = text._tag === "None" ? text : decodeProfile(text.value);
+  return profile._tag === "Some" ? profile.value : ({} as LearnerProfile);
 });
 
 export const applyProfilePatch = (
@@ -73,18 +64,17 @@ const GOAL_LINES: Record<LearnerGoalKind, string> = {
  * The part of the tutor's instructions that comes from the learner profile, or "" when there is
  * nothing to add. It goes after whatever tutor prompt is in use.
  */
-export function learnerProfileSection(state: LearnerProfileState): string {
-  if (!state.saved) {
+export function learnerProfileSection(profile: LearnerProfile): string {
+  if (profile.goalKind === undefined && profile.returnCadence === undefined) {
     return `## Getting to know the learner
 
-This learner has not saved any preferences yet. Once their goal is clear, before measuring, ask two short \`ask_question\` cards with purpose \`goal\` and format \`choice\`, one per turn:
+This learner has not said what they are after or how often they study. Early in this session, once their goal is clear, ask two short \`ask_question\` cards with purpose \`goal\` and format \`choice\`, one per turn:
 
 1. What they are after: deep understanding, preparing for an exam, a skill to use, or the gist.
 2. How often they expect to come back to study: daily, a few times a week, weekly, or now and then.
 
 Save their choices with \`set_profile\`, then go on. Teach in the language they write in. Do not ask about anything else here; they can set more in Settings.`;
   }
-  const { profile } = state;
   const lines = [
     profile.goalKind === undefined ? null : GOAL_LINES[profile.goalKind],
     profile.language === undefined

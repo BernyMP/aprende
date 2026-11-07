@@ -461,13 +461,6 @@ export const LearnerProfilePatch = Schema.Struct({
 });
 export type LearnerProfilePatch = typeof LearnerProfilePatch.Type;
 
-export const LearnerProfileState = Schema.Struct({
-  profile: LearnerProfile,
-  /** False until the learner or the tutor first saves it; the tutor asks for it until then. */
-  saved: Schema.Boolean,
-});
-export type LearnerProfileState = typeof LearnerProfileState.Type;
-
 const ANSWER_MESSAGE_PATTERN = /^\[Answer to question ([A-Za-z0-9-]+)\]/;
 const SOLUTION_MESSAGE_PATTERN = /^\[Work on problem ([A-Za-z0-9-]+)\]/;
 

@@ -14,7 +14,7 @@ import {
   type LearningAnswerInput,
   type LearningAnswerResult,
   type LearnerProfilePatch,
-  type LearnerProfileState,
+  type LearnerProfile,
   type LearningChain,
   type LearningDueReviews,
   type LearningCheckRun,
@@ -176,10 +176,10 @@ export class LearningService extends Context.Service<
       readonly limit?: number | undefined;
     }) => Effect.Effect<LearningDueReviews, LearningError>;
     readonly snoozeReview: (input: LearningSnoozeReviewInput) => Effect.Effect<void, LearningError>;
-    readonly getProfile: () => Effect.Effect<LearnerProfileState, LearningError>;
+    readonly getProfile: () => Effect.Effect<LearnerProfile, LearningError>;
     readonly updateProfile: (
       patch: LearnerProfilePatch,
-    ) => Effect.Effect<LearnerProfileState, LearningError>;
+    ) => Effect.Effect<LearnerProfile, LearningError>;
   }
 >()("aprende/learning/LearningService") {}
 
@@ -417,6 +417,7 @@ export const layer = Layer.effect(
     const dbError = (message: string) => (cause: unknown) => fail(message, cause);
     const changed = (threadId: ThreadId) => PubSub.publish(changes, threadId);
     const profileLock = yield* Semaphore.make(1);
+    const zone = DateTime.zoneMakeLocal();
 
     const reviewsOf = Effect.fn("LearningService.reviewsOf")(function* (
       propositionIds: ReadonlyArray<string> | null,
@@ -436,7 +437,7 @@ export const layer = Layer.effect(
               LEFT JOIN learning_reviews r ON r.proposition_id = p.proposition_id
               WHERE p.proposition_id IN ${sql.in(propositionIds)}
             `;
-      const cadence = (yield* readLearnerProfile(promptLocation)).profile.returnCadence;
+      const cadence = (yield* readLearnerProfile(promptLocation)).returnCadence;
       const nowMs = DateTime.toEpochMillis(yield* DateTime.now);
       return rows.map((row) => ({
         row: reviewRow(row),
@@ -446,6 +447,7 @@ export const layer = Layer.effect(
           row: reviewRow(row),
           cadence,
           nowMs,
+          zone,
         }),
       }));
     });
@@ -1243,14 +1245,13 @@ export const layer = Layer.effect(
           input.days === null
             ? null
             : DateTime.formatIso(DateTime.add(yield* DateTime.now, { days: input.days }));
-        const reviews = yield* reviewsOf([...new Set(input.propositionIds)]);
-        yield* sql.withTransaction(
-          Effect.forEach(
-            reviews,
-            ({ row, view }) => saveReview(view.propositionId, { ...row, snoozedUntil: until }),
-            { discard: true },
-          ),
-        );
+        // Only the snooze column, so a review concluded meanwhile keeps its box.
+        yield* sql`
+          INSERT INTO learning_reviews (proposition_id, box, last_reviewed_at, snoozed_until)
+          SELECT proposition_id, 0, NULL, ${until} FROM learning_propositions
+          WHERE proposition_id IN ${sql.in([...new Set(input.propositionIds)])}
+          ON CONFLICT (proposition_id) DO UPDATE SET snoozed_until = excluded.snoozed_until
+        `;
       },
       Effect.mapError(dbError("Could not change the review.")),
     );
@@ -1259,14 +1260,16 @@ export const layer = Layer.effect(
       readLearnerProfile(promptLocation);
 
     const updateProfile: LearningService["Service"]["updateProfile"] = (patch) =>
-      Semaphore.withPermit(
-        profileLock,
-        Effect.gen(function* () {
-          const current = yield* readLearnerProfile(promptLocation);
-          yield* writeLearnerProfile(promptLocation, applyProfilePatch(current.profile, patch));
-          return yield* readLearnerProfile(promptLocation);
-        }),
-      ).pipe(Effect.mapError(dbError("Could not save your preferences.")));
+      Object.values(patch).every((value) => value === undefined)
+        ? Effect.fail(fail("Name at least one preference to save."))
+        : Semaphore.withPermit(
+            profileLock,
+            Effect.gen(function* () {
+              const next = applyProfilePatch(yield* readLearnerProfile(promptLocation), patch);
+              yield* writeLearnerProfile(promptLocation, next);
+              return next;
+            }),
+          ).pipe(Effect.mapError(dbError("Could not save your preferences.")));
 
     return LearningService.of({
       askQuestion,

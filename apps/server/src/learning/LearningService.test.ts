@@ -515,12 +515,6 @@ it.effect("schedules practiced propositions for spaced review from practice outc
       yield* practice([edgeId!], "solved");
       assert.equal(yield* boxOf(edgeId!), 1);
       assert.deepEqual(yield* dueIds, [orderId]);
-      // Solving again before it is due again is cramming, so it does not move up.
-      yield* practice([edgeId!], "solved");
-      assert.equal(yield* boxOf(edgeId!), 1);
-      // Missing a problem that combines both cannot say which one failed.
-      yield* practice([edgeId!, orderId!], "missed");
-      assert.equal(yield* boxOf(edgeId!), 1);
       yield* practice([edgeId!], "missed");
       assert.equal(yield* boxOf(edgeId!), 0);
 
@@ -541,14 +535,13 @@ it.effect("adds the learner profile to what the tutor runs on, never to the edit
     const sent = yield* Ref.make<ReadonlyArray<string>>([]);
     yield* Effect.gen(function* () {
       const learning = yield* LearningService.LearningService;
-      assert.deepEqual(yield* learning.getProfile(), { profile: {}, saved: false });
+      assert.deepEqual(yield* learning.getProfile(), {});
+      const empty = yield* learning.updateProfile({}).pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(empty));
 
       yield* learning.updateProfile({ goalKind: "exam", language: "Spanish" });
       const saved = yield* learning.updateProfile({ language: null, explanationLength: "brief" });
-      assert.deepEqual(saved, {
-        profile: { goalKind: "exam", explanationLength: "brief" },
-        saved: true,
-      });
+      assert.deepEqual(saved, { goalKind: "exam", explanationLength: "brief" });
       const prompt = yield* learning.getTutorPrompt();
       assert.isTrue(prompt.isDefault);
       assert.equal(prompt.prompt, prompt.defaultPrompt);

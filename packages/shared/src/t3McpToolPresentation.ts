@@ -372,6 +372,8 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
   set_plan: tool(["Plan", "Planning", "Planned", "the path"], "learning"),
   graph_search: tool(["Search", "Searching", "Searched", "what they know"], "learning"),
   graph_record: tool(["Record", "Recording", "Recorded", "what they learned"], "learning"),
+  review_due: tool(["Check", "Checking", "Checked", "what is due for review"], "learning"),
+  set_profile: tool(["Save", "Saving", "Saved", "their preferences"], "learning"),
 };
 
 export const T3_MCP_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(T3_MCP_TOOLS));

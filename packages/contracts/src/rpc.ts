@@ -171,7 +171,7 @@ import {
   LearningThreadState,
   LearningTutorPrompt,
   LearnerProfilePatch,
-  LearnerProfileState,
+  LearnerProfile,
   LearningSnoozeReviewInput,
 } from "./learning.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
@@ -807,13 +807,13 @@ const WsLearningSnoozeReviewRpc = Rpc.make(WS_METHODS.learningSnoozeReview, {
 
 const WsLearningGetProfileRpc = Rpc.make(WS_METHODS.learningGetProfile, {
   payload: Schema.Struct({}),
-  success: LearnerProfileState,
+  success: LearnerProfile,
   error: LearningRpcError,
 });
 
 const WsLearningSetProfileRpc = Rpc.make(WS_METHODS.learningSetProfile, {
   payload: LearnerProfilePatch,
-  success: LearnerProfileState,
+  success: LearnerProfile,
   error: LearningRpcError,
 });
 

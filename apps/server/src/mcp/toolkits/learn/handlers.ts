@@ -106,7 +106,7 @@ const handlers = {
     Effect.gen(function* () {
       yield* callerThread("set_profile");
       const learning = yield* LearningService.LearningService;
-      const { profile } = yield* learning.updateProfile(input).pipe(Effect.mapError(toFailure));
+      const profile = yield* learning.updateProfile(input).pipe(Effect.mapError(toFailure));
       return {
         profile,
         message: LEARN_TOOL_MESSAGES.set_profile,

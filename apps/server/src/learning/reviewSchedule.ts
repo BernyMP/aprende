@@ -27,20 +27,29 @@ export interface ReviewRow {
 /** A proposition with no row has never been reviewed: box 0, counted from when it was taught. */
 export const NEW_REVIEW: ReviewRow = { box: 0, lastReviewedAt: null, snoozedUntil: null };
 
-/** Computed on read, so a new return cadence applies to every proposition at once. */
+/**
+ * Computed on read, so a new return cadence applies to every proposition at once. Reviews fall
+ * due at the start of the learner's day, so the hour they last studied does not matter.
+ */
 export function reviewView(input: {
   readonly propositionId: string;
   readonly createdAt: string;
   readonly row: ReviewRow;
   readonly cadence: LearnerReturnCadence | undefined;
   readonly nowMs: number;
+  readonly zone: DateTime.TimeZone;
 }): LearningReview {
   const { row } = input;
   const from = Date.parse(row.lastReviewedAt ?? input.createdAt);
   const scheduled = from + intervalDays(row.box, input.cadence) * DAY_MS;
   const snoozed =
     row.snoozedUntil === null ? Number.NEGATIVE_INFINITY : Date.parse(row.snoozedUntil);
-  const dueAt = Math.max(scheduled, snoozed);
+  const dueAt = DateTime.toEpochMillis(
+    DateTime.startOf(
+      DateTime.makeZonedUnsafe(Math.max(scheduled, snoozed), { timeZone: input.zone }),
+      "day",
+    ),
+  );
   return {
     propositionId: input.propositionId,
     box: row.box,

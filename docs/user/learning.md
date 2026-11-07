@@ -90,8 +90,7 @@ Each idea shows when its next review is. **Due for review** lists the ones due n
 ideas, up to 10, where the tutor asks you to recall them.
 
 How a review goes sets the next one. Solving a problem without hints sends the idea twice as far
-out; needing hints or being unsure keeps the same gap; a miss brings it back the next time you
-study. Practicing an idea before it is due does not count toward its schedule. The first gap
+out; needing hints or being unsure keeps the same gap; a miss starts it over at the shortest gap. Practicing an idea before it is due does not count toward its schedule. The first gap
 follows how often you study (see [About you](#about-you)).
 
 **Snooze a week** puts off a due idea; **Unsnooze** brings it back.

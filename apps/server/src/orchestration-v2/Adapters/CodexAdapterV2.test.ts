@@ -1558,7 +1558,7 @@ describe("CodexAdapterV2 post-settle continuation", () => {
           cwd: "/workspace",
           model: "gpt-5.4",
           // No profile saved yet, so the tutor is told to ask for it.
-          developerInstructions: `${DEFAULT_TUTOR_PROMPT}\n\n${learnerProfileSection({ profile: {}, saved: false })}`,
+          developerInstructions: `${DEFAULT_TUTOR_PROMPT}\n\n${learnerProfileSection({})}`,
           config: {
             "tools.update_plan.enabled": true,
             mcp_optional_startup_grace_ms: 10_000,

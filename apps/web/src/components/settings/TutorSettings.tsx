@@ -8,6 +8,7 @@ import type {
 import { LEARNER_INTERESTS_MAX_CHARS, LEARNER_LANGUAGE_MAX_CHARS } from "@aprende/contracts";
 import { useState } from "react";
 
+import { useLiveRefresh } from "~/hooks/useLiveRefresh";
 import { primaryEnvironmentIdAtom } from "~/state/primaryEnvironment";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
@@ -104,7 +105,8 @@ function LearnerProfileSection(props: { readonly environmentId: EnvironmentId | 
     environmentId === null ? null : serverEnvironment.learnerProfile({ environmentId, input: {} }),
   );
   const save = useAtomCommand(serverEnvironment.setLearnerProfile, { label: "save preferences" });
-  const profile = query.data?.profile;
+  useLiveRefresh(environmentId === null ? null : query.refresh, { key: "learner-profile" });
+  const profile = query.data ?? undefined;
 
   const update = async (patch: LearnerProfilePatch) => {
     if (environmentId === null) return;
@@ -115,8 +117,8 @@ function LearnerProfileSection(props: { readonly environmentId: EnvironmentId | 
   return (
     <SettingsSection title="About you" id="learner-profile">
       <p className="px-3 py-3 text-muted-foreground text-sm sm:px-4">
-        The tutor asks for the first two in your first session. Changes apply to sessions started or
-        resumed after you change them.
+        While the first two are not set, the tutor asks for them in your next session. Changes apply
+        to sessions started or resumed after you change them.
       </p>
       {profile === undefined ? (
         <p className="px-3 text-muted-foreground text-sm sm:px-4">{query.error ?? "Loading…"}</p>
@@ -220,7 +222,7 @@ function TextRow(props: {
           onChange={(event) => setDraft(event.target.value)}
           onBlur={commit}
           onKeyDown={(event) => {
-            if (event.key === "Enter") commit();
+            if (event.key === "Enter") event.currentTarget.blur();
           }}
         />
       }

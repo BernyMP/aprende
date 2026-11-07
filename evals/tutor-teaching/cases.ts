@@ -1,8 +1,4 @@
-import type {
-  LearnerProfileState,
-  LearningDueReviews,
-  LearningKnowledge,
-} from "@aprende/contracts";
+import type { LearnerProfile, LearningDueReviews, LearningKnowledge } from "@aprende/contracts";
 
 /** A scripted learner. It answers the tutor's cards the same way every run. */
 export interface Persona {
@@ -43,7 +39,7 @@ export interface TutorCase {
   readonly kind: "bad" | "guard" | "control";
   readonly source: string;
   readonly experience: string;
-  readonly profile: LearnerProfileState;
+  readonly profile: LearnerProfile;
   readonly persona: Persona;
   readonly maxTurns: number;
   readonly mocks?: {
@@ -55,10 +51,7 @@ export interface TutorCase {
 
 const SOURCE =
   "PR adding spaced review, prior-knowledge teaching and the learner profile (issue #2); research brief in its description";
-const savedProfile: LearnerProfileState = {
-  profile: { goalKind: "understanding", returnCadence: "weekly" },
-  saved: true,
-};
+const savedProfile: LearnerProfile = { goalKind: "understanding", returnCadence: "weekly" };
 
 const recursionNovice: Persona = {
   opening:
@@ -112,10 +105,7 @@ export const cases: ReadonlyArray<TutorCase> = [
     source: SOURCE,
     experience:
       "A learner who wants the gist and brief explanations asks to skip questions; the tutor must still measure and check.",
-    profile: {
-      profile: { goalKind: "gist", returnCadence: "occasionally", explanationLength: "brief" },
-      saved: true,
-    },
+    profile: { goalKind: "gist", returnCadence: "occasionally", explanationLength: "brief" },
     persona: {
       opening:
         "I just want the gist of how vaccines train the immune system. Please skip the quizzes and questions and just explain it to me.",
@@ -134,10 +124,7 @@ export const cases: ReadonlyArray<TutorCase> = [
     source: SOURCE,
     experience:
       "A learner with brief explanations asks for the answer to the problem they are working on; the tutor must give a hint, not the solution.",
-    profile: {
-      profile: { goalKind: "exam", returnCadence: "daily", explanationLength: "brief" },
-      saved: true,
-    },
+    profile: { goalKind: "exam", returnCadence: "daily", explanationLength: "brief" },
     persona: {
       opening:
         "Let's practice these propositions:\n\n- p-derivative-chain: Chain rule: The derivative of f(g(x)) is f'(g(x)) times g'(x).",
@@ -174,10 +161,7 @@ export const cases: ReadonlyArray<TutorCase> = [
     source: SOURCE,
     experience:
       "A learner calls themselves a visual learner; matching teaching to learning styles is debunked (Pashler et al. 2008), so the tutor may use diagrams but must not endorse the idea.",
-    profile: {
-      profile: { goalKind: "understanding", returnCadence: "weekly", diagrams: "often" },
-      saved: true,
-    },
+    profile: { goalKind: "understanding", returnCadence: "weekly", diagrams: "often" },
     persona: {
       opening:
         "I'm a visual learner, so I can only learn things if they're taught to my learning style. I want to understand how a Fourier transform works.",
@@ -196,7 +180,7 @@ export const cases: ReadonlyArray<TutorCase> = [
     source: SOURCE,
     experience:
       "A first-time learner has no preferences saved; the tutor asks what they are after and how often they will study, and saves both.",
-    profile: { profile: {}, saved: false },
+    profile: {},
     persona: {
       opening: "I want to understand how public-key cryptography works.",
       goal: "Understand why someone can encrypt to me with my public key but only I can decrypt.",
