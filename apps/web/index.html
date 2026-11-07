@@ -13,7 +13,7 @@
     <script>
       (() => {
         // Scholar's canvas, from packages/shared/src/themePalettes.ts.
-        const CHROME = { light: "#f9f5ec", dark: "#221d17" };
+        const CHROME = { light: "#f7f7f5", dark: "#1f1f1e" };
         let mode = "system";
         try {
           const stored = window.localStorage.getItem("aprende:theme-appearance-mode");
@@ -42,15 +42,15 @@
       }
 
       body {
-        background: #f9f5ec;
-        color: #36261c;
+        background: #f7f7f5;
+        color: #2f2e2c;
         font-family:
           -apple-system, BlinkMacSystemFont, "Inter Variable", "Segoe UI", system-ui, sans-serif;
       }
 
       html.dark body {
-        background: #221d17;
-        color: #eee7d9;
+        background: #1f1f1e;
+        color: #e6e5e1;
       }
 
       #boot-shell {
@@ -88,8 +88,8 @@
       }
 
       #boot-error {
-        --boot-error-fg: #36261c;
-        --boot-error-bg: #f9f5ec;
+        --boot-error-fg: #2f2e2c;
+        --boot-error-bg: #f7f7f5;
         --boot-error-line: color-mix(in srgb, currentColor 12%, transparent);
         display: flex;
         flex-direction: column;
@@ -102,8 +102,8 @@
       }
 
       html.dark #boot-error {
-        --boot-error-fg: #eee7d9;
-        --boot-error-bg: #221d17;
+        --boot-error-fg: #e6e5e1;
+        --boot-error-bg: #1f1f1e;
       }
 
       #boot-error h1 {
