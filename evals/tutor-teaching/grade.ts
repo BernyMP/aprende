@@ -253,7 +253,10 @@ export function ruleVerdict(
     }
     case "outlineAfterMeasuring": {
       const proposal = made.findIndex((call) => call.name === "propose_outline");
-      const measured = made.findIndex((call) => call.name === "finish_measuring");
+      // Some models plan without calling finish_measuring; either marks the end of measuring.
+      const measured = made.findIndex(
+        (call) => call.name === "finish_measuring" || call.name === "set_plan",
+      );
       if (proposal === -1)
         return measured === -1
           ? {
@@ -262,18 +265,15 @@ export function ruleVerdict(
               inconclusive: true,
             }
           : { pass: false, reason: "Finished measuring but suggested no outline." };
-      const adds = (
-        Array.isArray(made[proposal]!.input.ops) ? made[proposal]!.input.ops : []
-      ).filter((op: unknown) => (op as { type?: unknown }).type === "add").length;
-      return measured !== -1 && measured < proposal && adds >= 4
+      const ops = made[proposal]!.input.ops;
+      const adds = (Array.isArray(ops) ? ops : []).filter(
+        (op: unknown) => (op as { type?: unknown }).type === "add",
+      ).length;
+      if (measured === -1 || measured > proposal)
+        return { pass: false, reason: "Suggested the outline before measuring." };
+      return adds >= 4
         ? { pass: true, reason: `Suggested ${adds} topics after measuring.` }
-        : {
-            pass: false,
-            reason:
-              measured === -1 || measured > proposal
-                ? "Suggested the outline before measuring."
-                : `Suggested only ${adds} topics.`,
-          };
+        : { pass: false, reason: `Suggested only ${adds} topics.` };
     }
     case "noOutlineProposal": {
       const proposal = made.find((call) => call.name === "propose_outline");

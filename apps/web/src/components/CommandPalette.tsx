@@ -1211,19 +1211,28 @@ function OpenCommandPaletteDialog(props: {
 
   actionItems.push(changeAppearanceItem);
 
-  if (
-    currentProject !== null &&
-    currentProject !== undefined &&
-    !isScratchProject(currentProject, scratchWorkspaceRootFor(currentProject.environmentId))
-  ) {
-    const notebook = currentProject;
+  // The current thread's notebook first; it is the one the shortcut opens.
+  const notebooks = pickerProjects
+    .filter((project) => !isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)))
+    .toSorted(
+      (left, right) =>
+        Number(
+          right.environmentId === currentProject?.environmentId && right.id === currentProject.id,
+        ) -
+        Number(
+          left.environmentId === currentProject?.environmentId && left.id === currentProject.id,
+        ),
+    );
+  for (const notebook of notebooks) {
+    const current =
+      notebook.environmentId === currentProject?.environmentId && notebook.id === currentProject.id;
     actionItems.push({
       kind: "action",
-      value: "action:notebook",
-      searchTerms: ["notebook", "outline", "topics", "lessons", "subject", notebook.title],
-      title: `Open notebook: ${notebook.title}`,
+      value: `action:notebook:${notebook.environmentId}:${notebook.id}`,
+      searchTerms: ["notebook", "outline", "topics", "lessons", "subject", notebook.displayName],
+      title: `Open notebook: ${notebook.displayName}`,
       icon: <NotebookIcon className={ITEM_ICON_CLASS} />,
-      shortcutCommand: "notebook.open",
+      ...(current ? { shortcutCommand: "notebook.open" as const } : {}),
       run: async () => {
         await navigate({
           to: "/notebook/$environmentId/$projectId",

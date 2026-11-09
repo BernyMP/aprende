@@ -112,6 +112,8 @@ describe("ruleVerdict", () => {
     expect(ruleVerdict(check, [{ user: "a", events: [measured, adds(5)] }])?.pass).toBe(true);
     expect(ruleVerdict(check, [{ user: "a", events: [adds(5), measured] }])?.pass).toBe(false);
     expect(ruleVerdict(check, [{ user: "a", events: [measured, adds(2)] }])?.pass).toBe(false);
+    const planned = call("set_plan", { nodes: [], edges: [] });
+    expect(ruleVerdict(check, [{ user: "a", events: [planned, adds(5)] }])?.pass).toBe(true);
     expect(ruleVerdict(check, [{ user: "a", events: [measure("q-1")] }])?.inconclusive).toBe(true);
   });
 

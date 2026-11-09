@@ -91,7 +91,9 @@ export const ChatHeader = memo(function ChatHeader({
   const activeThreadRef = scopeThreadRef(activeThreadEnvironmentId, activeThreadId);
   const navigate = useNavigate();
   const notebook = activeProject !== null && !activeProject.isScratch ? activeProject : null;
-  const lessonTopic = useLearningThread(isServerThread && notebook ? activeThreadRef : null)?.topic;
+  const topic = useLearningThread(isServerThread && notebook ? activeThreadRef : null)?.topic;
+  // A lesson started from a topic is titled after it; the crumb would repeat the title.
+  const lessonTopic = topic && topic.title !== activeThreadTitle ? topic : null;
   const openNotebook = () => {
     if (notebook === null) return;
     void navigate({

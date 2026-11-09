@@ -40,7 +40,7 @@ export type Check =
   | { readonly type: "noProfileQuestions" }
   /** A review poses a recall problem naming the due proposition. */
   | { readonly type: "reviewTargets"; readonly ids: ReadonlyArray<string> }
-  /** propose_outline drafts several topics, after finish_measuring. */
+  /** propose_outline drafts several topics, after finish_measuring or set_plan. */
   | { readonly type: "outlineAfterMeasuring" }
   /** No propose_outline call. */
   | { readonly type: "noOutlineProposal" };

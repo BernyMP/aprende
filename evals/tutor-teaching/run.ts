@@ -92,6 +92,10 @@ const stubConfig = (entry: TutorCase): StubConfig => ({
     graph_record: { propositions: [] },
     review_due: entry.mocks?.review_due ?? { total: 0, propositions: [] },
     get_outline: outlineResult(entry),
+    set_plan:
+      "message" in outlineResult(entry)
+        ? LEARN_TOOL_MESSAGES.set_plan_outline_empty
+        : LEARN_TOOL_MESSAGES.set_plan,
     set_profile: { profile: {}, message: LEARN_TOOL_MESSAGES.set_profile },
     html_render: { message: "The learner sees the render now." },
     html_preview: { message: "Previewed." },
