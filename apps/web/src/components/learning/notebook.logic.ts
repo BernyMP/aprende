@@ -1,7 +1,10 @@
-import type {
-  LearningOutlineOp,
-  LearningOutlineTopic,
-  LearningTopicStatus,
+import type { EnvironmentThreadShell } from "@aprende/client-runtime/state/models";
+import {
+  isListedThreadLineage,
+  type LearningLessonTopic,
+  type LearningOutlineOp,
+  type LearningOutlineTopic,
+  type LearningTopicStatus,
 } from "@aprende/contracts";
 
 /** What a topic row shows: a to-do topic with lessons is in progress. */
@@ -90,4 +93,38 @@ export function neighborPlacement(
     return index === 1 ? null : topics[index - 2]!.id;
   }
   return index === topics.length - 1 ? undefined : topics[index + 1]!.id;
+}
+
+/**
+ * A notebook's lessons: its listed, unarchived threads, newest first, with their topic links.
+ * Only lessons that exist count as started, so a start that failed leaves no topic in progress.
+ */
+export function notebookLessons(
+  threads: ReadonlyArray<EnvironmentThreadShell>,
+  notebook: {
+    readonly environmentId: string;
+    readonly projectId: string;
+    readonly links: ReadonlyArray<LearningLessonTopic>;
+  },
+) {
+  const lessons = threads
+    .filter(
+      (thread) =>
+        thread.environmentId === notebook.environmentId &&
+        thread.projectId === notebook.projectId &&
+        thread.archivedAt === null &&
+        thread.deletedAt === null &&
+        isListedThreadLineage(thread.lineage),
+    )
+    .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt));
+  const topicOfLesson: ReadonlyMap<string, string> = new Map(
+    notebook.links.map((link) => [link.threadId, link.topicId]),
+  );
+  const startedTopicIds: ReadonlySet<string> = new Set(
+    lessons.flatMap((thread) => {
+      const topicId = topicOfLesson.get(thread.id);
+      return topicId === undefined ? [] : [topicId];
+    }),
+  );
+  return { lessons, topicOfLesson, startedTopicIds };
 }

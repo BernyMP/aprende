@@ -3,6 +3,7 @@ import {
   ArrowRightIcon,
   ChartNoAxesColumnIcon,
   LibraryIcon,
+  NotebookIcon,
   SettingsIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -240,6 +241,11 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
     void navigate({ to: "/usage" });
   };
 
+  const handleNotebooksClick = () => {
+    closeMobileSidebar();
+    void navigate({ to: "/" });
+  };
+
   const handleKnowledgeClick = () => {
     closeMobileSidebar();
     void navigate({ to: "/knowledge" });
@@ -265,6 +271,11 @@ const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
             icon={<SettingsIcon />}
             label="Settings"
             onClick={handleSettingsClick}
+          />
+          <SidebarUtilityItem
+            icon={<NotebookIcon />}
+            label="Notebooks"
+            onClick={handleNotebooksClick}
           />
           <SidebarUtilityItem
             icon={<LibraryIcon />}

@@ -1211,6 +1211,18 @@ function OpenCommandPaletteDialog(props: {
 
   actionItems.push(changeAppearanceItem);
 
+  actionItems.push({
+    kind: "action",
+    value: "action:notebooks",
+    searchTerms: ["notebooks", "home", "subjects", "progress", "outline", "lessons"],
+    title: "Open notebooks",
+    icon: <NotebookIcon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: "notebooks.open",
+    run: async () => {
+      await navigate({ to: "/" });
+    },
+  });
+
   // The current thread's notebook first; it is the one the shortcut opens.
   const notebooks = pickerProjects
     .filter((project) => !isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)))
