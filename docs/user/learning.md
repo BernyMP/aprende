@@ -76,9 +76,9 @@ topics you are working through, in order, and each lesson is a session on one to
 
 aprende opens on **Notebooks**: every notebook with how much of it you have learned and the topic
 to study next. **Continue** or **Start** takes you straight into that lesson, **New notebook** adds
-a subject, and **Quick question** starts a session outside any notebook. Come back with the
-notebook icon at the bottom of the sidebar or `mod+alt+l` (customize `notebooks.open` in
-**Settings → Keybindings**).
+a subject, and **Quick question** starts a session outside any notebook. Come back with
+**Notebooks** in the sidebar or `mod+alt+l` (customize `notebooks.open` in **Settings →
+Keybindings**).
 
 Open one notebook by clicking its name, the project name above a session, **Open notebook** in the
 command palette or a session's menu in the sidebar, or `mod+alt+o` (customize `notebook.open`).
