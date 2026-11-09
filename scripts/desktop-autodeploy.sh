@@ -75,10 +75,14 @@ ask_to_restart() {
   local target=$1 subject=$2
   [ "$(read_state notified-sha)" != "$target" ] || return 1
   echo "$target" >"$STATE_DIR/notified-sha"
-  local message="A new build from main is ready: ${subject//\"/}. Restart aprende to use it?"
+  local clean=${subject//[\"\\]/}
+  local message="A new build from main is ready: ${clean}. Restart aprende to use it?"
   local answer
-  answer=$(osascript -e "display dialog \"$message\" with title \"aprende\" buttons {\"Later\", \"Restart now\"} default button \"Restart now\" giving up after 3600" \
-    -e 'button returned of result' 2>/dev/null || true)
+  if ! answer=$(osascript -e "display dialog \"$message\" with title \"aprende\" buttons {\"Later\", \"Restart now\"} default button \"Restart now\" giving up after 3600" \
+    -e 'button returned of result' 2>/dev/null); then
+    notify "A new build from main is ready. Quit aprende and it installs within 5 minutes."
+    return 1
+  fi
   [ "$answer" = "Restart now" ]
 }
 

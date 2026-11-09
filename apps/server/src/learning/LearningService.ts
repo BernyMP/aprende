@@ -590,10 +590,12 @@ export const layer = Layer.effect(
       return shell.projectId;
     });
 
-    // A topic id the outline no longer has leaves the lesson loose.
+    // A topic id the outline no longer has, or a thread moved to another notebook, leaves the lesson loose.
     const lessonOf = Effect.fn("LearningService.lessonOf")(function* (threadId: ThreadId) {
       const rows = yield* sql<{ project_id: string; topic_id: string }>`
-        SELECT project_id, topic_id FROM learning_lesson_topics WHERE thread_id = ${threadId}
+        SELECT l.project_id, l.topic_id FROM learning_lesson_topics l
+        LEFT JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
+        WHERE l.thread_id = ${threadId} AND (t.project_id IS NULL OR t.project_id = l.project_id)
       `;
       const row = rows[0];
       if (row === undefined) return null;
@@ -1487,7 +1489,7 @@ export const layer = Layer.effect(
       const links = yield* sql<{ topic_id: string }>`
         SELECT l.topic_id FROM learning_lesson_topics l
         JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
-        WHERE l.project_id = ${projectId} AND t.deleted_at IS NULL
+        WHERE l.project_id = ${projectId} AND t.project_id = l.project_id AND t.deleted_at IS NULL
       `.pipe(Effect.mapError(read));
       return {
         inNotebook: true,
@@ -1572,6 +1574,8 @@ export const layer = Layer.effect(
         .getById(projectId)
         .pipe(Effect.mapError(dbError("Could not read the notebook.")));
       if (Option.isNone(project)) return yield* fail("Could not find the notebook.");
+      if (project.value.title !== NEW_NOTEBOOK_TITLE)
+        return yield* fail("The learner already named this notebook.");
       // The scaffolded icon still shows the placeholder's initials, so a named notebook gets its own.
       const projectIcon = project.value.projectIcon == null ? notebookMonogram(title) : undefined;
       yield* projects

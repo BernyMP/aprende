@@ -43,7 +43,14 @@ export function useNewNotebook() {
     const project = await waitForProject(
       scopeProjectRef(environmentId, result.value.projectId),
     ).catch(() => null);
-    if (project === null) return;
+    if (project === null) {
+      toastManager.add({
+        type: "error",
+        title: "Could not open the notebook",
+        description: "It was created; find it under Notebooks.",
+      });
+      return;
+    }
     const started = await startSession(project, {
       title: "Getting started",
       text: NEW_NOTEBOOK_MESSAGE,

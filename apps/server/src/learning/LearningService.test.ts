@@ -901,6 +901,14 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
         .pipe(Effect.exit);
       assert.isTrue(Exit.isFailure(elsewhere));
 
+      // A lesson moved to another notebook stops counting here.
+      const moveTo = (to: ProjectId) =>
+        sql`UPDATE orchestration_v2_projection_threads SET project_id = ${to} WHERE thread_id = ${threadId}`;
+      yield* moveTo(ProjectId.make("project-other"));
+      assert.isNull((yield* learning.tutorOutline(threadId)).lessonTopicId);
+      assert.equal(yield* lessonsOnEigen, 0);
+      yield* moveTo(projectId);
+
       yield* learning.markTopicLearned(threadId);
       assert.equal((yield* learning.getThreadState(threadId)).topic?.status, "learned");
 
@@ -911,7 +919,7 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
   }),
 );
 
-it.effect("lets the tutor name a new notebook, keeping an icon the learner chose", () =>
+it.effect("lets the tutor name only a new notebook, keeping an icon the learner chose", () =>
   Effect.gen(function* () {
     const sent = yield* Ref.make<ReadonlyArray<string>>([]);
     const named = Effect.fn(function* (notebook: {
@@ -924,9 +932,14 @@ it.effect("lets the tutor name a new notebook, keeping an icon the learner chose
         const needsName = (yield* learning.tutorOutline(threadId)).needsName;
         const tooLong = yield* learning.nameNotebook(threadId, "x".repeat(41)).pipe(Effect.exit);
         assert.isTrue(Exit.isFailure(tooLong));
-        yield* learning.nameNotebook(threadId, "  Azure AZ-900 ");
+        const named = yield* learning.nameNotebook(threadId, "  Azure AZ-900 ").pipe(Effect.exit);
         const [update] = yield* Ref.get(projectUpdates);
-        return { needsName, title: update?.title, projectIcon: update?.projectIcon };
+        return {
+          needsName,
+          named: Exit.isSuccess(named),
+          title: update?.title,
+          projectIcon: update?.projectIcon,
+        };
       }).pipe(Effect.provide(makeLayer(sent, { notebook, projectUpdates })));
     });
 
@@ -936,11 +949,17 @@ it.effect("lets the tutor name a new notebook, keeping an icon the learner chose
     assert.deepInclude(fresh.projectIcon, { kind: "monogram", text: "AA" });
 
     const chosen = yield* named({
-      title: "Cloud",
+      title: NEW_NOTEBOOK_TITLE,
       projectIcon: { kind: "emoji", emoji: "☁️" },
     });
-    assert.isFalse(chosen.needsName);
+    assert.equal(chosen.title, "Azure AZ-900");
     assert.isUndefined(chosen.projectIcon);
+
+    // The learner owns a name they gave; the tutor cannot replace it.
+    const learnerNamed = yield* named({ title: "Cloud" });
+    assert.isFalse(learnerNamed.needsName);
+    assert.isFalse(learnerNamed.named);
+    assert.isUndefined(learnerNamed.title);
   }),
 );
 

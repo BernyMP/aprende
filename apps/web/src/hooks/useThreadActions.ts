@@ -815,11 +815,6 @@ export function useThreadActions() {
     reorderActiveThread,
     markThreadUnread,
     setThreadAutoSettle,
-    moveThreadToProject: (target: ScopedThreadRef, projectId: ProjectId) =>
-      moveToProject({
-        environmentId: target.environmentId,
-        input: { threadId: target.threadId, projectId },
-      }),
     moveThreadToNotebook: async (
       target: ScopedThreadRef,
       notebook: { readonly projectId: ProjectId; readonly title: string },
