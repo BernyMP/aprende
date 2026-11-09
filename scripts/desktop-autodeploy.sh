@@ -63,28 +63,56 @@ stage() {
   [ -n "$(find "$STATE_DIR/staged" -maxdepth 1 -name '*.app')" ] || { log "no app in the build"; return 1; }
 }
 
+app_running() {
+  # Prefix match on full command lines: the name has regex characters ("aprende (Beta).app"),
+  # and a grep for the path would match its own command line.
+  ps -axww -o command= |
+    awk -v p="$APP_DIR/$1/Contents/MacOS/" 'index($0, p) == 1 { found = 1 } END { exit !found }'
+}
+
+# Asks once per build; "Later" (or no answer within the hour) waits until the app is quit.
+ask_to_restart() {
+  local target=$1 subject=$2
+  [ "$(read_state notified-sha)" != "$target" ] || return 1
+  echo "$target" >"$STATE_DIR/notified-sha"
+  local message="A new build from main is ready: ${subject//\"/}. Restart aprende to use it?"
+  local answer
+  answer=$(osascript -e "display dialog \"$message\" with title \"aprende\" buttons {\"Later\", \"Restart now\"} default button \"Restart now\" giving up after 3600" \
+    -e 'button returned of result' 2>/dev/null || true)
+  [ "$answer" = "Restart now" ]
+}
+
 install_staged() {
-  local target=$1 app name subject
+  local target=$1 app name subject relaunch=false
   app=$(find "$STATE_DIR/staged" -maxdepth 1 -name '*.app' | head -1)
   [ -n "$app" ] || { log "nothing staged"; return 1; }
   name=$(basename "$app")
-  # Prefix match on full command lines: the name has regex characters ("aprende (Beta).app"),
-  # and a grep for the path would match its own command line.
-  if ps -axww -o command= |
-    awk -v p="$APP_DIR/$name/Contents/MacOS/" 'index($0, p) == 1 { found = 1 } END { exit !found }'; then
-    if [ "$(read_state notified-sha)" != "$target" ]; then
-      notify "A new build from main is ready. Quit aprende and it installs within 5 minutes."
-      echo "$target" >"$STATE_DIR/notified-sha"
+  subject=$(git -C "$CHECKOUT" log -1 --format=%s "$target")
+  if app_running "$name"; then
+    if ! ask_to_restart "$target" "$subject"; then
+      log "$name is running; install of ${target:0:10} waits for it to quit"
+      return 0
     fi
-    log "$name is running; install of ${target:0:10} waits for it to quit"
-    return 0
+    osascript -e "tell application \"${name%.app}\" to quit" >/dev/null 2>&1 || true
+    for _ in $(seq 1 60); do
+      app_running "$name" || break
+      sleep 1
+    done
+    if app_running "$name"; then
+      log "$name did not quit; install of ${target:0:10} waits for it to quit"
+      return 0
+    fi
+    relaunch=true
   fi
   rm -rf "${APP_DIR:?}/$name"
   ditto "$app" "$APP_DIR/$name"
   echo "$target" >"$STATE_DIR/installed-sha"
-  subject=$(git -C "$CHECKOUT" log -1 --format=%s "$target")
   log "installed ${target:0:10}: $subject"
-  notify "Updated to ${target:0:7}: $subject"
+  if [ "$relaunch" = true ]; then
+    open "$APP_DIR/$name"
+  else
+    notify "Updated to ${target:0:7}: $subject"
+  fi
 }
 
 run() {
