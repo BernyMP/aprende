@@ -134,6 +134,14 @@ const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<stri
       },
     },
   ],
+  notebook: [
+    { tag: "path", attrs: { d: "M2 6h4" } },
+    { tag: "path", attrs: { d: "M2 10h4" } },
+    { tag: "path", attrs: { d: "M2 14h4" } },
+    { tag: "path", attrs: { d: "M2 18h4" } },
+    { tag: "rect", attrs: { width: "16", height: "20", x: "4", y: "2", rx: "2" } },
+    { tag: "path", attrs: { d: "M16 2v20" } },
+  ],
   "folder-tree": [
     {
       tag: "path",

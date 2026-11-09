@@ -376,7 +376,7 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
   set_profile: tool(["Save", "Saving", "Saved", "their preferences"], "learning"),
   get_outline: tool(["Read", "Reading", "Read", "the notebook outline"], "learning"),
   propose_outline: tool(["Suggest", "Suggesting", "Suggested", "an outline change"], "learning"),
-  set_topic_status: tool(["Mark", "Marking", "Marked", "the topic"], "learning"),
+  mark_topic_learned: tool(["Mark", "Marking", "Marked", "the topic learned"], "learning"),
 };
 
 export const T3_MCP_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(T3_MCP_TOOLS));

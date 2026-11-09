@@ -438,6 +438,8 @@ export function applyOutlineOps(
 } {
   const next = [...topics];
   const skipped: Array<string> = [];
+  // Adds placed after the same topic go in the order given, each after the last one added there.
+  const lastAddedAfter = new Map<string | null, string>();
   const indexOf = (id: string) => next.findIndex((topic) => topic.id === id);
   const insertAt = (after: string | null | undefined) =>
     after === undefined ? next.length : after === null ? 0 : indexOf(after) + 1;
@@ -453,12 +455,16 @@ export function applyOutlineOps(
         skipped.push(`add "${op.title}": no topic "${op.after}" to place it after.`);
         continue;
       }
-      next.splice(insertAt(op.after), 0, {
-        id: newTopicId(),
+      const id = newTopicId();
+      const anchor =
+        op.after === undefined ? undefined : (lastAddedAfter.get(op.after) ?? op.after);
+      next.splice(insertAt(anchor), 0, {
+        id,
         title: op.title.trim(),
         ...(op.summary?.trim() ? { summary: op.summary.trim() } : {}),
         status: "todo",
       });
+      if (op.after !== undefined) lastAddedAfter.set(op.after, id);
       continue;
     }
     const index = indexOf(op.topicId);

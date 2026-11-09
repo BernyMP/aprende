@@ -67,6 +67,9 @@ function resolveRenameCommit(input: {
   return { action: "commit", title: trimmed };
 }
 
+const CRUMB_BUTTON_CLASS_NAME =
+  "inline-flex min-w-0 max-w-full cursor-pointer items-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+
 // Delay the input-swallowing native menu through the double-click rename interval.
 const TITLE_MENU_OPEN_DELAY_MS = 500;
 export const ChatHeader = memo(function ChatHeader({
@@ -341,7 +344,7 @@ export const ChatHeader = memo(function ChatHeader({
                 type="button"
                 aria-label={`Topic: ${lessonTopic.title}. Open notebook`}
                 onClick={openNotebook}
-                className="inline-flex min-w-0 max-w-full cursor-pointer items-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className={CRUMB_BUTTON_CLASS_NAME}
               >
                 <WorkspaceBreadcrumbText className="max-w-40">
                   {lessonTopic.title}
@@ -363,7 +366,7 @@ export const ChatHeader = memo(function ChatHeader({
                       type="button"
                       aria-label={`Open parent thread: ${parentThreadLink.title}`}
                       onClick={() => onOpenThread(parentThreadLink.threadId)}
-                      className="inline-flex min-w-0 max-w-full cursor-pointer items-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                      className={CRUMB_BUTTON_CLASS_NAME}
                     />
                   }
                 >

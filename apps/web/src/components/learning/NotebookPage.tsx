@@ -6,7 +6,6 @@ import type {
   LearningNotebook,
   LearningOutlineOp,
   LearningOutlineTopic,
-  LearningTopicStatus,
   ProjectId,
 } from "@aprende/contracts";
 import { Link } from "@tanstack/react-router";
@@ -16,6 +15,7 @@ import {
   CircleDotIcon,
   CircleIcon,
   EllipsisIcon,
+  ListTreeIcon,
   SquarePenIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -31,33 +31,46 @@ import { ProjectFavicon } from "../ProjectFavicon";
 import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
 import { Input } from "../ui/input";
-import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
+import {
+  Menu,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuSeparator,
+  MenuTrigger,
+} from "../ui/menu";
 import { SidebarInset } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import {
-  TOPIC_STATUS_LABEL,
+  TOPIC_PROGRESS_LABEL,
   buildLessonMessage,
   neighborPlacement,
   nextTopic,
+  topicProgress,
+  type TopicProgress,
 } from "./notebook.logic";
 import { OutlineProposalCard } from "./OutlineProposalCard";
 import { useNotebook } from "./useNotebook";
 import { useStartSession } from "./useStartSession";
 
-const STATUS_ICON: Record<LearningTopicStatus, typeof CircleIcon> = {
+const PROGRESS_ICON: Record<TopicProgress, typeof CircleIcon> = {
   todo: CircleIcon,
-  learning: CircleDotIcon,
+  inProgress: CircleDotIcon,
   learned: CircleCheckIcon,
   known: CircleDashedIcon,
 };
 
-const STATUS_ICON_CLASS: Record<LearningTopicStatus, string> = {
+const PROGRESS_ICON_CLASS: Record<TopicProgress, string> = {
   todo: "text-muted-foreground",
-  learning: "text-info",
+  inProgress: "text-info",
   learned: "text-success",
   known: "text-muted-foreground",
 };
+
+const NO_TOPIC = "none";
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -126,7 +139,17 @@ function NotebookBody(props: {
   );
   const lessonsOf = (topicId: string) =>
     lessons.filter((thread) => topicOfLesson.get(thread.id) === topicId);
-  const looseLessons = lessons.filter((thread) => !topicOfLesson.has(thread.id));
+  const topicIds = new Set(topics.map((topic) => topic.id));
+  const looseLessons = lessons.filter(
+    (thread) => !topicIds.has(topicOfLesson.get(thread.id) ?? ""),
+  );
+  // Only lessons that exist count, so a start that failed leaves no topic in progress.
+  const startedTopicIds = new Set(
+    lessons.flatMap((thread) => {
+      const topicId = topicOfLesson.get(thread.id);
+      return topicId === undefined ? [] : [topicId];
+    }),
+  );
 
   const edit = async (ops: ReadonlyArray<LearningOutlineOp>) => {
     const result = await editOutline({ environmentId, input: { projectId: project.id, ops } });
@@ -159,7 +182,14 @@ function NotebookBody(props: {
     if (confirmed) await edit([{ type: "remove", topicId: topic.id }]);
   };
 
-  const next = nextTopic(topics);
+  const relink = (thread: EnvironmentThreadShell, topicId: string | null) =>
+    void setLessonTopic({
+      environmentId,
+      input: { projectId: project.id, threadId: thread.id, topicId },
+    });
+  const lessonProps = { topics, topicOfLesson, onRelink: relink };
+
+  const next = nextTopic(topics, startedTopicIds);
   const nextLessons = next === undefined ? [] : lessonsOf(next.id);
   const counts = {
     learned: topics.filter((topic) => topic.status === "learned").length,
@@ -228,7 +258,9 @@ function NotebookBody(props: {
                   key={topic.id}
                   environmentId={environmentId}
                   topic={topic}
+                  progress={topicProgress(topic, startedTopicIds)}
                   lessons={lessonsOf(topic.id)}
+                  lessonProps={lessonProps}
                   canMoveUp={neighborPlacement(topics, topic.id, "up") !== undefined}
                   canMoveDown={neighborPlacement(topics, topic.id, "down") !== undefined}
                   starting={starting}
@@ -252,7 +284,7 @@ function NotebookBody(props: {
               </p>
               <ul className="flex flex-col gap-1 text-sm">
                 {looseLessons.map((thread) => (
-                  <LessonLink key={thread.id} thread={thread} />
+                  <LessonLink key={thread.id} thread={thread} {...lessonProps} />
                 ))}
               </ul>
             </section>
@@ -266,7 +298,9 @@ function NotebookBody(props: {
 function TopicRow(props: {
   readonly environmentId: EnvironmentId;
   readonly topic: LearningOutlineTopic;
+  readonly progress: TopicProgress;
   readonly lessons: ReadonlyArray<EnvironmentThreadShell>;
+  readonly lessonProps: LessonTopicProps;
   readonly canMoveUp: boolean;
   readonly canMoveDown: boolean;
   readonly starting: boolean;
@@ -277,8 +311,8 @@ function TopicRow(props: {
 }) {
   const { topic } = props;
   const [renaming, setRenaming] = useState(false);
-  const Icon = STATUS_ICON[topic.status];
-  const markAs = (status: LearningTopicStatus) =>
+  const Icon = PROGRESS_ICON[props.progress];
+  const markAs = (status: LearningOutlineTopic["status"]) =>
     void props.onEdit([{ type: "setStatus", topicId: topic.id, status }]);
 
   return (
@@ -286,12 +320,12 @@ function TopicRow(props: {
       <Tooltip>
         <TooltipTrigger
           render={
-            <span className="mt-0.5 shrink-0" aria-label={TOPIC_STATUS_LABEL[topic.status]} />
+            <span className="mt-0.5 shrink-0" aria-label={TOPIC_PROGRESS_LABEL[props.progress]} />
           }
         >
-          <Icon aria-hidden className={`size-4 ${STATUS_ICON_CLASS[topic.status]}`} />
+          <Icon aria-hidden className={`size-4 ${PROGRESS_ICON_CLASS[props.progress]}`} />
         </TooltipTrigger>
-        <TooltipPopup side="top">{TOPIC_STATUS_LABEL[topic.status]}</TooltipPopup>
+        <TooltipPopup side="top">{TOPIC_PROGRESS_LABEL[props.progress]}</TooltipPopup>
       </Tooltip>
       <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm">
         {renaming ? (
@@ -313,7 +347,7 @@ function TopicRow(props: {
         {props.lessons.length > 0 ? (
           <ul className="flex flex-col gap-0.5 text-xs">
             {props.lessons.map((thread) => (
-              <LessonLink key={thread.id} thread={thread} />
+              <LessonLink key={thread.id} thread={thread} {...props.lessonProps} />
             ))}
           </ul>
         ) : null}
@@ -407,10 +441,19 @@ function AddTopic(props: { readonly onAdd: (title: string) => Promise<boolean> }
   );
 }
 
-function LessonLink(props: { readonly thread: EnvironmentThreadShell }) {
+interface LessonTopicProps {
+  readonly topics: ReadonlyArray<LearningOutlineTopic>;
+  readonly topicOfLesson: ReadonlyMap<string, string>;
+  readonly onRelink: (thread: EnvironmentThreadShell, topicId: string | null) => void;
+}
+
+function LessonLink(props: LessonTopicProps & { readonly thread: EnvironmentThreadShell }) {
   const { thread } = props;
+  const linked = props.topicOfLesson.get(thread.id);
+  const value =
+    linked !== undefined && props.topics.some((topic) => topic.id === linked) ? linked : NO_TOPIC;
   return (
-    <li className="flex min-w-0 items-center gap-2 text-muted-foreground">
+    <li className="group/lesson flex min-w-0 items-center gap-2 text-muted-foreground">
       <SquarePenIcon aria-hidden className="size-3 shrink-0" />
       <Link
         className="min-w-0 truncate text-foreground underline-offset-2 hover:underline"
@@ -420,6 +463,38 @@ function LessonLink(props: { readonly thread: EnvironmentThreadShell }) {
         {thread.title}
       </Link>
       <span className="shrink-0 tabular-nums">{shortDate(thread.createdAt)}</span>
+      {props.topics.length > 0 ? (
+        <Menu>
+          <MenuTrigger
+            render={
+              <Button
+                aria-label={`Topic for ${thread.title}`}
+                size="icon-xs"
+                variant="ghost-muted"
+              />
+            }
+          >
+            <ListTreeIcon />
+          </MenuTrigger>
+          <MenuPopup align="start">
+            <MenuRadioGroup
+              value={value}
+              onValueChange={(next) => {
+                if (typeof next === "string" && next !== value)
+                  props.onRelink(thread, next === NO_TOPIC ? null : next);
+              }}
+            >
+              <MenuGroupLabel>Lesson topic</MenuGroupLabel>
+              {props.topics.map((topic) => (
+                <MenuRadioItem key={topic.id} value={topic.id}>
+                  {topic.title}
+                </MenuRadioItem>
+              ))}
+              <MenuRadioItem value={NO_TOPIC}>No topic</MenuRadioItem>
+            </MenuRadioGroup>
+          </MenuPopup>
+        </Menu>
+      ) : null}
     </li>
   );
 }

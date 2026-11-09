@@ -339,12 +339,13 @@ describe("applyOutlineOps", () => {
         { type: "add", title: "end" },
         { type: "add", title: "front", after: null },
         { type: "add", title: "mid", after: "a" },
+        { type: "add", title: "mid2", after: "a" },
         { type: "move", topicId: "c", after: null },
         { type: "move", topicId: "a", after: "b" },
       ],
       counter(),
     );
-    expect(ids(result.topics)).toEqual(["c", "new-2", "new-3", "b", "a", "new-1"]);
+    expect(ids(result.topics)).toEqual(["c", "new-2", "new-3", "new-4", "b", "a", "new-1"]);
     expect(result.topics.find((entry) => entry.id === "new-1")?.status).toBe("todo");
     expect(result.skipped).toEqual([]);
   });

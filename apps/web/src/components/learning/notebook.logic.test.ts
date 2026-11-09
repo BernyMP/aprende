@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { describeOutlineOp, neighborPlacement, nextTopic } from "./notebook.logic";
 
-const topic = (id: string, status: "todo" | "learning" | "learned" | "known" = "todo") => ({
+const topic = (id: string, status: "todo" | "learned" | "known" = "todo") => ({
   id,
   title: id.toUpperCase(),
   status,
@@ -24,9 +24,10 @@ describe("neighborPlacement", () => {
 
 describe("nextTopic", () => {
   it("continues the topic in progress before starting a new one", () => {
-    expect(nextTopic([topic("a", "learned"), topic("b"), topic("c", "learning")])?.id).toBe("c");
-    expect(nextTopic([topic("a", "known"), topic("b")])?.id).toBe("b");
-    expect(nextTopic([topic("a", "learned")])).toBeUndefined();
+    const started = new Set(["c", "a"]);
+    expect(nextTopic([topic("a", "learned"), topic("b"), topic("c")], started)?.id).toBe("c");
+    expect(nextTopic([topic("a", "known"), topic("b")], started)?.id).toBe("b");
+    expect(nextTopic([topic("a", "learned")], started)).toBeUndefined();
   });
 });
 

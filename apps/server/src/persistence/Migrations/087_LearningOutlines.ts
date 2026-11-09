@@ -10,13 +10,16 @@ export default Effect.gen(function* () {
       outline_json TEXT NOT NULL
     )
   `;
-  // Written before the lesson's thread exists, so the tutor's first turn already sees its topic.
+  // Written before the lesson's thread exists, so the tutor's first turn already sees its topic;
+  // project_id lets the notebook list the link before the thread reaches the projection.
   yield* sql`
     CREATE TABLE learning_lesson_topics (
       thread_id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
       topic_id TEXT NOT NULL
     )
   `;
+  yield* sql`CREATE INDEX learning_lesson_topics_project ON learning_lesson_topics (project_id)`;
   yield* sql`
     CREATE TABLE learning_outline_proposals (
       proposal_id TEXT PRIMARY KEY,

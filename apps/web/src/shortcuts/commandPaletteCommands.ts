@@ -12,7 +12,9 @@ import {
 } from "../components/CommandPaletteAppearanceItem";
 import { toastManager } from "../components/ui/toast";
 import { getThemeSnapshot, setAppearanceMode } from "../hooks/useTheme";
-import { readThreadShell } from "../state/entities";
+import { scopeProjectRef } from "@aprende/client-runtime/environment";
+
+import { readProject, readThreadShell } from "../state/entities";
 import { resolveThreadRouteTarget } from "../threadRoutes";
 import { type CommandHandler, type CommandScopeOptions, registerCommands } from "./dispatcher";
 
@@ -93,6 +95,8 @@ export function installCommandPaletteCommands(
         const target = resolveThreadRouteTarget(params);
         const thread = target?.kind === "server" ? readThreadShell(target.threadRef) : null;
         if (thread === null) return false;
+        if (readProject(scopeProjectRef(thread.environmentId, thread.projectId))?.isScratch)
+          return false;
         consume(event);
         dispatchCommandPalette({ _tag: "SetOpen", open: false });
         void router.navigate({

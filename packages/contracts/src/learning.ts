@@ -17,7 +17,7 @@ export const LEARNING_TOOL_NAMES = [
   "set_profile",
   "get_outline",
   "propose_outline",
-  "set_topic_status",
+  "mark_topic_learned",
 ] as const;
 export type LearningToolName = (typeof LEARNING_TOOL_NAMES)[number];
 
@@ -232,9 +232,10 @@ const TopicId = TrimmedNonEmptyString.check(Schema.isMaxLength(80));
 
 /**
  * Where a notebook topic stands. `known` is the learner's own claim, not something a lesson
- * checked; `learned` is set by the tutor once a lesson's checks pass.
+ * checked; `learned` is set by the tutor once a lesson's checks pass. A `todo` topic with lessons
+ * is in progress; that is derived, not stored.
  */
-export const LearningTopicStatus = Schema.Literals(["todo", "learning", "learned", "known"]);
+export const LearningTopicStatus = Schema.Literals(["todo", "learned", "known"]);
 export type LearningTopicStatus = typeof LearningTopicStatus.Type;
 
 export const LearningOutlineTopic = Schema.Struct({
@@ -245,11 +246,10 @@ export const LearningOutlineTopic = Schema.Struct({
 });
 export type LearningOutlineTopic = typeof LearningOutlineTopic.Type;
 
-/** A notebook's ordered topics. Version 0 means nobody has written one yet. */
+/** A notebook's ordered topics; `updatedAt` is null until someone writes one. */
 export const LearningOutline = Schema.Struct({
   projectId: ProjectId,
   topics: Schema.Array(LearningOutlineTopic),
-  version: Schema.Int,
   updatedAt: Schema.NullOr(IsoDateTime),
 });
 export type LearningOutline = typeof LearningOutline.Type;

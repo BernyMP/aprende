@@ -9,7 +9,7 @@ import { describeOutlineOp } from "./notebook.logic";
 import { useNotebook } from "./useNotebook";
 
 const OUTCOME: Record<Exclude<LearningOutlineProposal["status"], "pending">, string> = {
-  accepted: "Added to your outline.",
+  accepted: "Applied to your outline.",
   dismissed: "Dismissed.",
   replaced: "Replaced by a newer suggestion.",
 };

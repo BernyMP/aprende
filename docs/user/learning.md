@@ -73,13 +73,15 @@ learned.
 
 Each project is a notebook for one subject, like a notebook per class. Its outline lists the
 topics you are working through, in order, and each lesson is a session on one topic. Open a
-notebook with **Open notebook** on its folder in the sidebar, the project name above a session,
-the command palette, or `mod+alt+o` (customize `notebook.open` in **Settings → Keybindings**).
+notebook by clicking the project name above a session, from **Open notebook** in the command
+palette or a session's menu in the sidebar, or with `mod+alt+o` (customize `notebook.open` in
+**Settings → Keybindings**).
 
 - **Start lesson** on a topic starts a session that teaches it. **Start** or **Continue** at the
   top picks the next topic: the one you are learning, or else the first one not started.
 - The outline is yours. Add, rename, reorder or remove topics as you go. Removing a topic keeps its
-  lessons; they move to **Other lessons**.
+  lessons; they move to **Other lessons**. To file a lesson under another topic, or under none,
+  use the topic button next to it.
 - **I already know this** marks a topic known. The tutor still checks it when a lesson builds on
   it, so marking it does not skip what you need.
 - The tutor marks a topic learned once a lesson's checks pass. In your first lesson it suggests an

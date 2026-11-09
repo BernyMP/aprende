@@ -3,6 +3,7 @@ import type { SnoozePreset } from "@aprende/client-runtime/state/thread-settled"
 
 export type ThreadActionMenuId =
   | "find"
+  | "open-notebook"
   | "filter-by-project"
   | "turn-into-project"
   | "project-settings"
@@ -58,6 +59,8 @@ export function buildDraftActionMenuItems(options: {
 export interface ThreadActionMenuState {
   readonly canOperate: boolean;
   readonly canFind?: boolean;
+  /** The thread is in a project, so it has a notebook to open. */
+  readonly canOpenNotebook?: boolean;
   readonly projectFilter: {
     readonly label: string;
     readonly isActive: boolean;
@@ -86,6 +89,7 @@ export interface ThreadActionMenuState {
 export function threadActionRequiresOperate(action: ThreadActionMenuId): boolean {
   return ![
     "find",
+    "open-notebook",
     "project-settings",
     "mark-unread",
     "copy",
@@ -151,6 +155,9 @@ export function buildThreadActionMenuItems(
         ]
       : []),
     { id: "mark-unread", label: "Mark unread", icon: "mail-open" },
+    ...(state.canOpenNotebook
+      ? [{ id: "open-notebook" as const, label: "Open notebook", icon: "notebook" }]
+      : []),
     ...(state.projectFilter
       ? [
           {

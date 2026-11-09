@@ -782,19 +782,6 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
     yield* Effect.gen(function* () {
       const learning = yield* LearningService.LearningService;
       const projectId = ProjectId.make("project-learning");
-      const sql = yield* SqlClient.SqlClient;
-      yield* sql`INSERT INTO orchestration_v2_projection_threads ${sql.insert({
-        thread_id: threadId,
-        project_id: projectId,
-        title: "Vectors",
-        default_provider: "claude",
-        runtime_mode: "auto",
-        interaction_mode: "default",
-        created_at: "2026-01-01T00:00:00.000Z",
-        updated_at: "2026-01-01T00:00:00.000Z",
-        deleted_at: null,
-        payload_json: "{}",
-      })}`;
 
       const first = yield* learning.proposeOutline(threadId, {
         ops: [
@@ -871,16 +858,22 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
       yield* learning.resolveProposal({ proposalId: dismissed.proposalId, accept: false });
       assert.equal((yield* learning.tutorOutline(threadId)).topics.length, 2);
 
-      // Starting a lesson on a topic links it and marks the topic in progress.
-      const loose = yield* learning.setTopicStatus(threadId, "learned").pipe(Effect.exit);
+      // Starting a lesson links it before its thread reaches the projection; the notebook lists it
+      // at once, so the learner is not offered the same topic again.
+      const loose = yield* learning.markTopicLearned(threadId).pipe(Effect.exit);
       assert.isTrue(Exit.isFailure(loose));
       yield* learning.setLessonTopic({ projectId, threadId, topicId: eigen!.id });
       const notebook = yield* learning.subscribeNotebook(projectId).pipe(Stream.runHead);
       assert.deepEqual(Option.getOrThrow(notebook).lessons, [{ threadId, topicId: eigen!.id }]);
-      assert.equal((yield* learning.getThreadState(threadId)).topic?.status, "learning");
-      assert.equal((yield* learning.tutorOutline(threadId)).lessonTopicId, eigen!.id);
+      const read = yield* learning.tutorOutline(threadId);
+      assert.equal(read.lessonTopicId, eigen!.id);
+      assert.equal(read.topics.find((topic) => topic.id === eigen!.id)?.lessons, 1);
+      const elsewhere = yield* learning
+        .setLessonTopic({ projectId: ProjectId.make("project-other"), threadId, topicId: null })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(elsewhere));
 
-      yield* learning.setTopicStatus(threadId, "learned");
+      yield* learning.markTopicLearned(threadId);
       assert.equal((yield* learning.getThreadState(threadId)).topic?.status, "learned");
 
       // Removing the topic leaves the lesson loose rather than deleting it.

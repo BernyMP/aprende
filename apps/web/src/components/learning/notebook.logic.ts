@@ -4,12 +4,28 @@ import type {
   LearningTopicStatus,
 } from "@aprende/contracts";
 
-export const TOPIC_STATUS_LABEL: Record<LearningTopicStatus, string> = {
+/** What a topic row shows: a to-do topic with lessons is in progress. */
+export type TopicProgress = LearningTopicStatus | "inProgress";
+
+export const TOPIC_PROGRESS_LABEL: Record<TopicProgress, string> = {
   todo: "To do",
-  learning: "Learning",
+  inProgress: "In progress",
   learned: "Learned",
   known: "Known, not checked",
 };
+
+const STATUS_LABEL: Record<LearningTopicStatus, string> = {
+  todo: "to do",
+  learned: "learned",
+  known: "known",
+};
+
+export function topicProgress(
+  topic: LearningOutlineTopic,
+  startedTopicIds: ReadonlySet<string>,
+): TopicProgress {
+  return topic.status === "todo" && startedTopicIds.has(topic.id) ? "inProgress" : topic.status;
+}
 
 const quoted = (titles: ReadonlyMap<string, string>, id: string) => {
   const title = titles.get(id);
@@ -42,18 +58,17 @@ export function describeOutlineOp(
     case "remove":
       return `Remove ${quoted(titles, op.topicId)}`;
     case "setStatus":
-      return `Mark ${quoted(titles, op.topicId)} as ${TOPIC_STATUS_LABEL[op.status].toLowerCase()}`;
+      return `Mark ${quoted(titles, op.topicId)} as ${STATUS_LABEL[op.status]}`;
   }
 }
 
 /** The topic to study next: the first one in progress, else the first one not started. */
 export function nextTopic(
   topics: ReadonlyArray<LearningOutlineTopic>,
+  startedTopicIds: ReadonlySet<string>,
 ): LearningOutlineTopic | undefined {
-  return (
-    topics.find((topic) => topic.status === "learning") ??
-    topics.find((topic) => topic.status === "todo")
-  );
+  const todo = topics.filter((topic) => topic.status === "todo");
+  return todo.find((topic) => startedTopicIds.has(topic.id)) ?? todo[0];
 }
 
 export function buildLessonMessage(topic: LearningOutlineTopic, notebook: string): string {

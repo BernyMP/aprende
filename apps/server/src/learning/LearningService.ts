@@ -26,7 +26,6 @@ import {
   type LearningOutlineProposal,
   type LearningResolveProposalInput,
   type LearningSetLessonTopicInput,
-  type LearningTopicStatus,
   type LearningKnowledge,
   type LearningKnowledgeView,
   type LearningMissType,
@@ -120,7 +119,8 @@ export interface TutorOutline {
   /** false for a session outside any notebook, which has no outline. */
   readonly inNotebook: boolean;
   readonly notebook: string | null;
-  readonly topics: ReadonlyArray<LearningOutlineTopic>;
+  /** `lessons` counts each topic's lessons; a todo topic with lessons is in progress. */
+  readonly topics: ReadonlyArray<LearningOutlineTopic & { readonly lessons: number }>;
   readonly lessonTopicId: string | null;
   readonly pendingProposal: boolean;
 }
@@ -220,11 +220,8 @@ export class LearningService extends Context.Service<
       threadId: ThreadId,
       input: { readonly ops: ReadonlyArray<LearningOutlineOp>; readonly reason: string },
     ) => Effect.Effect<{ readonly proposalId: string }, LearningError>;
-    /** The tutor marks its own lesson's topic. */
-    readonly setTopicStatus: (
-      threadId: ThreadId,
-      status: Extract<LearningTopicStatus, "learning" | "learned">,
-    ) => Effect.Effect<void, LearningError>;
+    /** The tutor marks its own lesson's topic learned. */
+    readonly markTopicLearned: (threadId: ThreadId) => Effect.Effect<void, LearningError>;
   }
 >()("aprende/learning/LearningService") {}
 
@@ -311,7 +308,6 @@ interface ProposalRow {
 
 const StoredOutline = Schema.Struct({
   topics: Schema.Array(LearningOutlineTopic),
-  version: Schema.Int,
   updatedAt: Schema.String,
 });
 const decodeOutline = Schema.decodeUnknownSync(Schema.fromJsonString(StoredOutline));
@@ -553,7 +549,7 @@ export const layer = Layer.effect(
         SELECT outline_json FROM learning_outlines WHERE project_id = ${projectId}
       `;
       if (rows[0] === undefined)
-        return { projectId, topics: [], version: 0, updatedAt: null } satisfies LearningOutline;
+        return { projectId, topics: [], updatedAt: null } satisfies LearningOutline;
       return { projectId, ...decodeOutline(rows[0].outline_json) } satisfies LearningOutline;
     });
 
@@ -569,23 +565,25 @@ export const layer = Layer.effect(
 
     // A topic id the outline no longer has leaves the lesson loose.
     const lessonOf = Effect.fn("LearningService.lessonOf")(function* (threadId: ThreadId) {
-      const rows = yield* sql<{ topic_id: string }>`
-        SELECT topic_id FROM learning_lesson_topics WHERE thread_id = ${threadId}
+      const rows = yield* sql<{ project_id: string; topic_id: string }>`
+        SELECT project_id, topic_id FROM learning_lesson_topics WHERE thread_id = ${threadId}
       `;
-      if (rows[0] === undefined) return null;
-      const projectId = yield* threadProjectId(threadId).pipe(Effect.option);
-      if (Option.isNone(projectId)) return null;
-      const outline = yield* readOutline(projectId.value);
-      const topic = outline.topics.find((entry) => entry.id === rows[0]!.topic_id);
-      return topic === undefined ? null : { projectId: projectId.value, outline, topic };
+      const row = rows[0];
+      if (row === undefined) return null;
+      const projectId = row.project_id as ProjectId;
+      const outline = yield* readOutline(projectId);
+      const topic = outline.topics.find((entry) => entry.id === row.topic_id);
+      return topic === undefined ? null : { projectId, outline, topic };
     });
 
+    const lessonLinks = (projectId: ProjectId) =>
+      sql<{ thread_id: string; topic_id: string }>`
+        SELECT thread_id, topic_id FROM learning_lesson_topics WHERE project_id = ${projectId}
+      `;
     const lessonThreadIds = (projectId: ProjectId) =>
-      sql<{ thread_id: string }>`
-        SELECT l.thread_id FROM learning_lesson_topics l
-        JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
-        WHERE t.project_id = ${projectId} AND t.deleted_at IS NULL
-      `.pipe(Effect.map((rows) => rows.map((row) => row.thread_id as ThreadId)));
+      lessonLinks(projectId).pipe(
+        Effect.map((rows) => rows.map((row) => row.thread_id as ThreadId)),
+      );
 
     // Lessons show their topic and proposals show their status, so both hear about outline changes.
     const notebookChanged = Effect.fn("LearningService.notebookChanged")(function* (
@@ -602,7 +600,6 @@ export const layer = Layer.effect(
         INSERT INTO learning_outlines (project_id, outline_json)
         VALUES (${projectId}, ${encodeOutline({
           topics: outline.topics,
-          version: outline.version,
           updatedAt: outline.updatedAt ?? "",
         })})
         ON CONFLICT (project_id) DO UPDATE SET outline_json = excluded.outline_json
@@ -634,7 +631,6 @@ export const layer = Layer.effect(
           const outline: LearningOutline = {
             projectId,
             topics: result.topics,
-            version: current.version + 1,
             updatedAt: yield* nowIso,
           };
           yield* writeOutline(projectId, outline).pipe(
@@ -1355,11 +1351,7 @@ export const layer = Layer.effect(
     const getNotebook = Effect.fn("LearningService.getNotebook")(
       function* (projectId: ProjectId) {
         const outline = yield* readOutline(projectId);
-        const lessons = yield* sql<{ thread_id: string; topic_id: string }>`
-          SELECT l.thread_id, l.topic_id FROM learning_lesson_topics l
-          JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
-          WHERE t.project_id = ${projectId} AND t.deleted_at IS NULL
-        `;
+        const lessons = yield* lessonLinks(projectId);
         const topicIds = new Set(outline.topics.map((topic) => topic.id));
         return {
           outline,
@@ -1419,6 +1411,12 @@ export const layer = Layer.effect(
     const setLessonTopic: LearningService["Service"]["setLessonTopic"] = Effect.fn(
       "LearningService.setLessonTopic",
     )(function* (input) {
+      // Starting a lesson links it before the thread exists; an existing one must be in the notebook.
+      const shell = yield* threads
+        .getThreadShell(input.threadId)
+        .pipe(Effect.mapError(dbError("Could not find the session.")));
+      if (shell !== null && shell.projectId !== input.projectId)
+        return yield* fail("That lesson is in another notebook.");
       if (input.topicId === null) {
         yield* sql`DELETE FROM learning_lesson_topics WHERE thread_id = ${input.threadId}`.pipe(
           Effect.mapError(dbError("Could not change the lesson.")),
@@ -1427,18 +1425,15 @@ export const layer = Layer.effect(
         const outline = yield* readOutline(input.projectId).pipe(
           Effect.mapError(dbError("Could not read the outline.")),
         );
-        const topic = outline.topics.find((entry) => entry.id === input.topicId);
-        if (topic === undefined) return yield* fail("That topic is no longer in the outline.");
+        if (!outline.topics.some((entry) => entry.id === input.topicId))
+          return yield* fail("That topic is no longer in the outline.");
         yield* sql`
-          INSERT INTO learning_lesson_topics (thread_id, topic_id) VALUES (${input.threadId}, ${topic.id})
-          ON CONFLICT (thread_id) DO UPDATE SET topic_id = excluded.topic_id
+          INSERT INTO learning_lesson_topics (thread_id, project_id, topic_id)
+          VALUES (${input.threadId}, ${input.projectId}, ${input.topicId})
+          ON CONFLICT (thread_id) DO UPDATE SET
+            project_id = excluded.project_id,
+            topic_id = excluded.topic_id
         `.pipe(Effect.mapError(dbError("Could not change the lesson.")));
-        if (topic.status === "todo")
-          yield* changeOutline(
-            input.projectId,
-            [{ type: "setStatus", topicId: topic.id, status: "learning" }],
-            { strict: false },
-          );
       }
       yield* notebookChanged(input.projectId, [input.threadId]);
     });
@@ -1460,10 +1455,14 @@ export const layer = Layer.effect(
       const outline = yield* readOutline(projectId).pipe(Effect.mapError(read));
       const lesson = yield* lessonOf(threadId).pipe(Effect.mapError(read));
       const pending = yield* pendingProposal(projectId).pipe(Effect.mapError(read));
+      const links = yield* lessonLinks(projectId).pipe(Effect.mapError(read));
       return {
         inNotebook: true,
         notebook: Option.isSome(project) ? project.value.title : null,
-        topics: outline.topics,
+        topics: outline.topics.map((topic) => ({
+          ...topic,
+          lessons: links.filter((link) => link.topic_id === topic.id).length,
+        })),
         lessonTopicId: lesson?.topic.id ?? null,
         pendingProposal: pending !== null,
       } satisfies TutorOutline;
@@ -1509,9 +1508,9 @@ export const layer = Layer.effect(
       return { proposalId };
     });
 
-    const setTopicStatus: LearningService["Service"]["setTopicStatus"] = Effect.fn(
-      "LearningService.setTopicStatus",
-    )(function* (threadId, status) {
+    const markTopicLearned: LearningService["Service"]["markTopicLearned"] = Effect.fn(
+      "LearningService.markTopicLearned",
+    )(function* (threadId) {
       const lesson = yield* lessonOf(threadId).pipe(
         Effect.mapError(dbError("Could not read the lesson.")),
       );
@@ -1521,7 +1520,7 @@ export const layer = Layer.effect(
         );
       yield* changeOutline(
         lesson.projectId,
-        [{ type: "setStatus", topicId: lesson.topic.id, status }],
+        [{ type: "setStatus", topicId: lesson.topic.id, status: "learned" }],
         { strict: true },
       );
       yield* notebookChanged(lesson.projectId, [threadId]);
@@ -1664,7 +1663,7 @@ export const layer = Layer.effect(
       setLessonTopic,
       tutorOutline,
       proposeOutline,
-      setTopicStatus,
+      markTopicLearned,
     });
   }),
 );

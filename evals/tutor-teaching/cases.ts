@@ -49,7 +49,7 @@ export type Check =
 export interface OutlineMock {
   readonly inNotebook: boolean;
   readonly notebook: string | null;
-  readonly topics: ReadonlyArray<LearningOutlineTopic>;
+  readonly topics: ReadonlyArray<LearningOutlineTopic & { readonly lessons: number }>;
   readonly lessonTopicId: string | null;
   readonly pendingProposal: boolean;
 }
@@ -331,9 +331,9 @@ export const cases: ReadonlyArray<TutorCase> = [
         inNotebook: true,
         notebook: "Linear algebra",
         topics: [
-          { id: "t-vectors", title: "Vectors and spans", status: "known" },
-          { id: "t-maps", title: "Matrices as linear maps", status: "known" },
-          { id: "t-eigen", title: "Eigenvectors", status: "learning" },
+          { id: "t-vectors", title: "Vectors and spans", status: "known", lessons: 0 },
+          { id: "t-maps", title: "Matrices as linear maps", status: "known", lessons: 0 },
+          { id: "t-eigen", title: "Eigenvectors", status: "todo", lessons: 1 },
         ],
         lessonTopicId: "t-eigen",
         pendingProposal: false,
@@ -341,6 +341,35 @@ export const cases: ReadonlyArray<TutorCase> = [
     },
     maxTurns: 3,
     check: { type: "checks" },
+  },
+  {
+    id: "existing-outline-not-redrafted",
+    kind: "guard",
+    source: NOTEBOOK_SOURCE,
+    experience:
+      "A learner who already built an outline that fits starts a lesson on one of its topics; the tutor teaches instead of drafting a new outline.",
+    profile: savedProfile,
+    persona: {
+      ...eigenLearner,
+      opening: "I want to learn “Eigenvectors” next, in my Linear algebra notebook.",
+    },
+    mocks: {
+      get_outline: {
+        inNotebook: true,
+        notebook: "Linear algebra",
+        topics: [
+          { id: "t-vectors", title: "Vectors and spans", status: "learned", lessons: 1 },
+          { id: "t-maps", title: "Matrices as linear maps", status: "learned", lessons: 2 },
+          { id: "t-det", title: "Determinants", status: "learned", lessons: 1 },
+          { id: "t-eigen", title: "Eigenvectors", status: "todo", lessons: 1 },
+          { id: "t-diag", title: "Diagonalization", status: "todo", lessons: 0 },
+        ],
+        lessonTopicId: "t-eigen",
+        pendingProposal: false,
+      },
+    },
+    maxTurns: 6,
+    check: { type: "noOutlineProposal" },
   },
   {
     id: "no-outline-outside-notebook",
