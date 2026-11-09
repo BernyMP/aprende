@@ -1212,8 +1212,8 @@ html[data-theme-id="scholar"] {
   --app-theme-text-muted: #5b5954;
   --app-theme-border: #d0cec6;
   --app-theme-input: #c0bdb4;
-  --app-theme-focus: #26673f;
-  --app-theme-accent: #26673f;
+  --app-theme-focus: #22603b;
+  --app-theme-accent: #22603b;
   --app-theme-accent-foreground: #fafaf8;
   --app-theme-secondary: #dfded9;
   --app-theme-secondary-foreground: #242321;
@@ -1235,9 +1235,9 @@ html[data-theme-id="scholar"] {
   --app-theme-accent-surface-foreground: #242321;
   --app-theme-message-surface: #d9d8d1;
   --app-theme-message-foreground: #242321;
-  --app-theme-message-action: #26673f;
+  --app-theme-message-action: #22603b;
   --app-theme-message-action-foreground: #fafaf8;
-  --app-theme-message-action-hover: #215b38;
+  --app-theme-message-action-hover: #1d5534;
   --app-theme-code-background: #dfded9;
   --app-theme-code-foreground: #242321;
   --app-theme-search-match-background: #ffde8b;
@@ -1254,7 +1254,7 @@ html[data-theme-id="scholar"] {
   --app-theme-sidebar-border: #d2d0c8;
   --app-theme-terminal-background: #e7e6e3;
   --app-theme-terminal-foreground: #242321;
-  --app-theme-terminal-cursor: #26673f;
+  --app-theme-terminal-cursor: #22603b;
   --app-theme-terminal-selection-background: #cdcbc3;
   --app-theme-terminal-scrollbar: #bfbdb5;
   --app-theme-terminal-scrollbar-hover: #a6a49a;
@@ -1298,8 +1298,8 @@ html[data-theme-id="scholar"] {
     --app-theme-text-muted: #a19f99;
     --app-theme-border: #363634;
     --app-theme-input: #474643;
-    --app-theme-focus: #569f6d;
-    --app-theme-accent: #569f6d;
+    --app-theme-focus: #69b17f;
+    --app-theme-accent: #69b17f;
     --app-theme-accent-foreground: #1a1d1b;
     --app-theme-secondary: #2a2a28;
     --app-theme-secondary-foreground: #e6e5e1;
@@ -1321,9 +1321,9 @@ html[data-theme-id="scholar"] {
     --app-theme-accent-surface-foreground: #e6e5e1;
     --app-theme-message-surface: #2e2e2c;
     --app-theme-message-foreground: #e6e5e1;
-    --app-theme-message-action: #569f6d;
+    --app-theme-message-action: #69b17f;
     --app-theme-message-action-foreground: #1a1d1b;
-    --app-theme-message-action-hover: #62ab79;
+    --app-theme-message-action-hover: #75be8b;
     --app-theme-code-background: #191918;
     --app-theme-code-foreground: #e6e5e1;
     --app-theme-search-match-background: #8c6c1f;
@@ -1340,7 +1340,7 @@ html[data-theme-id="scholar"] {
     --app-theme-sidebar-border: #2c2c2a;
     --app-theme-terminal-background: #1f1f1e;
     --app-theme-terminal-foreground: #e6e5e1;
-    --app-theme-terminal-cursor: #569f6d;
+    --app-theme-terminal-cursor: #69b17f;
     --app-theme-terminal-selection-background: #353533;
     --app-theme-terminal-scrollbar: #45443f;
     --app-theme-terminal-scrollbar-hover: #5a5954;
