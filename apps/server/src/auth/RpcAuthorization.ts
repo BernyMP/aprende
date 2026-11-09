@@ -83,6 +83,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.learningGetTutorPrompt]: AuthOrchestrationReadScope,
   [WS_METHODS.learningGetKnowledge]: AuthOrchestrationReadScope,
   [WS_METHODS.learningGetProfile]: AuthOrchestrationReadScope,
+  [WS_METHODS.learningSubscribeNotebook]: AuthOrchestrationReadScope,
   [WS_METHODS.projectsListEntries]: AuthFilesystemReadScope,
   [WS_METHODS.projectsListIgnoredFiles]: AuthFilesystemReadScope,
   [WS_METHODS.projectsReadFile]: AuthFilesystemReadScope,

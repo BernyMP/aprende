@@ -1956,6 +1956,9 @@ export const CLAUDE_READ_ONLY_T3_MCP_ALLOWED_TOOLS: ReadonlyArray<string> = [
   "mcp__aprende__graph_record",
   "mcp__aprende__review_due",
   "mcp__aprende__set_profile",
+  "mcp__aprende__get_outline",
+  "mcp__aprende__propose_outline",
+  "mcp__aprende__mark_topic_learned",
   "mcp__aprende__html_preview",
   "mcp__aprende__html_render",
 ];

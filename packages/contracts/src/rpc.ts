@@ -173,6 +173,12 @@ import {
   LearnerProfilePatch,
   LearnerProfile,
   LearningSnoozeReviewInput,
+  LearningEditOutlineInput,
+  LearningNotebook,
+  LearningOutline,
+  LearningResolveProposalInput,
+  LearningSetLessonTopicInput,
+  LearningSubscribeNotebookInput,
 } from "./learning.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
 
@@ -249,6 +255,10 @@ export const WS_METHODS = {
   learningSnoozeReview: "learning.snoozeReview",
   learningGetProfile: "learning.getProfile",
   learningSetProfile: "learning.setProfile",
+  learningSubscribeNotebook: "learning.subscribeNotebook",
+  learningEditOutline: "learning.editOutline",
+  learningResolveProposal: "learning.resolveProposal",
+  learningSetLessonTopic: "learning.setLessonTopic",
 
   subscribeServerConfig: "subscribeServerConfig",
   subscribeServerLifecycle: "subscribeServerLifecycle",
@@ -817,6 +827,29 @@ const WsLearningSetProfileRpc = Rpc.make(WS_METHODS.learningSetProfile, {
   error: LearningRpcError,
 });
 
+const WsLearningSubscribeNotebookRpc = Rpc.make(WS_METHODS.learningSubscribeNotebook, {
+  payload: LearningSubscribeNotebookInput,
+  success: LearningNotebook,
+  error: LearningRpcError,
+  stream: true,
+});
+
+const WsLearningEditOutlineRpc = Rpc.make(WS_METHODS.learningEditOutline, {
+  payload: LearningEditOutlineInput,
+  success: LearningOutline,
+  error: LearningRpcError,
+});
+
+const WsLearningResolveProposalRpc = Rpc.make(WS_METHODS.learningResolveProposal, {
+  payload: LearningResolveProposalInput,
+  error: LearningRpcError,
+});
+
+const WsLearningSetLessonTopicRpc = Rpc.make(WS_METHODS.learningSetLessonTopic, {
+  payload: LearningSetLessonTopicInput,
+  error: LearningRpcError,
+});
+
 const WsSubscribeAuthAccessRpc = Rpc.make(WS_METHODS.subscribeAuthAccess, {
   payload: Schema.Struct({}),
   success: AuthAccessStreamEvent,
@@ -878,6 +911,10 @@ export const WsRpcGroup = RpcGroup.make(
   WsLearningSnoozeReviewRpc,
   WsLearningGetProfileRpc,
   WsLearningSetProfileRpc,
+  WsLearningSubscribeNotebookRpc,
+  WsLearningEditOutlineRpc,
+  WsLearningResolveProposalRpc,
+  WsLearningSetLessonTopicRpc,
   WsServerReportClientActivityRpc,
   WsProjectsListEntriesRpc,
   WsProjectsListIgnoredFilesRpc,

@@ -85,6 +85,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "usage.open",
   "knowledge.open",
   "knowledge.review",
+  "notebook.open",
   "appearance.cycle",
   "composer.stash",
   "composer.sendAlternate",

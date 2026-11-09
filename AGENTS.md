@@ -26,6 +26,7 @@ Think of these instructions as good defaults. The developer's preferences overri
 - **client** means the web or desktop UI.
 - **environment** means one running aprende server and the machine, files, provider credentials and state it owns.
 - **project** means an environment-local workspace rooted at a folder. The learner's materials for a subject live there.
+- **notebook** means a project as the learner sees it: an outline of topics they own, with lesson threads linked to topics. The tutor only proposes outline changes; the learner accepts them.
 - **thread** means one learning session: the conversation and its learning record.
 - **turn** means one learner-to-tutor cycle.
 - **learning record** means a thread's questions, answers, assessment and plan, stored by `apps/server/src/learning/LearningService.ts`.

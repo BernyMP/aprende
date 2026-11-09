@@ -47,6 +47,7 @@ interface CompactToolOutput {
   scheduledTaskId?: string;
   questionId?: string;
   problemId?: string;
+  proposalId?: string;
   status?: "rolled_back";
   htmlRender?: HtmlRenderReference;
   [MCP_APP_OUTPUT_KEY]?: McpAppReference;
@@ -136,6 +137,7 @@ export function compactDynamicToolOutput(value: unknown): CompactToolOutput | un
       "scheduledTaskId",
       "questionId",
       "problemId",
+      "proposalId",
     ] as const) {
       const id = boundedId(data[key]);
       if (id !== undefined) output[key] = id;
@@ -216,7 +218,10 @@ export function learningToolFromToolItem(item: {
   const tool = LEARNING_TOOL_NAMES.find((name) => name === id);
   if (tool === undefined) return undefined;
   const output = compactDynamicToolOutput(item.output);
-  return { tool, recordId: output?.questionId ?? output?.problemId ?? null };
+  return {
+    tool,
+    recordId: output?.questionId ?? output?.problemId ?? output?.proposalId ?? null,
+  };
 }
 
 /** The thread-owned file `preview_recording_stop` stored for the agent. */

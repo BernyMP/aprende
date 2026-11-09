@@ -57,6 +57,7 @@ export type EnvironmentSubscriptionRpcTag =
   | typeof WS_METHODS.subscribeServerConfig
   | typeof WS_METHODS.subscribeServerLifecycle
   | typeof WS_METHODS.learningSubscribeThread
+  | typeof WS_METHODS.learningSubscribeNotebook
   | typeof WS_METHODS.learningTerminalSubscribe
   | typeof WS_METHODS.serverGetStorageCleanupReport
   | typeof WS_METHODS.serverGetDatabaseStorage

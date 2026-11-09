@@ -140,6 +140,7 @@ import {
   usePrimaryEnvironmentId,
 } from "../state/environments";
 import {
+  readProject,
   readThreadShell,
   useAllEnvironmentProjectSnapshotsReady,
   useDelegatedUnderParent,
@@ -1216,6 +1217,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     if (isMobile) setOpenMobile(false);
     void handleNewThread(scopeProjectRef(group.environmentId, group.id));
   });
+  const openNotebook = useStableCallback((group: SidebarProjectSnapshot) => {
+    if (isMobile) setOpenMobile(false);
+    void router.navigate({
+      to: "/notebook/$environmentId/$projectId",
+      params: { environmentId: group.environmentId, projectId: group.id },
+    });
+  });
   const handleProjectFolderContextMenu = useStableCallback(
     (group: SidebarProjectSnapshot, position: { x: number; y: number }) => {
       const api = readLocalApi();
@@ -1224,6 +1232,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             [
+              { id: "open-notebook", label: "Open notebook", icon: "notebook" },
               { id: "new-thread", label: "New thread" },
               { id: "copy-path", label: "Copy path" },
               ...(canPinProject(group)
@@ -1240,6 +1249,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         );
         if (clicked._tag === "Failure") return;
         switch (clicked.value) {
+          case "open-notebook":
+            openNotebook(group);
+            return;
           case "new-thread":
             startThreadInProjectFolder(group);
             return;
@@ -2566,6 +2578,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 projectRef.projectId === thread.projectId,
             ),
           ) ?? null;
+        const threadProject = readProject(scopeProjectRef(thread.environmentId, thread.projectId));
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildThreadActionMenuItems({
@@ -2573,6 +2586,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 threadRef.environmentId,
                 AuthOrchestrationOperateScope,
               ),
+              canOpenNotebook: threadProject !== null && threadProject.isScratch !== true,
               // An archived project is not a filter choice.
               projectFilter:
                 threadProjectGroup && !threadProjectGroup.archived
@@ -2617,6 +2631,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           return;
         }
         switch (clicked.value) {
+          case "open-notebook":
+            if (isMobile) setOpenMobile(false);
+            void router.navigate({
+              to: "/notebook/$environmentId/$projectId",
+              params: { environmentId: thread.environmentId, projectId: thread.projectId },
+            });
+            return;
           case "filter-by-project":
             if (threadProjectGroup) {
               setProjectScopeKeys(
@@ -3367,6 +3388,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 hiddenThreads={folder.hiddenThreads}
                                 onToggle={toggleProjectFolder}
                                 onNewThread={startThreadInProjectFolder}
+                                onOpenNotebook={openNotebook}
                                 onContextMenu={handleProjectFolderContextMenu}
                               />,
                             );

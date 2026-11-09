@@ -69,6 +69,27 @@ The tutor records the key ideas each session taught, and how they follow from ea
 knowledge graph on your computer. New sessions check it first, so the tutor skips what you already
 learned.
 
+## Notebooks
+
+Each project is a notebook for one subject, like a notebook per class. Its outline lists the
+topics you are working through, in order, and each lesson is a session on one topic. Open a
+notebook by clicking the project name above a session, from **Open notebook** in the command
+palette or a session's menu in the sidebar, or with `mod+alt+o` (customize `notebook.open` in
+**Settings → Keybindings**).
+
+- **Start lesson** on a topic starts a session that teaches it. **Start** or **Continue** at the
+  top picks the next topic: the one you are learning, or else the first one not started.
+- The outline is yours. Add, rename, reorder or remove topics as you go. Removing a topic keeps its
+  lessons; they move to **Other lessons**. To file a lesson under another topic, or under none,
+  use the topic button next to it.
+- **I already know this** marks a topic known. The tutor still checks it when a lesson builds on
+  it, so marking it does not skip what you need.
+- The tutor marks a topic learned once a lesson's checks pass. In your first lesson it suggests an
+  outline, and later it may suggest changes, such as a missing topic. A suggestion shows as a card
+  in the lesson and on the notebook; nothing changes until you choose **Accept**.
+
+Sessions started outside a project have no notebook.
+
 ## Knowledge
 
 **Knowledge** lists everything your sessions have recorded, newest first. Open it from the sidebar

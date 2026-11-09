@@ -5,6 +5,8 @@ import {
   LearningAnswer,
   LearningAssessment,
   LearningError,
+  LearningOutlineOp,
+  LearningOutlineTopic,
   LearningPlan,
   LearningProblemAttempt,
   LearningProblemConclusion,
@@ -18,6 +20,12 @@ import {
   type LearningChain,
   type LearningDueReviews,
   type LearningCheckRun,
+  type LearningEditOutlineInput,
+  type LearningNotebook,
+  type LearningOutline,
+  type LearningOutlineProposal,
+  type LearningResolveProposalInput,
+  type LearningSetLessonTopicInput,
   type LearningKnowledge,
   type LearningKnowledgeView,
   type LearningMissType,
@@ -59,10 +67,12 @@ import type { SqlError } from "effect/sql/SqlError";
 import { ServerConfig } from "../config.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as ProcessRunner from "../processRunner.ts";
+import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import { forgetRemovedThreadWorktree } from "../workspace/threadWorktree.ts";
 import {
   answerProblem,
+  applyOutlineOps,
   conclusionProblem,
   formatAnswerMessage,
   formatSolutionMessage,
@@ -102,6 +112,17 @@ export interface ConcludeProblemInput {
   readonly verdict: string;
   readonly missType?: LearningMissType | undefined;
   readonly retest: boolean;
+}
+
+/** What `get_outline` tells the tutor about the notebook its session is in. */
+export interface TutorOutline {
+  /** false for a session outside any notebook, which has no outline. */
+  readonly inNotebook: boolean;
+  readonly notebook: string | null;
+  /** `lessons` counts each topic's lessons; a todo topic with lessons is in progress. */
+  readonly topics: ReadonlyArray<LearningOutlineTopic & { readonly lessons: number }>;
+  readonly lessonTopicId: string | null;
+  readonly pendingProposal: boolean;
 }
 
 export class LearningService extends Context.Service<
@@ -180,6 +201,27 @@ export class LearningService extends Context.Service<
     readonly updateProfile: (
       patch: LearnerProfilePatch,
     ) => Effect.Effect<LearnerProfile, LearningError>;
+    readonly subscribeNotebook: (
+      projectId: ProjectId,
+    ) => Stream.Stream<LearningNotebook, LearningError>;
+    /** The learner's own edits, which apply at once. */
+    readonly editOutline: (
+      input: LearningEditOutlineInput,
+    ) => Effect.Effect<LearningOutline, LearningError>;
+    readonly resolveProposal: (
+      input: LearningResolveProposalInput,
+    ) => Effect.Effect<void, LearningError>;
+    readonly setLessonTopic: (
+      input: LearningSetLessonTopicInput,
+    ) => Effect.Effect<void, LearningError>;
+    readonly tutorOutline: (threadId: ThreadId) => Effect.Effect<TutorOutline, LearningError>;
+    /** The tutor's suggested change, which waits for the learner and replaces a pending one. */
+    readonly proposeOutline: (
+      threadId: ThreadId,
+      input: { readonly ops: ReadonlyArray<LearningOutlineOp>; readonly reason: string },
+    ) => Effect.Effect<{ readonly proposalId: string }, LearningError>;
+    /** The tutor marks its own lesson's topic learned. */
+    readonly markTopicLearned: (threadId: ThreadId) => Effect.Effect<void, LearningError>;
   }
 >()("aprende/learning/LearningService") {}
 
@@ -253,6 +295,36 @@ interface ChainRow {
   readonly thread_id: string;
   readonly created_at: string;
 }
+
+interface ProposalRow {
+  readonly proposal_id: string;
+  readonly project_id: string;
+  readonly thread_id: string;
+  readonly ops_json: string;
+  readonly reason: string;
+  readonly status: string;
+  readonly created_at: string;
+}
+
+const StoredOutline = Schema.Struct({
+  topics: Schema.Array(LearningOutlineTopic),
+  updatedAt: Schema.String,
+});
+const decodeOutline = Schema.decodeUnknownSync(Schema.fromJsonString(StoredOutline));
+const encodeOutline = Schema.encodeSync(Schema.fromJsonString(StoredOutline));
+const OpsJson = Schema.fromJsonString(Schema.Array(LearningOutlineOp));
+const decodeOps = Schema.decodeUnknownSync(OpsJson);
+const encodeOps = Schema.encodeSync(OpsJson);
+
+const proposalView = (row: ProposalRow): LearningOutlineProposal => ({
+  id: row.proposal_id,
+  projectId: row.project_id as ProjectId,
+  threadId: row.thread_id as ThreadId,
+  ops: decodeOps(row.ops_json),
+  reason: row.reason,
+  status: row.status as LearningOutlineProposal["status"],
+  createdAt: row.created_at,
+});
 
 const StringsJson = Schema.fromJsonString(Schema.Array(Schema.String));
 const IntsJson = Schema.fromJsonString(Schema.Array(Schema.Int));
@@ -401,11 +473,14 @@ export const layer = Layer.effect(
     const random = yield* SecureRandom.SecureRandom;
     const threads = yield* ThreadManagementService.ThreadManagementService;
     const projects = yield* ProjectService.ProjectService;
+    const managedFolders = yield* ManagedProjectFolders.ManagedProjectFolders;
     const processRunner = yield* ProcessRunner.ProcessRunner;
     const serverConfig = yield* ServerConfig;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const changes = yield* PubSub.unbounded<ThreadId>();
+    const notebookChanges = yield* PubSub.unbounded<ProjectId>();
+    const outlineLock = yield* Semaphore.make(1);
     const promptLocation = { fileSystem, path, stateDir: serverConfig.stateDir };
 
     const newId = (prefix: string) =>
@@ -469,6 +544,102 @@ export const layer = Layer.effect(
         Effect.map((rows) => (rows[0] === undefined ? null : decodePlan(rows[0].plan_json))),
       );
 
+    const readOutline = Effect.fn("LearningService.readOutline")(function* (projectId: ProjectId) {
+      const rows = yield* sql<{ outline_json: string }>`
+        SELECT outline_json FROM learning_outlines WHERE project_id = ${projectId}
+      `;
+      if (rows[0] === undefined)
+        return { projectId, topics: [], updatedAt: null } satisfies LearningOutline;
+      return { projectId, ...decodeOutline(rows[0].outline_json) } satisfies LearningOutline;
+    });
+
+    const threadProjectId = Effect.fn("LearningService.threadProjectId")(function* (
+      threadId: ThreadId,
+    ) {
+      const shell = yield* threads
+        .getThreadShell(threadId)
+        .pipe(Effect.mapError(dbError("Could not find the session.")));
+      if (shell === null) return yield* fail("Could not find the session.");
+      return shell.projectId;
+    });
+
+    // A topic id the outline no longer has leaves the lesson loose.
+    const lessonOf = Effect.fn("LearningService.lessonOf")(function* (threadId: ThreadId) {
+      const rows = yield* sql<{ project_id: string; topic_id: string }>`
+        SELECT project_id, topic_id FROM learning_lesson_topics WHERE thread_id = ${threadId}
+      `;
+      const row = rows[0];
+      if (row === undefined) return null;
+      const projectId = row.project_id as ProjectId;
+      const outline = yield* readOutline(projectId);
+      const topic = outline.topics.find((entry) => entry.id === row.topic_id);
+      return topic === undefined ? null : { projectId, outline, topic };
+    });
+
+    const lessonLinks = (projectId: ProjectId) =>
+      sql<{ thread_id: string; topic_id: string }>`
+        SELECT thread_id, topic_id FROM learning_lesson_topics WHERE project_id = ${projectId}
+      `;
+    const lessonThreadIds = (projectId: ProjectId) =>
+      lessonLinks(projectId).pipe(
+        Effect.map((rows) => rows.map((row) => row.thread_id as ThreadId)),
+      );
+
+    // Lessons show their topic and proposals show their status, so both hear about outline changes.
+    const notebookChanged = Effect.fn("LearningService.notebookChanged")(function* (
+      projectId: ProjectId,
+      alsoThreadIds: ReadonlyArray<ThreadId> = [],
+    ) {
+      yield* PubSub.publish(notebookChanges, projectId);
+      const lessons = yield* lessonThreadIds(projectId).pipe(Effect.orElseSucceed(() => []));
+      for (const threadId of new Set([...lessons, ...alsoThreadIds])) yield* changed(threadId);
+    });
+
+    const writeOutline = (projectId: ProjectId, outline: LearningOutline) =>
+      sql`
+        INSERT INTO learning_outlines (project_id, outline_json)
+        VALUES (${projectId}, ${encodeOutline({
+          topics: outline.topics,
+          updatedAt: outline.updatedAt ?? "",
+        })})
+        ON CONFLICT (project_id) DO UPDATE SET outline_json = excluded.outline_json
+      `;
+
+    const newTopicIds = Effect.fn("LearningService.newTopicIds")(function* (count: number) {
+      const ids: Array<string> = [];
+      for (let index = 0; index < count; index += 1) ids.push((yield* newId("t")).slice(0, 10));
+      return ids;
+    });
+
+    // Runs under the outline lock, so a learner edit and an accepted proposal never interleave.
+    const changeOutline = (
+      projectId: ProjectId,
+      ops: ReadonlyArray<LearningOutlineOp>,
+      options: { readonly strict: boolean },
+    ) =>
+      Semaphore.withPermit(
+        outlineLock,
+        Effect.gen(function* () {
+          const current = yield* readOutline(projectId).pipe(
+            Effect.mapError(dbError("Could not read the outline.")),
+          );
+          const ids = yield* newTopicIds(ops.filter((op) => op.type === "add").length);
+          let nextId = 0;
+          const result = applyOutlineOps(current.topics, ops, () => ids[nextId++]!);
+          if (options.strict && result.skipped.length > 0)
+            return yield* fail(result.skipped.join(" "));
+          const outline: LearningOutline = {
+            projectId,
+            topics: result.topics,
+            updatedAt: yield* nowIso,
+          };
+          yield* writeOutline(projectId, outline).pipe(
+            Effect.mapError(dbError("Could not save the outline.")),
+          );
+          return outline;
+        }),
+      );
+
     const getThreadState: LearningService["Service"]["getThreadState"] = Effect.fn(
       "LearningService.getThreadState",
     )(
@@ -483,6 +654,11 @@ export const layer = Layer.effect(
         SELECT * FROM learning_problems WHERE thread_id = ${threadId} ORDER BY created_at, rowid
       `;
         const plan = yield* readPlan(threadId);
+        const lesson = yield* lessonOf(threadId);
+        const proposalRows = yield* sql<ProposalRow>`
+          SELECT * FROM learning_outline_proposals WHERE thread_id = ${threadId}
+          ORDER BY created_at, rowid
+        `;
         const assessment =
           assessmentRows[0] === undefined
             ? null
@@ -498,6 +674,8 @@ export const layer = Layer.effect(
           assessment,
           plan,
           currentNodeId,
+          topic: lesson?.topic ?? null,
+          proposals: proposalRows.map(proposalView),
         } satisfies LearningThreadState;
       },
       Effect.mapError(dbError("Could not read the learning state.")),
@@ -1163,6 +1341,196 @@ export const layer = Layer.effect(
       yield* changed(threadId);
     });
 
+    const pendingProposal = (projectId: ProjectId) =>
+      sql<ProposalRow>`
+        SELECT * FROM learning_outline_proposals
+        WHERE project_id = ${projectId} AND status = 'pending'
+        ORDER BY created_at DESC, rowid DESC LIMIT 1
+      `.pipe(Effect.map((rows) => (rows[0] === undefined ? null : proposalView(rows[0]))));
+
+    const getNotebook = Effect.fn("LearningService.getNotebook")(
+      function* (projectId: ProjectId) {
+        const outline = yield* readOutline(projectId);
+        const lessons = yield* lessonLinks(projectId);
+        const topicIds = new Set(outline.topics.map((topic) => topic.id));
+        return {
+          outline,
+          lessons: lessons
+            .filter((row) => topicIds.has(row.topic_id))
+            .map((row) => ({ threadId: row.thread_id as ThreadId, topicId: row.topic_id })),
+          proposal: yield* pendingProposal(projectId),
+        } satisfies LearningNotebook;
+      },
+      Effect.mapError(dbError("Could not read the notebook.")),
+    );
+
+    const subscribeNotebook: LearningService["Service"]["subscribeNotebook"] = (projectId) =>
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const subscription = yield* PubSub.subscribe(notebookChanges);
+          return Stream.concat(
+            Stream.fromEffect(getNotebook(projectId)),
+            Stream.fromSubscription(subscription).pipe(
+              Stream.filter((changedProjectId) => changedProjectId === projectId),
+              Stream.mapEffect(() => getNotebook(projectId)),
+            ),
+          );
+        }),
+      );
+
+    const editOutline: LearningService["Service"]["editOutline"] = Effect.fn(
+      "LearningService.editOutline",
+    )(function* (input) {
+      const outline = yield* changeOutline(input.projectId, input.ops, { strict: true });
+      yield* notebookChanged(input.projectId);
+      return outline;
+    });
+
+    const resolveProposal: LearningService["Service"]["resolveProposal"] = Effect.fn(
+      "LearningService.resolveProposal",
+    )(function* (input) {
+      const rows = yield* sql<ProposalRow>`
+        UPDATE learning_outline_proposals SET status = ${input.accept ? "accepted" : "dismissed"}
+        WHERE proposal_id = ${input.proposalId} AND status = 'pending'
+        RETURNING *
+      `.pipe(Effect.mapError(dbError("Could not save your choice.")));
+      const row = rows[0];
+      if (row === undefined) return yield* fail("That suggestion was already handled or replaced.");
+      const proposal = proposalView(row);
+      if (input.accept)
+        yield* changeOutline(proposal.projectId, proposal.ops, { strict: false }).pipe(
+          Effect.onError(() =>
+            sql`UPDATE learning_outline_proposals SET status = 'pending' WHERE proposal_id = ${row.proposal_id}`.pipe(
+              Effect.ignore,
+            ),
+          ),
+        );
+      yield* notebookChanged(proposal.projectId, [proposal.threadId]);
+    });
+
+    const setLessonTopic: LearningService["Service"]["setLessonTopic"] = Effect.fn(
+      "LearningService.setLessonTopic",
+    )(function* (input) {
+      // Starting a lesson links it before the thread exists; an existing one must be in the notebook.
+      const shell = yield* threads
+        .getThreadShell(input.threadId)
+        .pipe(Effect.mapError(dbError("Could not find the session.")));
+      if (shell !== null && shell.projectId !== input.projectId)
+        return yield* fail("That lesson is in another notebook.");
+      if (input.topicId === null) {
+        yield* sql`DELETE FROM learning_lesson_topics WHERE thread_id = ${input.threadId}`.pipe(
+          Effect.mapError(dbError("Could not change the lesson.")),
+        );
+      } else {
+        const outline = yield* readOutline(input.projectId).pipe(
+          Effect.mapError(dbError("Could not read the outline.")),
+        );
+        if (!outline.topics.some((entry) => entry.id === input.topicId))
+          return yield* fail("That topic is no longer in the outline.");
+        yield* sql`
+          INSERT INTO learning_lesson_topics (thread_id, project_id, topic_id)
+          VALUES (${input.threadId}, ${input.projectId}, ${input.topicId})
+          ON CONFLICT (thread_id) DO UPDATE SET
+            project_id = excluded.project_id,
+            topic_id = excluded.topic_id
+        `.pipe(Effect.mapError(dbError("Could not change the lesson.")));
+      }
+      yield* notebookChanged(input.projectId, [input.threadId]);
+    });
+
+    const tutorOutline: LearningService["Service"]["tutorOutline"] = Effect.fn(
+      "LearningService.tutorOutline",
+    )(function* (threadId) {
+      const projectId = yield* threadProjectId(threadId);
+      if (yield* managedFolders.isScratchProject(projectId))
+        return {
+          inNotebook: false,
+          notebook: null,
+          topics: [],
+          lessonTopicId: null,
+          pendingProposal: false,
+        } satisfies TutorOutline;
+      const read = dbError("Could not read the outline.");
+      const project = yield* projects.getById(projectId).pipe(Effect.mapError(read));
+      const outline = yield* readOutline(projectId).pipe(Effect.mapError(read));
+      const lesson = yield* lessonOf(threadId).pipe(Effect.mapError(read));
+      const pending = yield* pendingProposal(projectId).pipe(Effect.mapError(read));
+      // Only lessons whose session exists count; archived ones still happened.
+      const links = yield* sql<{ topic_id: string }>`
+        SELECT l.topic_id FROM learning_lesson_topics l
+        JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
+        WHERE l.project_id = ${projectId} AND t.deleted_at IS NULL
+      `.pipe(Effect.mapError(read));
+      return {
+        inNotebook: true,
+        notebook: Option.isSome(project) ? project.value.title : null,
+        topics: outline.topics.map((topic) => ({
+          ...topic,
+          lessons: links.filter((link) => link.topic_id === topic.id).length,
+        })),
+        lessonTopicId: lesson?.topic.id ?? null,
+        pendingProposal: pending !== null,
+      } satisfies TutorOutline;
+    });
+
+    const proposeOutline: LearningService["Service"]["proposeOutline"] = Effect.fn(
+      "LearningService.proposeOutline",
+    )(function* (threadId, input) {
+      if (input.ops.length === 0) return yield* fail("Propose at least one change.");
+      const projectId = yield* threadProjectId(threadId);
+      if (yield* managedFolders.isScratchProject(projectId))
+        return yield* fail("This session is not in a notebook, so it has no outline to change.");
+      const outline = yield* readOutline(projectId).pipe(
+        Effect.mapError(dbError("Could not read the outline.")),
+      );
+      // Checked now so the tutor can fix a bad id; on accept, ops the learner made moot are skipped.
+      const check = applyOutlineOps(outline.topics, input.ops, () => "new");
+      if (check.skipped.length > 0) return yield* fail(check.skipped.join(" "));
+      const proposalId = yield* newId("op");
+      const createdAt = yield* nowIso;
+      const replaced = yield* sql
+        .withTransaction(
+          Effect.gen(function* () {
+            const previous = yield* sql<{ thread_id: string }>`
+              UPDATE learning_outline_proposals SET status = 'replaced'
+              WHERE project_id = ${projectId} AND status = 'pending'
+              RETURNING thread_id
+            `;
+            yield* sql`INSERT INTO learning_outline_proposals ${sql.insert({
+              proposal_id: proposalId,
+              project_id: projectId,
+              thread_id: threadId,
+              ops_json: encodeOps(input.ops),
+              reason: input.reason.trim(),
+              status: "pending",
+              created_at: createdAt,
+            })}`;
+            return previous.map((row) => row.thread_id as ThreadId);
+          }),
+        )
+        .pipe(Effect.mapError(dbError("Could not save the suggestion.")));
+      yield* notebookChanged(projectId, [threadId, ...replaced]);
+      return { proposalId };
+    });
+
+    const markTopicLearned: LearningService["Service"]["markTopicLearned"] = Effect.fn(
+      "LearningService.markTopicLearned",
+    )(function* (threadId) {
+      const lesson = yield* lessonOf(threadId).pipe(
+        Effect.mapError(dbError("Could not read the lesson.")),
+      );
+      if (lesson === null)
+        return yield* fail(
+          "This lesson is not linked to an outline topic. Suggest one with propose_outline if it needs one.",
+        );
+      yield* changeOutline(
+        lesson.projectId,
+        [{ type: "setStatus", topicId: lesson.topic.id, status: "learned" }],
+        { strict: true },
+      );
+      yield* notebookChanged(lesson.projectId, [threadId]);
+    });
+
     const getTutorPrompt: LearningService["Service"]["getTutorPrompt"] = () =>
       readTutorPrompt(promptLocation).pipe(
         Effect.map((current) => ({ ...current, defaultPrompt: DEFAULT_TUTOR_PROMPT })),
@@ -1294,6 +1662,13 @@ export const layer = Layer.effect(
       snoozeReview,
       getProfile,
       updateProfile,
+      subscribeNotebook,
+      editOutline,
+      resolveProposal,
+      setLessonTopic,
+      tutorOutline,
+      proposeOutline,
+      markTopicLearned,
     });
   }),
 );

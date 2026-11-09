@@ -15,6 +15,9 @@ export const LEARNING_TOOL_NAMES = [
   "graph_record",
   "review_due",
   "set_profile",
+  "get_outline",
+  "propose_outline",
+  "mark_topic_learned",
 ] as const;
 export type LearningToolName = (typeof LEARNING_TOOL_NAMES)[number];
 
@@ -222,6 +225,125 @@ export const LearningProblemView = Schema.Struct({
 });
 export type LearningProblemView = typeof LearningProblemView.Type;
 
+export const LEARNING_MAX_OUTLINE_TOPICS = 60;
+const TopicTitle = TrimmedNonEmptyString.check(Schema.isMaxLength(200));
+const TopicSummary = Schema.String.check(Schema.isMaxLength(1_000));
+const TopicId = TrimmedNonEmptyString.check(Schema.isMaxLength(80));
+
+/**
+ * Where a notebook topic stands. `known` is the learner's own claim, not something a lesson
+ * checked; `learned` is set by the tutor once a lesson's checks pass. A `todo` topic with lessons
+ * is in progress; that is derived, not stored.
+ */
+export const LearningTopicStatus = Schema.Literals(["todo", "learned", "known"]);
+export type LearningTopicStatus = typeof LearningTopicStatus.Type;
+
+export const LearningOutlineTopic = Schema.Struct({
+  id: TopicId,
+  title: TopicTitle,
+  summary: Schema.optional(TopicSummary),
+  status: LearningTopicStatus,
+});
+export type LearningOutlineTopic = typeof LearningOutlineTopic.Type;
+
+/** A notebook's ordered topics; `updatedAt` is null until someone writes one. */
+export const LearningOutline = Schema.Struct({
+  projectId: ProjectId,
+  topics: Schema.Array(LearningOutlineTopic),
+  updatedAt: Schema.NullOr(IsoDateTime),
+});
+export type LearningOutline = typeof LearningOutline.Type;
+
+/**
+ * One change to an outline. `after` names the topic to place it after; null puts it first and
+ * a missing `after` on `add` puts it last.
+ */
+export const LearningOutlineOp = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("add"),
+    title: TopicTitle,
+    summary: Schema.optional(TopicSummary),
+    after: Schema.optional(Schema.NullOr(TopicId)),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("rename"),
+    topicId: TopicId,
+    title: TopicTitle,
+    summary: Schema.optional(TopicSummary),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("move"),
+    topicId: TopicId,
+    after: Schema.NullOr(TopicId),
+  }),
+  Schema.Struct({ type: Schema.Literal("remove"), topicId: TopicId }),
+  Schema.Struct({
+    type: Schema.Literal("setStatus"),
+    topicId: TopicId,
+    status: LearningTopicStatus,
+  }),
+]);
+export type LearningOutlineOp = typeof LearningOutlineOp.Type;
+
+/** `replaced` was pending when the tutor proposed again. */
+export const LearningOutlineProposalStatus = Schema.Literals([
+  "pending",
+  "accepted",
+  "dismissed",
+  "replaced",
+]);
+export type LearningOutlineProposalStatus = typeof LearningOutlineProposalStatus.Type;
+
+/** A change the tutor suggests to the notebook outline. It applies only once the learner accepts. */
+export const LearningOutlineProposal = Schema.Struct({
+  id: TrimmedNonEmptyString,
+  projectId: ProjectId,
+  threadId: ThreadId,
+  ops: Schema.Array(LearningOutlineOp),
+  reason: Schema.String,
+  status: LearningOutlineProposalStatus,
+  createdAt: IsoDateTime,
+});
+export type LearningOutlineProposal = typeof LearningOutlineProposal.Type;
+
+/** A lesson's link to the outline topic it teaches. */
+export const LearningLessonTopic = Schema.Struct({
+  threadId: ThreadId,
+  topicId: TopicId,
+});
+export type LearningLessonTopic = typeof LearningLessonTopic.Type;
+
+export const LearningNotebook = Schema.Struct({
+  outline: LearningOutline,
+  lessons: Schema.Array(LearningLessonTopic),
+  /** The proposal waiting for the learner, if any. */
+  proposal: Schema.NullOr(LearningOutlineProposal),
+});
+export type LearningNotebook = typeof LearningNotebook.Type;
+
+export const LearningSubscribeNotebookInput = Schema.Struct({ projectId: ProjectId });
+export type LearningSubscribeNotebookInput = typeof LearningSubscribeNotebookInput.Type;
+
+export const LearningEditOutlineInput = Schema.Struct({
+  projectId: ProjectId,
+  ops: Schema.Array(LearningOutlineOp).check(Schema.isMinLength(1)),
+});
+export type LearningEditOutlineInput = typeof LearningEditOutlineInput.Type;
+
+export const LearningResolveProposalInput = Schema.Struct({
+  proposalId: TrimmedNonEmptyString,
+  accept: Schema.Boolean,
+});
+export type LearningResolveProposalInput = typeof LearningResolveProposalInput.Type;
+
+export const LearningSetLessonTopicInput = Schema.Struct({
+  projectId: ProjectId,
+  threadId: ThreadId,
+  /** null makes it a loose lesson again. */
+  topicId: Schema.NullOr(TopicId),
+});
+export type LearningSetLessonTopicInput = typeof LearningSetLessonTopicInput.Type;
+
 /** Derived: no assessment yet is `measure`, an assessment without a plan is `plan`, then `teach`. */
 export const LearningPhase = Schema.Literals(["measure", "plan", "teach"]);
 export type LearningPhase = typeof LearningPhase.Type;
@@ -235,6 +357,10 @@ export const LearningThreadState = Schema.Struct({
   plan: Schema.NullOr(LearningPlan),
   /** The plan node of the most recent question that named one. */
   currentNodeId: Schema.NullOr(Schema.String),
+  /** The notebook topic this lesson teaches. */
+  topic: Schema.NullOr(LearningOutlineTopic),
+  /** Outline changes the tutor proposed in this lesson. */
+  proposals: Schema.Array(LearningOutlineProposal),
 });
 export type LearningThreadState = typeof LearningThreadState.Type;
 

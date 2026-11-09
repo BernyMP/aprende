@@ -11,6 +11,7 @@ Terms whose meaning matters across aprende. Architecture and lifecycle constrain
 | Client         | A web, desktop, or mobile UI connected to an environment. The desktop app can also host a server. |
 | Project        | An environment-local workspace record rooted at a directory.                                      |
 | Workspace root | The project's base filesystem directory on the environment.                                       |
+| Notebook       | A project as the learner sees it: an outline of topics, and lessons (threads) linked to topics.   |
 | Thread         | The durable conversation and work history for a project. It survives provider process exits.      |
 | Turn           | One user-to-agent cycle, a V2 run. Provider work can end before run finalization settles.         |
 | Activity       | A non-message timeline item, such as a tool action, approval, or failure.                         |

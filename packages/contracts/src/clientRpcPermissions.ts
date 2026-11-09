@@ -28,6 +28,9 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   [WS_METHODS.learningSetTutorPrompt]: AuthSettingsWriteScope,
   [WS_METHODS.learningSetProfile]: AuthSettingsWriteScope,
   [WS_METHODS.learningSnoozeReview]: AuthOrchestrationOperateScope,
+  [WS_METHODS.learningEditOutline]: AuthOrchestrationOperateScope,
+  [WS_METHODS.learningResolveProposal]: AuthOrchestrationOperateScope,
+  [WS_METHODS.learningSetLessonTopic]: AuthOrchestrationOperateScope,
   [ORCHESTRATION_V2_WS_METHODS.stopWorkflow]: AuthOrchestrationOperateScope,
   // Force stop kills agent processes, as Stop on a terminal does.
   [ORCHESTRATION_V2_WS_METHODS.forceStopThread]: AuthOrchestrationOperateScope,

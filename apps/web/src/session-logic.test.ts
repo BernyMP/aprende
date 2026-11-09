@@ -1375,7 +1375,9 @@ describe("HTML renders in the timeline", () => {
       null,
     ],
     ["conclude_problem", { structuredContent: { message: "Shown." }, content: [] }, null],
-  ] as const)("shows %s as a problem card only when it posed one", (tool, output, recordId) => {
+    ["propose_outline", { structuredContent: { proposalId: "op-1" }, content: [] }, "op-1"],
+    ["get_outline", { structuredContent: { topics: [] }, content: [] }, null],
+  ] as const)("shows %s as a card only when it stored one", (tool, output, recordId) => {
     const call = renderCall("completed", output);
     const entries = turn(
       call.type === "dynamic_tool" ? { ...call, toolName: `mcp__aprende__${tool}` } : call,

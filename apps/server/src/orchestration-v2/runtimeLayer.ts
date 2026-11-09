@@ -338,7 +338,13 @@ export const layerProduction = Layer.mergeAll(
   layerManagedProjectFoldersProvided,
   layerThreadLaunchProvided,
   LearningService.layer.pipe(
-    Layer.provide(Layer.mergeAll(layerThreadManagementProvided, layerProjectService)),
+    Layer.provide(
+      Layer.mergeAll(
+        layerThreadManagementProvided,
+        layerProjectService,
+        layerManagedProjectFoldersProvided,
+      ),
+    ),
   ),
   layerScratchThreadPromotionProvided,
   UsageLimitRecoveryWorker.layer.pipe(

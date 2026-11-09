@@ -1,5 +1,6 @@
 import { OrchestratorMcpFailure, type LearningError } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 import * as LearningService from "../../../learning/LearningService.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
@@ -18,6 +19,13 @@ export const LEARN_TOOL_MESSAGES = {
   set_plan: "The learner sees this plan now.",
   set_profile:
     "Saved. It applies from the next session; follow it from now on, and do not ask for these again.",
+  propose_outline:
+    "The learner sees your suggestion as a card and decides. Keep teaching without asking them about it; get_outline shows what they chose.",
+  mark_topic_learned: "The learner sees the topic marked learned in their notebook.",
+  get_outline_empty:
+    "The outline is empty. After set_plan, suggest one for the whole subject with propose_outline.",
+  set_plan_outline_empty:
+    "The learner sees this plan now. Their notebook outline is still empty: call propose_outline now with 4 to 12 topics for the whole subject, then go on.",
 } as const;
 
 const toFailure = (error: LearningError) =>
@@ -80,7 +88,17 @@ const handlers = {
       const threadId = yield* callerThread("set_plan");
       const learning = yield* LearningService.LearningService;
       const { version } = yield* learning.setPlan(threadId, input).pipe(Effect.mapError(toFailure));
-      return { version, message: LEARN_TOOL_MESSAGES.set_plan };
+      // Reminds the tutor at the moment it can act; the outline read at the start is turns behind.
+      const outline = yield* learning.tutorOutline(threadId).pipe(Effect.option);
+      const empty =
+        Option.isSome(outline) &&
+        outline.value.inNotebook &&
+        outline.value.topics.length === 0 &&
+        !outline.value.pendingProposal;
+      return {
+        version,
+        message: empty ? LEARN_TOOL_MESSAGES.set_plan_outline_empty : LEARN_TOOL_MESSAGES.set_plan,
+      };
     }),
   ),
   graph_search: McpToolAccess.readsAsCaller((input) =>
@@ -111,6 +129,34 @@ const handlers = {
         profile,
         message: LEARN_TOOL_MESSAGES.set_profile,
       };
+    }),
+  ),
+  get_outline: McpToolAccess.readsAsCaller(() =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("get_outline");
+      const learning = yield* LearningService.LearningService;
+      const outline = yield* learning.tutorOutline(threadId).pipe(Effect.mapError(toFailure));
+      return outline.inNotebook && outline.topics.length === 0 && !outline.pendingProposal
+        ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_empty }
+        : outline;
+    }),
+  ),
+  propose_outline: McpToolAccess.actsAsCaller((input) =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("propose_outline");
+      const learning = yield* LearningService.LearningService;
+      const { proposalId } = yield* learning
+        .proposeOutline(threadId, input)
+        .pipe(Effect.mapError(toFailure));
+      return { proposalId, message: LEARN_TOOL_MESSAGES.propose_outline };
+    }),
+  ),
+  mark_topic_learned: McpToolAccess.actsAsCaller(() =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("mark_topic_learned");
+      const learning = yield* LearningService.LearningService;
+      yield* learning.markTopicLearned(threadId).pipe(Effect.mapError(toFailure));
+      return { message: LEARN_TOOL_MESSAGES.mark_topic_learned };
     }),
   ),
 } satisfies McpToolAccess.Handlers<typeof LearnToolkit.tools>;
