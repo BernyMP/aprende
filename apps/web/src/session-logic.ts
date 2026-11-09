@@ -118,7 +118,12 @@ export type TimelineAttempt = Pick<
 >;
 
 /** Tutor tools that show a card. The others update cards already shown, or show nothing. */
-export type LearningCardTool = "ask_question" | "pose_problem" | "finish_measuring" | "set_plan";
+export type LearningCardTool =
+  | "ask_question"
+  | "pose_problem"
+  | "propose_outline"
+  | "finish_measuring"
+  | "set_plan";
 
 function learningCardFor(learning: {
   readonly tool: LearningToolName;
@@ -127,6 +132,7 @@ function learningCardFor(learning: {
   switch (learning.tool) {
     case "ask_question":
     case "pose_problem":
+    case "propose_outline":
       // A failed call stored nothing to show.
       return learning.recordId === null
         ? undefined

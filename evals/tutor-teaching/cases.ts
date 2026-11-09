@@ -1,4 +1,9 @@
-import type { LearnerProfile, LearningDueReviews, LearningKnowledge } from "@aprende/contracts";
+import type {
+  LearnerProfile,
+  LearningDueReviews,
+  LearningKnowledge,
+  LearningOutlineTopic,
+} from "@aprende/contracts";
 
 /** A scripted learner. It answers the tutor's cards the same way every run. */
 export interface Persona {
@@ -34,7 +39,20 @@ export type Check =
   /** A saved profile is not asked for again. */
   | { readonly type: "noProfileQuestions" }
   /** A review poses a recall problem naming the due proposition. */
-  | { readonly type: "reviewTargets"; readonly ids: ReadonlyArray<string> };
+  | { readonly type: "reviewTargets"; readonly ids: ReadonlyArray<string> }
+  /** propose_outline drafts several topics, after finish_measuring. */
+  | { readonly type: "outlineAfterMeasuring" }
+  /** No propose_outline call. */
+  | { readonly type: "noOutlineProposal" };
+
+/** What get_outline returns; cases without one run outside any notebook. */
+export interface OutlineMock {
+  readonly inNotebook: boolean;
+  readonly notebook: string | null;
+  readonly topics: ReadonlyArray<LearningOutlineTopic>;
+  readonly lessonTopicId: string | null;
+  readonly pendingProposal: boolean;
+}
 
 export interface TutorCase {
   readonly id: string;
@@ -48,6 +66,7 @@ export interface TutorCase {
   readonly mocks?: {
     readonly graph_search?: LearningKnowledge;
     readonly review_due?: LearningDueReviews;
+    readonly get_outline?: OutlineMock;
   };
   readonly check: Check;
 }
@@ -74,6 +93,18 @@ const recursionExpert: Persona = {
   knowsFirst: 4,
   problems: "solve",
   reply: "Sounds good, go ahead.",
+};
+
+const NOTEBOOK_SOURCE =
+  "PR adding notebooks: an outline per subject the learner owns, with lessons linked to topics";
+
+const eigenLearner: Persona = {
+  opening: "I want to understand what eigenvectors are and why they matter.",
+  goal: "Understand what an eigenvector is, and find the eigenvectors of a 2 by 2 matrix.",
+  choose: ["understand", "deep", "weekly"],
+  knowsFirst: 2,
+  problems: "solve",
+  reply: "Sounds good, let's go.",
 };
 
 export const cases: ReadonlyArray<TutorCase> = [
@@ -262,5 +293,72 @@ export const cases: ReadonlyArray<TutorCase> = [
     },
     maxTurns: 2,
     check: { type: "reviewTargets", ids: ["p-bayes"] },
+  },
+  {
+    id: "empty-notebook-drafts-outline",
+    kind: "bad",
+    source: NOTEBOOK_SOURCE,
+    experience:
+      "A learner's first lesson in a new notebook leaves the outline empty, so the notebook never shows where the subject goes; the tutor should suggest one once it knows where they stand.",
+    profile: savedProfile,
+    persona: eigenLearner,
+    mocks: {
+      get_outline: {
+        inNotebook: true,
+        notebook: "Linear algebra",
+        topics: [],
+        lessonTopicId: null,
+        pendingProposal: false,
+      },
+    },
+    maxTurns: 9,
+    check: { type: "outlineAfterMeasuring" },
+  },
+  {
+    id: "known-topic-still-measured",
+    kind: "guard",
+    source: NOTEBOOK_SOURCE,
+    experience:
+      "A learner marked earlier topics known without a lesson checking them; a lesson that builds on them must still measure before teaching.",
+    profile: savedProfile,
+    persona: {
+      ...eigenLearner,
+      opening: "I want to learn “Eigenvectors” next, in my Linear algebra notebook.",
+      knowsFirst: 0,
+    },
+    mocks: {
+      get_outline: {
+        inNotebook: true,
+        notebook: "Linear algebra",
+        topics: [
+          { id: "t-vectors", title: "Vectors and spans", status: "known" },
+          { id: "t-maps", title: "Matrices as linear maps", status: "known" },
+          { id: "t-eigen", title: "Eigenvectors", status: "learning" },
+        ],
+        lessonTopicId: "t-eigen",
+        pendingProposal: false,
+      },
+    },
+    maxTurns: 3,
+    check: { type: "checks" },
+  },
+  {
+    id: "no-outline-outside-notebook",
+    kind: "control",
+    source: NOTEBOOK_SOURCE,
+    experience: "A quick session outside any notebook gets no outline suggestions.",
+    profile: savedProfile,
+    persona: eigenLearner,
+    mocks: {
+      get_outline: {
+        inNotebook: false,
+        notebook: null,
+        topics: [],
+        lessonTopicId: null,
+        pendingProposal: false,
+      },
+    },
+    maxTurns: 6,
+    check: { type: "noOutlineProposal" },
   },
 ];

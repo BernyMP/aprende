@@ -1240,6 +1240,10 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:learning:tutor-prompt",
       tag: WS_METHODS.learningGetTutorPrompt,
     }),
+    learningNotebookLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+      label: "environment-data:learning:notebook:live",
+      tag: WS_METHODS.learningSubscribeNotebook,
+    }),
     learningKnowledge: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:learning:knowledge",
       tag: WS_METHODS.learningGetKnowledge,
@@ -1432,6 +1436,18 @@ export function createServerEnvironmentAtoms<R, E>(
     snoozeReview: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:learning:snooze-review",
       tag: WS_METHODS.learningSnoozeReview,
+    }),
+    editOutline: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:edit-outline",
+      tag: WS_METHODS.learningEditOutline,
+    }),
+    resolveOutlineProposal: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:resolve-proposal",
+      tag: WS_METHODS.learningResolveProposal,
+    }),
+    setLessonTopic: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:learning:set-lesson-topic",
+      tag: WS_METHODS.learningSetLessonTopic,
     }),
     refreshUsageRates: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:refresh-usage-rates",

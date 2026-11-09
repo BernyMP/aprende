@@ -5,6 +5,7 @@ import {
 } from "@aprende/contracts";
 
 import {
+  applyOutlineOps,
   answerProblem,
   formatAnswerMessage,
   formatSolutionMessage,
@@ -320,5 +321,63 @@ describe("formatSolutionMessage", () => {
     );
     expect(text).toContain("They gave up without an attempt.");
     expect(text).not.toContain("Confidence");
+  });
+});
+
+describe("applyOutlineOps", () => {
+  const topic = (id: string, status: "todo" | "learned" = "todo") => ({ id, title: id, status });
+  const ids = (topics: ReadonlyArray<{ readonly id: string }>) => topics.map((entry) => entry.id);
+  const counter = () => {
+    let next = 0;
+    return () => `new-${++next}`;
+  };
+
+  it("places added and moved topics after the named one, first for null, last when unnamed", () => {
+    const result = applyOutlineOps(
+      [topic("a"), topic("b"), topic("c")],
+      [
+        { type: "add", title: "end" },
+        { type: "add", title: "front", after: null },
+        { type: "add", title: "mid", after: "a" },
+        { type: "move", topicId: "c", after: null },
+        { type: "move", topicId: "a", after: "b" },
+      ],
+      counter(),
+    );
+    expect(ids(result.topics)).toEqual(["c", "new-2", "new-3", "b", "a", "new-1"]);
+    expect(result.topics.find((entry) => entry.id === "new-1")?.status).toBe("todo");
+    expect(result.skipped).toEqual([]);
+  });
+
+  it("skips ops whose topic is gone and applies the rest", () => {
+    const result = applyOutlineOps(
+      [topic("a"), topic("b")],
+      [
+        { type: "remove", topicId: "a" },
+        { type: "rename", topicId: "a", title: "A again" },
+        { type: "move", topicId: "b", after: "a" },
+        { type: "add", title: "x", after: "a" },
+        { type: "setStatus", topicId: "b", status: "known" },
+      ],
+      counter(),
+    );
+    expect(result.topics).toEqual([{ id: "b", title: "b", status: "known" }]);
+    expect(result.skipped).toHaveLength(3);
+  });
+
+  it("renames without touching status, and an empty summary clears it", () => {
+    const result = applyOutlineOps(
+      [{ ...topic("a", "learned"), summary: "old" }],
+      [{ type: "rename", topicId: "a", title: "  Vectors  ", summary: "" }],
+      counter(),
+    );
+    expect(result.topics).toEqual([{ id: "a", title: "Vectors", status: "learned" }]);
+  });
+
+  it("stops adding at the topic cap", () => {
+    const full = Array.from({ length: 60 }, (_, index) => topic(`t${index}`));
+    const result = applyOutlineOps(full, [{ type: "add", title: "one more" }], counter());
+    expect(result.topics).toHaveLength(60);
+    expect(result.skipped).toHaveLength(1);
   });
 });

@@ -15,6 +15,7 @@ import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Sink from "effect/Sink";
@@ -26,6 +27,7 @@ import * as SqlClient from "effect/sql/SqlClient";
 import { ServerConfig } from "../config.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as ProcessRunner from "../processRunner.ts";
+import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import { learnerProfileSection } from "./learnerProfile.ts";
@@ -68,6 +70,8 @@ const makeLayer = (
     readonly worktreePath?: string;
     readonly dispatched?: Ref.Ref<ReadonlyArray<OrchestrationV2ServerCommand>>;
     readonly spawn?: (command: Spawned) => Effect.Effect<ChildProcessSpawner.ChildProcessHandle>;
+    /** Whether the session runs outside any notebook. */
+    readonly scratch?: boolean;
   },
 ) =>
   LearningService.layer.pipe(
@@ -93,7 +97,16 @@ const makeLayer = (
     Layer.provide(
       Layer.mock(ProjectService.ProjectService)({
         getById: () =>
-          Effect.succeedSome({ workspaceRoot: options?.root ?? process.cwd() } as never),
+          Effect.succeedSome({
+            title: "Linear algebra",
+            workspaceRoot: options?.root ?? process.cwd(),
+          } as never),
+      }),
+    ),
+    Layer.provide(
+      Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+        isScratchProject: () => Effect.succeed(options?.scratch === true),
+        namedProjectsRoot: process.cwd(),
       }),
     ),
     Layer.provide(
@@ -761,4 +774,132 @@ it.effect("runs the check once more on submit and hands the tutor the folder and
       assert.isTrue(Exit.isFailure(empty));
     }).pipe(Effect.provide(makeLayer(sent, { root, spawn })));
   }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("applies the tutor's outline changes only once the learner accepts them", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const projectId = ProjectId.make("project-learning");
+      const sql = yield* SqlClient.SqlClient;
+      yield* sql`INSERT INTO orchestration_v2_projection_threads ${sql.insert({
+        thread_id: threadId,
+        project_id: projectId,
+        title: "Vectors",
+        default_provider: "claude",
+        runtime_mode: "auto",
+        interaction_mode: "default",
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        deleted_at: null,
+        payload_json: "{}",
+      })}`;
+
+      const first = yield* learning.proposeOutline(threadId, {
+        ops: [
+          { type: "add", title: "Vectors" },
+          { type: "add", title: "Linear maps" },
+        ],
+        reason: "A first outline.",
+      });
+      const second = yield* learning.proposeOutline(threadId, {
+        ops: [
+          { type: "add", title: "Vectors" },
+          { type: "add", title: "Matrices" },
+          { type: "add", title: "Eigenvectors" },
+        ],
+        reason: "Matrices come before eigenvectors.",
+      });
+      // Nothing applies until the learner accepts, and only the newest proposal waits.
+      const empty = (yield* learning.tutorOutline(threadId)).topics;
+      assert.deepEqual(empty, []);
+      const replaced = yield* learning
+        .resolveProposal({ proposalId: first.proposalId, accept: true })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(replaced));
+      assert.deepEqual(
+        (yield* learning.getThreadState(threadId)).proposals.map((entry) => entry.status),
+        ["replaced", "pending"],
+      );
+
+      yield* learning.resolveProposal({ proposalId: second.proposalId, accept: true });
+      const outline = yield* learning.tutorOutline(threadId);
+      assert.deepEqual(
+        outline.topics.map((topic) => [topic.title, topic.status]),
+        [
+          ["Vectors", "todo"],
+          ["Matrices", "todo"],
+          ["Eigenvectors", "todo"],
+        ],
+      );
+      assert.isFalse(outline.pendingProposal);
+      const [vectors, matrices, eigen] = outline.topics;
+
+      // A proposal naming a topic that does not exist fails, so the tutor can fix it.
+      const unknown = yield* learning
+        .proposeOutline(threadId, { ops: [{ type: "remove", topicId: "t-nope" }], reason: "x" })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(unknown));
+
+      // The learner edits meanwhile; accepting later skips what their edit made moot.
+      const late = yield* learning.proposeOutline(threadId, {
+        ops: [
+          { type: "rename", topicId: matrices!.id, title: "Matrices as maps" },
+          { type: "setStatus", topicId: vectors!.id, status: "known" },
+        ],
+        reason: "They already hold vectors.",
+      });
+      yield* learning.editOutline({
+        projectId,
+        ops: [{ type: "remove", topicId: matrices!.id }],
+      });
+      yield* learning.resolveProposal({ proposalId: late.proposalId, accept: true });
+      assert.deepEqual(
+        (yield* learning.tutorOutline(threadId)).topics.map((topic) => [topic.title, topic.status]),
+        [
+          ["Vectors", "known"],
+          ["Eigenvectors", "todo"],
+        ],
+      );
+
+      // A dismissed proposal changes nothing.
+      const dismissed = yield* learning.proposeOutline(threadId, {
+        ops: [{ type: "remove", topicId: eigen!.id }],
+        reason: "x",
+      });
+      yield* learning.resolveProposal({ proposalId: dismissed.proposalId, accept: false });
+      assert.equal((yield* learning.tutorOutline(threadId)).topics.length, 2);
+
+      // Starting a lesson on a topic links it and marks the topic in progress.
+      const loose = yield* learning.setTopicStatus(threadId, "learned").pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(loose));
+      yield* learning.setLessonTopic({ projectId, threadId, topicId: eigen!.id });
+      const notebook = yield* learning.subscribeNotebook(projectId).pipe(Stream.runHead);
+      assert.deepEqual(Option.getOrThrow(notebook).lessons, [{ threadId, topicId: eigen!.id }]);
+      assert.equal((yield* learning.getThreadState(threadId)).topic?.status, "learning");
+      assert.equal((yield* learning.tutorOutline(threadId)).lessonTopicId, eigen!.id);
+
+      yield* learning.setTopicStatus(threadId, "learned");
+      assert.equal((yield* learning.getThreadState(threadId)).topic?.status, "learned");
+
+      // Removing the topic leaves the lesson loose rather than deleting it.
+      yield* learning.editOutline({ projectId, ops: [{ type: "remove", topicId: eigen!.id }] });
+      assert.isNull((yield* learning.getThreadState(threadId)).topic);
+    }).pipe(Effect.provide(makeLayer(sent)));
+  }),
+);
+
+it.effect("keeps sessions outside any notebook out of outlines", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      assert.isFalse((yield* learning.tutorOutline(threadId)).inNotebook);
+      const proposed = yield* learning
+        .proposeOutline(threadId, { ops: [{ type: "add", title: "Vectors" }], reason: "x" })
+        .pipe(Effect.exit);
+      assert.isTrue(Exit.isFailure(proposed));
+    }).pipe(Effect.provide(makeLayer(sent, { scratch: true })));
+  }),
 );

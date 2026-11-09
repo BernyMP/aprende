@@ -2,6 +2,7 @@ import {
   LEARNING_CONFIDENCE_LABELS,
   LEARNING_CHECK_TIMEOUT_SECONDS,
   LEARNING_MAX_OPTIONS,
+  LEARNING_MAX_OUTLINE_TOPICS,
   LEARNING_MAX_WORKSPACE_FILE_CHARS,
   LEARNING_MAX_WORKSPACE_FILES,
   learningAnswerMessageHeader,
@@ -9,6 +10,8 @@ import {
   type LearningAnswer,
   type LearningCheckRun,
   type LearningMissType,
+  type LearningOutlineOp,
+  type LearningOutlineTopic,
   type LearningProblemAttempt,
   type LearningProblemMode,
   type LearningProblemOutcome,
@@ -419,4 +422,74 @@ export function formatSolutionMessage(
   if (thinking) lines.push(`Their thinking: ${thinking}`);
   lines.push("Judge it against your model solution, then call conclude_problem.");
   return lines.join("\n");
+}
+
+/**
+ * Applies outline changes in order. An op whose topic is gone is skipped with a reason, so a
+ * proposal accepted after the learner edited the outline still applies what it can.
+ */
+export function applyOutlineOps(
+  topics: ReadonlyArray<LearningOutlineTopic>,
+  ops: ReadonlyArray<LearningOutlineOp>,
+  newTopicId: () => string,
+): {
+  readonly topics: ReadonlyArray<LearningOutlineTopic>;
+  readonly skipped: ReadonlyArray<string>;
+} {
+  const next = [...topics];
+  const skipped: Array<string> = [];
+  const indexOf = (id: string) => next.findIndex((topic) => topic.id === id);
+  const insertAt = (after: string | null | undefined) =>
+    after === undefined ? next.length : after === null ? 0 : indexOf(after) + 1;
+  for (const op of ops) {
+    if (op.type === "add") {
+      if (next.length >= LEARNING_MAX_OUTLINE_TOPICS) {
+        skipped.push(
+          `add "${op.title}": an outline holds at most ${LEARNING_MAX_OUTLINE_TOPICS} topics.`,
+        );
+        continue;
+      }
+      if (typeof op.after === "string" && indexOf(op.after) === -1) {
+        skipped.push(`add "${op.title}": no topic "${op.after}" to place it after.`);
+        continue;
+      }
+      next.splice(insertAt(op.after), 0, {
+        id: newTopicId(),
+        title: op.title.trim(),
+        ...(op.summary?.trim() ? { summary: op.summary.trim() } : {}),
+        status: "todo",
+      });
+      continue;
+    }
+    const index = indexOf(op.topicId);
+    if (index === -1) {
+      skipped.push(`${op.type} "${op.topicId}": no topic with that id.`);
+      continue;
+    }
+    const topic = next[index]!;
+    switch (op.type) {
+      case "rename": {
+        const summary = op.summary === undefined ? topic.summary : op.summary.trim();
+        const { summary: _previous, ...rest } = topic;
+        next[index] = { ...rest, title: op.title.trim(), ...(summary ? { summary } : {}) };
+        break;
+      }
+      case "setStatus":
+        next[index] = { ...topic, status: op.status };
+        break;
+      case "remove":
+        next.splice(index, 1);
+        break;
+      case "move": {
+        if (op.after === op.topicId || (op.after !== null && indexOf(op.after) === -1)) {
+          skipped.push(`move "${op.topicId}": no other topic "${op.after}" to place it after.`);
+          break;
+        }
+        next.splice(index, 1);
+        next.splice(insertAt(op.after), 0, topic);
+        break;
+      }
+    }
+  }
+  return { topics: next, skipped };
 }

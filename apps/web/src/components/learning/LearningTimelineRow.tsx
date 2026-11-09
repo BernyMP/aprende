@@ -2,6 +2,7 @@ import { use } from "react";
 
 import { TimelineRowCtx, type TimelineRow } from "../chat/timelineRowContext";
 import { AssessmentCard } from "./AssessmentCard";
+import { OutlineProposalCard } from "./OutlineProposalCard";
 import { PlanMap } from "./PlanMap";
 import { ProblemCard } from "./ProblemCard";
 import { QuestionCard } from "./QuestionCard";
@@ -38,6 +39,15 @@ export function LearningTimelineRow({ row }: { row: Extract<TimelineRow, { kind:
     return question === undefined ? null : (
       <div className="min-w-0 px-1">
         <QuestionCard question={question} threadRef={ctx.threadRef} markdownCwd={ctx.markdownCwd} />
+      </div>
+    );
+  }
+
+  if (row.tool === "propose_outline") {
+    const proposal = state.proposals.find((entry) => entry.id === row.recordId);
+    return proposal === undefined ? null : (
+      <div className="min-w-0 px-1">
+        <OutlineProposalCard proposal={proposal} environmentId={ctx.threadRef.environmentId} />
       </div>
     );
   }

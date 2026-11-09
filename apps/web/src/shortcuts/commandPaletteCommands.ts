@@ -12,6 +12,8 @@ import {
 } from "../components/CommandPaletteAppearanceItem";
 import { toastManager } from "../components/ui/toast";
 import { getThemeSnapshot, setAppearanceMode } from "../hooks/useTheme";
+import { readThreadShell } from "../state/entities";
+import { resolveThreadRouteTarget } from "../threadRoutes";
 import { type CommandHandler, type CommandScopeOptions, registerCommands } from "./dispatcher";
 
 function consume(event: KeyboardEvent): void {
@@ -85,6 +87,18 @@ export function installCommandPaletteCommands(
         consume(event);
         dispatchCommandPalette({ _tag: "SetOpen", open: false });
         void router.navigate({ to: "/knowledge", search: { view: "due" } });
+      },
+      "notebook.open": (event) => {
+        const params = router.state.matches.at(-1)?.params ?? {};
+        const target = resolveThreadRouteTarget(params);
+        const thread = target?.kind === "server" ? readThreadShell(target.threadRef) : null;
+        if (thread === null) return false;
+        consume(event);
+        dispatchCommandPalette({ _tag: "SetOpen", open: false });
+        void router.navigate({
+          to: "/notebook/$environmentId/$projectId",
+          params: { environmentId: thread.environmentId, projectId: thread.projectId },
+        });
       },
       "commandPalette.toggle": toggleOverlay("commandPalette.toggle"),
       "filePicker.toggle": toggleOverlay("filePicker.toggle"),

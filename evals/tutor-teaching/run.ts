@@ -70,6 +70,20 @@ const tools = [
   inputSchema: advertisedJsonSchema(tool),
 }));
 
+// The handler adds its nudge to an empty notebook outline; the stub replays the same text.
+const outlineResult = (entry: TutorCase) => {
+  const outline = entry.mocks?.get_outline ?? {
+    inNotebook: false,
+    notebook: null,
+    topics: [],
+    lessonTopicId: null,
+    pendingProposal: false,
+  };
+  return outline.inNotebook && outline.topics.length === 0 && !outline.pendingProposal
+    ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_empty }
+    : outline;
+};
+
 const stubConfig = (entry: TutorCase): StubConfig => ({
   tools,
   results: {
@@ -77,6 +91,7 @@ const stubConfig = (entry: TutorCase): StubConfig => ({
     graph_search: entry.mocks?.graph_search ?? { propositions: [], chains: [] },
     graph_record: { propositions: [] },
     review_due: entry.mocks?.review_due ?? { total: 0, propositions: [] },
+    get_outline: outlineResult(entry),
     set_profile: { profile: {}, message: LEARN_TOOL_MESSAGES.set_profile },
     html_render: { message: "The learner sees the render now." },
     html_preview: { message: "Previewed." },

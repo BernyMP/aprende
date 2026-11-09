@@ -18,6 +18,11 @@ export const LEARN_TOOL_MESSAGES = {
   set_plan: "The learner sees this plan now.",
   set_profile:
     "Saved. It applies from the next session; follow it from now on, and do not ask for these again.",
+  propose_outline:
+    "The learner sees your suggestion as a card and decides. Keep teaching without asking them about it; get_outline shows what they chose.",
+  set_topic_status: "The learner sees the topic's new status in their notebook.",
+  get_outline_empty:
+    "The outline is empty. After set_plan, suggest one for the whole subject with propose_outline.",
 } as const;
 
 const toFailure = (error: LearningError) =>
@@ -111,6 +116,34 @@ const handlers = {
         profile,
         message: LEARN_TOOL_MESSAGES.set_profile,
       };
+    }),
+  ),
+  get_outline: McpToolAccess.readsAsCaller(() =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("get_outline");
+      const learning = yield* LearningService.LearningService;
+      const outline = yield* learning.tutorOutline(threadId).pipe(Effect.mapError(toFailure));
+      return outline.inNotebook && outline.topics.length === 0 && !outline.pendingProposal
+        ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_empty }
+        : outline;
+    }),
+  ),
+  propose_outline: McpToolAccess.actsAsCaller((input) =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("propose_outline");
+      const learning = yield* LearningService.LearningService;
+      const { proposalId } = yield* learning
+        .proposeOutline(threadId, input)
+        .pipe(Effect.mapError(toFailure));
+      return { proposalId, message: LEARN_TOOL_MESSAGES.propose_outline };
+    }),
+  ),
+  set_topic_status: McpToolAccess.actsAsCaller((input) =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("set_topic_status");
+      const learning = yield* LearningService.LearningService;
+      yield* learning.setTopicStatus(threadId, input.status).pipe(Effect.mapError(toFailure));
+      return { message: LEARN_TOOL_MESSAGES.set_topic_status };
     }),
   ),
 } satisfies McpToolAccess.Handlers<typeof LearnToolkit.tools>;

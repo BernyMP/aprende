@@ -191,9 +191,12 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return collectsProfile(made, check.fields);
     case "reviewTargets":
       return made.some((call) => call.name === "pose_problem");
+    case "outlineAfterMeasuring":
+      return made.some((call) => call.name === "propose_outline");
     case "noHandout":
     case "noLearningStyles":
     case "noProfileQuestions":
+    case "noOutlineProposal":
       return false;
   }
 }
@@ -247,6 +250,36 @@ export function ruleVerdict(
         pass: named && recall,
         reason: `mode ${String(problem.input.mode)}, targets ${JSON.stringify(targets)}`,
       };
+    }
+    case "outlineAfterMeasuring": {
+      const proposal = made.findIndex((call) => call.name === "propose_outline");
+      const measured = made.findIndex((call) => call.name === "finish_measuring");
+      if (proposal === -1)
+        return measured === -1
+          ? {
+              pass: false,
+              reason: "Never finished measuring within the turn cap.",
+              inconclusive: true,
+            }
+          : { pass: false, reason: "Finished measuring but suggested no outline." };
+      const adds = (
+        Array.isArray(made[proposal]!.input.ops) ? made[proposal]!.input.ops : []
+      ).filter((op: unknown) => (op as { type?: unknown }).type === "add").length;
+      return measured !== -1 && measured < proposal && adds >= 4
+        ? { pass: true, reason: `Suggested ${adds} topics after measuring.` }
+        : {
+            pass: false,
+            reason:
+              measured === -1 || measured > proposal
+                ? "Suggested the outline before measuring."
+                : `Suggested only ${adds} topics.`,
+          };
+    }
+    case "noOutlineProposal": {
+      const proposal = made.find((call) => call.name === "propose_outline");
+      return proposal === undefined
+        ? { pass: true, reason: "No outline suggestion." }
+        : { pass: false, reason: `Suggested: ${JSON.stringify(proposal.input)}` };
     }
     case "approach":
       return teachingWindow(turns).events.length === 0
@@ -323,6 +356,8 @@ ${JSON_ONLY} {"endorses": true|false, "reason": "one sentence"}`;
     case "collectsProfile":
     case "noProfileQuestions":
     case "reviewTargets":
+    case "outlineAfterMeasuring":
+    case "noOutlineProposal":
       return undefined;
   }
 }

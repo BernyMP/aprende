@@ -43,6 +43,7 @@ import {
   FolderPlusIcon,
   MessageSquareDashedIcon,
   LibraryIcon,
+  NotebookIcon,
   LinkIcon,
   RotateCcwIcon,
   SettingsIcon,
@@ -1209,6 +1210,28 @@ function OpenCommandPaletteDialog(props: {
   }
 
   actionItems.push(changeAppearanceItem);
+
+  if (
+    currentProject !== null &&
+    currentProject !== undefined &&
+    !isScratchProject(currentProject, scratchWorkspaceRootFor(currentProject.environmentId))
+  ) {
+    const notebook = currentProject;
+    actionItems.push({
+      kind: "action",
+      value: "action:notebook",
+      searchTerms: ["notebook", "outline", "topics", "lessons", "subject", notebook.title],
+      title: `Open notebook: ${notebook.title}`,
+      icon: <NotebookIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "notebook.open",
+      run: async () => {
+        await navigate({
+          to: "/notebook/$environmentId/$projectId",
+          params: { environmentId: notebook.environmentId, projectId: notebook.id },
+        });
+      },
+    });
+  }
 
   actionItems.push({
     kind: "action",

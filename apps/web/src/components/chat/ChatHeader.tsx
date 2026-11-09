@@ -10,6 +10,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@aprende/client-runtime/state/runtime";
+import { useNavigate } from "@tanstack/react-router";
 import { ChevronDownIcon } from "lucide-react";
 import {
   memo,
@@ -28,6 +29,7 @@ import { readLocalApi } from "~/localApi";
 import { threadEnvironment } from "../../state/threads";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
 import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { useLearningThread } from "../learning/useLearningThread";
 import { ProjectFavicon } from "../ProjectFavicon";
 import {
   WorkspaceBreadcrumb,
@@ -87,6 +89,16 @@ export const ChatHeader = memo(function ChatHeader({
   const breadcrumbContainerRef = useRef<HTMLDivElement>(null);
   const [collapseParentTitle, setCollapseParentTitle] = useState(false);
   const activeThreadRef = scopeThreadRef(activeThreadEnvironmentId, activeThreadId);
+  const navigate = useNavigate();
+  const notebook = activeProject !== null && !activeProject.isScratch ? activeProject : null;
+  const lessonTopic = useLearningThread(isServerThread && notebook ? activeThreadRef : null)?.topic;
+  const openNotebook = () => {
+    if (notebook === null) return;
+    void navigate({
+      to: "/notebook/$environmentId/$projectId",
+      params: { environmentId: notebook.environmentId, projectId: notebook.id },
+    });
+  };
   const canOperateThread = useEnvironmentScope(
     activeThreadEnvironmentId,
     AuthOrchestrationOperateScope,
@@ -295,8 +307,12 @@ export const ChatHeader = memo(function ChatHeader({
                   render={
                     <button
                       type="button"
-                      aria-label={`New thread in ${activeProjectName}`}
-                      onClick={onNewThreadInProject}
+                      aria-label={
+                        notebook
+                          ? `Open ${activeProjectName} notebook`
+                          : `New thread in ${activeProjectName}`
+                      }
+                      onClick={notebook ? openNotebook : onNewThreadInProject}
                       className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     />
                   }
@@ -306,8 +322,29 @@ export const ChatHeader = memo(function ChatHeader({
                     {activeProjectName}
                   </WorkspaceBreadcrumbText>
                 </TooltipTrigger>
-                <TooltipPopup side="top">New thread in {activeProjectName}</TooltipPopup>
+                <TooltipPopup side="top">
+                  {notebook ? "Open notebook" : `New thread in ${activeProjectName}`}
+                </TooltipPopup>
               </Tooltip>
+            </WorkspaceBreadcrumbItem>
+            <WorkspaceBreadcrumbSeparator>
+              <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>
+            </WorkspaceBreadcrumbSeparator>
+          </>
+        ) : null}
+        {lessonTopic ? (
+          <>
+            <WorkspaceBreadcrumbItem className="shrink">
+              <button
+                type="button"
+                aria-label={`Topic: ${lessonTopic.title}. Open notebook`}
+                onClick={openNotebook}
+                className="inline-flex min-w-0 max-w-full cursor-pointer items-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+              >
+                <WorkspaceBreadcrumbText className="max-w-40">
+                  {lessonTopic.title}
+                </WorkspaceBreadcrumbText>
+              </button>
             </WorkspaceBreadcrumbItem>
             <WorkspaceBreadcrumbSeparator>
               <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>

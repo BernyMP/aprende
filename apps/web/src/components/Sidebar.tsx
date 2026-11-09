@@ -1216,6 +1216,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     if (isMobile) setOpenMobile(false);
     void handleNewThread(scopeProjectRef(group.environmentId, group.id));
   });
+  const openNotebook = useStableCallback((group: SidebarProjectSnapshot) => {
+    if (isMobile) setOpenMobile(false);
+    void router.navigate({
+      to: "/notebook/$environmentId/$projectId",
+      params: { environmentId: group.environmentId, projectId: group.id },
+    });
+  });
   const handleProjectFolderContextMenu = useStableCallback(
     (group: SidebarProjectSnapshot, position: { x: number; y: number }) => {
       const api = readLocalApi();
@@ -1224,6 +1231,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             [
+              { id: "open-notebook", label: "Open notebook" },
               { id: "new-thread", label: "New thread" },
               { id: "copy-path", label: "Copy path" },
               ...(canPinProject(group)
@@ -1240,6 +1248,9 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         );
         if (clicked._tag === "Failure") return;
         switch (clicked.value) {
+          case "open-notebook":
+            openNotebook(group);
+            return;
           case "new-thread":
             startThreadInProjectFolder(group);
             return;
@@ -3367,6 +3378,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                 hiddenThreads={folder.hiddenThreads}
                                 onToggle={toggleProjectFolder}
                                 onNewThread={startThreadInProjectFolder}
+                                onOpenNotebook={openNotebook}
                                 onContextMenu={handleProjectFolderContextMenu}
                               />,
                             );

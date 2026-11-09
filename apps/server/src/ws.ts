@@ -1665,6 +1665,11 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
         [WS_METHODS.learningSnoozeReview]: (input) => learning.snoozeReview(input),
         [WS_METHODS.learningGetProfile]: () => learning.getProfile(),
         [WS_METHODS.learningSetProfile]: (input) => learning.updateProfile(input),
+        [WS_METHODS.learningSubscribeNotebook]: (input) =>
+          learning.subscribeNotebook(input.projectId),
+        [WS_METHODS.learningEditOutline]: (input) => learning.editOutline(input),
+        [WS_METHODS.learningResolveProposal]: (input) => learning.resolveProposal(input),
+        [WS_METHODS.learningSetLessonTopic]: (input) => learning.setLessonTopic(input),
         [WS_METHODS.serverProbe]: (_input) => Effect.succeed({}),
         [WS_METHODS.serverGetConfig]: (_input) =>
           loadServerConfig({

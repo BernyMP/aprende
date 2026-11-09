@@ -7,6 +7,8 @@ import {
   LearningDueReviews,
   LearningKnowledge,
   LearningMissType,
+  LearningOutlineOp,
+  LearningOutlineTopic,
   LearningPlanEdge,
   LearningPlanNode,
   LearningProblemMode,
@@ -303,6 +305,70 @@ const SetProfileTool = Tool.make("set_profile", {
   .annotate(Tool.Idempotent, true)
   .annotate(Tool.OpenWorld, false);
 
+const GetOutlineTool = Tool.make("get_outline", {
+  description:
+    "Read the outline of the notebook this session is in: the learner's ordered topics for the subject, each todo, learning, learned (a lesson checked it) or known (the learner says so, unchecked). Also names this lesson's topic and whether a suggestion of yours still waits for the learner.",
+  parameters: Tool.EmptyParams,
+  success: Schema.Struct({
+    inNotebook: Schema.Boolean.annotate({
+      description: "false outside a notebook: there is no outline, so skip outline work.",
+    }),
+    notebook: Schema.NullOr(Schema.String),
+    topics: Schema.Array(LearningOutlineTopic),
+    lessonTopicId: Schema.NullOr(Schema.String).annotate({
+      description: "The topic this lesson teaches; null for a lesson on no topic.",
+    }),
+    pendingProposal: Schema.Boolean,
+    message: Schema.optional(Schema.String),
+  }),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Read the notebook outline")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, true)
+  .annotate(Tool.OpenWorld, false);
+
+const ProposeOutlineTool = Tool.make("propose_outline", {
+  description:
+    "Suggest a change to the notebook outline. The learner owns it: they see your suggestion as a card and accept or dismiss it, so nothing changes until they do. A new suggestion replaces one still waiting. Name topics by id from get_outline; `after` places a topic after another, null puts it first, and leaving it out of add puts it last. Keep teaching after calling.",
+  parameters: Schema.Struct({
+    ops: Schema.Array(LearningOutlineOp).annotate({
+      description:
+        "Applied in order. add a topic, rename one, move one, remove one, or setStatus (todo, learning, learned, known).",
+    }),
+    reason: Text.annotate({ description: "One sentence the learner reads: why this change." }),
+  }),
+  success: Schema.Struct({ proposalId: Schema.String, message: Schema.String }),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Suggest an outline change")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, false)
+  .annotate(Tool.OpenWorld, false);
+
+const SetTopicStatusTool = Tool.make("set_topic_status", {
+  description:
+    "Mark this lesson's outline topic: learned once its checks pass and the idea feels obvious to the learner, or back to learning. Only this lesson's own topic; suggest changes to others with propose_outline.",
+  parameters: Schema.Struct({
+    status: Schema.Literals(["learning", "learned"]),
+  }),
+  success: Schema.Struct({ message: Schema.String }),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Mark the lesson's topic")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, true)
+  .annotate(Tool.OpenWorld, false);
+
 export const LearnToolkit = Toolkit.make(
   AskQuestionTool,
   PoseProblemTool,
@@ -313,4 +379,7 @@ export const LearnToolkit = Toolkit.make(
   GraphRecordTool,
   ReviewDueTool,
   SetProfileTool,
+  GetOutlineTool,
+  ProposeOutlineTool,
+  SetTopicStatusTool,
 );

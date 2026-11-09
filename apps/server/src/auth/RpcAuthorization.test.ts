@@ -27,13 +27,16 @@ describe("RPC authorization scopes", () => {
     expect(new Set(Object.keys(RPC_REQUIRED_SCOPES))).toEqual(new Set(WsRpcGroup.requests.keys()));
   });
 
-  it("keeps learner answers, practice and review, which start tutor turns, run code or change the schedule, behind operate scope", () => {
+  it("keeps learner answers, practice, review and notebook outline changes, which start tutor turns, run code or change learning state, behind operate scope", () => {
     for (const method of [
       WS_METHODS.learningAnswer,
       WS_METHODS.learningRevealHint,
       WS_METHODS.learningSubmitSolution,
       WS_METHODS.learningRunCheck,
       WS_METHODS.learningSnoozeReview,
+      WS_METHODS.learningEditOutline,
+      WS_METHODS.learningResolveProposal,
+      WS_METHODS.learningSetLessonTopic,
     ]) {
       expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
     }
