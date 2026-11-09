@@ -1455,7 +1455,7 @@ export const layer = Layer.effect(
       const outline = yield* readOutline(projectId).pipe(Effect.mapError(read));
       const lesson = yield* lessonOf(threadId).pipe(Effect.mapError(read));
       const pending = yield* pendingProposal(projectId).pipe(Effect.mapError(read));
-      // Only lessons that exist count, matching what the learner's notebook shows.
+      // Only lessons whose session exists count; archived ones still happened.
       const links = yield* sql<{ topic_id: string }>`
         SELECT l.topic_id FROM learning_lesson_topics l
         JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
