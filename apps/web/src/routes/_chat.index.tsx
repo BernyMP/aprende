@@ -41,7 +41,7 @@ function IndexLanding() {
     visibleThreads,
     "updated_at",
   );
-  // Each card gets its own notebook's threads, so one shell update does not re-filter them all.
+  // Each card scans only its own notebook's threads.
   const threadsByNotebook = new Map<string, Array<EnvironmentThreadShell>>();
   for (const thread of threads) {
     const key = `${thread.environmentId}:${thread.projectId}`;
