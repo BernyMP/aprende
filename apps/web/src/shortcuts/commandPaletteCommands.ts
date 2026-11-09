@@ -90,6 +90,11 @@ export function installCommandPaletteCommands(
         dispatchCommandPalette({ _tag: "SetOpen", open: false });
         void router.navigate({ to: "/knowledge", search: { view: "due" } });
       },
+      "notebooks.open": (event) => {
+        consume(event);
+        dispatchCommandPalette({ _tag: "SetOpen", open: false });
+        void router.navigate({ to: "/" });
+      },
       "notebook.open": (event) => {
         const params = router.state.matches.at(-1)?.params ?? {};
         const target = resolveThreadRouteTarget(params);

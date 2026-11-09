@@ -178,6 +178,7 @@ export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
   { key: "mod+alt+k", command: "knowledge.open", when: "!terminalFocus" },
   { key: "mod+alt+r", command: "knowledge.review", when: "!terminalFocus" },
   { key: "mod+alt+o", command: "notebook.open", when: "!terminalFocus" },
+  { key: "mod+alt+l", command: "notebooks.open", when: "!terminalFocus" },
   { key: "mod+alt+shift+a", command: "appearance.cycle", when: "!terminalFocus" },
   { key: "mod+s", command: "composer.stash", when: "!terminalFocus" },
   { key: "mod+shift+enter", command: "thread.steerQueuedMessage", when: "!terminalFocus" },

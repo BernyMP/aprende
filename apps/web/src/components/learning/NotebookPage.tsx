@@ -2,7 +2,6 @@ import { scopeProjectRef } from "@aprende/client-runtime/environment";
 import type { EnvironmentThreadShell } from "@aprende/client-runtime/state/models";
 import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 import {
-  isListedThreadLineage,
   type EnvironmentId,
   type LearningNotebook,
   type LearningOutlineOp,
@@ -44,18 +43,24 @@ import {
 } from "../ui/menu";
 import { SidebarInset } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import {
+  WorkspaceBreadcrumb,
+  WorkspaceBreadcrumbItem,
+  WorkspaceBreadcrumbSeparator,
+  WorkspaceBreadcrumbText,
+} from "../WorkspaceBreadcrumb";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import {
   TOPIC_PROGRESS_LABEL,
-  buildLessonMessage,
   neighborPlacement,
   nextTopic,
+  notebookLessons,
   topicProgress,
   type TopicProgress,
 } from "./notebook.logic";
 import { OutlineProposalCard } from "./OutlineProposalCard";
 import { reportNotebookResult, useNotebook } from "./useNotebook";
-import { useStartSession } from "./useStartSession";
+import { useStartLesson } from "./useStartLesson";
 
 const PROGRESS_ICON: Record<TopicProgress, typeof CircleIcon> = {
   todo: CircleIcon,
@@ -87,10 +92,27 @@ export function NotebookPage(props: {
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
         <WorkspacePageHeader electron={isElectron} className="border-b border-border">
-          {project !== null ? <ProjectFavicon project={project} className="size-4" /> : null}
-          <span className="truncate text-sm font-medium text-foreground">
-            {project?.title ?? "Notebook"}
-          </span>
+          <WorkspaceBreadcrumb ariaLabel="Notebook breadcrumb" className="min-w-0 flex-1">
+            <WorkspaceBreadcrumbItem className="shrink-0">
+              <Link
+                to="/"
+                className="rounded-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <WorkspaceBreadcrumbText>Notebooks</WorkspaceBreadcrumbText>
+              </Link>
+            </WorkspaceBreadcrumbItem>
+            <WorkspaceBreadcrumbSeparator>
+              <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>
+            </WorkspaceBreadcrumbSeparator>
+            <WorkspaceBreadcrumbItem current className="min-w-0 gap-1.5">
+              {project !== null ? (
+                <ProjectFavicon project={project} className="size-4 shrink-0" />
+              ) : null}
+              <WorkspaceBreadcrumbText className="font-medium text-foreground">
+                {project?.title ?? "Notebook"}
+              </WorkspaceBreadcrumbText>
+            </WorkspaceBreadcrumbItem>
+          </WorkspaceBreadcrumb>
         </WorkspacePageHeader>
         {project?.isScratch ? (
           <p className="px-6 py-4 text-muted-foreground text-sm">
@@ -117,7 +139,7 @@ function NotebookBody(props: {
   const { topics } = notebook.outline;
   const environmentId = project.environmentId;
   const handleNewThread = useNewThreadHandler();
-  const startSession = useStartSession();
+  const startLessonOn = useStartLesson();
   const editOutline = useAtomCommand(serverEnvironment.editOutline, {
     label: "change your outline",
     reportFailure: false,
@@ -128,31 +150,16 @@ function NotebookBody(props: {
   });
   const [starting, setStarting] = useState(false);
 
-  const lessons = useThreadShells()
-    .filter(
-      (thread) =>
-        thread.environmentId === environmentId &&
-        thread.projectId === project.id &&
-        thread.archivedAt === null &&
-        thread.deletedAt === null &&
-        isListedThreadLineage(thread.lineage),
-    )
-    .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt));
-  const topicOfLesson = new Map(
-    notebook.lessons.map((lesson) => [lesson.threadId, lesson.topicId]),
-  );
+  const { lessons, topicOfLesson, startedTopicIds } = notebookLessons(useThreadShells(), {
+    environmentId,
+    projectId: project.id,
+    links: notebook.lessons,
+  });
   const lessonsOf = (topicId: string) =>
     lessons.filter((thread) => topicOfLesson.get(thread.id) === topicId);
   const topicIds = new Set(topics.map((topic) => topic.id));
   const looseLessons = lessons.filter(
     (thread) => !topicIds.has(topicOfLesson.get(thread.id) ?? ""),
-  );
-  // Only lessons that exist count, so a start that failed leaves no topic in progress.
-  const startedTopicIds = new Set(
-    lessons.flatMap((thread) => {
-      const topicId = topicOfLesson.get(thread.id);
-      return topicId === undefined ? [] : [topicId];
-    }),
   );
 
   const edit = async (ops: ReadonlyArray<LearningOutlineOp>) => {
@@ -162,20 +169,7 @@ function NotebookBody(props: {
 
   const startLesson = async (topic: LearningOutlineTopic) => {
     setStarting(true);
-    await startSession(project, {
-      title: topic.title,
-      text: buildLessonMessage(topic, project.title),
-      failureTitle: "Could not start the lesson",
-      // Linked first, so the tutor's first turn already knows its topic.
-      beforeStart: async (threadId) =>
-        reportNotebookResult(
-          await setLessonTopic({
-            environmentId,
-            input: { projectId: project.id, threadId, topicId: topic.id },
-          }),
-          "Could not start the lesson",
-        ),
-    });
+    await startLessonOn(project, topic);
     setStarting(false);
   };
 

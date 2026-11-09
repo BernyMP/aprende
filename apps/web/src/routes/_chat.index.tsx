@@ -5,6 +5,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { isElectron } from "../env";
+import { NotebooksHome } from "../components/learning/NotebooksHome";
 import { NoProjectsHero } from "../components/NoProjectsHero";
 import { sortScopedProjectsForSidebar } from "../components/Sidebar.logic";
 import { Button } from "../components/ui/button";
@@ -30,7 +31,23 @@ function ChatIndexRouteView() {
     if (environments.length === 0) return <HostedEmptyState />;
   }
 
-  return <IndexDraftLanding />;
+  return <IndexLanding />;
+}
+
+/** Opens on the learner's notebooks; without any, it falls back to a draft as before. */
+function IndexLanding() {
+  const projects = useProjects();
+  const threads = useVisibleThreadShells();
+  const notebooks = sortScopedProjectsForSidebar(
+    projects.filter((project) => project.archivedAt == null && project.isScratch !== true),
+    threads,
+    "updated_at",
+  );
+  return notebooks.length > 0 ? (
+    <NotebooksHome notebooks={notebooks} threads={threads} />
+  ) : (
+    <IndexDraftLanding />
+  );
 }
 
 function IndexDraftLanding() {
