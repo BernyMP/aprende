@@ -6,7 +6,7 @@ import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { describeOutlineOp } from "./notebook.logic";
-import { useNotebook } from "./useNotebook";
+import { reportNotebookResult, useNotebook } from "./useNotebook";
 
 const OUTCOME: Record<Exclude<LearningOutlineProposal["status"], "pending">, string> = {
   accepted: "Applied to your outline.",
@@ -23,6 +23,7 @@ export function OutlineProposalCard(props: {
   const notebook = useNotebook(props.environmentId, proposal.projectId);
   const resolve = useAtomCommand(serverEnvironment.resolveOutlineProposal, {
     label: "change your outline",
+    reportFailure: false,
   });
   const [pending, setPending] = useState(false);
   const titles = new Map((notebook?.outline.topics ?? []).map((topic) => [topic.id, topic.title]));
@@ -33,10 +34,13 @@ export function OutlineProposalCard(props: {
 
   const decide = async (accept: boolean) => {
     setPending(true);
-    await resolve({
-      environmentId: props.environmentId,
-      input: { proposalId: proposal.id, accept },
-    });
+    reportNotebookResult(
+      await resolve({
+        environmentId: props.environmentId,
+        input: { proposalId: proposal.id, accept },
+      }),
+      "Could not change your outline",
+    );
     setPending(false);
   };
 

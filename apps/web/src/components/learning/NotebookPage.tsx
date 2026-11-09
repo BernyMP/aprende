@@ -1,12 +1,13 @@
 import { scopeProjectRef } from "@aprende/client-runtime/environment";
 import type { EnvironmentThreadShell } from "@aprende/client-runtime/state/models";
 import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
-import type {
-  EnvironmentId,
-  LearningNotebook,
-  LearningOutlineOp,
-  LearningOutlineTopic,
-  ProjectId,
+import {
+  isListedThreadLineage,
+  type EnvironmentId,
+  type LearningNotebook,
+  type LearningOutlineOp,
+  type LearningOutlineTopic,
+  type ProjectId,
 } from "@aprende/contracts";
 import { Link } from "@tanstack/react-router";
 import {
@@ -53,7 +54,7 @@ import {
   type TopicProgress,
 } from "./notebook.logic";
 import { OutlineProposalCard } from "./OutlineProposalCard";
-import { useNotebook } from "./useNotebook";
+import { reportNotebookResult, useNotebook } from "./useNotebook";
 import { useStartSession } from "./useStartSession";
 
 const PROGRESS_ICON: Record<TopicProgress, typeof CircleIcon> = {
@@ -119,9 +120,11 @@ function NotebookBody(props: {
   const startSession = useStartSession();
   const editOutline = useAtomCommand(serverEnvironment.editOutline, {
     label: "change your outline",
+    reportFailure: false,
   });
   const setLessonTopic = useAtomCommand(serverEnvironment.setLessonTopic, {
-    label: "start the lesson",
+    label: "file the lesson under a topic",
+    reportFailure: false,
   });
   const [starting, setStarting] = useState(false);
 
@@ -131,7 +134,8 @@ function NotebookBody(props: {
         thread.environmentId === environmentId &&
         thread.projectId === project.id &&
         thread.archivedAt === null &&
-        thread.deletedAt === null,
+        thread.deletedAt === null &&
+        isListedThreadLineage(thread.lineage),
     )
     .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt));
   const topicOfLesson = new Map(
@@ -153,7 +157,7 @@ function NotebookBody(props: {
 
   const edit = async (ops: ReadonlyArray<LearningOutlineOp>) => {
     const result = await editOutline({ environmentId, input: { projectId: project.id, ops } });
-    return result._tag === "Success";
+    return reportNotebookResult(result, "Could not change your outline");
   };
 
   const startLesson = async (topic: LearningOutlineTopic) => {
@@ -164,12 +168,13 @@ function NotebookBody(props: {
       failureTitle: "Could not start the lesson",
       // Linked first, so the tutor's first turn already knows its topic.
       beforeStart: async (threadId) =>
-        (
+        reportNotebookResult(
           await setLessonTopic({
             environmentId,
             input: { projectId: project.id, threadId, topicId: topic.id },
-          })
-        )._tag === "Success",
+          }),
+          "Could not start the lesson",
+        ),
     });
     setStarting(false);
   };
@@ -182,12 +187,20 @@ function NotebookBody(props: {
     if (confirmed) await edit([{ type: "remove", topicId: topic.id }]);
   };
 
-  const relink = (thread: EnvironmentThreadShell, topicId: string | null) =>
-    void setLessonTopic({
-      environmentId,
-      input: { projectId: project.id, threadId: thread.id, topicId },
-    });
-  const lessonProps = { topics, topicOfLesson, onRelink: relink };
+  const relink = async (thread: EnvironmentThreadShell, topicId: string | null) =>
+    reportNotebookResult(
+      await setLessonTopic({
+        environmentId,
+        input: { projectId: project.id, threadId: thread.id, topicId },
+      }),
+      "Could not move the lesson",
+    );
+  const lessonProps = {
+    topics,
+    topicOfLesson,
+    onRelink: (thread: EnvironmentThreadShell, topicId: string | null) =>
+      void relink(thread, topicId),
+  };
 
   const next = nextTopic(topics, startedTopicIds);
   const nextLessons = next === undefined ? [] : lessonsOf(next.id);

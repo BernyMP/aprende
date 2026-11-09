@@ -1455,7 +1455,12 @@ export const layer = Layer.effect(
       const outline = yield* readOutline(projectId).pipe(Effect.mapError(read));
       const lesson = yield* lessonOf(threadId).pipe(Effect.mapError(read));
       const pending = yield* pendingProposal(projectId).pipe(Effect.mapError(read));
-      const links = yield* lessonLinks(projectId).pipe(Effect.mapError(read));
+      // Only lessons that exist count, matching what the learner's notebook shows.
+      const links = yield* sql<{ topic_id: string }>`
+        SELECT l.topic_id FROM learning_lesson_topics l
+        JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
+        WHERE l.project_id = ${projectId} AND t.deleted_at IS NULL
+      `.pipe(Effect.mapError(read));
       return {
         inNotebook: true,
         notebook: Option.isSome(project) ? project.value.title : null,

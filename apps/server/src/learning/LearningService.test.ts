@@ -865,9 +865,27 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
       yield* learning.setLessonTopic({ projectId, threadId, topicId: eigen!.id });
       const notebook = yield* learning.subscribeNotebook(projectId).pipe(Stream.runHead);
       assert.deepEqual(Option.getOrThrow(notebook).lessons, [{ threadId, topicId: eigen!.id }]);
-      const read = yield* learning.tutorOutline(threadId);
-      assert.equal(read.lessonTopicId, eigen!.id);
-      assert.equal(read.topics.find((topic) => topic.id === eigen!.id)?.lessons, 1);
+      const lessonsOnEigen = Effect.map(
+        learning.tutorOutline(threadId),
+        (read) => read.topics.find((topic) => topic.id === eigen!.id)?.lessons,
+      );
+      assert.equal((yield* learning.tutorOutline(threadId)).lessonTopicId, eigen!.id);
+      // The tutor counts a lesson once its thread exists, as the learner's notebook does.
+      assert.equal(yield* lessonsOnEigen, 0);
+      const sql = yield* SqlClient.SqlClient;
+      yield* sql`INSERT INTO orchestration_v2_projection_threads ${sql.insert({
+        thread_id: threadId,
+        project_id: projectId,
+        title: "Eigenvectors",
+        default_provider: "claude",
+        runtime_mode: "auto",
+        interaction_mode: "default",
+        created_at: "2026-01-01T00:00:00.000Z",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        deleted_at: null,
+        payload_json: "{}",
+      })}`;
+      assert.equal(yield* lessonsOnEigen, 1);
       const elsewhere = yield* learning
         .setLessonTopic({ projectId: ProjectId.make("project-other"), threadId, topicId: null })
         .pipe(Effect.exit);
