@@ -7,6 +7,7 @@ import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 import {
   AuthOrchestrationOperateScope,
   DEFAULT_SERVER_SETTINGS,
+  learningSessionStartMessage,
   type ThreadId,
 } from "@aprende/contracts";
 import { resolveProjectSettings } from "@aprende/shared/projectSettings";
@@ -27,7 +28,7 @@ import { toastManager } from "../ui/toast";
 
 export interface SessionStart {
   readonly title: string;
-  /** The learner's first message, which starts the tutor's first turn. */
+  /** What the learner asks for by starting the session; the tutor reads it, the learner never sees it. */
   readonly text: string;
   readonly failureTitle: string;
   /** Runs before the session exists; returning false stops the start. */
@@ -78,7 +79,7 @@ export function useStartSession() {
         message: {
           messageId: newMessageId(),
           role: "user",
-          text: start.text,
+          text: learningSessionStartMessage(start.text),
           attachments: [],
         },
         modelSelection: selection,

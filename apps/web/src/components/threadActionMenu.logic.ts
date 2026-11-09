@@ -1,11 +1,14 @@
-import type { ContextMenuItem } from "@aprende/contracts";
+import type { ContextMenuItem, ProjectId } from "@aprende/contracts";
 import type { SnoozePreset } from "@aprende/client-runtime/state/thread-settled";
+import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 
 export type ThreadActionMenuId =
   | "find"
   | "open-notebook"
   | "filter-by-project"
   | "turn-into-project"
+  | "move-to-notebook"
+  | `move-to-notebook:${string}`
   | "project-settings"
   | "pin"
   | "unpin"
@@ -83,6 +86,25 @@ export interface ThreadActionMenuState {
   readonly snoozePresets: ReadonlyArray<SnoozePreset>;
   /** A No project thread with its own folder, on a server that can promote it. */
   readonly canTurnIntoProject?: boolean;
+  /** Notebooks the thread can move to. */
+  readonly moveTargets?: ReadonlyArray<{ readonly projectId: ProjectId; readonly title: string }>;
+}
+
+/** The notebooks a thread can move to: the others in its environment. */
+export function notebookMoveTargets(
+  projects: ReadonlyArray<EnvironmentProject>,
+  thread: { readonly environmentId: string; readonly projectId: string },
+): ReadonlyArray<{ readonly projectId: ProjectId; readonly title: string }> {
+  return projects
+    .filter(
+      (project) =>
+        project.environmentId === thread.environmentId &&
+        project.id !== thread.projectId &&
+        project.isScratch !== true &&
+        project.archivedAt == null,
+    )
+    .map((project) => ({ projectId: project.id, title: project.title }))
+    .toSorted((left, right) => left.title.localeCompare(right.title));
 }
 
 /** Local navigation, read markers, and copying remain available to read-only clients. */
@@ -169,11 +191,25 @@ export function buildThreadActionMenuItems(
           },
         ]
       : []),
+    ...(state.moveTargets !== undefined && state.moveTargets.length > 0
+      ? [
+          {
+            id: "move-to-notebook" as const,
+            label: "Move to notebook",
+            icon: "notebook",
+            disabled: state.isRunning,
+            children: state.moveTargets.map((target) => ({
+              id: `move-to-notebook:${target.projectId}` as const,
+              label: target.title,
+            })),
+          },
+        ]
+      : []),
     ...(state.canTurnIntoProject
       ? [
           {
             id: "turn-into-project" as const,
-            label: "Turn into project",
+            label: "Turn into notebook",
             icon: "folder-plus",
             disabled: state.isRunning,
           },

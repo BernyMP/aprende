@@ -80,6 +80,9 @@ export function buildLessonMessage(topic: LearningOutlineTopic, notebook: string
   return lines.join("\n");
 }
 
+/** What starting a new notebook asks the tutor for; the tutor takes it from there. */
+export const NEW_NOTEBOOK_MESSAGE = "I want to start a new notebook.";
+
 /** Where `topicId` lands when it moves one place up or down, as a `move` op's `after`. */
 export function neighborPlacement(
   topics: ReadonlyArray<LearningOutlineTopic>,

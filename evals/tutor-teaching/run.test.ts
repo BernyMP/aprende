@@ -8,6 +8,7 @@ import {
   ruleVerdict,
   teachingWindow,
   type Turn,
+  untilNamed,
 } from "./grade.ts";
 
 const persona: Persona = {
@@ -117,6 +118,21 @@ describe("ruleVerdict", () => {
     expect(ruleVerdict(check, [{ user: "a", events: [measure("q-1")] }])?.inconclusive).toBe(true);
   });
 
+  it("needs a goal question before a short notebook name, then leaves the rest to the judge", () => {
+    const check = { type: "guidedNotebookStart" as const };
+    const goal = call("ask_question", { purpose: "goal", question: "What do you want to learn?" });
+    const name = (value: string) => call("name_notebook", { name: value });
+    expect(ruleVerdict(check, [{ user: "a", events: [goal] }])?.pass).toBe(false);
+    expect(ruleVerdict(check, [{ user: "a", events: [name("Azure")] }])?.pass).toBe(false);
+    expect(
+      ruleVerdict(check, [{ user: "a", events: [goal, name("Azure fundamentals for my new job")] }])
+        ?.pass,
+    ).toBe(false);
+    expect(ruleVerdict(check, [{ user: "a", events: [goal, name("Azure AZ-900")] }])).toBe(
+      undefined,
+    );
+  });
+
   it("fails a saved profile that is asked for again", () => {
     const asked = call("ask_question", {
       purpose: "goal",
@@ -147,6 +163,17 @@ describe("ruleVerdict", () => {
     expect(ruleVerdict(check, saved({ goalKind: "exam", returnCadence: "daily" }))?.pass).toBe(
       true,
     );
+  });
+});
+
+describe("untilNamed", () => {
+  it("stops at the naming call, even mid-turn", () => {
+    const goal = call("ask_question", { purpose: "goal", question: "What do you want to learn?" });
+    const events = untilNamed([
+      { user: "start", events: [goal] },
+      { user: "Azure", events: [call("name_notebook", { name: "Azure" }), measure("q-2")] },
+    ]);
+    expect(events.map((event) => event.kind)).toEqual(["learner", "call", "learner"]);
   });
 });
 

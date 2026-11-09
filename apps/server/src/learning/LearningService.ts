@@ -7,6 +7,8 @@ import {
   LearningError,
   LearningOutlineOp,
   LearningOutlineTopic,
+  NEW_NOTEBOOK_TITLE,
+  ProjectIconColor,
   LearningPlan,
   LearningProblemAttempt,
   LearningProblemConclusion,
@@ -123,6 +125,29 @@ export interface TutorOutline {
   readonly topics: ReadonlyArray<LearningOutlineTopic & { readonly lessons: number }>;
   readonly lessonTopicId: string | null;
   readonly pendingProposal: boolean;
+  /** A notebook just created, still waiting for the tutor to name it. */
+  readonly needsName: boolean;
+}
+
+const MONOGRAM_COLORS = ProjectIconColor.literals.filter((color) => color !== "gray");
+
+/** Up to two initials in a color picked from the name, like the scaffolded icon. */
+function notebookMonogram(name: string) {
+  const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const text = words
+    .slice(0, 2)
+    .map((word) => Array.from(word)[0] ?? "")
+    .join("")
+    .toUpperCase();
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) >>> 0;
+  return text.length === 0
+    ? undefined
+    : {
+        kind: "monogram" as const,
+        text,
+        color: MONOGRAM_COLORS[hash % MONOGRAM_COLORS.length] ?? "green",
+      };
 }
 
 export class LearningService extends Context.Service<
@@ -222,6 +247,8 @@ export class LearningService extends Context.Service<
     ) => Effect.Effect<{ readonly proposalId: string }, LearningError>;
     /** The tutor marks its own lesson's topic learned. */
     readonly markTopicLearned: (threadId: ThreadId) => Effect.Effect<void, LearningError>;
+    /** The tutor names a new notebook once it knows what the learner wants to learn. */
+    readonly nameNotebook: (threadId: ThreadId, name: string) => Effect.Effect<void, LearningError>;
   }
 >()("aprende/learning/LearningService") {}
 
@@ -563,10 +590,12 @@ export const layer = Layer.effect(
       return shell.projectId;
     });
 
-    // A topic id the outline no longer has leaves the lesson loose.
+    // A topic id the outline no longer has, or a thread moved to another notebook, leaves the lesson loose.
     const lessonOf = Effect.fn("LearningService.lessonOf")(function* (threadId: ThreadId) {
       const rows = yield* sql<{ project_id: string; topic_id: string }>`
-        SELECT project_id, topic_id FROM learning_lesson_topics WHERE thread_id = ${threadId}
+        SELECT l.project_id, l.topic_id FROM learning_lesson_topics l
+        LEFT JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
+        WHERE l.thread_id = ${threadId} AND (t.project_id IS NULL OR t.project_id = l.project_id)
       `;
       const row = rows[0];
       if (row === undefined) return null;
@@ -1449,6 +1478,7 @@ export const layer = Layer.effect(
           topics: [],
           lessonTopicId: null,
           pendingProposal: false,
+          needsName: false,
         } satisfies TutorOutline;
       const read = dbError("Could not read the outline.");
       const project = yield* projects.getById(projectId).pipe(Effect.mapError(read));
@@ -1459,7 +1489,7 @@ export const layer = Layer.effect(
       const links = yield* sql<{ topic_id: string }>`
         SELECT l.topic_id FROM learning_lesson_topics l
         JOIN orchestration_v2_projection_threads t ON t.thread_id = l.thread_id
-        WHERE l.project_id = ${projectId} AND t.deleted_at IS NULL
+        WHERE l.project_id = ${projectId} AND t.project_id = l.project_id AND t.deleted_at IS NULL
       `.pipe(Effect.mapError(read));
       return {
         inNotebook: true,
@@ -1470,6 +1500,7 @@ export const layer = Layer.effect(
         })),
         lessonTopicId: lesson?.topic.id ?? null,
         pendingProposal: pending !== null,
+        needsName: Option.isSome(project) && project.value.title === NEW_NOTEBOOK_TITLE,
       } satisfies TutorOutline;
     });
 
@@ -1529,6 +1560,33 @@ export const layer = Layer.effect(
         { strict: true },
       );
       yield* notebookChanged(lesson.projectId, [threadId]);
+    });
+
+    const nameNotebook: LearningService["Service"]["nameNotebook"] = Effect.fn(
+      "LearningService.nameNotebook",
+    )(function* (threadId, name) {
+      const title = name.trim();
+      if (title.length === 0 || title.length > 40) return yield* fail("Use a short name.");
+      const projectId = yield* threadProjectId(threadId);
+      if (yield* managedFolders.isScratchProject(projectId))
+        return yield* fail("This session is not in a notebook.");
+      const project = yield* projects
+        .getById(projectId)
+        .pipe(Effect.mapError(dbError("Could not read the notebook.")));
+      if (Option.isNone(project)) return yield* fail("Could not find the notebook.");
+      if (project.value.title !== NEW_NOTEBOOK_TITLE)
+        return yield* fail("The learner already named this notebook.");
+      // The scaffolded icon still shows the placeholder's initials, so a named notebook gets its own.
+      const projectIcon = project.value.projectIcon == null ? notebookMonogram(title) : undefined;
+      yield* projects
+        .update({
+          commandId: CommandId.make(yield* newId("name-notebook")),
+          projectId,
+          title,
+          ...(projectIcon === undefined ? {} : { projectIcon }),
+        })
+        .pipe(Effect.mapError(dbError("Could not name the notebook.")));
+      yield* notebookChanged(projectId, [threadId]);
     });
 
     const getTutorPrompt: LearningService["Service"]["getTutorPrompt"] = () =>
@@ -1669,6 +1727,7 @@ export const layer = Layer.effect(
       tutorOutline,
       proposeOutline,
       markTopicLearned,
+      nameNotebook,
     });
   }),
 );

@@ -3,6 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
   type OrchestrationV2ServerCommand,
+  NEW_NOTEBOOK_TITLE,
   ProjectId,
   ThreadId,
   learningAnswerMessageQuestionId,
@@ -72,6 +73,8 @@ const makeLayer = (
     readonly spawn?: (command: Spawned) => Effect.Effect<ChildProcessSpawner.ChildProcessHandle>;
     /** Whether the session runs outside any notebook. */
     readonly scratch?: boolean;
+    readonly notebook?: { readonly title: string; readonly projectIcon?: unknown };
+    readonly projectUpdates?: Ref.Ref<ReadonlyArray<ProjectService.ProjectUpdateInput>>;
   },
 ) =>
   LearningService.layer.pipe(
@@ -98,9 +101,16 @@ const makeLayer = (
       Layer.mock(ProjectService.ProjectService)({
         getById: () =>
           Effect.succeedSome({
-            title: "Linear algebra",
+            title: options?.notebook?.title ?? "Linear algebra",
+            projectIcon: options?.notebook?.projectIcon ?? null,
             workspaceRoot: options?.root ?? process.cwd(),
           } as never),
+        update: (input) =>
+          options?.projectUpdates === undefined
+            ? Effect.die("no project update expected")
+            : Ref.update(options.projectUpdates, (updates) => [...updates, input]).pipe(
+                Effect.as({} as never),
+              ),
       }),
     ),
     Layer.provide(
@@ -891,6 +901,14 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
         .pipe(Effect.exit);
       assert.isTrue(Exit.isFailure(elsewhere));
 
+      // A lesson moved to another notebook stops counting here.
+      const moveTo = (to: ProjectId) =>
+        sql`UPDATE orchestration_v2_projection_threads SET project_id = ${to} WHERE thread_id = ${threadId}`;
+      yield* moveTo(ProjectId.make("project-other"));
+      assert.isNull((yield* learning.tutorOutline(threadId)).lessonTopicId);
+      assert.equal(yield* lessonsOnEigen, 0);
+      yield* moveTo(projectId);
+
       yield* learning.markTopicLearned(threadId);
       assert.equal((yield* learning.getThreadState(threadId)).topic?.status, "learned");
 
@@ -898,6 +916,50 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
       yield* learning.editOutline({ projectId, ops: [{ type: "remove", topicId: eigen!.id }] });
       assert.isNull((yield* learning.getThreadState(threadId)).topic);
     }).pipe(Effect.provide(makeLayer(sent)));
+  }),
+);
+
+it.effect("lets the tutor name only a new notebook, keeping an icon the learner chose", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    const named = Effect.fn(function* (notebook: {
+      readonly title: string;
+      readonly projectIcon?: unknown;
+    }) {
+      const projectUpdates = yield* Ref.make<ReadonlyArray<ProjectService.ProjectUpdateInput>>([]);
+      return yield* Effect.gen(function* () {
+        const learning = yield* LearningService.LearningService;
+        const needsName = (yield* learning.tutorOutline(threadId)).needsName;
+        const tooLong = yield* learning.nameNotebook(threadId, "x".repeat(41)).pipe(Effect.exit);
+        assert.isTrue(Exit.isFailure(tooLong));
+        const named = yield* learning.nameNotebook(threadId, "  Azure AZ-900 ").pipe(Effect.exit);
+        const [update] = yield* Ref.get(projectUpdates);
+        return {
+          needsName,
+          named: Exit.isSuccess(named),
+          title: update?.title,
+          projectIcon: update?.projectIcon,
+        };
+      }).pipe(Effect.provide(makeLayer(sent, { notebook, projectUpdates })));
+    });
+
+    const fresh = yield* named({ title: NEW_NOTEBOOK_TITLE });
+    assert.isTrue(fresh.needsName);
+    assert.equal(fresh.title, "Azure AZ-900");
+    assert.deepInclude(fresh.projectIcon, { kind: "monogram", text: "AA" });
+
+    const chosen = yield* named({
+      title: NEW_NOTEBOOK_TITLE,
+      projectIcon: { kind: "emoji", emoji: "☁️" },
+    });
+    assert.equal(chosen.title, "Azure AZ-900");
+    assert.isUndefined(chosen.projectIcon);
+
+    // The learner owns a name they gave; the tutor cannot replace it.
+    const learnerNamed = yield* named({ title: "Cloud" });
+    assert.isFalse(learnerNamed.needsName);
+    assert.isFalse(learnerNamed.named);
+    assert.isUndefined(learnerNamed.title);
   }),
 );
 

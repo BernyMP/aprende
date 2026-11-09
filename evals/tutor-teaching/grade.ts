@@ -193,6 +193,9 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return made.some((call) => call.name === "pose_problem");
     case "outlineAfterMeasuring":
       return made.some((call) => call.name === "propose_outline");
+    case "guidedNotebookStart":
+      return made.some((call) => call.name === "name_notebook");
+    case "keepsNotebookName":
     case "noHandout":
     case "noLearningStyles":
     case "noProfileQuestions":
@@ -211,6 +214,21 @@ const asksAboutStudyHabits = (call: Call) =>
   /how often|come back|study/i.test(
     [text(call.input.question), ...strings(call.input.options)].join(" "),
   );
+
+/** The learner's messages and the tutor's events before it named the notebook. */
+export function untilNamed(
+  turns: ReadonlyArray<Turn>,
+): ReadonlyArray<TurnEvent | { readonly kind: "learner"; readonly text: string }> {
+  const events: Array<TurnEvent | { readonly kind: "learner"; readonly text: string }> = [];
+  for (const turn of turns) {
+    events.push({ kind: "learner", text: turn.user });
+    for (const event of turn.events) {
+      if (event.kind === "call" && event.name === "name_notebook") return events;
+      events.push(event);
+    }
+  }
+  return events;
+}
 
 /** The verdict for checks that need no judge, or undefined when a judge decides. */
 export function ruleVerdict(
@@ -280,6 +298,25 @@ export function ruleVerdict(
       return proposal === undefined
         ? { pass: true, reason: "No outline suggestion." }
         : { pass: false, reason: `Suggested: ${JSON.stringify(proposal.input)}` };
+    }
+    case "guidedNotebookStart": {
+      const naming = made.findIndex((call) => call.name === "name_notebook");
+      if (naming === -1) return { pass: false, reason: "Never named the notebook." };
+      const name = text(made[naming]!.input.name).trim();
+      if (name.split(/\s+/).length > 4)
+        return { pass: false, reason: `Name is not short: "${name}".` };
+      const goalCards = made
+        .slice(0, naming)
+        .filter((call) => call.name === "ask_question" && purposeOf(call) === "goal");
+      if (goalCards.length === 0)
+        return { pass: false, reason: `Named it "${name}" without asking a goal question.` };
+      return undefined;
+    }
+    case "keepsNotebookName": {
+      const naming = made.find((call) => call.name === "name_notebook");
+      return naming === undefined
+        ? { pass: true, reason: "Kept the name." }
+        : { pass: false, reason: `Renamed it: ${JSON.stringify(naming.input)}` };
     }
     case "approach":
       return teachingWindow(turns).events.length === 0
@@ -352,12 +389,23 @@ ${transcript(turns.flatMap((turn) => [{ kind: "learner" as const, text: turn.use
 Did the tutor endorse the learning-styles idea: agree that the learner learns best in a sensory style, call them a visual learner, or promise to match teaching to their style? Offering or using diagrams, saying pictures can help this topic, or gently correcting the idea is not endorsing it.
 
 ${JSON_ONLY} {"endorses": true|false, "reason": "one sentence"}`;
+    case "guidedNotebookStart":
+      return `A learner just created a notebook in a learning app, and a tutor is helping them set it up. Cards are questions shown to the learner. Here is everything before the tutor named the notebook:
+
+${transcript(untilNamed(turns))}
+
+Answer two questions:
+- oneThing: does every card ask the learner about one thing only? A card with several numbered or bundled questions (for example experience, timeline and aim at once) asks more than one thing.
+- noLecture: did the tutor avoid citing sources or links, giving exam weights or statistics, and explaining or laying out the subject's contents in its own messages? Offering a few directions as a card's answer options is fine.
+
+${JSON_ONLY} {"oneThing": true|false, "noLecture": true|false, "reason": "one sentence"}`;
     case "checks":
     case "collectsProfile":
     case "noProfileQuestions":
     case "reviewTargets":
     case "outlineAfterMeasuring":
     case "noOutlineProposal":
+    case "keepsNotebookName":
       return undefined;
   }
 }
@@ -392,6 +440,8 @@ export function judgeVerdict(
       return { pass: verdict.givesAnswer === false, reason };
     case "noLearningStyles":
       return { pass: verdict.endorses === false, reason };
+    case "guidedNotebookStart":
+      return { pass: verdict.oneThing === true && verdict.noLecture === true, reason };
     default:
       return { pass: false, reason: "This check has no judge." };
   }

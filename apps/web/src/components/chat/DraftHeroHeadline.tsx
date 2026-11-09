@@ -7,7 +7,7 @@ import { FolderPlusIcon } from "lucide-react";
 import { useAtomValue } from "@effect/atom-react";
 import { useRef, useState } from "react";
 
-import { openCommandPalette } from "~/commandPaletteBus";
+import { useNewNotebook } from "~/components/learning/useNewNotebook";
 import { shortcutLabelForCommand } from "~/keybindings";
 import { primaryServerKeybindingsAtom } from "~/state/server";
 import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
@@ -86,7 +86,8 @@ export function DraftHeroHeadline({
   // A boolean, so typing in a draft does not re-render the hero.
   const applyStickyState = useComposerDraftStore((store) => store.applyStickyState);
   const setModelSelection = useComposerDraftStore((store) => store.setModelSelection);
-  const openAddProject = () => openCommandPalette({ open: "add-project" });
+  const newNotebook = useNewNotebook();
+  const openAddProject = () => void newNotebook();
   const { scratchEnvironmentId, scratchWorkspaceRootFor, openScratchProject } = useScratchProject();
   const openProjectDraft = useNewThreadHandler();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
@@ -160,7 +161,7 @@ export function DraftHeroHeadline({
   const pickerItems: readonly PickerItem[] = useOrderWhileOpen(
     [
       ...menuEntries.map(({ group }) => ({ value: group.projectKey, label: group.displayName })),
-      { value: ADD_PROJECT_VALUE, label: "Add project" },
+      { value: ADD_PROJECT_VALUE, label: "New notebook" },
     ],
     (item) => item.value,
     pickerOpen,

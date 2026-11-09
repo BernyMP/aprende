@@ -2988,6 +2988,13 @@ export const OrchestrationV2Command = Schema.Union([
     commandId: CommandId,
     threadId: ThreadId,
   }),
+  /** Moves a thread to another project. Its cwd never changes, so provider sessions still resume. */
+  Schema.Struct({
+    type: Schema.Literal("thread.project.move"),
+    commandId: CommandId,
+    threadId: ThreadId,
+    projectId: ProjectId,
+  }),
   Schema.Struct({
     type: Schema.Literal("thread.metadata.update"),
     commandId: CommandId,
@@ -3262,13 +3269,6 @@ export type OrchestrationV2Command = typeof OrchestrationV2Command.Type;
 
 // Excluded from dispatchCommand so only the server can send these.
 const OrchestrationV2InternalCommand = Schema.Union([
-  /** Moves a thread to a project rooted at the folder it already works in, so its cwd never changes. */
-  Schema.Struct({
-    type: Schema.Literal("thread.project.adopt-folder"),
-    commandId: CommandId,
-    threadId: ThreadId,
-    projectId: ProjectId,
-  }),
   /**
    * Records a delegated task that runs in a linked environment: the task, its
    * node and its turn item on the parent, as `delegated_task.request` does,

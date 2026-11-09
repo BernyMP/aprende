@@ -78,7 +78,9 @@ const outlineResult = (entry: TutorCase) => {
     topics: [],
     lessonTopicId: null,
     pendingProposal: false,
+    needsName: false,
   };
+  if (outline.needsName) return { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_needs_name };
   return outline.inNotebook && outline.topics.length === 0 && !outline.pendingProposal
     ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_empty }
     : outline;
