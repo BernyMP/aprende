@@ -54,7 +54,7 @@ import { connectPairing } from "../../connection/onboarding";
 import { getProviderSummary } from "../settings/providerStatus";
 import { providerClients } from "../settings/providerDriverMeta";
 import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
-import { AppMark } from "../AppMark";
+import { AppLogo } from "../AppMark";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { CommandBlock } from "../CommandBlock";
@@ -203,8 +203,8 @@ export function WelcomeWizard({
         <WizardHeader
           title="Set up aprende"
           identity={
-            <div className="flex items-baseline gap-1.5" role="img" aria-label="aprende">
-              <AppMark className="h-4 w-auto shrink-0" aria-hidden />
+            <div className="flex items-center gap-2" role="img" aria-label="aprende">
+              <AppLogo className="size-6 shrink-0" aria-hidden />
               <span className="text-2xl font-medium tracking-tight text-muted-foreground">
                 aprende
               </span>
