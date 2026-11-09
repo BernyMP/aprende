@@ -420,6 +420,20 @@ export const deleteThread = Effect.fn("EnvironmentCommands.deleteThread")(functi
   });
 });
 
+export interface MoveThreadToProjectInput extends ThreadCommandInput {
+  readonly projectId: ProjectId;
+}
+export const moveThreadToProject = Effect.fn("EnvironmentCommands.moveThreadToProject")(function* (
+  input: MoveThreadToProjectInput,
+) {
+  return yield* dispatch({
+    type: "thread.project.move",
+    commandId: yield* allocateCommandId(input),
+    threadId: input.threadId,
+    projectId: input.projectId,
+  });
+});
+
 export const archiveThread = Effect.fn("EnvironmentCommands.archiveThread")(function* (
   input: ArchiveThreadInput,
 ) {

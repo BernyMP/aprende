@@ -18,6 +18,7 @@ export const LEARNING_TOOL_NAMES = [
   "get_outline",
   "propose_outline",
   "mark_topic_learned",
+  "name_notebook",
 ] as const;
 export type LearningToolName = (typeof LEARNING_TOOL_NAMES)[number];
 
@@ -245,6 +246,12 @@ export const LearningOutlineTopic = Schema.Struct({
   status: LearningTopicStatus,
 });
 export type LearningOutlineTopic = typeof LearningOutlineTopic.Type;
+
+/** A new notebook's title until the tutor names it from what the learner wants to learn. */
+export const NEW_NOTEBOOK_TITLE = "New notebook";
+
+/** A short notebook name, like "Azure AZ-900" or "Linear algebra". */
+export const NotebookName = TrimmedNonEmptyString.check(Schema.isMaxLength(40));
 
 /** A notebook's ordered topics; `updatedAt` is null until someone writes one. */
 export const LearningOutline = Schema.Struct({
@@ -613,3 +620,14 @@ export const learningSolutionMessageHeader = (problemId: string) =>
 /** The problem id a learner-work message refers to, or null for any other message. */
 export const learningSolutionMessageProblemId = (text: string): string | null =>
   SOLUTION_MESSAGE_PATTERN.exec(text)?.[1] ?? null;
+
+const SESSION_START_HEADER = "[Session start]";
+
+/** The app's opening message for a session, sent for the learner when they start a lesson. */
+export const learningSessionStartMessage = (text: string) => `${SESSION_START_HEADER}\n${text}`;
+
+/** Whether a user message exists only for the tutor: an opening, an answer or work on a problem. */
+export const isTutorOnlyLearningMessage = (text: string): boolean =>
+  text.startsWith(`${SESSION_START_HEADER}\n`) ||
+  learningAnswerMessageQuestionId(text) !== null ||
+  learningSolutionMessageProblemId(text) !== null;

@@ -5,7 +5,6 @@ import { Link } from "@tanstack/react-router";
 import { MessageSquareDashedIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 
-import { openCommandPalette } from "~/commandPaletteBus";
 import { isElectron } from "~/env";
 import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
 import { useNowMinute } from "~/hooks/useNowMinute";
@@ -19,6 +18,7 @@ import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import { useNewNotebook } from "./useNewNotebook";
 import { nextTopic, notebookLessons } from "./notebook.logic";
 import { useNotebook } from "./useNotebook";
 import { useStartLesson } from "./useStartLesson";
@@ -33,6 +33,7 @@ export function NotebooksHome(props: {
   const contentArea = workspaceAreaProps("home", 1, "Home");
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const { scratchEnvironmentId, startScratchThread } = useScratchProject();
+  const newNotebook = useNewNotebook();
   const scratchTargetEnvironmentId = scratchEnvironmentId(primaryEnvironmentId);
 
   return (
@@ -59,7 +60,7 @@ export function NotebooksHome(props: {
               Quick question
             </Button>
           )}
-          <Button size="sm" onClick={() => openCommandPalette({ open: "add-project" })}>
+          <Button size="sm" onClick={() => void newNotebook()}>
             <PlusIcon />
             New notebook
           </Button>
@@ -71,7 +72,7 @@ export function NotebooksHome(props: {
                 <EmptyTitle>No notebooks yet</EmptyTitle>
                 <EmptyDescription>
                   A notebook holds one subject you are learning, with an outline that grows as you
-                  go. Add one to start.
+                  go. Create one to start.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

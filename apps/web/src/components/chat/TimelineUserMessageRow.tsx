@@ -1,7 +1,4 @@
-import {
-  learningAnswerMessageQuestionId,
-  learningSolutionMessageProblemId,
-} from "@aprende/contracts";
+import { isTutorOnlyLearningMessage } from "@aprende/contracts";
 import { InlineAudioPreview } from "../files/InlineAudioPreview";
 import { filePreviewKind } from "@aprende/shared/filePreview";
 import { findRevealRef } from "./markdownFindContext";
@@ -245,12 +242,8 @@ export function UserMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mes
   const ctx = use(TimelineRowCtx);
   const item = row.projectedItem?.item;
   const modelSwitch = item?.type === "user_message" ? item.modelSwitch : undefined;
-  // The question or problem card already shows this answer; the message exists for the tutor.
-  if (
-    learningAnswerMessageQuestionId(row.message.text) !== null ||
-    learningSolutionMessageProblemId(row.message.text) !== null
-  )
-    return null;
+  // Cards already show answers and work, and the learner never typed a session's opening.
+  if (isTutorOnlyLearningMessage(row.message.text)) return null;
   return (
     <>
       {modelSwitch ? (

@@ -1,4 +1,4 @@
-import { ScheduledTaskId } from "@aprende/contracts";
+import { learningSessionStartMessage, ScheduledTaskId } from "@aprende/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -101,7 +101,7 @@ describe("buildComposerPromptHistoryEntries", () => {
     ]);
   });
 
-  it("skips messages sent by automations, agents, and aprende", () => {
+  it("skips messages sent by automations, agents, aprende, and learning cards", () => {
     const typed = buildComposerPromptHistoryEntries([
       { id: "m1", role: "user", text: "typed" },
       { id: "m2", role: "user", text: "scheduled", scheduledTaskId: ScheduledTaskId.make("task") },
@@ -112,6 +112,8 @@ describe("buildComposerPromptHistoryEntries", () => {
       },
       { id: "m3", role: "user", text: "from agent", createdBy: "agent", creationSource: "mcp" },
       { id: "m4", role: "user", text: "from server", createdBy: "agent", creationSource: "server" },
+      { id: "m5", role: "user", text: learningSessionStartMessage("I want to learn “Sets” next.") },
+      { id: "m6", role: "user", text: "[Answer to question q-1]\nQuestion: Which?" },
     ]);
     expect(typed).toEqual([{ id: "m1", prompt: "typed" }]);
   });

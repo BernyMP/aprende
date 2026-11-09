@@ -9,6 +9,7 @@ import {
   LearningMissType,
   LearningOutlineOp,
   LearningOutlineTopic,
+  NotebookName,
   LearningPlanEdge,
   LearningPlanNode,
   LearningProblemMode,
@@ -319,6 +320,10 @@ const GetOutlineTool = Tool.make("get_outline", {
       description: "The topic this lesson teaches; null for a lesson on no topic.",
     }),
     pendingProposal: Schema.Boolean,
+    needsName: Schema.Boolean.annotate({
+      description:
+        "true for a notebook the learner just created: this session sets it up, then names it with name_notebook.",
+    }),
     message: Schema.optional(Schema.String),
   }),
   failure: OrchestratorMcpFailure,
@@ -367,6 +372,26 @@ const MarkTopicLearnedTool = Tool.make("mark_topic_learned", {
   .annotate(Tool.Idempotent, true)
   .annotate(Tool.OpenWorld, false);
 
+const NameNotebookTool = Tool.make("name_notebook", {
+  description:
+    "Name the notebook this session is in, once you know what the learner wants to learn and what for. Use it when get_outline shows needsName. The learner sees the new name at once.",
+  parameters: Schema.Struct({
+    name: NotebookName.annotate({
+      description:
+        'Two or three plain words for the subject, like "Azure AZ-900" or "Linear algebra". Leave out the learner\'s reason and level.',
+    }),
+  }),
+  success: Schema.Struct({ message: Schema.String }),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Name the notebook")
+  .annotate(Tool.Readonly, true)
+  .annotate(Tool.Destructive, false)
+  .annotate(Tool.Idempotent, true)
+  .annotate(Tool.OpenWorld, false);
+
 export const LearnToolkit = Toolkit.make(
   AskQuestionTool,
   PoseProblemTool,
@@ -380,4 +405,5 @@ export const LearnToolkit = Toolkit.make(
   GetOutlineTool,
   ProposeOutlineTool,
   MarkTopicLearnedTool,
+  NameNotebookTool,
 );

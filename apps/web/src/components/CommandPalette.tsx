@@ -53,6 +53,7 @@ import {
   SquarePenIcon,
   TextSearchIcon,
 } from "lucide-react";
+import { useNewNotebook } from "./learning/useNewNotebook";
 import { openThreadFind } from "./chat/threadFindStore";
 import {
   useDeferredValue,
@@ -327,6 +328,7 @@ function OpenCommandPaletteDialog(props: {
   readonly initialContext: CommandPaletteReturnContext | undefined;
 }) {
   const navigate = useNavigate();
+  const newNotebook = useNewNotebook();
   const pathname = useLocation({ select: (location) => location.pathname });
   const { openChildSearch, setOpen } = props;
   // Keyed by palette session: the intent and restored search only seed this
@@ -968,11 +970,6 @@ function OpenCommandPaletteDialog(props: {
     }
   };
 
-  const openNewProjectFlow = () => {
-    const firstOption = newProjectEnvironmentOptions[0];
-    if (firstOption) startNewProject(firstOption.environmentId, null);
-  };
-
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
 
   if (projects.length > 0) {
@@ -1167,25 +1164,22 @@ function OpenCommandPaletteDialog(props: {
     },
   });
 
-  if (newProjectEnvironmentOptions.length > 0) {
-    actionItems.push({
-      kind: "action",
-      value: "action:new-project",
-      searchTerms: ["new project", "create project", "empty", "repository", "repo", "git init"],
-      title: "New project",
-      icon: <FolderGit2Icon className={ITEM_ICON_CLASS} />,
-      keepOpen: true,
-      run: async () => {
-        openNewProjectFlow();
-      },
-    });
-  }
+  actionItems.push({
+    kind: "action",
+    value: "action:new-notebook",
+    searchTerms: ["new notebook", "create notebook", "learn", "subject", "new project"],
+    title: "New notebook",
+    icon: <NotebookIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      void newNotebook();
+    },
+  });
 
   const addProjectAction: CommandPaletteActionItem = {
     kind: "action",
     value: "action:add-project",
     searchTerms: ["add project", "folder", "directory", "browse", "environment"],
-    title: "Add project",
+    title: "Open folder as notebook",
     icon: <FolderPlusIcon className={ITEM_ICON_CLASS} />,
     keepOpen: true,
     run: async () => {

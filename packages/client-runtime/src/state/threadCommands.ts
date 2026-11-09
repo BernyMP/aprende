@@ -29,6 +29,7 @@ import {
   forkThreadFromRun,
   markThreadUnread,
   mergeThreadBack,
+  moveThreadToProject,
   promoteQueuedRun,
   resumeThreadQueue,
   retryWorkspacePreparation,
@@ -129,6 +130,12 @@ export function createThreadEnvironmentAtoms<R, E>(
     archive: createEnvironmentCommand(runtime, {
       label: "environment-data:commands:thread:archive",
       execute: archiveThread,
+      scheduler,
+      concurrency,
+    }),
+    moveToProject: createEnvironmentCommand(runtime, {
+      label: "environment-data:commands:thread:move-to-project",
+      execute: moveThreadToProject,
       scheduler,
       concurrency,
     }),

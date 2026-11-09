@@ -5205,7 +5205,7 @@ it.layer(layerScratchPromotionTest)("turning a No project thread into a project"
         workspaceRoot: folder,
       });
       yield* orchestrator.dispatch({
-        type: "thread.project.adopt-folder",
+        type: "thread.project.move",
         commandId: CommandId.make("promotion-partial-adopt"),
         threadId: movedId,
         projectId: earlier.id,
@@ -5363,7 +5363,7 @@ it.layer(layerSharedApplicationDataPlaneTest)("snooze projection", (it) => {
     }),
   );
 
-  it.effect("moves a thread into a project rooted at its own folder", () =>
+  it.effect("moves a thread between projects without changing its folder", () =>
     Effect.gen(function* () {
       const projects = yield* ProjectService.ProjectService;
       const orchestrator = yield* Orchestrator.OrchestratorV2;
@@ -5395,7 +5395,7 @@ it.layer(layerSharedApplicationDataPlaneTest)("snooze projection", (it) => {
         });
       const adopt = (threadId: ThreadId, projectId: ProjectId, suffix: string) =>
         orchestrator.dispatch({
-          type: "thread.project.adopt-folder",
+          type: "thread.project.move",
           commandId: CommandId.make(`${threadId}-adopt-${suffix}`),
           threadId,
           projectId,
@@ -5420,11 +5420,6 @@ it.layer(layerSharedApplicationDataPlaneTest)("snooze projection", (it) => {
         dispatchMode: { type: "start_immediately" },
       });
 
-      const otherFolder = yield* adopt(idleThreadId, otherProjectId, "other").pipe(Effect.flip);
-      assert.equal(
-        otherFolder.cause,
-        `Thread ${idleThreadId} does not work in /tmp/runtime-layer-adopt-other.`,
-      );
       const missing = yield* adopt(idleThreadId, ProjectId.make("missing"), "missing").pipe(
         Effect.flip,
       );
@@ -5435,12 +5430,24 @@ it.layer(layerSharedApplicationDataPlaneTest)("snooze projection", (it) => {
         `Thread ${busyThreadId} still has work in progress. Finish or stop it first.`,
       );
 
+      const idleShell = orchestrator
+        .getShellSnapshot()
+        .pipe(Effect.map((shell) => shell.threads.find((thread) => thread.id === idleThreadId)));
+
+      yield* adopt(idleThreadId, otherProjectId, "other");
+      const elsewhere = yield* idleShell;
+      assert.equal(elsewhere?.projectId, otherProjectId);
+      assert.equal(elsewhere?.worktreePath, folder);
+      const same = yield* adopt(idleThreadId, otherProjectId, "same").pipe(Effect.flip);
+      assert.equal(same.cause, `Thread ${idleThreadId} is already in that project.`);
+
       yield* adopt(idleThreadId, folderProjectId, "folder");
-      const shell = yield* orchestrator.getShellSnapshot();
-      const moved = shell.threads.find((thread) => thread.id === idleThreadId);
+      const moved = yield* idleShell;
       assert.equal(moved?.projectId, folderProjectId);
       assert.isNull(moved?.worktreePath);
-      const stayed = shell.threads.find((thread) => thread.id === busyThreadId);
+      const stayed = (yield* orchestrator.getShellSnapshot()).threads.find(
+        (thread) => thread.id === busyThreadId,
+      );
       assert.equal(stayed?.projectId, scratchProjectId);
     }),
   );

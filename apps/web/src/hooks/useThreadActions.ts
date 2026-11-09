@@ -4,13 +4,18 @@ import {
   scopeThreadRef,
   scopedThreadKey,
 } from "@aprende/client-runtime/environment";
-import { settlePromise, squashAtomCommandFailure } from "@aprende/client-runtime/state/runtime";
+import {
+  isAtomCommandInterrupted,
+  settlePromise,
+  squashAtomCommandFailure,
+} from "@aprende/client-runtime/state/runtime";
 import { canSnooze, threadWokeAt } from "@aprende/client-runtime/state/thread-settled";
 import { threadRuntimeCanArchive } from "@aprende/client-runtime/state/models";
 import {
   AuthOrchestrationOperateScope,
   EnvironmentAuthorizationError,
   EnvironmentId,
+  type ProjectId,
   type ScopedThreadRef,
   ThreadId,
 } from "@aprende/contracts";
@@ -298,6 +303,9 @@ export function useThreadActions() {
   });
   const markThreadUnread = useMarkThreadUnread();
   const createProjectFromThread = useAtomCommand(projectEnvironment.createFromThread, {
+    reportFailure: false,
+  });
+  const moveToProject = useOrchestrationCommand(threadEnvironment.moveToProject, {
     reportFailure: false,
   });
   const stopThreadSession = useOrchestrationCommand(threadEnvironment.stopSession);
@@ -807,6 +815,32 @@ export function useThreadActions() {
     reorderActiveThread,
     markThreadUnread,
     setThreadAutoSettle,
+    moveThreadToProject: (target: ScopedThreadRef, projectId: ProjectId) =>
+      moveToProject({
+        environmentId: target.environmentId,
+        input: { threadId: target.threadId, projectId },
+      }),
+    moveThreadToNotebook: async (
+      target: ScopedThreadRef,
+      notebook: { readonly projectId: ProjectId; readonly title: string },
+    ) => {
+      const result = await moveToProject({
+        environmentId: target.environmentId,
+        input: { threadId: target.threadId, projectId: notebook.projectId },
+      });
+      if (result._tag === "Success") {
+        toastManager.add({ type: "success", title: `Moved to ${notebook.title}` });
+      } else if (!isAtomCommandInterrupted(result)) {
+        const error = squashAtomCommandFailure(result);
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: "Could not move the lesson",
+            description: error instanceof Error ? error.message : "An error occurred.",
+          }),
+        );
+      }
+    },
     turnThreadIntoProject: (target: ScopedThreadRef) =>
       createProjectFromThread({
         environmentId: target.environmentId,

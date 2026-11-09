@@ -22,6 +22,10 @@ export const LEARN_TOOL_MESSAGES = {
   propose_outline:
     "The learner sees your suggestion as a card and decides. Keep teaching without asking them about it; get_outline shows what they chose.",
   mark_topic_learned: "The learner sees the topic marked learned in their notebook.",
+  name_notebook:
+    "The learner sees the new name now. Go on as usual: measure where they stand, then plan.",
+  get_outline_needs_name:
+    "The learner just created this notebook. Before measuring, find out what they want to learn, then what it is for. One short goal question per card, about one thing: ask which exam, then when, never both at once. Then name it with name_notebook.",
   get_outline_empty:
     "The outline is empty. After set_plan, suggest one for the whole subject with propose_outline.",
   set_plan_outline_empty:
@@ -136,6 +140,8 @@ const handlers = {
       const threadId = yield* callerThread("get_outline");
       const learning = yield* LearningService.LearningService;
       const outline = yield* learning.tutorOutline(threadId).pipe(Effect.mapError(toFailure));
+      if (outline.needsName)
+        return { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_needs_name };
       return outline.inNotebook && outline.topics.length === 0 && !outline.pendingProposal
         ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_empty }
         : outline;
@@ -157,6 +163,14 @@ const handlers = {
       const learning = yield* LearningService.LearningService;
       yield* learning.markTopicLearned(threadId).pipe(Effect.mapError(toFailure));
       return { message: LEARN_TOOL_MESSAGES.mark_topic_learned };
+    }),
+  ),
+  name_notebook: McpToolAccess.actsAsCaller((input) =>
+    Effect.gen(function* () {
+      const threadId = yield* callerThread("name_notebook");
+      const learning = yield* LearningService.LearningService;
+      yield* learning.nameNotebook(threadId, input.name).pipe(Effect.mapError(toFailure));
+      return { message: LEARN_TOOL_MESSAGES.name_notebook };
     }),
   ),
 } satisfies McpToolAccess.Handlers<typeof LearnToolkit.tools>;

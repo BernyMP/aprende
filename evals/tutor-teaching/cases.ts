@@ -1,8 +1,11 @@
-import type {
-  LearnerProfile,
-  LearningDueReviews,
-  LearningKnowledge,
-  LearningOutlineTopic,
+import { NEW_NOTEBOOK_MESSAGE } from "../../apps/web/src/components/learning/notebook.logic.ts";
+
+import {
+  type LearnerProfile,
+  type LearningDueReviews,
+  type LearningKnowledge,
+  type LearningOutlineTopic,
+  learningSessionStartMessage,
 } from "@aprende/contracts";
 
 /** A scripted learner. It answers the tutor's cards the same way every run. */
@@ -43,7 +46,11 @@ export type Check =
   /** propose_outline drafts several topics, after finish_measuring or set_plan. */
   | { readonly type: "outlineAfterMeasuring" }
   /** No propose_outline call. */
-  | { readonly type: "noOutlineProposal" };
+  | { readonly type: "noOutlineProposal" }
+  /** A new notebook: one thing per card, no lecture, then name_notebook with a short name. */
+  | { readonly type: "guidedNotebookStart" }
+  /** No name_notebook call on a notebook that already has a name. */
+  | { readonly type: "keepsNotebookName" };
 
 /** What get_outline returns; cases without one run outside any notebook. */
 export interface OutlineMock {
@@ -52,6 +59,7 @@ export interface OutlineMock {
   readonly topics: ReadonlyArray<LearningOutlineTopic & { readonly lessons: number }>;
   readonly lessonTopicId: string | null;
   readonly pendingProposal: boolean;
+  readonly needsName: boolean;
 }
 
 export interface TutorCase {
@@ -107,6 +115,18 @@ const eigenLearner: Persona = {
   reply: "Sounds good, let's go.",
 };
 
+const NEW_NOTEBOOK_SOURCE =
+  "First try of New notebook: a three-part question card with links before any guidance";
+
+const newNotebook: OutlineMock = {
+  inNotebook: true,
+  notebook: "New notebook",
+  topics: [],
+  lessonTopicId: null,
+  pendingProposal: false,
+  needsName: true,
+};
+
 export const cases: ReadonlyArray<TutorCase> = [
   {
     id: "novice-worked-example-first",
@@ -160,8 +180,9 @@ export const cases: ReadonlyArray<TutorCase> = [
       "A learner with brief explanations asks for the answer to the problem they are working on; the tutor must give a hint, not the solution.",
     profile: { goalKind: "exam", returnCadence: "daily", explanationLength: "brief" },
     persona: {
-      opening:
+      opening: learningSessionStartMessage(
         "Let's practice these propositions:\n\n- p-derivative-chain: Chain rule: The derivative of f(g(x)) is f'(g(x)) times g'(x).",
+      ),
       goal: "Practice the chain rule for my exam.",
       choose: ["exam"],
       knowsFirst: 1,
@@ -269,8 +290,9 @@ export const cases: ReadonlyArray<TutorCase> = [
       "A review session must pose problems that name the due propositions, or the outcome never reaches the schedule.",
     profile: savedProfile,
     persona: {
-      opening:
+      opening: learningSessionStartMessage(
         "Let's review these propositions, which are due for review:\n\n- p-bayes: Bayes' rule: P(A|B) equals P(B|A) times P(A) divided by P(B).",
+      ),
       goal: "Review.",
       choose: [],
       knowsFirst: 1,
@@ -309,6 +331,7 @@ export const cases: ReadonlyArray<TutorCase> = [
         topics: [],
         lessonTopicId: null,
         pendingProposal: false,
+        needsName: false,
       },
     },
     maxTurns: 9,
@@ -323,7 +346,9 @@ export const cases: ReadonlyArray<TutorCase> = [
     profile: savedProfile,
     persona: {
       ...eigenLearner,
-      opening: "I want to learn “Eigenvectors” next, in my Linear algebra notebook.",
+      opening: learningSessionStartMessage(
+        "I want to learn “Eigenvectors” next, in my Linear algebra notebook.",
+      ),
       knowsFirst: 0,
     },
     mocks: {
@@ -337,6 +362,7 @@ export const cases: ReadonlyArray<TutorCase> = [
         ],
         lessonTopicId: "t-eigen",
         pendingProposal: false,
+        needsName: false,
       },
     },
     maxTurns: 3,
@@ -351,7 +377,9 @@ export const cases: ReadonlyArray<TutorCase> = [
     profile: savedProfile,
     persona: {
       ...eigenLearner,
-      opening: "I want to learn “Eigenvectors” next, in my Linear algebra notebook.",
+      opening: learningSessionStartMessage(
+        "I want to learn “Eigenvectors” next, in my Linear algebra notebook.",
+      ),
     },
     mocks: {
       get_outline: {
@@ -366,6 +394,7 @@ export const cases: ReadonlyArray<TutorCase> = [
         ],
         lessonTopicId: "t-eigen",
         pendingProposal: false,
+        needsName: false,
       },
     },
     maxTurns: 6,
@@ -385,9 +414,68 @@ export const cases: ReadonlyArray<TutorCase> = [
         topics: [],
         lessonTopicId: null,
         pendingProposal: false,
+        needsName: false,
       },
     },
     maxTurns: 6,
     check: { type: "noOutlineProposal" },
+  },
+  {
+    id: "new-notebook-guided-start",
+    kind: "bad",
+    source: NEW_NOTEBOOK_SOURCE,
+    experience:
+      "A learner who created a notebook got one card bundling three numbered questions, plus exam weights and links, before saying what they wanted; they should be walked through one question at a time and the notebook named for them.",
+    profile: savedProfile,
+    persona: {
+      opening: learningSessionStartMessage(NEW_NOTEBOOK_MESSAGE),
+      goal: "Pass the AZ-900 exam. My team is moving to Azure and I need the basics.",
+      choose: ["exam", "AZ-900", "certif", "azure", "job", "weekly"],
+      knowsFirst: 1,
+      problems: "solve",
+      reply: "Sounds good.",
+    },
+    mocks: { get_outline: newNotebook },
+    maxTurns: 5,
+    check: { type: "guidedNotebookStart" },
+  },
+  {
+    id: "new-notebook-unsure-learner",
+    kind: "bad",
+    source: NEW_NOTEBOOK_SOURCE,
+    experience:
+      "A learner who creates a notebook before knowing what to study needs the tutor to help them find it, not a list of questions they cannot answer yet.",
+    profile: savedProfile,
+    persona: {
+      opening: learningSessionStartMessage(NEW_NOTEBOOK_MESSAGE),
+      goal: "I'm not sure yet. Something about the cloud, since my job is moving there.",
+      choose: ["cloud", "azure", "fundamentals", "job", "work", "weekly"],
+      knowsFirst: 0,
+      problems: "giveUp",
+      reply: "I'm not sure, help me figure it out.",
+    },
+    mocks: { get_outline: newNotebook },
+    maxTurns: 6,
+    check: { type: "guidedNotebookStart" },
+  },
+  {
+    id: "named-notebook-keeps-name",
+    kind: "control",
+    source: NEW_NOTEBOOK_SOURCE,
+    experience: "A lesson in a notebook the learner already has does not rename it.",
+    profile: savedProfile,
+    persona: eigenLearner,
+    mocks: {
+      get_outline: {
+        inNotebook: true,
+        notebook: "Linear algebra",
+        topics: [],
+        lessonTopicId: null,
+        pendingProposal: false,
+        needsName: false,
+      },
+    },
+    maxTurns: 4,
+    check: { type: "keepsNotebookName" },
   },
 ];

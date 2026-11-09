@@ -111,7 +111,7 @@ const make = Effect.gen(function* () {
           const commandId = CommandId.make(`scratch-promotion:${yield* randomId}`);
           yield* threads
             .dispatch({
-              type: "thread.project.adopt-folder",
+              type: "thread.project.move",
               commandId,
               threadId: candidate.id,
               projectId,

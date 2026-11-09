@@ -1,4 +1,5 @@
 import { resolveUserMessagePresentation } from "@aprende/client-runtime/user-message";
+import { isTutorOnlyLearningMessage } from "@aprende/contracts";
 import {
   ATTACHMENT_ONLY_BOOTSTRAP_PROMPT,
   collectComposerContextReferences,
@@ -71,6 +72,7 @@ function stripInlineTerminalLabels(prompt: string, headers: ReadonlyArray<string
 }
 
 export function recallableComposerPrompt(messageText: string): string {
+  if (isTutorOnlyLearningMessage(messageText)) return "";
   let prompt = messageText.trim();
   if (prompt.startsWith(CLAUDE_ULTRATHINK_PREFIX)) {
     prompt = prompt.slice(CLAUDE_ULTRATHINK_PREFIX.length);
