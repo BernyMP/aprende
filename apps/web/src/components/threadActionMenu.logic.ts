@@ -47,7 +47,7 @@ export function buildDraftActionMenuItems(options: {
         : [],
     },
     ...(options.hasProject
-      ? [{ id: "project-settings" as const, label: "Project settings", icon: "settings" }]
+      ? [{ id: "project-settings" as const, label: "Notebook settings", icon: "settings" }]
       : []),
     {
       id: "discard",
@@ -126,26 +126,26 @@ export function buildThreadActionMenuItems(
 ): ReadonlyArray<ContextMenuItem<ThreadActionMenuId>> {
   const items: ReadonlyArray<ContextMenuItem<ThreadActionMenuId>> = [
     ...(state.canFind
-      ? [{ id: "find" as const, label: "Find in thread", icon: "text-search" }]
+      ? [{ id: "find" as const, label: "Find in lesson", icon: "text-search" }]
       : []),
     ...(state.supports.pinning
       ? [
           state.isPinned
-            ? { id: "unpin" as const, label: "Unpin thread", icon: "pin-off" }
-            : { id: "pin" as const, label: "Pin thread", icon: "pin" },
+            ? { id: "unpin" as const, label: "Unpin lesson", icon: "pin-off" }
+            : { id: "pin" as const, label: "Pin lesson", icon: "pin" },
         ]
       : []),
     ...(state.supports.settlement
       ? [
           state.isSettled
-            ? { id: "unsettle" as const, label: "Un-settle thread", icon: "circle-check" }
-            : { id: "settle" as const, label: "Settle thread", icon: "circle-check" },
+            ? { id: "unsettle" as const, label: "Un-settle lesson", icon: "circle-check" }
+            : { id: "settle" as const, label: "Settle lesson", icon: "circle-check" },
         ]
       : []),
     ...(state.supports.snooze
       ? [
           state.isSnoozed
-            ? { id: "unsnooze" as const, label: "Wake thread", icon: "clock" }
+            ? { id: "unsnooze" as const, label: "Wake lesson", icon: "clock" }
             : {
                 id: "snooze" as const,
                 label: "Snooze",
@@ -165,7 +165,7 @@ export function buildThreadActionMenuItems(
               },
         ]
       : []),
-    { id: "rename", label: "Rename thread", icon: "pencil", separatorBefore: true },
+    { id: "rename", label: "Rename lesson", icon: "pencil", separatorBefore: true },
     ...(state.supports.titleRegeneration
       ? [
           {
@@ -185,7 +185,7 @@ export function buildThreadActionMenuItems(
           {
             id: "filter-by-project" as const,
             label: state.projectFilter.isActive
-              ? "Show all projects"
+              ? "Show all notebooks"
               : `Filter by ${state.projectFilter.label}`,
             icon: "folder-tree",
           },
@@ -243,14 +243,14 @@ export function buildThreadActionMenuItems(
       separatorBefore: true,
       children: [
         { id: "copy-path", label: "Path", icon: "folder" },
-        { id: "copy-thread", label: "Thread", icon: "message-square" },
-        { id: "copy-thread-id", label: "Thread ID", icon: "hash" },
+        { id: "copy-thread", label: "Lesson", icon: "message-square" },
+        { id: "copy-thread-id", label: "Lesson ID", icon: "hash" },
       ],
     },
-    { id: "project-settings", label: "Project settings", icon: "settings" },
+    { id: "project-settings", label: "Notebook settings", icon: "settings" },
     {
       id: "archive",
-      label: "Archive thread",
+      label: "Archive lesson",
       icon: "archive",
       disabled: state.isRunning,
       separatorBefore: true,

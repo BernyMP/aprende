@@ -3,7 +3,13 @@ import { describe, expect, it } from "vite-plus/test";
 import type { EnvironmentThreadShell } from "@aprende/client-runtime/state/models";
 import { ThreadId } from "@aprende/contracts";
 
-import { describeOutlineOp, neighborPlacement, nextTopic, notebookLessons } from "./notebook.logic";
+import {
+  describeOutlineOp,
+  neighborPlacement,
+  nextTopic,
+  notebookLessons,
+  notebookNextStep,
+} from "./notebook.logic";
 
 const topic = (id: string, status: "todo" | "learned" | "known" = "todo") => ({
   id,
@@ -31,6 +37,45 @@ describe("nextTopic", () => {
     expect(nextTopic([topic("a", "learned"), topic("b"), topic("c")], started)?.id).toBe("c");
     expect(nextTopic([topic("a", "known"), topic("b")], started)?.id).toBe("b");
     expect(nextTopic([topic("a", "learned")], started)).toBeUndefined();
+  });
+});
+
+describe("notebookNextStep", () => {
+  const lesson = (id: string) => ({ id: ThreadId.make(id) }) as unknown as EnvironmentThreadShell;
+  const step = (input: {
+    topics?: ReadonlyArray<ReturnType<typeof topic>>;
+    hasProposal?: boolean;
+    lessons?: ReadonlyArray<string>;
+    links?: Record<string, string>;
+  }) => {
+    const links = new Map(Object.entries(input.links ?? {}));
+    const next = notebookNextStep({
+      topics: input.topics ?? [],
+      hasProposal: input.hasProposal ?? false,
+      lessons: (input.lessons ?? []).map(lesson),
+      topicOfLesson: links,
+      startedTopicIds: new Set(links.values()),
+    });
+    return next.kind === "resume"
+      ? `resume ${next.lesson.id}`
+      : next.kind === "start"
+        ? `start ${next.topic.id}`
+        : next.kind;
+  };
+
+  it.each([
+    ["nothing yet", {}, "firstLesson"],
+    ["lessons but no topics", { lessons: ["new", "old"] }, "resume new"],
+    ["suggested topics waiting", { hasProposal: true, lessons: ["new"] }, "review"],
+    ["a topic not started", { topics: [topic("a", "learned"), topic("b")] }, "start b"],
+    [
+      "a topic in progress",
+      { topics: [topic("a"), topic("b")], lessons: ["loose", "l-b"], links: { "l-b": "b" } },
+      "resume l-b",
+    ],
+    ["every topic done", { topics: [topic("a", "learned"), topic("b", "known")] }, "done"],
+  ] as const)("offers one next step with %s", (_name, input, expected) => {
+    expect(step(input)).toBe(expected);
   });
 });
 

@@ -135,6 +135,9 @@ export function findProjectByPath<T extends { workspaceRoot?: string; cwd?: stri
   });
 }
 
+/** What the learner sees for the scratch project; its stored title stays "No project". */
+export const SCRATCH_PROJECT_LABEL = "Quick questions";
+
 export function isScratchProject(
   project: { readonly workspaceRoot: string },
   scratchWorkspaceRoot: string | null | undefined,

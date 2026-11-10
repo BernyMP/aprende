@@ -209,6 +209,7 @@ import {
 import { useEnvironmentShellHasSnapshot } from "../state/shell";
 import { ChatComposer, type ChatComposerHandle } from "./chat/ChatComposer";
 import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
+import { StarterQuestions } from "./learning/StarterQuestions";
 import { ExpandedImageDialogHost, openExpandedImagePreview } from "./chat/ExpandedImageDialog";
 import { RevertConfirmHost } from "./chat/ChatOverlayHosts";
 import type { AssistantCitationRequest } from "./chat/AssistantCitationSource";
@@ -1563,6 +1564,9 @@ export default function ChatView(props: ChatViewProps) {
     });
   };
   const scheduleComposerFocusStable = useStableCallback(scheduleComposerFocus);
+  const pickStarterQuestion = (question: string) => {
+    if (composerRef.current?.insertTextAtEnd(question) === true) scheduleComposerFocus();
+  };
   const insertArtifactTemplate = (template: CodexArtifactTemplate) => {
     const composer = composerRef.current;
     if (!composer) return;
@@ -2615,7 +2619,9 @@ export default function ChatView(props: ChatViewProps) {
               activeThreadEnvironmentId={activeThread.environmentId}
               activeThreadId={activeThread.id}
               isServerThread={isServerThread}
-              activeThreadTitle={activeThread.title}
+              activeThreadTitle={
+                !isServerThread && activeProject?.isScratch ? "New question" : activeThread.title
+              }
               activeThreadLinkOrigin={activeThreadShell?.linkOrigin?.label ?? null}
               activeProject={activeProject ?? null}
               parentThreadLink={headerParentThreadLink}
@@ -3008,10 +3014,19 @@ export default function ChatView(props: ChatViewProps) {
                           ) : null}
                         </div>
                       </div>
-                      {isDraftHeroState && composerBannerItems.length > 0 ? (
-                        // Out of flow, like the headline, so a notice never moves the centered composer.
-                        <div className="absolute inset-x-0 top-full flex flex-col gap-1 pt-4">
-                          <ComposerBannerStack items={composerBannerItems} detached />
+                      {isDraftHeroState &&
+                      (composerBannerItems.length > 0 || activeProject?.isScratch === true) ? (
+                        // Out of flow, like the headline, so nothing here moves the centered composer.
+                        <div className="absolute inset-x-0 top-full flex flex-col gap-4 pt-4">
+                          {composerBannerItems.length > 0 ? (
+                            <ComposerBannerStack items={composerBannerItems} detached />
+                          ) : null}
+                          {activeProject?.isScratch === true ? (
+                            <StarterQuestions
+                              target={composerDraftTarget}
+                              onPick={pickStarterQuestion}
+                            />
+                          ) : null}
                         </div>
                       ) : null}
                     </ComposerSurface.Shell>

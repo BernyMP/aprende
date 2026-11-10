@@ -50,6 +50,7 @@ interface PrimaryServerState {
 }
 
 const EMPTY_AVAILABLE_EDITORS: ReadonlyArray<EditorId> = [];
+const FILE_MANAGER_ONLY: ReadonlyArray<EditorId> = ["file-manager"];
 export const EMPTY_SERVER_PROVIDERS: ReadonlyArray<ServerProvider> = [];
 const EMPTY_PRIMARY_SERVER_STATE: PrimaryServerState = {
   config: null,
@@ -162,9 +163,11 @@ export const primaryServerKeybindingsAtom = createShortcutKeybindingsAtom({
   environmentsAtom: environmentConnectionsAtom,
 }).pipe(Atom.withLabel("web-primary-server-keybindings"));
 
-export const primaryServerAvailableEditorsAtom = Atom.make(
-  (get): ReadonlyArray<EditorId> =>
-    get(primaryServerConfigAtom)?.availableEditors ?? EMPTY_AVAILABLE_EDITORS,
+// Learners open a notebook's folder, never a code editor, so only the file manager is offered.
+export const primaryServerAvailableEditorsAtom = Atom.make((get): ReadonlyArray<EditorId> =>
+  get(primaryServerConfigAtom)?.availableEditors.includes("file-manager")
+    ? FILE_MANAGER_ONLY
+    : EMPTY_AVAILABLE_EDITORS,
 ).pipe(Atom.withLabel("web-primary-server-available-editors"));
 
 export const providersIgnoringCheckedAtAtom = Atom.family((environmentId: EnvironmentId) =>

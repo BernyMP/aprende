@@ -47,7 +47,7 @@ export function NoProjectsHero() {
                     onClick={() => void startScratchThread(scratchTargetEnvironmentId)}
                   >
                     <MessageSquareDashedIcon className="size-4" />
-                    Quick question
+                    Ask a quick question
                   </Button>
                 )}
               </div>

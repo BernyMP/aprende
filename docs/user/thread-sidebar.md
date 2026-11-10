@@ -4,13 +4,13 @@ Use a new thread for a separate task.
 
 ## Start a thread
 
-On web and desktop, **New thread** opens the project picker when you have multiple
+On web and desktop, **New lesson** opens the project picker when you have multiple
 projects in the default or project-grouped sidebar. The legacy sidebar always
 starts in the current project. **Shift-click** to start in
 the current project, or use a project's own new-thread action. A new thread carries
 your model and mode selections, unless the destination project has its own model default.
 
-On mobile, **New thread** starts in the current thread's project, or else in the
+On mobile, **New lesson** starts in the current thread's project, or else in the
 last project you opened or chose on that device. If neither is available, the
 project picker opens. Turn off **Settings → General → Use last project** to
 choose a project every time. When you pick a project that is on more than one
@@ -22,9 +22,9 @@ if that project exists there. Otherwise it selects an environment that has it.
 ### Start without a project
 
 A thread does not need a project. To start one without a project, click **or
-start without a project** under a new thread's heading, pick **No project** from
-the project menu in that heading or from **New thread in...** in the command
-palette, or press `mod+alt+n`. On mobile, pick **No project** from the project
+just ask a quick question** under a new thread's heading, pick **Quick questions** from
+the project menu in that heading or from **New lesson in...** in the command
+palette, or press `mod+alt+n`. On mobile, pick **Quick questions** from the project
 list. It starts on your current machine; before sending, pick another machine
 from the machine menu to move it there. To move a draft into a project, pick the
 project in the heading.
@@ -213,7 +213,7 @@ Expand a tool call in the conversation to see its full command and output.
 Summaries shorten shell wrappers and can still describe the latest call after it
 finishes; the call's own result shows its status.
 
-On web and desktop, the thread details card lists the local servers that the
+On web and desktop, the lesson details card lists the local servers that the
 thread's terminals or its Claude agent started, with their ports. Not every one
 serves a web page. A server the agent started stays listed after the agent's
 turn ends.
@@ -221,9 +221,9 @@ Select a server to open it in the browser panel. **Stop** ends the server's job
 and keeps the agent, the terminal, and aprende running. Stop needs terminal
 access to the environment and is not available on Windows.
 
-To choose what the thread details card shows, right-click the card. Hidden rows keep their keyboard
-shortcuts, such as Open in editor and project scripts. **Reset to default** brings
-back the standard rows.
+The lesson details card is closed until you open it with the button at the top right of a lesson.
+To choose what it shows, right-click the card. Hidden rows keep their keyboard shortcuts, such as
+Open notebook folder and project scripts. **Reset to default** brings back the standard rows.
 
 ## Side chats
 
@@ -233,7 +233,7 @@ with what the thread knows, and the thread keeps working while you ask.
 On web and desktop, start a message with `/side` or `/btw`, then your question.
 You can also choose **Side chat** from the **+** menu in the right panel. The side
 chat opens as a tab there, with its own composer. Side chats do not show in the
-sidebar. Find one again under **Side chats** in thread details.
+sidebar. Find one again under **Side chats** in lesson details.
 
 A side chat works in the same folder as the thread. Its first reply asks before it
 edits files or runs commands. After that, it uses the permission mode you choose

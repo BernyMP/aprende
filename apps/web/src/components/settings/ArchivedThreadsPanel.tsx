@@ -145,7 +145,7 @@ export function ArchivedThreadsPanel() {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to unarchive thread",
+            title: "Failed to unarchive lesson",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -162,7 +162,7 @@ export function ArchivedThreadsPanel() {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to delete thread",
+            title: "Failed to delete lesson",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -186,16 +186,16 @@ export function ArchivedThreadsPanel() {
                   <ArchiveIcon className="size-3.5 text-muted-foreground" />
                 )}
                 {isLoadingArchive
-                  ? "Loading archived threads"
+                  ? "Loading archived lessons"
                   : archiveError
-                    ? "Could not load archived threads"
-                    : "No archived threads"}
+                    ? "Could not load archived lessons"
+                    : "No archived lessons"}
               </span>
             }
             description={
               isLoadingArchive
                 ? "Checking connected environments."
-                : (archiveError ?? "Archived threads will appear here.")
+                : (archiveError ?? "Archived lessons will appear here.")
             }
           />
         </SettingsSection>
@@ -227,7 +227,7 @@ export function ArchivedThreadsPanel() {
                       toastManager.add(
                         stackedThreadToast({
                           type: "error",
-                          title: "Archived thread action failed",
+                          title: "Archived lesson action failed",
                           description:
                             error instanceof Error ? error.message : "An error occurred.",
                         }),
@@ -264,7 +264,7 @@ export function ArchivedThreadsPanel() {
                           toastManager.add(
                             stackedThreadToast({
                               type: "error",
-                              title: "Failed to unarchive thread",
+                              title: "Failed to unarchive lesson",
                               description:
                                 error instanceof Error ? error.message : "An error occurred.",
                             }),
