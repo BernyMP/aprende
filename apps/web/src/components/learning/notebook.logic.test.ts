@@ -9,6 +9,7 @@ import {
   nextTopic,
   notebookLessons,
   notebookNextStep,
+  notebookToResume,
 } from "./notebook.logic";
 
 const topic = (id: string, status: "todo" | "learned" | "known" = "todo") => ({
@@ -76,6 +77,29 @@ describe("notebookNextStep", () => {
     ["every topic done", { topics: [topic("a", "learned"), topic("b", "known")] }, "done"],
   ] as const)("offers one next step with %s", (_name, input, expected) => {
     expect(step(input)).toBe(expected);
+  });
+});
+
+describe("notebookToResume", () => {
+  it("skips notebooks with no lesson left to return to", () => {
+    const thread = (overrides: Partial<EnvironmentThreadShell> = {}) =>
+      ({
+        archivedAt: null,
+        deletedAt: null,
+        lineage: { relationshipToParent: null, sideChat: false },
+        ...overrides,
+      }) as unknown as EnvironmentThreadShell;
+    const threads: Record<string, ReadonlyArray<EnvironmentThreadShell>> = {
+      empty: [],
+      archived: [thread({ archivedAt: "2026-01-02T00:00:00.000Z" })],
+      sideChatOnly: [thread({ lineage: { relationshipToParent: null, sideChat: true } as never })],
+      studied: [thread({ deletedAt: "2026-01-02T00:00:00.000Z" }), thread()],
+      older: [thread()],
+    };
+    const resume = (names: ReadonlyArray<string>) =>
+      notebookToResume(names, (name) => threads[name] ?? []);
+    expect(resume(["empty", "archived", "sideChatOnly", "studied", "older"])).toBe("studied");
+    expect(resume(["empty", "archived", "sideChatOnly"])).toBeUndefined();
   });
 });
 

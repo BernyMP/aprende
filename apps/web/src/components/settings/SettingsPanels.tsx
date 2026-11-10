@@ -407,7 +407,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       ? ["Time format"]
       : []),
     ...(settings.notificationMode !== DEFAULT_UNIFIED_SETTINGS.notificationMode
-      ? ["Thread notifications"]
+      ? ["Lesson notifications"]
       : []),
     ...(settings.inAppNotificationsEnabled !== DEFAULT_UNIFIED_SETTINGS.inAppNotificationsEnabled
       ? ["In-app notifications"]
@@ -416,7 +416,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       ? ["Project Grouping"]
       : []),
     ...(settings.sidebarProjectSortOrder !== DEFAULT_UNIFIED_SETTINGS.sidebarProjectSortOrder
-      ? ["Project order"]
+      ? ["Notebook order"]
       : []),
     ...(settings.sidebarWorkingShelfEnabled !== DEFAULT_UNIFIED_SETTINGS.sidebarWorkingShelfEnabled
       ? ["Working section"]

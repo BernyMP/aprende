@@ -123,14 +123,16 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
                 data-sidebar-action-for={rowId}
                 size="icon-xs"
                 variant="ghost-muted"
-                aria-label={newSessionLabel(group.displayName)}
+                aria-label={newSessionLabel(group.displayName, group.isScratch === true)}
                 onClick={() => props.onNewThread(group)}
               />
             }
           >
             <SquarePenIcon aria-hidden />
           </TooltipTrigger>
-          <TooltipPopup>{newSessionLabel(group.displayName)}</TooltipPopup>
+          <TooltipPopup>
+            {newSessionLabel(group.displayName, group.isScratch === true)}
+          </TooltipPopup>
         </Tooltip>
       </span>
     </li>

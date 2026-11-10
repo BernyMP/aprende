@@ -139,10 +139,8 @@ export function findProjectByPath<T extends { workspaceRoot?: string; cwd?: stri
 export const SCRATCH_PROJECT_LABEL = "Quick questions";
 
 /** Names starting a session in a project as the learner sees it; a quick question is not a lesson. */
-export function newSessionLabel(projectLabel: string): string {
-  return projectLabel === SCRATCH_PROJECT_LABEL
-    ? "Ask another quick question"
-    : `New lesson in ${projectLabel}`;
+export function newSessionLabel(projectLabel: string, isScratch: boolean): string {
+  return isScratch ? "Ask another quick question" : `New lesson in ${projectLabel}`;
 }
 
 export function isScratchProject(

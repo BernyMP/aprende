@@ -757,8 +757,8 @@ export function useComposerSend(input: ComposerSendInput) {
       toastManager.add(
         stackedThreadToast({
           type: "warning",
-          title: "Choose a project first",
-          description: "This draft no longer points to an available project.",
+          title: "Choose a notebook first",
+          description: "This draft no longer points to an available notebook.",
         }),
       );
       return;

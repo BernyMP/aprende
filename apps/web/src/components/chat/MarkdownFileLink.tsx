@@ -39,7 +39,6 @@ interface MarkdownFileLinkProps {
   onOpen?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
   onOpenInPanel: (panelPath: string, line: number | undefined) => void;
   resolveCopyPaths: () => Promise<ReturnType<typeof markdownFileCopyPaths>>;
-  openInEditorMenuLabel: string;
   onOpenInBrowser?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
   onOpenMedia?: (() => void) | undefined;
   onReveal?: (() => Promise<AtomCommandResult<unknown, unknown>>) | undefined;
@@ -62,7 +61,6 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
   threadRef,
   onOpen,
   onOpenInPanel,
-  openInEditorMenuLabel,
   onOpenInBrowser,
   onOpenMedia,
   onReveal,
@@ -250,7 +248,7 @@ export const MarkdownFileLink = memo(function MarkdownFileLink({
       const clicked = await api.contextMenu.show(
         [
           ...(onOpenMedia ? ([{ id: "preview-media", label: "Preview media" }] as const) : []),
-          ...(onOpen ? ([{ id: "open", label: openInEditorMenuLabel }] as const) : []),
+          ...(onOpen ? ([{ id: "open", label: "Open file" }] as const) : []),
           ...(onOpenInBrowser
             ? ([{ id: "open-in-browser", label: "Open in integrated browser" }] as const)
             : []),
@@ -405,7 +403,6 @@ function areMarkdownFileLinkPropsEqual(
     previous.threadRef === next.threadRef &&
     previous.onOpen === next.onOpen &&
     previous.onOpenInPanel === next.onOpenInPanel &&
-    previous.openInEditorMenuLabel === next.openInEditorMenuLabel &&
     previous.onOpenInBrowser === next.onOpenInBrowser &&
     previous.onOpenMedia === next.onOpenMedia &&
     previous.onReveal === next.onReveal &&

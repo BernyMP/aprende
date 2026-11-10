@@ -23,10 +23,7 @@ export async function resolveMarkdownFileHostPath(input: {
     : { absolutePath: meta.filePath, matched: false };
 }
 
-export function markdownFileEditorTarget(
-  meta: MarkdownFileLinkMeta,
-  hostPath: MarkdownFileHostPath,
-) {
+function markdownFilePositionedPath(meta: MarkdownFileLinkMeta, hostPath: MarkdownFileHostPath) {
   return hostPath.matched
     ? formatFilePathPosition({ ...meta, path: hostPath.absolutePath })
     : meta.targetPath;
@@ -37,7 +34,7 @@ export function markdownFileCopyPaths(
   hostPath: MarkdownFileHostPath,
   cwd: string | undefined,
 ) {
-  const fullPath = markdownFileEditorTarget(meta, hostPath);
+  const fullPath = markdownFilePositionedPath(meta, hostPath);
   return {
     fullPath,
     relativePath: formatFilePathPosition({

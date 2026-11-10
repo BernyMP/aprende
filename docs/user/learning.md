@@ -71,7 +71,7 @@ learned.
 
 ## Notebooks
 
-Each project is a notebook for one subject, like a notebook per class. Its outline lists the
+Each notebook holds one subject, like a notebook per class. Its outline lists the
 topics you are working through, in order, and each lesson is a session on one topic.
 
 aprende opens on **Notebooks**. The notebook you studied last comes first, under **Pick up where
@@ -92,7 +92,7 @@ toward, such as an exam. Then it names the notebook and suggests an outline. You
 the notebook's settings. To bring in a session from outside any notebook, use **Move to notebook**
 in its menu.
 
-Open one notebook by clicking its name, the project name above a session, **Open notebook** in the
+Open one notebook by clicking its name, the notebook name above a session, **Open notebook** in the
 command palette or a session's menu in the sidebar, or `mod+alt+o` (customize `notebook.open`).
 
 - **Start lesson** on a topic starts a session that teaches it. **Start** or **Continue** at the

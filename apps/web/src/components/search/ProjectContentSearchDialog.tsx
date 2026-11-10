@@ -81,10 +81,10 @@ function SearchOptionButton(props: {
 function EmptyContentSearchDialog() {
   return (
     <CommandPaletteContent
-      aria-label="Search project contents"
+      aria-label="Search notebook files"
       escapeLabel="Back"
       footerActionLabel="Open file"
-      inputProps={{ disabled: true, placeholder: "Search project contents…" }}
+      inputProps={{ disabled: true, placeholder: "Search notebook files…" }}
       mode="none"
       panelSize="fill"
       testId="project-content-search"

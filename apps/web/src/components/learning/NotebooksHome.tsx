@@ -19,7 +19,7 @@ import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { useNewNotebook } from "./useNewNotebook";
-import { notebookLessons, notebookNextStep } from "./notebook.logic";
+import { notebookLessons, notebookNextStep, notebookToResume } from "./notebook.logic";
 import { useNotebook } from "./useNotebook";
 import { useStartLesson } from "./useStartLesson";
 
@@ -42,10 +42,7 @@ export function NotebooksHome(props: {
   const threadsOf = (project: EnvironmentProject) =>
     props.threadsByNotebook.get(notebookKey(project)) ?? NO_THREADS;
 
-  // A notebook nobody has studied yet is not somewhere to pick up from.
-  const recent = props.notebooks.find((project) =>
-    threadsOf(project).some((thread) => thread.archivedAt === null && thread.deletedAt === null),
-  );
+  const recent = notebookToResume(props.notebooks, threadsOf);
   const others = props.notebooks.filter((project) => project !== recent);
 
   return (
@@ -212,7 +209,7 @@ function NotebookCard(props: {
                       ? `Next: ${step.topic.title}`
                       : unnamed
                         ? "You and the tutor are still setting this up."
-                        : "No topics yet. The tutor adds them as you learn."}
+                        : "No topics yet."}
             </span>
             {step.kind === "review" ? (
               <Button

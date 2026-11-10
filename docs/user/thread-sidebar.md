@@ -35,7 +35,7 @@ of its first message, and a short id, like
 `2026-09-25-convert-these-pngs-to-webp-a1b2c3d4`. Deleting a thread keeps its
 folder, so the files the agent wrote stay until you delete them.
 
-When the work grows into something real, pick **Turn into project** from the
+When the work grows into something real, pick **Turn into notebook** from the
 thread's menu. The thread's folder becomes a project where it is, so nothing
 moves and the agent keeps working in the same place. Other threads in that folder
 move with it. Rename the project in its settings.

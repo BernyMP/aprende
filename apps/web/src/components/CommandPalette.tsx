@@ -282,7 +282,7 @@ function CommandPaletteDialog(props: {
         props.mode === "files"
           ? "File picker"
           : props.mode === "content"
-            ? "Search project contents"
+            ? "Search notebook files"
             : "Command palette"
       }
       className={cn("overflow-hidden", props.mode === "content" && "h-105")}
@@ -975,25 +975,26 @@ function OpenCommandPaletteDialog(props: {
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
 
   if (projects.length > 0) {
-    const activeProjectTitle =
-      projectPickerEntries.find((entry) => entry.isPreferred)?.group.displayName ??
-      currentProject?.title ??
-      null;
+    const preferredEntry = projectPickerEntries.find((entry) => entry.isPreferred);
+    const activeProjectIsScratch =
+      (preferredEntry?.targetProject ?? currentProject)?.isScratch === true;
+    const activeProjectTitle = activeProjectIsScratch
+      ? SCRATCH_PROJECT_LABEL
+      : (preferredEntry?.group.displayName ?? currentProject?.title ?? null);
 
     if (activeProjectTitle) {
       actionItems.push({
         kind: "action",
         value: "action:new-thread",
         searchTerms: ["new lesson", "new thread", "chat", "create", "draft"],
-        title:
-          activeProjectTitle === SCRATCH_PROJECT_LABEL ? (
-            newSessionLabel(activeProjectTitle)
-          ) : (
-            <>
-              New lesson in <span className="font-semibold">{activeProjectTitle}</span>
-            </>
-          ),
-        searchTitle: newSessionLabel(activeProjectTitle),
+        title: activeProjectIsScratch ? (
+          newSessionLabel(activeProjectTitle, true)
+        ) : (
+          <>
+            New lesson in <span className="font-semibold">{activeProjectTitle}</span>
+          </>
+        ),
+        searchTitle: newSessionLabel(activeProjectTitle, activeProjectIsScratch),
         icon: <SquarePenIcon className={ITEM_ICON_CLASS} />,
         shortcutCommand: "chat.newLocal",
         run: async () => {
@@ -1159,8 +1160,15 @@ function OpenCommandPaletteDialog(props: {
   actionItems.push({
     kind: "action",
     value: "action:search-project-contents",
-    searchTerms: ["search project", "find in files", "grep", "content search", "text search"],
-    title: "Search project contents",
+    searchTerms: [
+      "search notebook",
+      "search project",
+      "find in files",
+      "grep",
+      "content search",
+      "text search",
+    ],
+    title: "Search notebook files",
     icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
     keepOpen: true,
     shortcutCommand: "projectSearch.toggle",
@@ -1868,7 +1876,7 @@ function OpenCommandPaletteDialog(props: {
       else
         toastManager.add({
           id: "thread-find-unavailable",
-          title: "Thread search is unavailable on this server.",
+          title: "Lesson search is unavailable on this server.",
           description: "Update the server to enable it.",
         });
       return;
@@ -2227,7 +2235,7 @@ function OpenCommandPaletteDialog(props: {
                 emptyStateMessage: "Press Enter to create this folder and add it as a project.",
               }
             : isThreadSearchPending
-              ? { emptyStateMessage: "Searching thread messages…" }
+              ? { emptyStateMessage: "Searching lesson messages…" }
               : {})}
       />
     </CommandPaletteContent>

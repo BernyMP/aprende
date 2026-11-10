@@ -111,11 +111,7 @@ import {
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import { Button } from "./ui/button";
 import { stackedThreadToast, toastManager } from "./ui/toast";
-import {
-  PreferredEditorEnvironmentRequiredError,
-  useOpenInPreferredEditor,
-} from "../editorPreferences";
-import { learnerEditors } from "../editorLabels";
+import { PreferredEditorEnvironmentRequiredError } from "../editorPreferences";
 import { resolveDiffThemeName } from "../lib/diffRendering";
 import { RenderErrorBoundary } from "./RenderErrorBoundary";
 import { useRenderedAppearance } from "../hooks/useTheme";
@@ -365,10 +361,11 @@ function markdownUrlTransform(href: string) {
 type MarkdownServerConfigFields = ReturnType<typeof markdownServerConfigFields>;
 
 function markdownServerConfigFields(config: ServerConfig | null) {
+  const canOpenFiles = config?.availableEditors.includes("file-manager") === true;
   return {
-    availableEditors: learnerEditors(config?.availableEditors),
+    canOpenFiles,
     revealInFileManagerLabel:
-      config?.shellRevealInFileManager === true && config.availableEditors.includes("file-manager")
+      config?.shellRevealInFileManager === true && canOpenFiles
         ? config.shellRevealInFileManagerKind === undefined
           ? revealInFileExplorerLabelForOs(config.environment.platform.os)
           : revealInFileExplorerLabelForKind(config.shellRevealInFileManagerKind)
@@ -382,8 +379,7 @@ function markdownServerConfigFieldsEqual(
 ): boolean {
   return (
     previous.revealInFileManagerLabel === next.revealInFileManagerLabel &&
-    previous.availableEditors.length === next.availableEditors.length &&
-    previous.availableEditors.every((editor, index) => editor === next.availableEditors[index])
+    previous.canOpenFiles === next.canOpenFiles
   );
 }
 
@@ -567,14 +563,14 @@ function useChatMarkdownState({
       },
     );
   };
-  const { availableEditors, revealInFileManagerLabel } = useAtomValue(
+  const { canOpenFiles, revealInFileManagerLabel } = useAtomValue(
     markdownServerConfigFieldsAtom(environmentId),
   );
-  const openInPreferredEditor = useOpenInPreferredEditor(environmentId, availableEditors);
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,
   });
-  const revealFileInFileManager = (filePath: string) => {
+  // Learners open and reveal files with the file manager, never a code editor.
+  const launchFileManager = (filePath: string, reveal: boolean) => {
     if (environmentId === null) {
       return Promise.resolve(
         AsyncResult.failure<void, PreferredEditorEnvironmentRequiredError>(
@@ -585,13 +581,13 @@ function useChatMarkdownState({
     if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
       return Promise.resolve(
         AsyncResult.failure<void, Error>(
-          Cause.fail(new Error("This connection cannot reveal files on this environment.")),
+          Cause.fail(new Error("This connection cannot open files on this environment.")),
         ),
       );
     }
     return openInEditor({
       environmentId,
-      input: { cwd: filePath, editor: "file-manager", reveal: true },
+      input: { cwd: filePath, editor: "file-manager", ...(reveal ? { reveal: true } : {}) },
     });
   };
   const diffThemeName = resolveDiffThemeName(resolvedTheme);
@@ -717,9 +713,9 @@ function useChatMarkdownState({
         theme={resolvedTheme}
         threadRef={threadRef}
         onOpen={
-          canUseShellActions
+          canUseShellActions && canOpenFiles
             ? // The file manager opens a path; a line suffix would name a file that does not exist.
-              async () => openInPreferredEditor((await resolveHostPath()).absolutePath)
+              async () => launchFileManager((await resolveHostPath()).absolutePath, false)
             : undefined
         }
         resolveCopyPaths={async () =>
@@ -731,10 +727,9 @@ function useChatMarkdownState({
             ? () => openMarkdownMedia(mediaPath, fileLinkMeta.filePath)
             : undefined
         }
-        openInEditorMenuLabel="Open file"
         onReveal={
           canUseShellActions && revealInFileManagerLabel !== undefined
-            ? async () => revealFileInFileManager((await resolveHostPath()).absolutePath)
+            ? async () => launchFileManager((await resolveHostPath()).absolutePath, true)
             : undefined
         }
         revealLabel={revealInFileManagerLabel}

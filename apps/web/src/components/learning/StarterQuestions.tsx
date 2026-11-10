@@ -9,7 +9,7 @@ import { Button } from "../ui/button";
 /** Each shows one way to use the tutor; its request reads as complete when sent unchanged. */
 const STARTER_QUESTIONS = [
   {
-    label: "Where does my understanding break?",
+    label: "Can you find the gaps in what I know?",
     request:
       "There's something I sort of understand but can't explain. Ask me questions until you find where it breaks.",
   },

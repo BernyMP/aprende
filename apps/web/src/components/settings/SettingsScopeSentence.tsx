@@ -315,7 +315,7 @@ function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsSco
       label={selected?.displayName ?? (value.project ? "Unavailable notebook" : "All notebooks")}
       value={projectAxisValue(value)}
       onChange={(next) => onChange(selectProjectAxis(value, next))}
-      searchLabel="Search projects"
+      searchLabel="Search notebooks"
       allOption={{ value: ALL_PROJECTS_VALUE, label: "All notebooks" }}
       options={projects.map(({ group, machines }) => {
         const sameName = projects.filter(

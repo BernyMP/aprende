@@ -74,6 +74,21 @@ export function nextTopic(
   return todo.find((topic) => startedTopicIds.has(topic.id)) ?? todo[0];
 }
 
+const isListedLesson = (
+  thread: Pick<EnvironmentThreadShell, "archivedAt" | "deletedAt" | "lineage">,
+) =>
+  thread.archivedAt === null && thread.deletedAt === null && isListedThreadLineage(thread.lineage);
+
+/** The notebook to pick up from: the first, of notebooks given most recent first, with a lesson still listed. */
+export function notebookToResume<Notebook>(
+  notebooks: ReadonlyArray<Notebook>,
+  threadsOf: (
+    notebook: Notebook,
+  ) => ReadonlyArray<Pick<EnvironmentThreadShell, "archivedAt" | "deletedAt" | "lineage">>,
+): Notebook | undefined {
+  return notebooks.find((notebook) => threadsOf(notebook).some(isListedLesson));
+}
+
 /** The one thing a notebook card offers, so the home shows a next step instead of bookkeeping. */
 export type NotebookNextStep =
   | { readonly kind: "review" }
@@ -149,9 +164,7 @@ export function notebookLessons(
       (thread) =>
         thread.environmentId === notebook.environmentId &&
         thread.projectId === notebook.projectId &&
-        thread.archivedAt === null &&
-        thread.deletedAt === null &&
-        isListedThreadLineage(thread.lineage),
+        isListedLesson(thread),
     )
     .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt));
   const topicOfLesson: ReadonlyMap<string, string> = new Map(

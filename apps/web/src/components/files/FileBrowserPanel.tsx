@@ -204,10 +204,7 @@ export default function FileBrowserPanel({
           position,
         );
         if (clicked === null) return;
-        // Open-with submenu ids are absent from the top-level item list.
-        const isFileMenuAction =
-          fileMenuItems.some((entry) => entry.id === clicked) || clicked.startsWith("editor:");
-        if (isFileMenuAction) {
+        if (fileMenuItems.some((entry) => entry.id === clicked)) {
           await fileContextMenu.activate(clicked as FileContextMenuAction, fileTarget);
           return;
         }
