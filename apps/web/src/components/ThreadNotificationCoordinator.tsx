@@ -130,13 +130,13 @@ export function startThreadNotifications(
     };
     const title =
       kind === "completion"
-        ? "Thread completed"
+        ? "Your tutor replied"
         : status === "approval"
           ? "Approval needed"
           : status === "limited"
             ? "Usage limit reached"
             : status === "failed"
-              ? "Thread failed"
+              ? "Lesson stopped with an error"
               : "Input needed";
     if (hasNotificationSound(mode)) {
       void playNotificationSound(kind, () =>
@@ -171,7 +171,7 @@ export function startThreadNotifications(
             ),
         },
         actionProps: {
-          children: "Open thread",
+          children: "Open lesson",
           onClick: () => {
             toastManager.close(toastId);
             void router.navigate({

@@ -1030,8 +1030,8 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "find-current-thread",
-      title: "Find in current thread",
-      searchTerms: ["find", "search", "messages", "plans"],
+      title: "Find in this lesson",
+      searchTerms: ["find", "search", "messages", "plans", "thread"],
       icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "chat.find",
       run: async () => {
