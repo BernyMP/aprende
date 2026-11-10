@@ -37,7 +37,6 @@ import {
 } from "lucide-react";
 import {
   AssetWorkspaceAssetNotFoundError,
-  type EditorId,
   type EnvironmentId,
   type ServerConfig,
   type ScopedThreadRef,
@@ -117,7 +116,7 @@ import {
   useOpenInPreferredEditor,
   usePreferredEditor,
 } from "../editorPreferences";
-import { openInEditorMenuLabel } from "../editorLabels";
+import { learnerEditors, openInEditorMenuLabel } from "../editorLabels";
 import { resolveDiffThemeName } from "../lib/diffRendering";
 import { RenderErrorBoundary } from "./RenderErrorBoundary";
 import { useRenderedAppearance } from "../hooks/useTheme";
@@ -368,13 +367,11 @@ function markdownUrlTransform(href: string) {
   return rewriteMarkdownFileUriHref(href) ?? defaultUrlTransform(href);
 }
 
-const NO_MARKDOWN_EDITORS: ReadonlyArray<EditorId> = [];
-
 type MarkdownServerConfigFields = ReturnType<typeof markdownServerConfigFields>;
 
 function markdownServerConfigFields(config: ServerConfig | null) {
   return {
-    availableEditors: config?.availableEditors ?? NO_MARKDOWN_EDITORS,
+    availableEditors: learnerEditors(config?.availableEditors),
     revealInFileManagerLabel:
       config?.shellRevealInFileManager === true && config.availableEditors.includes("file-manager")
         ? config.shellRevealInFileManagerKind === undefined
