@@ -1,5 +1,6 @@
 import type { EnvironmentThreadShell } from "@aprende/client-runtime/state/models";
 import { scopedThreadKey, scopeThreadRef } from "@aprende/client-runtime/environment";
+import { newSessionLabel } from "@aprende/client-runtime/state/projects";
 import { ChevronDownIcon, NotebookIcon, SquarePenIcon } from "lucide-react";
 import { memo } from "react";
 
@@ -122,14 +123,14 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
                 data-sidebar-action-for={rowId}
                 size="icon-xs"
                 variant="ghost-muted"
-                aria-label={`New lesson in ${group.displayName}`}
+                aria-label={newSessionLabel(group.displayName)}
                 onClick={() => props.onNewThread(group)}
               />
             }
           >
             <SquarePenIcon aria-hidden />
           </TooltipTrigger>
-          <TooltipPopup>New lesson in {group.displayName}</TooltipPopup>
+          <TooltipPopup>{newSessionLabel(group.displayName)}</TooltipPopup>
         </Tooltip>
       </span>
     </li>

@@ -98,7 +98,7 @@ export class ThreadSnoozeBlockedError extends Schema.TaggedError<ThreadSnoozeBlo
   },
 ) {
   override get message(): string {
-    return "This thread is waiting on you. Respond to the pending request before snoozing it.";
+    return "This lesson is waiting on you. Respond to the pending request before snoozing it.";
   }
 }
 
@@ -172,8 +172,8 @@ async function requestThreadUnpinConfirmation(input: {
   return settlePromise(() =>
     confirm(
       [
-        `Unpin thread "${input.title}"?`,
-        "This will move the thread out of your pinned section.",
+        `Unpin lesson "${input.title}"?`,
+        "This will move the lesson out of your pinned section.",
       ].join("\n"),
     ),
   );
@@ -186,7 +186,7 @@ export async function navigateAfterThreadDeletion(navigate: () => Promise<void>)
     toastManager.add(
       stackedThreadToast({
         type: "error",
-        title: "Thread deleted, but navigation failed",
+        title: "Lesson deleted, but navigation failed",
         description: error instanceof Error ? error.message : "An error occurred.",
       }),
     );
@@ -257,7 +257,7 @@ function threadOperationFailure(target: ScopedThreadRef) {
     : AsyncResult.failure(
         Cause.fail(
           new EnvironmentAuthorizationError({
-            message: "This connection cannot change threads.",
+            message: "This connection cannot change lessons.",
             requiredScope: AuthOrchestrationOperateScope,
           }),
         ),
@@ -641,7 +641,7 @@ export function useThreadActions() {
     const resolved = resolveThreadTarget(target);
     const confirmationResult = await requestThreadUnpinConfirmation({
       enabled: confirmThreadUnpin,
-      title: resolved?.thread.title ?? "this thread",
+      title: resolved?.thread.title ?? "this lesson",
       confirm: localApi ? (message) => localApi.dialogs.confirm(message) : null,
     });
     if (confirmationResult._tag === "Failure") {
@@ -742,7 +742,7 @@ export function useThreadActions() {
       action: "Snoozed",
       claim: action,
       undo: () => runUndoPlan(target, ThreadUndo.planThreadUndo("snooze")),
-      failureTitle: "Failed to wake thread",
+      failureTitle: "Failed to wake lesson",
     });
     return result;
   };
@@ -778,12 +778,12 @@ export function useThreadActions() {
     const resolved = resolveThreadTarget(target);
 
     if (confirmThreadDelete && localApi) {
-      const title = resolved?.thread.title ?? "this thread";
+      const title = resolved?.thread.title ?? "this lesson";
       const confirmationResult = await settlePromise(() =>
         localApi.dialogs.confirm(
           [
-            `Delete thread "${title}"?`,
-            "This permanently clears conversation history for this thread.",
+            `Delete lesson "${title}"?`,
+            "This permanently clears conversation history for this lesson.",
           ].join("\n"),
           { variant: "destructive" },
         ),

@@ -115,6 +115,7 @@ import {
   isExplicitRelativeProjectPath,
   isScratchProject,
   isUnsupportedWindowsProjectPath,
+  newSessionLabel,
   resolveProjectPathForDispatch,
   SCRATCH_PROJECT_LABEL,
 } from "@aprende/client-runtime/state/projects";
@@ -984,12 +985,15 @@ function OpenCommandPaletteDialog(props: {
         kind: "action",
         value: "action:new-thread",
         searchTerms: ["new lesson", "new thread", "chat", "create", "draft"],
-        title: (
-          <>
-            New lesson in <span className="font-semibold">{activeProjectTitle}</span>
-          </>
-        ),
-        searchTitle: `New lesson in ${activeProjectTitle}`,
+        title:
+          activeProjectTitle === SCRATCH_PROJECT_LABEL ? (
+            newSessionLabel(activeProjectTitle)
+          ) : (
+            <>
+              New lesson in <span className="font-semibold">{activeProjectTitle}</span>
+            </>
+          ),
+        searchTitle: newSessionLabel(activeProjectTitle),
         icon: <SquarePenIcon className={ITEM_ICON_CLASS} />,
         shortcutCommand: "chat.newLocal",
         run: async () => {
@@ -1093,8 +1097,8 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:copy-thread-reference",
-      searchTerms: ["copy", "thread", "thread id", "reference"],
-      title: "Copy thread",
+      searchTerms: ["copy", "lesson", "thread", "thread id", "reference"],
+      title: "Copy lesson",
       description: activeThreadReferenceCopyTarget.description,
       icon: <LinkIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "thread.copyReference",
@@ -1326,8 +1330,8 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:project-pin",
-      searchTerms: ["pin", "unpin", "project", "favorite"],
-      title: currentProjectGroup.pinned ? "Unpin project" : "Pin project",
+      searchTerms: ["pin", "unpin", "notebook", "project", "favorite"],
+      title: currentProjectGroup.pinned ? "Unpin notebook" : "Pin notebook",
       description: currentProjectGroup.displayName,
       icon: currentProjectGroup.pinned ? (
         <PinOffIcon className={ITEM_ICON_CLASS} />
@@ -1343,6 +1347,7 @@ function OpenCommandPaletteDialog(props: {
       kind: "action",
       value: "action:project-settings",
       searchTerms: [
+        "notebook",
         "project",
         "settings",
         "name",
@@ -1355,7 +1360,7 @@ function OpenCommandPaletteDialog(props: {
         "remove",
         "t3.json",
       ],
-      title: "Project settings",
+      title: "Notebook settings",
       description: contextualProjectGroup.displayName,
       icon: <FolderIcon className={ITEM_ICON_CLASS} />,
       run: async () => {

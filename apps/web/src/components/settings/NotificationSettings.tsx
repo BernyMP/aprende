@@ -23,7 +23,7 @@ export function NotificationSettings() {
       {...searchableSetting("thread-notifications")}
       description={
         permissionMessage ??
-        "System alerts when a lesson finishes, fails, or needs input or approval. Applies to this device while aprende is open."
+        "System alerts when the tutor finishes replying, hits an error, or needs your answer or approval. Applies to this device while aprende is open."
       }
       control={
         <Select

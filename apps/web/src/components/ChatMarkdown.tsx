@@ -114,9 +114,8 @@ import { stackedThreadToast, toastManager } from "./ui/toast";
 import {
   PreferredEditorEnvironmentRequiredError,
   useOpenInPreferredEditor,
-  usePreferredEditor,
 } from "../editorPreferences";
-import { learnerEditors, openInEditorMenuLabel } from "../editorLabels";
+import { learnerEditors } from "../editorLabels";
 import { resolveDiffThemeName } from "../lib/diffRendering";
 import { RenderErrorBoundary } from "./RenderErrorBoundary";
 import { useRenderedAppearance } from "../hooks/useTheme";
@@ -128,11 +127,7 @@ import {
   rewriteMarkdownFileUriHref,
   type MarkdownFileLinkMeta,
 } from "../markdown-links";
-import {
-  markdownFileCopyPaths,
-  markdownFileEditorTarget,
-  resolveMarkdownFileHostPath,
-} from "../markdownFileHostPath";
+import { markdownFileCopyPaths, resolveMarkdownFileHostPath } from "../markdownFileHostPath";
 import { isMarkdownFileLinkLabel } from "@aprende/shared/markdownLinks";
 import { isElectron } from "../env";
 import { readLocalApi } from "../localApi";
@@ -575,8 +570,6 @@ function useChatMarkdownState({
   const { availableEditors, revealInFileManagerLabel } = useAtomValue(
     markdownServerConfigFieldsAtom(environmentId),
   );
-  const [preferredEditor] = usePreferredEditor(availableEditors);
-  const preferredEditorMenuLabel = openInEditorMenuLabel(preferredEditor);
   const openInPreferredEditor = useOpenInPreferredEditor(environmentId, availableEditors);
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,
@@ -725,10 +718,8 @@ function useChatMarkdownState({
         threadRef={threadRef}
         onOpen={
           canUseShellActions
-            ? async () =>
-                openInPreferredEditor(
-                  markdownFileEditorTarget(fileLinkMeta, await resolveHostPath()),
-                )
+            ? // The file manager opens a path; a line suffix would name a file that does not exist.
+              async () => openInPreferredEditor((await resolveHostPath()).absolutePath)
             : undefined
         }
         resolveCopyPaths={async () =>
@@ -740,7 +731,7 @@ function useChatMarkdownState({
             ? () => openMarkdownMedia(mediaPath, fileLinkMeta.filePath)
             : undefined
         }
-        openInEditorMenuLabel={preferredEditorMenuLabel}
+        openInEditorMenuLabel="Open file"
         onReveal={
           canUseShellActions && revealInFileManagerLabel !== undefined
             ? async () => revealFileInFileManager((await resolveHostPath()).absolutePath)

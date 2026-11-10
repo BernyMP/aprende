@@ -2,7 +2,7 @@
 
 On web and desktop, the "Applying settings for …" sentence at the top of Settings pages picks
 the project and environment a change applies to. Pages that only hold device preferences, such as
-Appearance, don't show it. They start at **All projects** and **All environments**
+Appearance, don't show it. They start at **All notebooks** and **All environments**
 and stay selected as you move between categories or search for a setting.
 
 Preferences saved on this device, such as appearance, confirmations and browser profiles, always
@@ -36,8 +36,8 @@ task's result still lands in its parent thread, which sees it on its next turn. 
 machine's setting. Every other provider setting stays per machine.
 
 On mobile, open **Settings** and use the filter in its header to choose connected environments
-and a project. The filter stays available in server-setting pages. With **All projects** selected,
-the server-setting pages, such as Threads, edit the selected
+and a project. The filter stays available in server-setting pages. With **All notebooks** selected,
+the server-setting pages, such as Lessons, edit the selected
 environments' defaults. Choosing a project edits its overrides on the selected
 environments. Use **Use defaults** in a page to remove that page's project overrides.
 Open **Settings → Notebooks** to rename the project across its selected

@@ -100,9 +100,9 @@ export function useThreadActionMenu(input: {
   });
   const { copyToClipboard: copyThreadIdToClipboard } = useCopyToClipboard<{ threadId: ThreadId }>({
     onCopy: ({ threadId }) => {
-      toastManager.add({ type: "success", title: "Thread ID copied", description: threadId });
+      toastManager.add({ type: "success", title: "Lesson ID copied", description: threadId });
     },
-    onError: (error) => failureToast("Failed to copy thread ID", error),
+    onError: (error) => failureToast("Failed to copy lesson ID", error),
   });
 
   const openMenu = (position: { x: number; y: number }) => {
@@ -148,8 +148,8 @@ export function useThreadActionMenu(input: {
         !readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope)
       ) {
         failureToast(
-          "Thread action unavailable",
-          new Error("This connection cannot change threads."),
+          "Lesson action unavailable",
+          new Error("This connection cannot change lessons."),
         );
         return;
       }
@@ -173,7 +173,7 @@ export function useThreadActionMenu(input: {
         if (!preset) return;
         const result = await snoozeThread(threadRef, preset.snoozedUntil);
         if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-          failureToast("Failed to snooze thread", squashAtomCommandFailure(result));
+          failureToast("Failed to snooze lesson", squashAtomCommandFailure(result));
         }
         return;
       }
@@ -206,19 +206,19 @@ export function useThreadActionMenu(input: {
           return;
         }
         case "settle":
-          await reportFailure("Failed to settle thread", () => settleThread(threadRef));
+          await reportFailure("Failed to settle lesson", () => settleThread(threadRef));
           return;
         case "unsettle":
-          await reportFailure("Failed to un-settle thread", () => unsettleThread(threadRef));
+          await reportFailure("Failed to un-settle lesson", () => unsettleThread(threadRef));
           return;
         case "unsnooze":
-          await reportFailure("Failed to wake thread", () => unsnoozeThread(threadRef));
+          await reportFailure("Failed to wake lesson", () => unsnoozeThread(threadRef));
           return;
         case "pin":
-          await reportFailure("Failed to pin thread", () => pinThread(threadRef));
+          await reportFailure("Failed to pin lesson", () => pinThread(threadRef));
           return;
         case "unpin": {
-          await reportFailure("Failed to unpin thread", () => confirmAndUnpinThread(threadRef));
+          await reportFailure("Failed to unpin lesson", () => confirmAndUnpinThread(threadRef));
           return;
         }
         case "auto-settle:enabled":
@@ -232,7 +232,7 @@ export function useThreadActionMenu(input: {
           return;
         case "regenerate-title":
           if (isRegeneratingTitle) return;
-          await reportFailure("Failed to regenerate thread title", () =>
+          await reportFailure("Failed to regenerate lesson title", () =>
             updateThreadMetadata({
               environmentId: threadRef.environmentId,
               input: { threadId: threadRef.threadId, regenerateTitle: true },
@@ -251,7 +251,7 @@ export function useThreadActionMenu(input: {
               description: thread.title,
             });
           } else if (!isAtomCommandInterrupted(result)) {
-            failureToast("Could not turn thread into a notebook", squashAtomCommandFailure(result));
+            failureToast("Could not turn lesson into a notebook", squashAtomCommandFailure(result));
           }
           return;
         }
@@ -262,7 +262,7 @@ export function useThreadActionMenu(input: {
               stackedThreadToast({
                 type: "error",
                 title: "Path unavailable",
-                description: "This thread does not have a workspace path to copy.",
+                description: "This lesson does not have a workspace path to copy.",
               }),
             );
             return;
@@ -281,7 +281,7 @@ export function useThreadActionMenu(input: {
         case "archive": {
           if (confirmThreadArchive) {
             const confirmed = await settlePromise(() =>
-              api.dialogs.confirm(`Archive thread "${thread.title}"?`),
+              api.dialogs.confirm(`Archive lesson "${thread.title}"?`),
             );
             if (confirmed._tag === "Failure" || !confirmed.value) return;
           }
@@ -293,7 +293,7 @@ export function useThreadActionMenu(input: {
           });
           if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
             failureToast(
-              didArchive ? "Thread archived, but navigation failed" : "Failed to archive thread",
+              didArchive ? "Lesson archived, but navigation failed" : "Failed to archive lesson",
               squashAtomCommandFailure(result),
             );
           }
@@ -304,8 +304,8 @@ export function useThreadActionMenu(input: {
             const confirmed = await settlePromise(() =>
               api.dialogs.confirm(
                 [
-                  `Delete thread "${thread.title}"?`,
-                  "This permanently clears conversation history for this thread.",
+                  `Delete lesson "${thread.title}"?`,
+                  "This permanently clears conversation history for this lesson.",
                 ].join("\n"),
                 { variant: "destructive" },
               ),
@@ -319,7 +319,7 @@ export function useThreadActionMenu(input: {
             // A missing thread means cleanup failed after deletion; deleteThread already toasted that failure.
             readThreadShell(threadRef) !== null
           ) {
-            failureToast("Failed to delete thread", squashAtomCommandFailure(deleted));
+            failureToast("Failed to delete lesson", squashAtomCommandFailure(deleted));
           }
           return;
         }

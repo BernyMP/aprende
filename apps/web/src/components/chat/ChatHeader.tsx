@@ -5,7 +5,7 @@ import {
   type ThreadId,
 } from "@aprende/contracts";
 import { scopeThreadRef } from "@aprende/client-runtime/environment";
-import { SCRATCH_PROJECT_LABEL } from "@aprende/client-runtime/state/projects";
+import { newSessionLabel, SCRATCH_PROJECT_LABEL } from "@aprende/client-runtime/state/projects";
 import type { EnvironmentProject } from "@aprende/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
@@ -316,7 +316,7 @@ export const ChatHeader = memo(function ChatHeader({
                       aria-label={
                         notebook
                           ? `Open ${activeProjectName} notebook`
-                          : `New lesson in ${activeProjectName}`
+                          : newSessionLabel(activeProjectName ?? "")
                       }
                       onClick={notebook ? openNotebook : onNewThreadInProject}
                       className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
@@ -329,7 +329,7 @@ export const ChatHeader = memo(function ChatHeader({
                   </WorkspaceBreadcrumbText>
                 </TooltipTrigger>
                 <TooltipPopup side="top">
-                  {notebook ? "Open notebook" : `New lesson in ${activeProjectName}`}
+                  {notebook ? "Open notebook" : newSessionLabel(activeProjectName ?? "")}
                 </TooltipPopup>
               </Tooltip>
             </WorkspaceBreadcrumbItem>

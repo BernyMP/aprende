@@ -60,7 +60,8 @@ function resolveAndPersistPreferredEditor(availableEditors: readonly EditorId[])
   const stored = getLocalStorageItem(LAST_EDITOR_KEY, EditorId);
   if (stored && availableEditorIds.has(stored)) return stored;
   const editor = EDITORS.find((editor) => availableEditorIds.has(editor.id))?.id ?? null;
-  if (editor) setLocalStorageItem(LAST_EDITOR_KEY, editor, EditorId);
+  // A stored choice that this surface does not offer still belongs to the surfaces that do.
+  if (editor && !stored) setLocalStorageItem(LAST_EDITOR_KEY, editor, EditorId);
   return editor ?? null;
 }
 

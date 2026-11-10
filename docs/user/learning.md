@@ -83,8 +83,8 @@ Keybindings**).
 **Ask a quick question** starts a session outside any notebook. Its empty page lists five
 questions to try, each a different way to use the tutor: finding where your understanding breaks,
 planning a path to a goal, studying from your own notes, being quizzed, and reviewing. Picking one
-puts it in the message box for you to edit and send. Quick questions are kept together under
-**Quick questions** in the sidebar.
+puts a fuller request in the message box for you to edit and send. Quick questions are labelled **Quick
+questions** in the sidebar.
 
 **New notebook** opens a session right away. You don't need to know yet what you want to study:
 the tutor asks, one question at a time, what you want to learn, why, and what you are working

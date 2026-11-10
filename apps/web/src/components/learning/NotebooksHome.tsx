@@ -42,10 +42,11 @@ export function NotebooksHome(props: {
   const threadsOf = (project: EnvironmentProject) =>
     props.threadsByNotebook.get(notebookKey(project)) ?? NO_THREADS;
 
-  const [latest, ...older] = props.notebooks;
   // A notebook nobody has studied yet is not somewhere to pick up from.
-  const recent = latest !== undefined && threadsOf(latest).length > 0 ? latest : undefined;
-  const others = recent === undefined ? props.notebooks : older;
+  const recent = props.notebooks.find((project) =>
+    threadsOf(project).some((thread) => thread.archivedAt === null && thread.deletedAt === null),
+  );
+  const others = props.notebooks.filter((project) => project !== recent);
 
   return (
     <SidebarInset
@@ -131,7 +132,7 @@ function NotebookCard(props: {
   const [starting, setStarting] = useState(false);
   const notebookParams = { environmentId: project.environmentId, projectId: project.id };
   const actionSize = props.featured ? "sm" : "xs";
-  // The tutor names a notebook in its first lesson; until then the placeholder would read like the button.
+  // The tutor names a notebook in its first lesson.
   const unnamed = project.title === NEW_NOTEBOOK_TITLE;
 
   const topics = notebook?.outline.topics ?? [];
@@ -161,7 +162,7 @@ function NotebookCard(props: {
           to="/notebook/$environmentId/$projectId"
           params={notebookParams}
         >
-          {unnamed ? "Untitled notebook" : project.title}
+          {project.title}
         </Link>
         {lastStudied === undefined ? null : (
           <span className="shrink-0 text-muted-foreground text-xs tabular-nums">

@@ -129,8 +129,8 @@ threads within it.
 
 ## Settle finished work
 
-Choose **Settle thread** from its menu to move finished work out of the active list
-without deleting the conversation. **Un-settle thread** restores it to active work
+Choose **Settle lesson** from its menu to move finished work out of the active list
+without deleting the conversation. **Un-settle lesson** restores it to active work
 and prevents automatic settlement until new activity resumes the usual rules.
 Manually settling an idle thread dismisses unanswered async questions without
 sending an answer or restarting the agent. Settling also closes the thread's
@@ -173,7 +173,7 @@ palette.
 Use **Settings → Keybindings** to find or customize shortcuts for searching files
 and copying a thread link, which opens the thread from anywhere you paste it and pastes into a
 composer as a thread chip (see [sharing a thread](./prompt-links.md#share-a-thread)).
-**Thread ID** copies the bare ID for scripts and the `aprende` CLI. See
+**Lesson ID** copies the bare ID for scripts and the `aprende` CLI. See
 [keybindings](./keybindings.md) for custom configuration.
 
 ## Inspect agent work
@@ -223,7 +223,7 @@ access to the environment and is not available on Windows.
 
 The lesson details card is closed until you open it with the button at the top right of a lesson.
 To choose what it shows, right-click the card. Hidden rows keep their keyboard shortcuts, such as
-Open notebook folder and project scripts. **Reset to default** brings back the standard rows.
+Open folder and project scripts. **Reset to default** brings back the standard rows.
 
 ## Side chats
 
@@ -257,7 +257,7 @@ Monday. Menus list the options soonest first and hide a today option after its t
 Choose **Snooze → Custom…** from a thread's menu to pick a date and time in your
 local time zone, or a duration in minutes, hours, or days. Durations start when
 you confirm; one day means 24 hours. On web and desktop, you can also snooze
-several selected threads together. Choose **Wake thread** to bring a thread back early.
+several selected threads together. Choose **Wake lesson** to bring a thread back early.
 A snoozed thread keeps working and stays hidden until its wake time, even while
 its agent wakes itself for background work. It comes back early only when it needs
 an approval or answer from you, when a run fails, or when you send it a message.

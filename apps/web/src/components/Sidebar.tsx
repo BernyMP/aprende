@@ -2390,7 +2390,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 type: "error",
                 title:
                   snoozedThreadRefs.length > 0
-                    ? `Failed to snooze ${failures.length} thread${failures.length === 1 ? "" : "s"}`
+                    ? `Failed to snooze ${failures.length} lesson${failures.length === 1 ? "" : "s"}`
                     : "Failed to snooze lessons",
                 description:
                   firstError instanceof Error ? firstError.message : "An error occurred.",
@@ -2451,7 +2451,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         const confirmed = await settlePromise(() =>
           api.dialogs.confirm(
             [
-              `Delete ${count} thread${count === 1 ? "" : "s"}?`,
+              `Delete ${count} lesson${count === 1 ? "" : "s"}?`,
               "This permanently clears conversation history for these lessons.",
             ].join("\n"),
             { variant: "destructive" },
@@ -3105,7 +3105,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                     variant="ghost-muted"
                                     tabIndex={-1}
                                     aria-hidden="true"
-                                    title={`Project settings for ${project.displayName}`}
+                                    title={`Notebook settings for ${project.displayName}`}
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       void handleProjectSettings(event, project);
