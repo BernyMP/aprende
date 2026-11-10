@@ -9,7 +9,7 @@ import {
 import type { ClientSettings } from "@aprende/contracts/settings";
 
 import type { EnvironmentProject } from "./models.ts";
-import { normalizeProjectPathForComparison } from "./projects.ts";
+import { normalizeProjectPathForComparison, SCRATCH_PROJECT_LABEL } from "./projects.ts";
 
 const SCRATCH_PROJECT_SCOPE_KEY = "\0no-project";
 
@@ -364,7 +364,7 @@ export function buildProjectGroups<TProject extends EnvironmentProject>(input: {
       key,
       label:
         input.groupScratchProjects && representative.isScratch
-          ? "No project"
+          ? SCRATCH_PROJECT_LABEL
           : members.length > 1
             ? deriveProjectGroupLabel({
                 representative,

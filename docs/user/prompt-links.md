@@ -51,7 +51,7 @@ malicious.
 
 ## Share a thread
 
-**Copy thread** copies a link such as `https://app.aprende.invalid/threads/<environment>/<thread>`. Paste
+**Copy lesson** copies a link such as `https://app.aprende.invalid/threads/<environment>/<thread>`. Paste
 it anywhere, such as Slack, a GitHub comment, or your notes. On a phone with aprende installed, it
 opens the thread in the app. Elsewhere, opening it asks where to open it, like a prompt link, then
 opens the thread. Only someone connected to the machine that runs the thread can see it. In aprende,

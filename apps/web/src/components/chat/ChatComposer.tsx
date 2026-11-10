@@ -3345,7 +3345,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                           : showPlanFollowUpPrompt && activeProposedPlan
                             ? "Add feedback to refine the plan, or leave this blank to implement it"
                             : projectSelectionRequired
-                              ? "Choose a project above to start a thread"
+                              ? "Choose a notebook above to start a lesson"
                               : showProviderUnavailable
                                 ? "Enable a provider in Settings to send a message"
                                 : DEFAULT_COMPOSER_PLACEHOLDER

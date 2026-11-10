@@ -22,9 +22,9 @@ export function NoActiveThreadState() {
         <Empty className="flex-1">
           <div className="w-full max-w-lg px-8 py-12">
             <EmptyHeader className="max-w-none">
-              <EmptyTitle>Pick a thread to continue</EmptyTitle>
+              <EmptyTitle>Pick a lesson to continue</EmptyTitle>
               <EmptyDescription>
-                Select an existing thread or create a new one to get started.
+                Select a lesson in the sidebar, or start a new one.
               </EmptyDescription>
             </EmptyHeader>
           </div>

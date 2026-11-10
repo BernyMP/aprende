@@ -35,7 +35,7 @@ import { useLogicalProjectEnvironments } from "../hooks/useLogicalProjectEnviron
 import { useStableCallback } from "../hooks/useStableCallback";
 import { RightPanelSurfaceContent } from "./chat/RightPanelSurfaceContent";
 import { usePendingThreadRequests } from "./chat/usePendingThreadRequests";
-import { isScratchProject } from "@aprende/client-runtime/state/projects";
+import { isScratchProject, SCRATCH_PROJECT_LABEL } from "@aprende/client-runtime/state/projects";
 import { feedbackBannerItem } from "./chat/ComposerFeedback";
 import { useUsageLimitsPanel } from "./chat/useUsageLimitsPanel";
 import { useWorkspacePreparationRetry } from "./chat/useWorkspacePreparationRetry";
@@ -209,6 +209,7 @@ import {
 import { useEnvironmentShellHasSnapshot } from "../state/shell";
 import { ChatComposer, type ChatComposerHandle } from "./chat/ChatComposer";
 import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
+import { StarterQuestions } from "./learning/StarterQuestions";
 import { ExpandedImageDialogHost, openExpandedImagePreview } from "./chat/ExpandedImageDialog";
 import { RevertConfirmHost } from "./chat/ChatOverlayHosts";
 import type { AssistantCitationRequest } from "./chat/AssistantCitationSource";
@@ -770,7 +771,7 @@ export default function ChatView(props: ChatViewProps) {
   const sideChatParent = useQuietThreadShell(sideChatParentRef);
   const parentThreadLink = (() => {
     if (sideChatParentRef !== null) {
-      const title = sideChatParent?.title ?? "Parent thread";
+      const title = sideChatParent?.title ?? "Parent lesson";
       // Embedded, the parent is the view around it.
       if (embedded) return { title, sideChat: true };
       return {
@@ -786,7 +787,7 @@ export default function ChatView(props: ChatViewProps) {
     }
     if (parentSubagentThreadRef !== null) {
       return {
-        title: parentSubagentThread?.title ?? "Parent thread",
+        title: parentSubagentThread?.title ?? "Parent lesson",
         open: (): void => {
           void navigate({
             to: "/$environmentId/$threadId",
@@ -819,7 +820,7 @@ export default function ChatView(props: ChatViewProps) {
       ? null
       : {
           threadId: parentSubagentThreadRef.threadId,
-          title: parentSubagentThread?.title ?? "Parent thread",
+          title: parentSubagentThread?.title ?? "Parent lesson",
         };
   const threadError = isServerThread
     ? (localServerError ?? serverRuntime?.lastError ?? null)
@@ -1563,6 +1564,9 @@ export default function ChatView(props: ChatViewProps) {
     });
   };
   const scheduleComposerFocusStable = useStableCallback(scheduleComposerFocus);
+  const pickStarterQuestion = (question: string) => {
+    if (composerRef.current?.insertTextAtEnd(question) === true) scheduleComposerFocus();
+  };
   const insertArtifactTemplate = (template: CodexArtifactTemplate) => {
     const composer = composerRef.current;
     if (!composer) return;
@@ -2526,7 +2530,9 @@ export default function ChatView(props: ChatViewProps) {
       workspaceMutationId={workspaceMutationId}
       onCloseSurface={closeRightPanelSurface}
       files={{
-        projectName: activeProject?.title ?? null,
+        projectName: activeProject?.isScratch
+          ? SCRATCH_PROJECT_LABEL
+          : (activeProject?.title ?? null),
         workspaceRoot: activeWorkspaceRoot,
         availableEditors,
         pendingSurfaceIds: pendingFileSurfaceIds,
@@ -2615,7 +2621,9 @@ export default function ChatView(props: ChatViewProps) {
               activeThreadEnvironmentId={activeThread.environmentId}
               activeThreadId={activeThread.id}
               isServerThread={isServerThread}
-              activeThreadTitle={activeThread.title}
+              activeThreadTitle={
+                !isServerThread && activeProject?.isScratch ? "New question" : activeThread.title
+              }
               activeThreadLinkOrigin={activeThreadShell?.linkOrigin?.label ?? null}
               activeProject={activeProject ?? null}
               parentThreadLink={headerParentThreadLink}
@@ -3008,10 +3016,19 @@ export default function ChatView(props: ChatViewProps) {
                           ) : null}
                         </div>
                       </div>
-                      {isDraftHeroState && composerBannerItems.length > 0 ? (
-                        // Out of flow, like the headline, so a notice never moves the centered composer.
-                        <div className="absolute inset-x-0 top-full flex flex-col gap-1 pt-4">
-                          <ComposerBannerStack items={composerBannerItems} detached />
+                      {isDraftHeroState &&
+                      (composerBannerItems.length > 0 || activeProject?.isScratch === true) ? (
+                        // Out of flow, like the headline, so nothing here moves the centered composer.
+                        <div className="absolute inset-x-0 top-full flex flex-col gap-4 pt-4">
+                          {composerBannerItems.length > 0 ? (
+                            <ComposerBannerStack items={composerBannerItems} detached />
+                          ) : null}
+                          {activeProject?.isScratch === true ? (
+                            <StarterQuestions
+                              target={composerDraftTarget}
+                              onPick={pickStarterQuestion}
+                            />
+                          ) : null}
                         </div>
                       ) : null}
                     </ComposerSurface.Shell>

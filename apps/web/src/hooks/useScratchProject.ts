@@ -61,7 +61,7 @@ export function createScratchProjectActions(input: {
 
   const openScratchProject = async (
     environmentId: EnvironmentId,
-    failureTitle = "Could not start without a project",
+    failureTitle = "Could not start a quick question",
   ): Promise<EnvironmentProject | null> => {
     const command = projectEnvironment.openScratch;
     const result = await runAtomCommand(
@@ -82,9 +82,7 @@ export function createScratchProjectActions(input: {
     if (project) {
       await input
         .handleNewThread(scopeProjectRef(project.environmentId, project.id))
-        .catch((error: unknown) =>
-          reportScratchFailure("Could not start without a project", error),
-        );
+        .catch((error: unknown) => reportScratchFailure("Could not start a quick question", error));
     }
   };
 

@@ -135,6 +135,14 @@ export function findProjectByPath<T extends { workspaceRoot?: string; cwd?: stri
   });
 }
 
+/** What the learner sees for the scratch project; its stored title stays "No project". */
+export const SCRATCH_PROJECT_LABEL = "Quick questions";
+
+/** Names starting a session in a project as the learner sees it; a quick question is not a lesson. */
+export function newSessionLabel(projectLabel: string, isScratch: boolean): string {
+  return isScratch ? "Ask another quick question" : `New lesson in ${projectLabel}`;
+}
+
 export function isScratchProject(
   project: { readonly workspaceRoot: string },
   scratchWorkspaceRoot: string | null | undefined,

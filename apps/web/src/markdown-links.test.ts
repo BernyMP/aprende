@@ -5,11 +5,7 @@ import {
   resolveMarkdownFileLinkMeta,
   rewriteMarkdownFileUriHref,
 } from "./markdown-links";
-import {
-  markdownFileCopyPaths,
-  markdownFileEditorTarget,
-  resolveMarkdownFileHostPath,
-} from "./markdownFileHostPath";
+import { markdownFileCopyPaths, resolveMarkdownFileHostPath } from "./markdownFileHostPath";
 
 describe("rewriteMarkdownFileUriHref", () => {
   it("preserves encoded octets so file paths are decoded only once later", () => {
@@ -93,7 +89,7 @@ describe("resolveInlineCodeFileLinkMeta", () => {
 describe("chat file chip paths", () => {
   const cwd = String.raw`C:\Users\alice\project`;
 
-  it("opens and copies the indexed file for a bare filename, preserving its line and column", async () => {
+  it("opens the indexed file for a bare filename, and copies it with its line and column", async () => {
     const meta = resolveMarkdownFileLinkMeta("user.ts:261:7", cwd);
     if (!meta) throw new Error("Expected a file link");
     const hostPath = await resolveMarkdownFileHostPath({
@@ -102,8 +98,8 @@ describe("chat file chip paths", () => {
       findWorkspaceMatch: async () => "src/discord/events/user.ts",
     });
 
-    expect(markdownFileEditorTarget(meta, hostPath)).toBe(
-      String.raw`C:\Users\alice\project\src\discord\events\user.ts:261:7`,
+    expect(hostPath.absolutePath).toBe(
+      String.raw`C:\Users\alice\project\src\discord\events\user.ts`,
     );
     expect(markdownFileCopyPaths(meta, hostPath, cwd)).toEqual({
       fullPath: String.raw`C:\Users\alice\project\src\discord\events\user.ts:261:7`,

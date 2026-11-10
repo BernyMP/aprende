@@ -115,7 +115,9 @@ import {
   isExplicitRelativeProjectPath,
   isScratchProject,
   isUnsupportedWindowsProjectPath,
+  newSessionLabel,
   resolveProjectPathForDispatch,
+  SCRATCH_PROJECT_LABEL,
 } from "@aprende/client-runtime/state/projects";
 import { resolvePastedPath } from "@aprende/shared/path";
 import {
@@ -214,7 +216,7 @@ function openIntentView(intent: CommandPaletteOpenIntent | null): CommandPalette
     case "new-thread-in":
       return {
         addonIcon: <SquarePenIcon className={ADDON_ICON_CLASS} />,
-        groups: [{ value: NEW_THREAD_IN_GROUP, label: "Projects", items: [] }],
+        groups: [{ value: NEW_THREAD_IN_GROUP, label: "Notebooks", items: [] }],
       };
     case "search":
     case undefined:
@@ -280,7 +282,7 @@ function CommandPaletteDialog(props: {
         props.mode === "files"
           ? "File picker"
           : props.mode === "content"
-            ? "Search project contents"
+            ? "Search notebook files"
             : "Command palette"
       }
       className={cn("overflow-hidden", props.mode === "content" && "h-105")}
@@ -708,8 +710,8 @@ function OpenCommandPaletteDialog(props: {
         {
           kind: "action" as const,
           value: NEW_THREAD_NO_PROJECT_VALUE,
-          searchTerms: ["no project", "without project", "none"],
-          title: "No project",
+          searchTerms: ["quick question", "no project", "without project", "none"],
+          title: SCRATCH_PROJECT_LABEL,
           icon: <MessageSquareDashedIcon className={ITEM_ICON_CLASS} />,
           shortcutCommand: "chat.newWithoutProject" as const,
           run: () => startScratchThread(scratchTargetEnvironmentId),
@@ -973,22 +975,26 @@ function OpenCommandPaletteDialog(props: {
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
 
   if (projects.length > 0) {
-    const activeProjectTitle =
-      projectPickerEntries.find((entry) => entry.isPreferred)?.group.displayName ??
-      currentProject?.title ??
-      null;
+    const preferredEntry = projectPickerEntries.find((entry) => entry.isPreferred);
+    const activeProjectIsScratch =
+      (preferredEntry?.targetProject ?? currentProject)?.isScratch === true;
+    const activeProjectTitle = activeProjectIsScratch
+      ? SCRATCH_PROJECT_LABEL
+      : (preferredEntry?.group.displayName ?? currentProject?.title ?? null);
 
     if (activeProjectTitle) {
       actionItems.push({
         kind: "action",
         value: "action:new-thread",
-        searchTerms: ["new thread", "chat", "create", "draft"],
-        title: (
+        searchTerms: ["new lesson", "new thread", "chat", "create", "draft"],
+        title: activeProjectIsScratch ? (
+          newSessionLabel(activeProjectTitle, true)
+        ) : (
           <>
-            New thread in <span className="font-semibold">{activeProjectTitle}</span>
+            New lesson in <span className="font-semibold">{activeProjectTitle}</span>
           </>
         ),
-        searchTitle: `New thread in ${activeProjectTitle}`,
+        searchTitle: newSessionLabel(activeProjectTitle, activeProjectIsScratch),
         icon: <SquarePenIcon className={ITEM_ICON_CLASS} />,
         shortcutCommand: "chat.newLocal",
         run: async () => {
@@ -1005,11 +1011,11 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "submenu",
       value: "action:new-thread-in",
-      searchTerms: ["new thread", "project", "pick", "choose", "select"],
-      title: "New thread in...",
+      searchTerms: ["new lesson", "new thread", "notebook", "project", "pick", "choose", "select"],
+      title: "New lesson in...",
       icon: <SquarePenIcon className={ITEM_ICON_CLASS} />,
       addonIcon: <SquarePenIcon className={ADDON_ICON_CLASS} />,
-      groups: [{ value: NEW_THREAD_IN_GROUP, label: "Projects", items: projectThreadItems }],
+      groups: [{ value: NEW_THREAD_IN_GROUP, label: "Notebooks", items: projectThreadItems }],
     });
   }
 
@@ -1017,8 +1023,8 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:new-thread-without-project",
-      searchTerms: ["new thread", "no project", "without project", "none", "chat"],
-      title: "New thread without a project",
+      searchTerms: ["ask", "new thread", "no project", "without project", "none", "chat"],
+      title: "Quick question",
       icon: <MessageSquareDashedIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "chat.newWithoutProject",
       run: () => startScratchThread(scratchTargetEnvironmentId),
@@ -1029,8 +1035,8 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "find-current-thread",
-      title: "Find in current thread",
-      searchTerms: ["find", "search", "messages", "plans"],
+      title: "Find in this lesson",
+      searchTerms: ["find", "search", "messages", "plans", "thread"],
       icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "chat.find",
       run: async () => {
@@ -1092,8 +1098,8 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:copy-thread-reference",
-      searchTerms: ["copy", "thread", "thread id", "reference"],
-      title: "Copy thread",
+      searchTerms: ["copy", "lesson", "thread", "thread id", "reference"],
+      title: "Copy lesson",
       description: activeThreadReferenceCopyTarget.description,
       icon: <LinkIcon className={ITEM_ICON_CLASS} />,
       shortcutCommand: "thread.copyReference",
@@ -1106,8 +1112,18 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:restart-agent-session",
-      searchTerms: ["restart", "reset", "reload", "agent", "session", "skills", "plugins", "mcp"],
-      title: "Restart agent session",
+      searchTerms: [
+        "restart",
+        "reset",
+        "reload",
+        "tutor",
+        "agent",
+        "session",
+        "skills",
+        "plugins",
+        "mcp",
+      ],
+      title: "Restart tutor session",
       icon: <RotateCcwIcon className={ITEM_ICON_CLASS} />,
       run: async () => {
         const { environmentId } = thread;
@@ -1120,7 +1136,7 @@ function OpenCommandPaletteDialog(props: {
         }
         toastManager.add({
           type: "success",
-          title: "Agent session will restart",
+          title: "Tutor session will restart",
           description: "Your next message starts a fresh session.",
         });
         const project = projectByKey.get(`${environmentId}:${thread.projectId}`);
@@ -1154,8 +1170,15 @@ function OpenCommandPaletteDialog(props: {
   actionItems.push({
     kind: "action",
     value: "action:search-project-contents",
-    searchTerms: ["search project", "find in files", "grep", "content search", "text search"],
-    title: "Search project contents",
+    searchTerms: [
+      "search notebook",
+      "search project",
+      "find in files",
+      "grep",
+      "content search",
+      "text search",
+    ],
+    title: "Search notebook files",
     icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
     keepOpen: true,
     shortcutCommand: "projectSearch.toggle",
@@ -1325,8 +1348,8 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:project-pin",
-      searchTerms: ["pin", "unpin", "project", "favorite"],
-      title: currentProjectGroup.pinned ? "Unpin project" : "Pin project",
+      searchTerms: ["pin", "unpin", "notebook", "project", "favorite"],
+      title: currentProjectGroup.pinned ? "Unpin notebook" : "Pin notebook",
       description: currentProjectGroup.displayName,
       icon: currentProjectGroup.pinned ? (
         <PinOffIcon className={ITEM_ICON_CLASS} />
@@ -1342,6 +1365,7 @@ function OpenCommandPaletteDialog(props: {
       kind: "action",
       value: "action:project-settings",
       searchTerms: [
+        "notebook",
         "project",
         "settings",
         "name",
@@ -1354,7 +1378,7 @@ function OpenCommandPaletteDialog(props: {
         "remove",
         "t3.json",
       ],
-      title: "Project settings",
+      title: "Notebook settings",
       description: contextualProjectGroup.displayName,
       icon: <FolderIcon className={ITEM_ICON_CLASS} />,
       run: async () => {
@@ -1401,7 +1425,7 @@ function OpenCommandPaletteDialog(props: {
           ? [
               {
                 value: NEW_THREAD_IN_GROUP,
-                label: "Projects",
+                label: "Notebooks",
                 // Every project archived and no "No project" home leaves only adding one.
                 items: projectThreadItems.length > 0 ? projectThreadItems : [addProjectAction],
               },
@@ -1862,7 +1886,7 @@ function OpenCommandPaletteDialog(props: {
       else
         toastManager.add({
           id: "thread-find-unavailable",
-          title: "Thread search is unavailable on this server.",
+          title: "Lesson search is unavailable on this server.",
           description: "Update the server to enable it.",
         });
       return;
@@ -2221,7 +2245,7 @@ function OpenCommandPaletteDialog(props: {
                 emptyStateMessage: "Press Enter to create this folder and add it as a project.",
               }
             : isThreadSearchPending
-              ? { emptyStateMessage: "Searching thread messages…" }
+              ? { emptyStateMessage: "Searching lesson messages…" }
               : {})}
       />
     </CommandPaletteContent>

@@ -166,8 +166,9 @@ it("reopens after a normal close", async () => {
 
 it("returns to full density when hidden items make the content fit", async () => {
   using fixture = setup();
+  useRightPanelStore.getState().setThreadPanelOpen(threadB, "inline", true);
   await using screen = await render(<Card threadRef={threadB} inline fixture={fixture} rows={6} />);
-  const card = page.getByRole("region", { name: "Thread details" });
+  const card = page.getByRole("region", { name: "Lesson details" });
   await expect.element(card).toHaveAttribute("data-density", "compact");
 
   await screen.rerender(<Card threadRef={threadB} inline fixture={fixture} rows={2} />);
@@ -176,21 +177,23 @@ it("returns to full density when hidden items make the content fit", async () =>
 
 it("keeps full density when many side chats make the content tall", async () => {
   using fixture = setup();
+  useRightPanelStore.getState().setThreadPanelOpen(threadB, "inline", true);
   await using _screen = await render(
     <Card threadRef={threadB} inline fixture={fixture} rows={2} sideChatRows={6} />,
   );
   await expect.element(page.getByText("Details for thread-b")).toBeVisible();
   await expect
-    .element(page.getByRole("region", { name: "Thread details" }))
+    .element(page.getByRole("region", { name: "Lesson details" }))
     .toHaveAttribute("data-density", "full");
 });
 
 it("stays full while expanded server rows overflow", async () => {
   using fixture = setup();
+  useRightPanelStore.getState().setThreadPanelOpen(threadB, "inline", true);
   await using _screen = await render(
     <Card threadRef={threadB} inline fixture={fixture} rows={2} serverOverflowRows={4} />,
   );
   await expect
-    .element(page.getByRole("region", { name: "Thread details" }))
+    .element(page.getByRole("region", { name: "Lesson details" }))
     .toHaveAttribute("data-density", "full");
 });

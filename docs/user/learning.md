@@ -71,13 +71,19 @@ learned.
 
 ## Notebooks
 
-Each project is a notebook for one subject, like a notebook per class. Its outline lists the
+Each notebook holds one subject, like a notebook per class. Its outline lists the
 topics you are working through, in order, and each lesson is a session on one topic.
 
-aprende opens on **Notebooks**: every notebook with how much of it you have learned and the topic
-to study next. **Continue** or **Start** takes you straight into that lesson, and **Quick question**
-starts a session outside any notebook. Come back with **Notebooks** in the sidebar or `mod+alt+l`
-(customize `notebooks.open` in **Settings → Keybindings**).
+aprende opens on **Notebooks**. The notebook you studied last comes first, under **Pick up where
+you left off**, and the rest follow, each with how much of it you have learned and the topic to
+study next. The button on each card takes you to its next step. Come back with **Notebooks** in
+the sidebar or `mod+alt+l` (customize `notebooks.open` in **Settings → Keybindings**).
+
+**Ask a quick question** starts a session outside any notebook. Its empty page lists five
+questions to try, each a different way to use the tutor: finding where your understanding breaks,
+planning a path to a goal, studying from your own notes, being quizzed, and reviewing. Picking one
+puts a fuller request in the message box for you to edit and send. They appear under **Quick
+questions** in the sidebar.
 
 **New notebook** opens a session right away. You don't need to know yet what you want to study:
 the tutor asks, one question at a time, what you want to learn, why, and what you are working
@@ -85,7 +91,7 @@ toward, such as an exam. Then it names the notebook and suggests an outline. You
 the notebook's settings. To bring in a session from outside any notebook, use **Move to notebook**
 in its menu.
 
-Open one notebook by clicking its name, the project name above a session, **Open notebook** in the
+Open one notebook by clicking its name, the notebook name above a session, **Open notebook** in the
 command palette or a session's menu in the sidebar, or `mod+alt+o` (customize `notebook.open`).
 
 - **Start lesson** on a topic starts a session that teaches it. **Start** or **Continue** at the

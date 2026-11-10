@@ -107,10 +107,10 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       title="Model"
       description={
         isProjectScope
-          ? "Model for new threads in this project."
+          ? "Model for new lessons in this notebook."
           : !unavailable && modelSource !== "project" && automaticModel
-            ? "Default model for new threads, selected automatically. Projects can override it."
-            : "Default model for new threads. Projects can override it."
+            ? "Default model for new lessons, selected automatically. Notebooks can override it."
+            : "Default model for new lessons. Notebooks can override it."
       }
       status={
         mixedModel
@@ -173,7 +173,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
   );
 
   return (
-    <SettingsSection id="project-defaults" title="New threads">
+    <SettingsSection id="project-defaults" title="New lessons">
       {category === "project" ? (
         <>{modelRow}</>
       ) : category === "general" ? (
@@ -186,8 +186,8 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             {...searchableSetting("default-permissions")}
             description={
               isProjectScope
-                ? "Permissions for new threads in this project."
-                : "Default permissions for new threads. Projects can override them."
+                ? "Permissions for new lessons in this notebook."
+                : "Default permissions for new lessons. Notebooks can override them."
             }
             resetAction={
               settings.defaultRuntimeMode !== DEFAULT_SERVER_SETTINGS.defaultRuntimeMode ? (

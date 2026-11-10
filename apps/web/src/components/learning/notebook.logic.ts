@@ -74,6 +74,55 @@ export function nextTopic(
   return todo.find((topic) => startedTopicIds.has(topic.id)) ?? todo[0];
 }
 
+const isListedLesson = (
+  thread: Pick<EnvironmentThreadShell, "archivedAt" | "deletedAt" | "lineage">,
+) =>
+  thread.archivedAt === null && thread.deletedAt === null && isListedThreadLineage(thread.lineage);
+
+/** The notebook to pick up from: the first, of notebooks given most recent first, with a lesson still listed. */
+export function notebookToResume<Notebook>(
+  notebooks: ReadonlyArray<Notebook>,
+  threadsOf: (
+    notebook: Notebook,
+  ) => ReadonlyArray<Pick<EnvironmentThreadShell, "archivedAt" | "deletedAt" | "lineage">>,
+): Notebook | undefined {
+  return notebooks.find((notebook) => threadsOf(notebook).some(isListedLesson));
+}
+
+/** The one thing a notebook card offers, so the home shows a next step instead of bookkeeping. */
+export type NotebookNextStep =
+  | { readonly kind: "review" }
+  | {
+      readonly kind: "resume";
+      readonly lesson: EnvironmentThreadShell;
+      readonly topic: LearningOutlineTopic | null;
+    }
+  | { readonly kind: "start"; readonly topic: LearningOutlineTopic }
+  | { readonly kind: "firstLesson" }
+  | { readonly kind: "done" };
+
+/** Without topics, the latest lesson is where the tutor is still planning them. */
+export function notebookNextStep(notebook: {
+  readonly topics: ReadonlyArray<LearningOutlineTopic>;
+  readonly hasProposal: boolean;
+  readonly lessons: ReadonlyArray<EnvironmentThreadShell>;
+  readonly topicOfLesson: ReadonlyMap<string, string>;
+  readonly startedTopicIds: ReadonlySet<string>;
+}): NotebookNextStep {
+  const { topics, lessons } = notebook;
+  if (topics.length === 0) {
+    if (notebook.hasProposal) return { kind: "review" };
+    const latest = lessons[0];
+    return latest === undefined
+      ? { kind: "firstLesson" }
+      : { kind: "resume", lesson: latest, topic: null };
+  }
+  const topic = nextTopic(topics, notebook.startedTopicIds);
+  if (topic === undefined) return { kind: "done" };
+  const lesson = lessons.find((thread) => notebook.topicOfLesson.get(thread.id) === topic.id);
+  return lesson === undefined ? { kind: "start", topic } : { kind: "resume", lesson, topic };
+}
+
 export function buildLessonMessage(topic: LearningOutlineTopic, notebook: string): string {
   const lines = [`I want to learn “${topic.title}” next, in my ${notebook} notebook.`];
   if (topic.summary) lines.push("", topic.summary);
@@ -115,9 +164,7 @@ export function notebookLessons(
       (thread) =>
         thread.environmentId === notebook.environmentId &&
         thread.projectId === notebook.projectId &&
-        thread.archivedAt === null &&
-        thread.deletedAt === null &&
-        isListedThreadLineage(thread.lineage),
+        isListedLesson(thread),
     )
     .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt));
   const topicOfLesson: ReadonlyMap<string, string> = new Map(

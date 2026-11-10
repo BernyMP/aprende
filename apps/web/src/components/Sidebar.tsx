@@ -818,7 +818,7 @@ function useSidebarLookups() {
     projectGroups.map((project) => [project.projectKey, project] as const),
   );
   const projectScopeItems = [
-    { value: "all", label: "All projects" },
+    { value: "all", label: "All notebooks" },
     ...pickableProjectGroups(projectGroups).map((project) => ({
       value: project.projectKey,
       label: project.displayName,
@@ -864,8 +864,8 @@ function checkThreadOperations(
   if (canOperateThreads(threads)) return true;
   toastManager.add({
     type: "error",
-    title: "Thread action unavailable",
-    description: "This connection cannot change one or more selected threads.",
+    title: "Lesson action unavailable",
+    description: "This connection cannot change one or more selected lessons.",
   });
   return false;
 }
@@ -949,7 +949,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     onCopy: ({ threadId }) => {
       toastManager.add({
         type: "success",
-        title: "Thread ID copied",
+        title: "Lesson ID copied",
         description: threadId,
       });
     },
@@ -957,7 +957,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       toastManager.add(
         stackedThreadToast({
           type: "error",
-          title: "Failed to copy thread ID",
+          title: "Failed to copy lesson ID",
           description: error instanceof Error ? error.message : "An error occurred.",
         }),
       );
@@ -1237,16 +1237,16 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           api.contextMenu.show(
             [
               { id: "open-notebook", label: "Open notebook", icon: "notebook" },
-              { id: "new-thread", label: "New thread" },
+              { id: "new-thread", label: "New lesson" },
               { id: "copy-path", label: "Copy path" },
               ...(canPinProject(group)
                 ? [
                     group.pinned
-                      ? { id: "unpin", label: "Unpin project", icon: "pin-off" }
-                      : { id: "pin", label: "Pin project", icon: "pin" },
+                      ? { id: "unpin", label: "Unpin notebook", icon: "pin-off" }
+                      : { id: "pin", label: "Pin notebook", icon: "pin" },
                   ]
                 : []),
-              { id: "project-settings", label: "Project settings", icon: "settings" },
+              { id: "project-settings", label: "Notebook settings", icon: "settings" },
             ],
             position,
           ),
@@ -1516,7 +1516,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
       const trimmed = title.trim();
       setRenamingThreadRef(null);
       if (trimmed.length === 0) {
-        toastManager.add({ type: "warning", title: "Thread title cannot be empty" });
+        toastManager.add({ type: "warning", title: "Lesson title cannot be empty" });
         return;
       }
       if (trimmed === originalTitle) return;
@@ -1529,7 +1529,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to rename thread",
+            title: "Failed to rename lesson",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -1600,7 +1600,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           toastManager.add(
             stackedThreadToast({
               type: "error",
-              title: "Failed to settle thread",
+              title: "Failed to settle lesson",
               description: error instanceof Error ? error.message : "An error occurred.",
             }),
           );
@@ -1638,7 +1638,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to un-settle thread",
+            title: "Failed to un-settle lesson",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -1653,7 +1653,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to wake thread",
+            title: "Failed to wake lesson",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -1736,7 +1736,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     }
     const threads = contextDragThreads();
     const title =
-      threadByKeyRef.current.get(contextDragKeyRef.current ?? "")?.title.trim() || "Thread";
+      threadByKeyRef.current.get(contextDragKeyRef.current ?? "")?.title.trim() || "Lesson";
     moveThreadContextDragGhost(point, { title, count: threads.length });
     return true;
   };
@@ -1838,7 +1838,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to pin thread",
+            title: "Failed to pin lesson",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -1853,7 +1853,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to unpin thread",
+            title: "Failed to unpin lesson",
             description: error instanceof Error ? error.message : "An error occurred.",
           }),
         );
@@ -2128,7 +2128,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         case "settle": {
           settlingThreadKeysRef.current.add(activeKey);
           const navigateAfterSettle = planForwardNavigation(activeKey);
-          const settled = await run(settleThread(threadRef), "Failed to settle thread").finally(
+          const settled = await run(settleThread(threadRef), "Failed to settle lesson").finally(
             () => settlingThreadKeysRef.current.delete(activeKey),
           );
           if (
@@ -2145,20 +2145,20 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           return;
         }
         case "move-active":
-          if (plan.unpin && !(await run(unpinThread(threadRef), "Failed to unpin thread"))) return;
+          if (plan.unpin && !(await run(unpinThread(threadRef), "Failed to unpin lesson"))) return;
           if (
             plan.unsettle &&
-            !(await run(unsettleThread(threadRef), "Failed to un-settle thread"))
+            !(await run(unsettleThread(threadRef), "Failed to un-settle lesson"))
           )
             return;
-          if (plan.unsnooze && !(await run(unsnoozeThread(threadRef), "Failed to wake thread")))
+          if (plan.unsnooze && !(await run(unsnoozeThread(threadRef), "Failed to wake lesson")))
             return;
           break;
         case "pin":
           if (
             !(await run(
               pinThread(threadRef, plan.orderKey === undefined ? {} : { orderKey: plan.orderKey }),
-              "Failed to pin thread",
+              "Failed to pin lesson",
             ))
           )
             return;
@@ -2177,8 +2177,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               assignment.orderKey,
             ),
             plan.kind === "move-active"
-              ? "Failed to reorder active threads"
-              : "Failed to reorder pinned threads",
+              ? "Failed to reorder active lessons"
+              : "Failed to reorder pinned lessons",
           ))
         )
           return;
@@ -2228,7 +2228,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to snooze thread",
+            title: "Failed to snooze lesson",
             description:
               outcome.error instanceof Error ? outcome.error.message : "An error occurred.",
           }),
@@ -2390,8 +2390,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 type: "error",
                 title:
                   snoozedThreadRefs.length > 0
-                    ? `Failed to snooze ${failures.length} thread${failures.length === 1 ? "" : "s"}`
-                    : "Failed to snooze threads",
+                    ? `Failed to snooze ${failures.length} lesson${failures.length === 1 ? "" : "s"}`
+                    : "Failed to snooze lessons",
                 description:
                   firstError instanceof Error ? firstError.message : "An error occurred.",
               }),
@@ -2419,7 +2419,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
             toastManager.add(
               stackedThreadToast({
                 type: "error",
-                title: "Failed to regenerate thread titles",
+                title: "Failed to regenerate lesson titles",
                 description: error instanceof Error ? error.message : "An error occurred.",
               }),
             );
@@ -2451,8 +2451,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         const confirmed = await settlePromise(() =>
           api.dialogs.confirm(
             [
-              `Delete ${count} thread${count === 1 ? "" : "s"}?`,
-              "This permanently clears conversation history for these threads.",
+              `Delete ${count} lesson${count === 1 ? "" : "s"}?`,
+              "This permanently clears conversation history for these lessons.",
             ].join("\n"),
             { variant: "destructive" },
           ),
@@ -2483,7 +2483,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: "Failed to delete threads",
+            title: "Failed to delete lessons",
             description: firstError instanceof Error ? firstError.message : "An error occurred.",
           }),
         );
@@ -2695,7 +2695,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               toastManager.add(
                 stackedThreadToast({
                   type: "error",
-                  title: "Could not turn thread into a notebook",
+                  title: "Could not turn lesson into a notebook",
                   description: error instanceof Error ? error.message : "An error occurred.",
                 }),
               );
@@ -2734,7 +2734,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               toastManager.add(
                 stackedThreadToast({
                   type: "error",
-                  title: "Failed to regenerate thread title",
+                  title: "Failed to regenerate lesson title",
                   description: error instanceof Error ? error.message : "An error occurred.",
                 }),
               );
@@ -2750,7 +2750,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 stackedThreadToast({
                   type: "error",
                   title: "Path unavailable",
-                  description: "This thread does not have a workspace path to copy.",
+                  description: "This lesson does not have a workspace path to copy.",
                 }),
               );
               return;
@@ -2768,7 +2768,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           case "archive": {
             if (confirmThreadArchive) {
               const confirmed = await settlePromise(() =>
-                api.dialogs.confirm(`Archive thread "${thread.title}"?`),
+                api.dialogs.confirm(`Archive lesson "${thread.title}"?`),
               );
               if (confirmed._tag === "Failure" || !confirmed.value) return;
             }
@@ -2784,8 +2784,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 stackedThreadToast({
                   type: "error",
                   title: didArchive
-                    ? "Thread archived, but navigation failed"
-                    : "Failed to archive thread",
+                    ? "Lesson archived, but navigation failed"
+                    : "Failed to archive lesson",
                   description: error instanceof Error ? error.message : "An error occurred.",
                 }),
               );
@@ -2798,8 +2798,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               const confirmed = await settlePromise(() =>
                 api.dialogs.confirm(
                   [
-                    `Delete thread "${thread.title}"?`,
-                    "This permanently clears conversation history for this thread.",
+                    `Delete lesson "${thread.title}"?`,
+                    "This permanently clears conversation history for this lesson.",
                   ].join("\n"),
                   { variant: "destructive" },
                 ),
@@ -2812,7 +2812,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
               toastManager.add(
                 stackedThreadToast({
                   type: "error",
-                  title: "Failed to delete thread",
+                  title: "Failed to delete lesson",
                   description: error instanceof Error ? error.message : "An error occurred.",
                 }),
               );
@@ -2967,8 +2967,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                       <SidebarHeaderIconButton
                         label={
                           scopedProjectGroups.length > 0
-                            ? `Filter threads by project: ${scopedProjectGroups.map((project) => project.displayName).join(", ")}`
-                            : "Filter threads by project"
+                            ? `Filter lessons by notebook: ${scopedProjectGroups.map((project) => project.displayName).join(", ")}`
+                            : "Filter lessons by notebook"
                         }
                       />
                     }
@@ -3004,8 +3004,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                     finalFocus={(closeType) => closeType === "keyboard"}
                   >
                     <ComboboxSearchInput
-                      aria-label="Search projects"
-                      placeholder="Search projects..."
+                      aria-label="Search notebooks"
+                      placeholder="Search notebooks..."
                       value={projectScopeMenuState.query}
                       onKeyDown={(event) => {
                         if (
@@ -3050,7 +3050,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         })
                       }
                     />
-                    <ComboboxEmpty>No matching projects.</ComboboxEmpty>
+                    <ComboboxEmpty>No matching notebooks.</ComboboxEmpty>
                     <ComboboxList aria-multiselectable>
                       {(item: (typeof projectScopeItems)[number]) => {
                         const project = projectGroupByScopeKey.get(item.value) ?? null;
@@ -3105,7 +3105,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                                     variant="ghost-muted"
                                     tabIndex={-1}
                                     aria-hidden="true"
-                                    title={`Project settings for ${project.displayName}`}
+                                    title={`Notebook settings for ${project.displayName}`}
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       void handleProjectSettings(event, project);
@@ -3166,7 +3166,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 <ul
                   id="sidebar-thread-search-results"
                   role="listbox"
-                  aria-label="Thread search results"
+                  aria-label="Lesson search results"
                   className="flex flex-col gap-px"
                 >
                   {threadSearchResults.map((thread, index) => {
@@ -3220,7 +3220,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 role="status"
                 className="px-2 py-6 text-center text-xs text-sidebar-muted-foreground"
               >
-                {threadSearch.isPending ? "Searching thread messages…" : "No threads found"}
+                {threadSearch.isPending ? "Searching lesson messages…" : "No lessons found"}
               </p>
             )
           ) : null}
@@ -3547,7 +3547,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                           {olderSettledShelf.loading
                             ? "Loading"
                             : olderSettledShelf.failed
-                              ? "Could not load older threads. Retry"
+                              ? "Could not load older lessons. Retry"
                               : `Show ${Math.min(hiddenSettledCount, SETTLED_TAIL_PAGE_COUNT)} more`}
                         </button>
                       </li>
@@ -3580,11 +3580,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                   </button>
                 </>
               ) : scopedProjectGroups.length > 1 ? (
-                "No threads in these projects yet"
+                "No lessons in these notebooks yet"
               ) : scopedProjectGroups[0] ? (
-                `No threads in ${scopedProjectGroups[0].displayName} yet`
+                `No lessons in ${scopedProjectGroups[0].displayName} yet`
               ) : (
-                "No threads yet"
+                "No lessons yet"
               )}
             </div>
           ) : null}

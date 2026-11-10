@@ -51,13 +51,13 @@ export interface SettingsSearchAvailability {
 export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/tutor": "Tutor",
   "/settings/diagnostics": "Diagnostics",
-  "/settings/projects": "Projects",
+  "/settings/projects": "Notebooks",
   "/settings/general": "General",
   "/settings/appearance": "Appearance",
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
-  "/settings/threads": "Threads",
+  "/settings/threads": "Lessons",
   "/settings/about": "About",
   "/settings/archived": "Archive",
 };
@@ -131,23 +131,23 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "project-defaults",
-    title: "Project defaults and overrides",
+    title: "Notebook defaults and overrides",
     to: "/settings/threads",
     scope: "project-defaults",
-    searchTerms: ["model workspace environments projects inheritance checkout"],
+    searchTerms: ["model workspace environments projects project inheritance checkout threads"],
   },
   {
     id: "project-overview",
-    title: "Project overview",
+    title: "Notebook overview",
     to: "/settings/projects",
-    searchTerms: ["name icon emoji image checkout remove delete"],
+    searchTerms: ["project projects name icon emoji image checkout remove delete"],
   },
   {
     id: "default-model",
     title: "Default model",
     to: "/settings/threads",
     scope: "project-defaults",
-    searchTerms: ["new thread project provider reasoning effort"],
+    searchTerms: ["new lesson notebook thread project provider reasoning effort"],
   },
   {
     id: "default-permissions",
@@ -228,9 +228,9 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "project-order",
-    title: "Project order",
+    title: "Notebook order",
     to: "/settings/general",
-    searchTerms: ["sort projects sidebar manual created recent"],
+    searchTerms: ["sort projects project sidebar manual created recent"],
   },
   {
     id: "compact-idle-threads",
@@ -241,9 +241,9 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "thread-notifications",
-    title: "Thread notifications",
+    title: "Lesson notifications",
     to: "/settings/general",
-    searchTerms: ["notification sound alert completion input approval desktop"],
+    searchTerms: ["thread notification sound alert completion input approval desktop"],
   },
   {
     id: "in-app-notifications",
@@ -271,23 +271,23 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "add-project-starts-in",
-    title: "Add project starts in",
+    title: "Add folder starts in",
     to: "/settings/threads",
     scope: "environment-defaults",
-    searchTerms: ["base directory folder browser path home"],
+    searchTerms: ["add project notebook base directory folder browser path home"],
   },
   {
     id: "delete-confirmation",
     title: "Delete confirmation",
     to: "/settings/general",
-    searchTerms: ["ask before thread chat history"],
+    searchTerms: ["ask before lesson thread chat history"],
   },
   {
     id: "text-generation-model",
     title: "Title model",
     to: "/settings/threads",
     scope: "project-defaults",
-    searchTerms: ["generated thread titles source control content default provider"],
+    searchTerms: ["generated lesson thread titles source control content default provider"],
   },
   {
     id: "app-version",
@@ -403,9 +403,9 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "archive",
-    title: "Archived threads",
+    title: "Archived lessons",
     to: "/settings/archived",
-    searchTerms: ["restore reopen deleted history projects"],
+    searchTerms: ["threads restore reopen deleted history projects notebooks"],
   },
 ] as const satisfies ReadonlyArray<SettingsSearchItem>;
 

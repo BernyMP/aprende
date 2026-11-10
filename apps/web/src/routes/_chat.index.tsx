@@ -25,22 +25,22 @@ function ChatIndexRouteView() {
   return <IndexLanding />;
 }
 
-/** aprende opens on the learner's notebooks; with no projects at all, on how to start. */
+/** aprende opens on the learner's notebooks; with none yet, on how to start. */
 function IndexLanding() {
   const projects = useProjects();
   const visibleThreads = useVisibleThreadShells();
   const threads = useThreadShells();
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
 
-  if (projects.length === 0) {
-    // A pending environment cannot prove the workspace is empty.
-    return bootstrapped ? <NoProjectsHero /> : null;
-  }
   const notebooks = sortScopedProjectsForSidebar(
     projects.filter((project) => project.archivedAt == null && project.isScratch !== true),
     visibleThreads,
     "updated_at",
   );
+  if (notebooks.length === 0) {
+    // A pending environment cannot prove the learner has no notebooks.
+    return bootstrapped ? <NoProjectsHero /> : null;
+  }
   // Each card scans only its own notebook's threads.
   const threadsByNotebook = new Map<string, Array<EnvironmentThreadShell>>();
   for (const thread of threads) {
