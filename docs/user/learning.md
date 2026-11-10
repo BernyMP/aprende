@@ -76,14 +76,13 @@ topics you are working through, in order, and each lesson is a session on one to
 
 aprende opens on **Notebooks**. The notebook you studied last comes first, under **Pick up where
 you left off**, and the rest follow, each with how much of it you have learned and the topic to
-study next. **Continue** or **Start** takes you straight into that lesson. Come back with
-**Notebooks** in the sidebar or `mod+alt+l` (customize `notebooks.open` in **Settings →
-Keybindings**).
+study next. The button on each card takes you to its next step. Come back with **Notebooks** in
+the sidebar or `mod+alt+l` (customize `notebooks.open` in **Settings → Keybindings**).
 
 **Ask a quick question** starts a session outside any notebook. Its empty page lists five
 questions to try, each a different way to use the tutor: finding where your understanding breaks,
 planning a path to a goal, studying from your own notes, being quizzed, and reviewing. Picking one
-puts a fuller request in the message box for you to edit and send. Quick questions are labelled **Quick
+puts a fuller request in the message box for you to edit and send. They appear under **Quick
 questions** in the sidebar.
 
 **New notebook** opens a session right away. You don't need to know yet what you want to study:

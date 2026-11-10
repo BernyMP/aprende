@@ -35,7 +35,7 @@ import { useLogicalProjectEnvironments } from "../hooks/useLogicalProjectEnviron
 import { useStableCallback } from "../hooks/useStableCallback";
 import { RightPanelSurfaceContent } from "./chat/RightPanelSurfaceContent";
 import { usePendingThreadRequests } from "./chat/usePendingThreadRequests";
-import { isScratchProject } from "@aprende/client-runtime/state/projects";
+import { isScratchProject, SCRATCH_PROJECT_LABEL } from "@aprende/client-runtime/state/projects";
 import { feedbackBannerItem } from "./chat/ComposerFeedback";
 import { useUsageLimitsPanel } from "./chat/useUsageLimitsPanel";
 import { useWorkspacePreparationRetry } from "./chat/useWorkspacePreparationRetry";
@@ -771,7 +771,7 @@ export default function ChatView(props: ChatViewProps) {
   const sideChatParent = useQuietThreadShell(sideChatParentRef);
   const parentThreadLink = (() => {
     if (sideChatParentRef !== null) {
-      const title = sideChatParent?.title ?? "Parent thread";
+      const title = sideChatParent?.title ?? "Parent lesson";
       // Embedded, the parent is the view around it.
       if (embedded) return { title, sideChat: true };
       return {
@@ -787,7 +787,7 @@ export default function ChatView(props: ChatViewProps) {
     }
     if (parentSubagentThreadRef !== null) {
       return {
-        title: parentSubagentThread?.title ?? "Parent thread",
+        title: parentSubagentThread?.title ?? "Parent lesson",
         open: (): void => {
           void navigate({
             to: "/$environmentId/$threadId",
@@ -820,7 +820,7 @@ export default function ChatView(props: ChatViewProps) {
       ? null
       : {
           threadId: parentSubagentThreadRef.threadId,
-          title: parentSubagentThread?.title ?? "Parent thread",
+          title: parentSubagentThread?.title ?? "Parent lesson",
         };
   const threadError = isServerThread
     ? (localServerError ?? serverRuntime?.lastError ?? null)
@@ -2530,7 +2530,9 @@ export default function ChatView(props: ChatViewProps) {
       workspaceMutationId={workspaceMutationId}
       onCloseSurface={closeRightPanelSurface}
       files={{
-        projectName: activeProject?.title ?? null,
+        projectName: activeProject?.isScratch
+          ? SCRATCH_PROJECT_LABEL
+          : (activeProject?.title ?? null),
         workspaceRoot: activeWorkspaceRoot,
         availableEditors,
         pendingSurfaceIds: pendingFileSurfaceIds,

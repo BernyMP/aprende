@@ -489,7 +489,7 @@ function scorePaletteItem(
 }
 
 /**
- * Equal match classes put commands before threads, so "new" runs "New thread".
+ * Equal match classes put commands before threads, so "new" runs "New lesson".
  * Server message matches stay in a final group so late results cannot move earlier rows.
  */
 export function filterCommandPaletteGroups(input: {
@@ -611,7 +611,7 @@ export function filterCommandPaletteGroups(input: {
     : [...groups, { value: "threads-messages", label: "In messages", items: messageItems }];
 }
 
-/** Every option inside a submenu as one row, e.g. "New thread in aprende" or "Change theme: Dracula". */
+/** Every option inside a submenu as one row, e.g. "New lesson in aprende" or "Change theme: Dracula". */
 export function buildNestedSearchItems(
   items: ReadonlyArray<CommandPaletteActionItem | CommandPaletteSubmenuItem>,
   query: string,

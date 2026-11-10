@@ -202,13 +202,13 @@ function NotebookCard(props: {
               {step.kind === "review"
                 ? "The tutor suggested topics to study."
                 : step.kind === "firstLesson"
-                  ? "Start a lesson and the tutor plans the topics with you."
+                  ? "Start your first lesson."
                   : step.kind === "done"
                     ? "Every topic is done."
                     : step.topic !== null
                       ? `Next: ${step.topic.title}`
                       : unnamed
-                        ? "You and the tutor are still setting this up."
+                        ? "Still being set up."
                         : "No topics yet."}
             </span>
             {step.kind === "review" ? (

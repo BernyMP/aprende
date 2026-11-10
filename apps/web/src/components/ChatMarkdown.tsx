@@ -569,7 +569,7 @@ function useChatMarkdownState({
   const openInEditor = useAtomCommand(shellEnvironment.openInEditor, {
     reportFailure: false,
   });
-  // Learners open and reveal files with the file manager, never a code editor.
+  // Learners open and reveal files through the file manager, which hands a file to its default app.
   const launchFileManager = (filePath: string, reveal: boolean) => {
     if (environmentId === null) {
       return Promise.resolve(

@@ -58,7 +58,7 @@ export function installChatRouteCommands(router: AnyRouter): () => void {
       handleNewThread,
     };
   };
-  // Grouped like the sidebar, so the shortcut and the New thread button agree.
+  // Grouped like the sidebar, so the shortcut and the New lesson button agree.
   const readProjectGroups = () =>
     buildSidebarProjectSnapshots({
       projects: readProjects(),

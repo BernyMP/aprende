@@ -72,7 +72,7 @@ export function buildProjectSearchItems(input: ProjectItemsInput) {
   });
 }
 
-/** Projects as targets of the "New thread in..." submenu. */
+/** Projects as targets of the "New lesson in..." submenu. */
 export function buildNewThreadInProjectItems(input: ProjectItemsInput) {
   return buildProjectActionItems({
     projects: input.projects,

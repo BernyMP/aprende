@@ -1112,8 +1112,18 @@ function OpenCommandPaletteDialog(props: {
     actionItems.push({
       kind: "action",
       value: "action:restart-agent-session",
-      searchTerms: ["restart", "reset", "reload", "agent", "session", "skills", "plugins", "mcp"],
-      title: "Restart agent session",
+      searchTerms: [
+        "restart",
+        "reset",
+        "reload",
+        "tutor",
+        "agent",
+        "session",
+        "skills",
+        "plugins",
+        "mcp",
+      ],
+      title: "Restart tutor session",
       icon: <RotateCcwIcon className={ITEM_ICON_CLASS} />,
       run: async () => {
         const { environmentId } = thread;
@@ -1126,7 +1136,7 @@ function OpenCommandPaletteDialog(props: {
         }
         toastManager.add({
           type: "success",
-          title: "Agent session will restart",
+          title: "Tutor session will restart",
           description: "Your next message starts a fresh session.",
         });
         const project = projectByKey.get(`${environmentId}:${thread.projectId}`);

@@ -158,6 +158,19 @@ it("removes host actions after revocation while keeping file preview and copying
   expect(state.openEditor).not.toHaveBeenCalled();
 });
 
+it("opens a file link in the file manager by its bare path, whatever editor is stored", async () => {
+  using _setup = setup();
+  state.choose.mockResolvedValue("open");
+  await using screen = await renderMarkdown("[Readme](docs/readme.md:12)");
+  await screen.openContextMenu();
+  await vi.waitFor(() =>
+    expect(state.openEditor).toHaveBeenCalledWith({
+      environmentId: threadRef.environmentId,
+      input: { cwd: "/work/docs/readme.md", editor: "file-manager" },
+    }),
+  );
+});
+
 it("does not launch an editor after revocation during a native context menu", async () => {
   using _setup = setup();
   let choose: (action: string) => void = () => {
