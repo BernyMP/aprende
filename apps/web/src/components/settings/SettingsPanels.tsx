@@ -607,7 +607,7 @@ export function GeneralSettingsPanel() {
       <SettingsSection id="sidebar" title="Sidebar">
         <SettingsRow
           {...searchableSetting("lesson-list")}
-          description="List every lesson in the sidebar, with pin, snooze and settle. When off, the sidebar shows your notebooks and aprende keeps track of the lessons."
+          description="Show a sidebar that lists every lesson, with pin, snooze and settle. When off, aprende has no sidebar and your notebooks keep track of the lessons."
           resetAction={
             settings.sidebarLessonListEnabled !==
             DEFAULT_UNIFIED_SETTINGS.sidebarLessonListEnabled ? (
@@ -633,7 +633,7 @@ export function GeneralSettingsPanel() {
         />
         <SettingsRow
           {...searchableSetting("project-order")}
-          description="Order of notebooks in the sidebar notebook picker and command palette."
+          description="Order of notebooks in notebook pickers and the command palette."
           resetAction={
             settings.sidebarProjectSortOrder !==
             DEFAULT_UNIFIED_SETTINGS.sidebarProjectSortOrder ? (

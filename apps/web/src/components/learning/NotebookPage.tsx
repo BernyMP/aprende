@@ -261,8 +261,9 @@ function NotebookBody(props: {
               <EmptyHeader>
                 <EmptyTitle>No outline yet</EmptyTitle>
                 <EmptyDescription>
-                  Start a lesson and the tutor suggests an outline for this subject once it knows
-                  where you are. Or add topics yourself.
+                  {lessons.length === 0
+                    ? "Start a lesson and the tutor suggests an outline for this subject once it knows where you are. Or add topics yourself."
+                    : "The tutor suggests an outline for this subject once it knows where you are. Or add topics yourself."}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -511,6 +512,11 @@ function LessonLink(props: LessonTopicProps & { readonly thread: EnvironmentThre
         {thread.title}
       </Link>
       <span className="shrink-0 tabular-nums">{shortDate(thread.createdAt)}</span>
+      {value === NO_TOPIC ? null : (
+        <span className="min-w-0 shrink truncate">
+          {props.topics.find((topic) => topic.id === value)?.title}
+        </span>
+      )}
       {props.topics.length > 0 ? (
         <Menu>
           <MenuTrigger

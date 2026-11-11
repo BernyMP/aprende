@@ -92,7 +92,9 @@ planning a path to a goal, studying from your own notes, being quizzed, and revi
 puts a fuller request in the message box for you to edit and send. The questions you are still
 using are listed under **Quick questions** on the Notebooks page. A question leaves the list a day
 after you last used it, or when you choose **Done**; search still finds it, and sending it a
-message brings it back.
+message brings it back. A question you bring back yourself, with undo or **Show on the home page**
+in its menu, stays until you use it again. A question also stays listed while the tutor waits
+for your answer.
 
 **New notebook** opens a session right away. You don't need to know yet what you want to study:
 the tutor asks, one question at a time, what you want to learn, why, and what you are working

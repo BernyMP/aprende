@@ -593,7 +593,10 @@ export function useThreadActions() {
     return result;
   };
 
-  const settleThread = async (target: ScopedThreadRef) => {
+  const settleThread = async (
+    target: ScopedThreadRef,
+    options: { readonly notice?: "Settled" | "Done" } = {},
+  ) => {
     if (!readEnvironmentServerConfigLoaded(target.environmentId)) {
       return AsyncResult.failure(
         Cause.fail(
@@ -626,7 +629,7 @@ export function useThreadActions() {
       markThreadVisited(scopedThreadKey(target), wokeAt);
     }
     showThreadUndoNotice({
-      action: "Settled",
+      action: options.notice ?? "Settled",
       claim: action,
       undo: () => runUndoPlan(target, undoPlan),
       failureTitle: "Failed to undo settle",

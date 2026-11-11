@@ -18,6 +18,7 @@ import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FiberSet from "effect/FiberSet";
+import * as Option from "effect/Option";
 import * as Schedule from "effect/Schedule";
 import * as Semaphore from "effect/Semaphore";
 import type * as Scope from "effect/Scope";
@@ -27,6 +28,7 @@ import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as Orchestrator from "./Orchestrator.ts";
+import * as ProjectStore from "./ProjectStore.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
@@ -173,6 +175,19 @@ export const make = Effect.gen(function* () {
 
   const settingsService = yield* ServerSettings.ServerSettingsService;
   const managedFolders = yield* ManagedProjectFolders.ManagedProjectFolders;
+  const projectStore = yield* ProjectStore.ProjectStoreV2;
+  // Read from the store: ProjectService hydrates a project, which re-resolves its repository
+  // identity and notifies subscribers, and a sweep runs every minute on an idle server.
+  const quickQuestionProjectId = managedFolders.scratchRoot.pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.succeedNone,
+        onSome: (root) => projectStore.findActiveByWorkspaceRoot(root),
+      }),
+    ),
+    Effect.map(Option.map((project) => project.projectId)),
+    Effect.orElseSucceed(() => Option.none<ProjectId>()),
+  );
   const random = yield* SecureRandom.SecureRandom;
 
   const sweep = Effect.fn("ThreadSettlementServiceV2.sweep")(function* (threadId?: ThreadId) {
@@ -183,17 +198,14 @@ export const make = Effect.gen(function* () {
     const threads = yield* projections.getSettlementCandidates(threadId);
     if (threads.length === 0) return;
     const nowMs = DateTime.toEpochMillis(yield* DateTime.now);
-    const quickQuestionProjects = new Set<ProjectId>();
-    for (const projectId of new Set(threads.map((thread) => thread.projectId))) {
-      if (yield* managedFolders.isScratchProject(projectId)) quickQuestionProjects.add(projectId);
-    }
+    const quickQuestions = Option.getOrNull(yield* quickQuestionProjectId);
     const autoSettleAfterDays = (
       current: import("@aprende/contracts").ServerSettings,
       projectId: ProjectId,
     ) =>
       settleAfterDays(
         resolveProjectSettings(current, projectId).settings.sidebarAutoSettleAfterDays,
-        quickQuestionProjects.has(projectId),
+        projectId === quickQuestions,
       );
     const candidates = threads.filter(
       (thread) =>

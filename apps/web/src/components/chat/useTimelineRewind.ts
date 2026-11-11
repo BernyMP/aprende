@@ -200,7 +200,7 @@ export function useTimelineRewind(input: TimelineRewindInput) {
     if (!targetThreadReady) {
       setThreadError(
         activeThread.id,
-        "The fork was created, but its thread data did not reach this client. Reconnect and try opening it from the sidebar.",
+        "The fork was created, but its thread data did not reach this client. Reconnect and try opening it from search.",
       );
       return;
     }

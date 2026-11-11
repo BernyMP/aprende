@@ -39,6 +39,7 @@ import { HistorySwipeNavigation } from "./HistorySwipeNavigation";
 import ThreadSidebar from "./Sidebar";
 import { SidebarBrandWidthProbe } from "./sidebar/SidebarChrome";
 import { isAppModalPage } from "./sidebar/mainAppLocation";
+import { SidebarThreadUndoNotice } from "./sidebar/SidebarThreadUndoNotice";
 import type { SidebarRouteReveal } from "./sidebar/routeReveal";
 import { useSidebarStageBackdropVariant } from "./SidebarStageBackdrop";
 import {
@@ -247,8 +248,8 @@ function registerAppShellCommands(
   hasSidebar: boolean,
 ): () => void {
   // The provider mirrors the visibility it renders onto its wrapper, so the
-  // committed state is readable when a key arrives. Without a sidebar, the home
-  // page shows the undo notice, so mod+z is claimed as beside an open sidebar.
+  // committed state is readable when a key arrives. Without a sidebar, the undo
+  // notice floats over every page, so mod+z is claimed as beside an open sidebar.
   const readSidebarVisible = () =>
     !hasSidebar ||
     shellElement.closest('[data-slot="sidebar-wrapper"]')?.getAttribute("data-sidebar-state") ===
@@ -471,7 +472,17 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         ) : null}
         {children}
         <BackgroundThreadAnnouncer />
-        {lessonListEnabled ? <SidebarControl /> : <HomeControl />}
+        {lessonListEnabled ? (
+          <SidebarControl />
+        ) : (
+          <>
+            <HomeControl />
+            {/* The sidebar footer held this notice; without one it floats, so it shows on any page. */}
+            <ul className="fixed bottom-3 left-4 z-40 flex w-44 items-center rounded-md border bg-popover px-2.5 py-0.5 shadow-sm [&:not(:has(li))]:hidden">
+              <SidebarThreadUndoNotice />
+            </ul>
+          </>
+        )}
         {isElectron ? <HistorySwipeNavigation /> : null}
       </SidebarProvider>
     </PanelAnimationSuppressionProvider>

@@ -13,7 +13,8 @@ import { primaryServerKeybindingsAtom } from "../state/server";
 import * as ThreadUndo from "@aprende/client-runtime/state/thread-undo";
 
 type UndoOptions = {
-  action: "Settled" | "Snoozed" | "Unpinned" | "Archived" | "Discarded";
+  // "Done" is a settle as the learner knows it: a quick question put away.
+  action: "Settled" | "Done" | "Snoozed" | "Unpinned" | "Archived" | "Discarded";
   undo: () => Promise<AtomCommandResult<unknown, unknown>>;
   failureTitle: string;
   claim: ReturnType<typeof ThreadUndo.begin>;
@@ -29,7 +30,8 @@ type UndoNotice = {
 export const useThreadUndoNotice = create<{ notice: UndoNotice | null }>(() => ({ notice: null }));
 
 function threadUndoNoticeSummary(notice: Pick<UndoNotice, "action" | "count">): string {
-  const noun = notice.action === "Discarded" ? "draft" : "thread";
+  const noun =
+    notice.action === "Discarded" ? "draft" : notice.action === "Done" ? "question" : "thread";
   return `${notice.action} ${notice.count} ${noun}${notice.count === 1 ? "" : "s"}`;
 }
 

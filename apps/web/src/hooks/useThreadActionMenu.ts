@@ -219,7 +219,9 @@ export function useThreadActionMenu(input: {
           return;
         }
         case "settle":
-          await reportFailure("Failed to settle lesson", () => settleThread(threadRef));
+          await reportFailure("Failed to settle lesson", () =>
+            settleThread(threadRef, lessonListEnabled ? {} : { notice: "Done" }),
+          );
           return;
         case "unsettle":
           await reportFailure("Failed to un-settle lesson", () => unsettleThread(threadRef));

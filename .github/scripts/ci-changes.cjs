@@ -21,7 +21,7 @@ const RUNS_EVERYTHING = [
 // Includes cross-package reads absent from package.json dependencies.
 const EXTRA_OWNERS = [
   // Vite configs and tsconfigs of these apps import scripts/lib directly.
-  [/^scripts\/lib\//, ["@aprende/desktop", "@aprende/mobile", "@aprende/web", "aprende"]],
+  [/^scripts\/lib\//, ["@aprende/desktop", "@aprende/web", "aprende"]],
   // scripts/build-desktop-artifact.ts reads the GNOME extension manifest.
   [/^apps\/desktop\/gnome-extension\//, ["@aprende/scripts"]],
   [/^native\/kde-snap-shot\//, ["@aprende/desktop"]],

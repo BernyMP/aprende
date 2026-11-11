@@ -1,8 +1,9 @@
 # Working with threads
 
 aprende has no sidebar by default: [notebooks](./learning.md#notebooks) keep track of your lessons.
-This page describes the lesson list, a sidebar that lists every lesson with pin, snooze and
-settle. Turn it on in **Settings → General → Sidebar → Lesson list**.
+The lesson list is a sidebar that lists every lesson, with pin, snooze and settle. Turn it on in
+**Settings → General → Sidebar → Lesson list**. The sections on pinning, reordering, settling and
+snoozing below describe it.
 
 Use a new thread for a separate task.
 
@@ -146,7 +147,7 @@ settle every thread in that section between it and the one you release on.
 The **Un-settle** and **Wake** buttons work the same way in their sections.
 Press `Escape` while dragging to cancel.
 
-Environments settle inactive threads after three days. An empty thread's
+Environments settle inactive threads after three days, and quick questions after one. An empty thread's
 inactivity counts from when it was created. Work in progress, pending questions or approvals,
 and background work the agent is waiting on prevent automatic settlement.
 

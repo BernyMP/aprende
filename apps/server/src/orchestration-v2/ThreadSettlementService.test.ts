@@ -19,6 +19,7 @@ import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as PubSub from "effect/PubSub";
 import * as Queue from "effect/Queue";
@@ -209,6 +210,7 @@ describe("resolveAutoSettlementAt", () => {
 });
 
 const NOW = "2026-08-28T12:00:00.000Z";
+const SCRATCH_ROOT = "/workspace/scratch";
 const PROJECT_ID = ProjectId.make("settlement-project");
 
 describe("autoSettlementSettingsKey", () => {
@@ -331,6 +333,12 @@ const makeHarness = Effect.fn("makeThreadSettlementHarness")(function* (options:
   const layerDependencies = Layer.mergeAll(
     Layer.mock(ProjectStore.ProjectStoreV2)({
       listShells: () => Ref.get(snapshots).pipe(Effect.map((snapshot) => snapshot.projects)),
+      findActiveByWorkspaceRoot: (workspaceRoot) =>
+        Effect.succeed(
+          workspaceRoot === SCRATCH_ROOT && options.quickQuestionProjectId !== undefined
+            ? Option.some({ projectId: options.quickQuestionProjectId } as ProjectStore.ProjectRow)
+            : Option.none(),
+        ),
     }),
     Layer.mock(ProjectionStore.ProjectionStoreV2)({
       getSettlementCandidates: (threadId) =>
@@ -357,7 +365,7 @@ const makeHarness = Effect.fn("makeThreadSettlementHarness")(function* (options:
     }),
     Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
       namedProjectsRoot: "/workspace",
-      isScratchProject: (projectId) => Effect.succeed(projectId === options.quickQuestionProjectId),
+      scratchRoot: Effect.succeedSome(SCRATCH_ROOT),
     }),
     Layer.succeed(ServerSettings.ServerSettingsService, serverSettings),
     Layer.succeed(ServerActivation.ServerActivation, Deferred.await(activation)),

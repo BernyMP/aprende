@@ -1,5 +1,9 @@
 import { scopedThreadKey, scopeThreadRef } from "@aprende/client-runtime/environment";
 import type { EnvironmentThreadShell } from "@aprende/client-runtime/state/models";
+import {
+  isAtomCommandInterrupted,
+  squashAtomCommandFailure,
+} from "@aprende/client-runtime/state/runtime";
 import { useAtomValue } from "@effect/atom-react";
 import { Link } from "@tanstack/react-router";
 import {
@@ -17,15 +21,16 @@ import { useClientSettings } from "~/hooks/useSettings";
 import { useThreadActions } from "~/hooks/useThreadActions";
 import { shortcutLabelForCommand } from "~/keybindings";
 import { cn } from "~/lib/utils";
+import { useServerConfigs } from "~/state/entities";
 import { primaryServerKeybindingsAtom } from "~/state/server";
 import { formatRelativeTimeLabel } from "~/timestampFormat";
 import { useUiStateStore } from "~/uiStateStore";
 
 import { resolveSidebarFolderDot, resolveThreadLastVisitedAt } from "../Sidebar.logic";
 import { SidebarProviderUpdatePill } from "../sidebar/SidebarProviderUpdatePill";
-import { SidebarThreadUndoNotice } from "../sidebar/SidebarThreadUndoNotice";
 import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "../sidebar/SidebarUpdatePill";
 import { Button } from "../ui/button";
+import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 function HeaderAction(props: {
@@ -92,7 +97,7 @@ export function HomeHeaderActions() {
   );
 }
 
-/** Undo for the last change and app updates: quiet until there is something to say. */
+/** App and provider updates, which the sidebar footer used to hold. */
 export function HomeStatusBar() {
   if (useHasSidebar()) return null;
   return (
@@ -100,40 +105,70 @@ export function HomeStatusBar() {
       <SidebarProviderUpdatePill />
       <SidebarUpdateArchitectureWarning />
       <ul className="flex min-w-0 items-center gap-1">
-        <SidebarThreadUndoNotice />
         <SidebarUpdatePill />
       </ul>
     </footer>
   );
 }
 
-type QuestionState = NonNullable<ReturnType<typeof resolveSidebarFolderDot>>;
+type TutorState = NonNullable<ReturnType<typeof resolveSidebarFolderDot>>;
 
-const QUESTION_STATE: Record<
-  QuestionState,
-  { readonly label: string; readonly dotClassName: string }
-> = {
+const TUTOR_STATE: Record<TutorState, { readonly label: string; readonly dotClassName: string }> = {
   attention: { label: "Waiting for your answer", dotClassName: "bg-warning" },
   failed: { label: "The tutor hit a problem", dotClassName: "bg-error" },
   unread: { label: "The tutor replied", dotClassName: "bg-success" },
   working: { label: "The tutor is working", dotClassName: "bg-info" },
 };
 
+/**
+ * What the tutor is doing in these lessons, for a learner who is not looking at them: the most
+ * urgent state among them, or nothing when none needs a look.
+ */
+export function TutorStateLabel(props: {
+  readonly threads: ReadonlyArray<EnvironmentThreadShell>;
+  readonly className?: string;
+}) {
+  const localLastVisitedAtById = useUiStateStore((state) => state.threadLastVisitedAtById);
+  const state = resolveSidebarFolderDot(
+    props.threads.map((thread) => ({
+      ...thread,
+      lastVisitedAt: resolveThreadLastVisitedAt(
+        thread.lastVisitedAt,
+        localLastVisitedAtById[scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))],
+      ),
+    })),
+  );
+  if (state === null) return null;
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs",
+        props.className,
+      )}
+    >
+      <span aria-hidden className={cn("size-1.5 rounded-full", TUTOR_STATE[state].dotClassName)} />
+      {TUTOR_STATE[state].label}
+    </span>
+  );
+}
+
 function QuickQuestionRow(props: { readonly thread: EnvironmentThreadShell }) {
   const { thread } = props;
   const { settleThread } = useThreadActions();
-  const localLastVisitedAt = useUiStateStore(
-    (state) =>
-      state.threadLastVisitedAtById[
-        scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))
-      ],
-  );
-  const state = resolveSidebarFolderDot([
-    {
-      ...thread,
-      lastVisitedAt: resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt),
-    },
-  ]);
+  // Re-renders each minute so "2h ago" stays current.
+  useNowMinute();
+  const finish = async () => {
+    const result = await settleThread(scopeThreadRef(thread.environmentId, thread.id), {
+      notice: "Done",
+    });
+    if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
+    const error = squashAtomCommandFailure(result);
+    toastManager.add({
+      type: "error",
+      title: "Could not put the question away",
+      description: error instanceof Error ? error.message : "Something went wrong.",
+    });
+  };
   return (
     <li className="flex min-w-0 items-center gap-3 px-4 py-2.5">
       <MessageSquareDashedIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
@@ -144,15 +179,7 @@ function QuickQuestionRow(props: { readonly thread: EnvironmentThreadShell }) {
       >
         {thread.title}
       </Link>
-      {state === null ? null : (
-        <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs max-sm:hidden">
-          <span
-            aria-hidden
-            className={cn("size-1.5 rounded-full", QUESTION_STATE[state].dotClassName)}
-          />
-          {QUESTION_STATE[state].label}
-        </span>
-      )}
+      <TutorStateLabel threads={[thread]} className="max-sm:hidden" />
       <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
         {formatRelativeTimeLabel(thread.latestUserMessageAt ?? thread.createdAt)}
       </span>
@@ -160,7 +187,7 @@ function QuickQuestionRow(props: { readonly thread: EnvironmentThreadShell }) {
         size="xs"
         variant="ghost-muted"
         aria-label={`Done with ${thread.title}`}
-        onClick={() => void settleThread(scopeThreadRef(thread.environmentId, thread.id))}
+        onClick={() => void finish()}
       >
         Done
       </Button>
@@ -173,18 +200,24 @@ export function HomeQuickQuestions(props: {
   readonly questions: ReadonlyArray<EnvironmentThreadShell>;
   readonly headingClassName: string;
 }) {
-  // Re-renders each minute so "2h ago" stays current.
-  useNowMinute();
+  const serverConfigs = useServerConfigs();
   if (props.questions.length === 0) return null;
+  // Only a server set to settle idle lessons puts idle questions away.
+  const leaveOnTheirOwn = props.questions.some(
+    (thread) =>
+      serverConfigs.get(thread.environmentId)?.settings.sidebarAutoSettleAfterDays != null,
+  );
   return (
     <section aria-labelledby="home-quick-questions-heading" className="flex flex-col gap-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <h2 id="home-quick-questions-heading" className={props.headingClassName}>
           Quick questions
         </h2>
-        <p className="text-muted-foreground text-xs">
-          A question leaves this list a day after you last used it.
-        </p>
+        {leaveOnTheirOwn ? (
+          <p className="text-muted-foreground text-xs">
+            A question leaves this list a day after you last used it.
+          </p>
+        ) : null}
       </div>
       <ul className="flex flex-col divide-y divide-border rounded-xl border bg-card text-card-foreground text-sm">
         {props.questions.map((thread) => (

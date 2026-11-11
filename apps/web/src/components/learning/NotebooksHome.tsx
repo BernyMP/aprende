@@ -18,7 +18,12 @@ import { ProjectFavicon } from "../ProjectFavicon";
 import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
-import { HomeHeaderActions, HomeQuickQuestions, HomeStatusBar } from "./HomeChrome";
+import {
+  HomeHeaderActions,
+  HomeQuickQuestions,
+  HomeStatusBar,
+  TutorStateLabel,
+} from "./HomeChrome";
 import { useNewNotebook } from "./useNewNotebook";
 import { notebookLessons, notebookNextStep, notebookToResume } from "./notebook.logic";
 import { useNotebook } from "./useNotebook";
@@ -173,6 +178,7 @@ function NotebookCard(props: {
         >
           {project.title}
         </Link>
+        <TutorStateLabel threads={lessonState.lessons} />
         {lastStudied === undefined ? null : (
           <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
             {formatRelativeTimeLabel(lastStudied)}
