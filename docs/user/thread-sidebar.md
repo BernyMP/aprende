@@ -1,5 +1,9 @@
 # Working with threads
 
+aprende has no sidebar by default: [notebooks](./learning.md#notebooks) keep track of your lessons.
+This page describes the lesson list, a sidebar that lists every lesson with pin, snooze and
+settle. Turn it on in **Settings → General → Sidebar → Lesson list**.
+
 Use a new thread for a separate task.
 
 ## Start a thread

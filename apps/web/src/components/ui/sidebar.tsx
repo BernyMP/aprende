@@ -176,12 +176,15 @@ function createSidebarOpenStore(defaultOpen: boolean) {
 
 function SidebarProvider({
   defaultOpen = true,
+  forceCollapsed = false,
   className,
   style,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
   defaultOpen?: boolean;
+  /** For a shell that renders no sidebar: pages lay out as they do beside a collapsed one. */
+  forceCollapsed?: boolean;
 }) {
   const isMobile = useMediaQuery(SIDEBAR_MOBILE_QUERY);
   const [store] = React.useState(() => createSidebarOpenStore(defaultOpen));
@@ -195,7 +198,7 @@ function SidebarProvider({
     setMobileSheetMounted(element !== null);
   };
 
-  const state = resolveSidebarState({ isMobile, open, openMobile });
+  const state = forceCollapsed ? "collapsed" : resolveSidebarState({ isMobile, open, openMobile });
 
   const contextValue: SidebarContextProps = {
     isMobile,

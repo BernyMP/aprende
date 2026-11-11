@@ -26,6 +26,7 @@ import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import { TestClock } from "effect/testing";
 
+import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
 import * as ServerActivation from "../serverActivation.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as ProjectStore from "./ProjectStore.ts";
@@ -279,6 +280,7 @@ interface HarnessOptions {
   readonly settings?: ContractServerSettings;
   readonly onDispatch?: (command: AutoSettleCommand) => Effect.Effect<void>;
   readonly currentThreads?: ReadonlyArray<OrchestrationV2AppThread>;
+  readonly quickQuestionProjectId?: ProjectId;
 }
 
 const makeHarness = Effect.fn("makeThreadSettlementHarness")(function* (options: HarnessOptions) {
@@ -352,6 +354,10 @@ const makeHarness = Effect.fn("makeThreadSettlementHarness")(function* (options:
     Layer.mock(Orchestrator.OrchestratorV2)({
       streamDomainEvents: Stream.fromPubSub(domainEvents),
       dispatch,
+    }),
+    Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+      namedProjectsRoot: "/workspace",
+      isScratchProject: (projectId) => Effect.succeed(projectId === options.quickQuestionProjectId),
     }),
     Layer.succeed(ServerSettings.ServerSettingsService, serverSettings),
     Layer.succeed(ServerActivation.ServerActivation, Deferred.await(activation)),
@@ -443,6 +449,37 @@ describe("ThreadSettlementServiceV2 worker", () => {
         }).pipe(Effect.provide(fixture.layer));
       }),
     ),
+  );
+
+  it.effect(
+    "settles a quick question after one idle day while lessons wait the configured days",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* TestClock.setTime(Date.parse(NOW));
+          const quickQuestions = ProjectId.make("quick-questions");
+          const idleSince = DateTime.makeUnsafe(Date.parse(NOW) - 2 * DAY_MS);
+          const idle = { updatedAt: idleSince, latestUserMessageAt: idleSince };
+          const question = makeThread("quick-question", { ...idle, projectId: quickQuestions });
+          const usedToday = makeThread("quick-question-in-use", {
+            projectId: quickQuestions,
+            updatedAt: DateTime.makeUnsafe(NOW),
+            latestUserMessageAt: DateTime.makeUnsafe(Date.parse(NOW) - DAY_MS / 2),
+          });
+          const lesson = makeThread("lesson", idle);
+          const fixture = yield* makeHarness({
+            snapshot: makeSnapshot([question, usedToday, lesson]),
+            settings: { ...DEFAULT_SERVER_SETTINGS, sidebarAutoSettleAfterDays: 3 },
+            quickQuestionProjectId: quickQuestions,
+          });
+          yield* Effect.gen(function* () {
+            const service = yield* ThreadSettlementService.ThreadSettlementServiceV2;
+            yield* startHarness(service, fixture.activation, fixture.snapshotReads);
+            const commands = yield* Ref.get(fixture.commands);
+            expect(commands.map((command) => command.threadId)).toEqual([question.id]);
+          }).pipe(Effect.provide(fixture.layer));
+        }),
+      ),
   );
 
   it.effect("stops settling the rest of a sweep once auto-settlement is turned off", () =>

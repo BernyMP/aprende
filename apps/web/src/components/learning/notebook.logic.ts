@@ -89,6 +89,25 @@ export function notebookToResume<Notebook>(
   return notebooks.find((notebook) => threadsOf(notebook).some(isListedLesson));
 }
 
+/**
+ * The quick questions the learner is still using, latest first. A settled one is done: the
+ * learner dismissed it, or left it alone for a day.
+ */
+export function listedQuickQuestions<
+  Thread extends Pick<
+    EnvironmentThreadShell,
+    "archivedAt" | "deletedAt" | "lineage" | "settledOverride" | "latestUserMessageAt" | "createdAt"
+  >,
+>(threads: ReadonlyArray<Thread>, isQuickQuestion: (thread: Thread) => boolean): Thread[] {
+  const lastUsed = (thread: Thread) => thread.latestUserMessageAt ?? thread.createdAt;
+  return threads
+    .filter(
+      (thread) =>
+        isQuickQuestion(thread) && isListedLesson(thread) && thread.settledOverride !== "settled",
+    )
+    .toSorted((left, right) => lastUsed(right).localeCompare(lastUsed(left)));
+}
+
 /** The one thing a notebook card offers, so the home shows a next step instead of bookkeeping. */
 export type NotebookNextStep =
   | { readonly kind: "review" }

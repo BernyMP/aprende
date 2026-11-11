@@ -88,6 +88,11 @@ export interface ThreadActionMenuState {
   readonly canTurnIntoProject?: boolean;
   /** Notebooks the thread can move to. */
   readonly moveTargets?: ReadonlyArray<{ readonly projectId: ProjectId; readonly title: string }>;
+  /**
+   * Set when no lesson list is shown: pin, snooze and unread have nothing to act on, and only a
+   * quick question, which the home page lists, can be put away.
+   */
+  readonly withoutLessonList?: { readonly isQuickQuestion: boolean };
 }
 
 /** The notebooks a thread can move to: the others in its environment. */
@@ -124,25 +129,44 @@ export function threadActionRequiresOperate(action: ThreadActionMenuId): boolean
 export function buildThreadActionMenuItems(
   state: ThreadActionMenuState,
 ): ReadonlyArray<ContextMenuItem<ThreadActionMenuId>> {
+  const listless = state.withoutLessonList;
+  const supports =
+    listless === undefined
+      ? state.supports
+      : {
+          ...state.supports,
+          pinning: false,
+          snooze: false,
+          autoSettleOptOut: false,
+          settlement: state.supports.settlement && listless.isQuickQuestion,
+        };
   const items: ReadonlyArray<ContextMenuItem<ThreadActionMenuId>> = [
     ...(state.canFind
       ? [{ id: "find" as const, label: "Find in lesson", icon: "text-search" }]
       : []),
-    ...(state.supports.pinning
+    ...(supports.pinning
       ? [
           state.isPinned
             ? { id: "unpin" as const, label: "Unpin lesson", icon: "pin-off" }
             : { id: "pin" as const, label: "Pin lesson", icon: "pin" },
         ]
       : []),
-    ...(state.supports.settlement
+    ...(supports.settlement
       ? [
           state.isSettled
-            ? { id: "unsettle" as const, label: "Un-settle lesson", icon: "circle-check" }
-            : { id: "settle" as const, label: "Settle lesson", icon: "circle-check" },
+            ? {
+                id: "unsettle" as const,
+                label: listless ? "Show on the home page" : "Un-settle lesson",
+                icon: "circle-check",
+              }
+            : {
+                id: "settle" as const,
+                label: listless ? "Remove from the home page" : "Settle lesson",
+                icon: "circle-check",
+              },
         ]
       : []),
-    ...(state.supports.snooze
+    ...(supports.snooze
       ? [
           state.isSnoozed
             ? { id: "unsnooze" as const, label: "Wake lesson", icon: "clock" }
@@ -166,7 +190,7 @@ export function buildThreadActionMenuItems(
         ]
       : []),
     { id: "rename", label: "Rename lesson", icon: "pencil", separatorBefore: true },
-    ...(state.supports.titleRegeneration
+    ...(supports.titleRegeneration
       ? [
           {
             id: "regenerate-title" as const,
@@ -176,7 +200,7 @@ export function buildThreadActionMenuItems(
           },
         ]
       : []),
-    { id: "mark-unread", label: "Mark unread", icon: "mail-open" },
+    ...(listless ? [] : [{ id: "mark-unread" as const, label: "Mark unread", icon: "mail-open" }]),
     ...(state.canOpenNotebook
       ? [{ id: "open-notebook" as const, label: "Open notebook", icon: "notebook" }]
       : []),
@@ -215,7 +239,7 @@ export function buildThreadActionMenuItems(
           },
         ]
       : []),
-    ...(state.supports.autoSettleOptOut
+    ...(supports.autoSettleOptOut
       ? [
           {
             id: "auto-settle" as const,

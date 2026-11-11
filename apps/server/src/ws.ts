@@ -1339,7 +1339,8 @@ export const layerWsRpc = (currentSession: EnvironmentAuth.AuthenticatedSession)
             : { managedPolicy: serverSettings.managedPolicy }),
           shellResumeCompletionMarker: true,
           shellThreadFamilies: true,
-          shellOlderSettled: true,
+          // shellOlderSettled is not advertised: a notebook finds its lessons in the shell,
+          // so clients need every lesson, however long ago it settled.
           threadResumeCompletionMarker: true,
           threadSnapshotPagination: true,
           threadFind: true,

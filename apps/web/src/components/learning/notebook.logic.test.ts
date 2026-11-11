@@ -5,6 +5,7 @@ import { ThreadId } from "@aprende/contracts";
 
 import {
   describeOutlineOp,
+  listedQuickQuestions,
   neighborPlacement,
   nextTopic,
   notebookLessons,
@@ -100,6 +101,35 @@ describe("notebookToResume", () => {
       notebookToResume(names, (name) => threads[name] ?? []);
     expect(resume(["empty", "archived", "sideChatOnly", "studied", "older"])).toBe("studied");
     expect(resume(["empty", "archived", "sideChatOnly"])).toBeUndefined();
+  });
+});
+
+describe("listedQuickQuestions", () => {
+  it("lists the questions still in use, the one used last first", () => {
+    const question = (id: string, overrides: Partial<EnvironmentThreadShell> = {}) =>
+      ({
+        id: ThreadId.make(id),
+        projectId: "quick",
+        archivedAt: null,
+        deletedAt: null,
+        lineage: { relationshipToParent: null, sideChat: false },
+        settledOverride: null,
+        latestUserMessageAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        ...overrides,
+      }) as unknown as EnvironmentThreadShell;
+    const listed = listedQuickQuestions(
+      [
+        question("asked-first"),
+        question("lesson", { projectId: "notebook" as never }),
+        question("done", { settledOverride: "settled" }),
+        question("archived", { archivedAt: "2026-01-02T00:00:00.000Z" }),
+        question("used-last", { latestUserMessageAt: "2026-01-03T00:00:00.000Z" }),
+        question("asked-later", { createdAt: "2026-01-02T00:00:00.000Z" }),
+      ],
+      (thread) => thread.projectId === "quick",
+    );
+    expect(listed.map((thread) => thread.id)).toEqual(["used-last", "asked-later", "asked-first"]);
   });
 });
 

@@ -33,7 +33,6 @@ const RUST = /^native\/(resource-monitor|kde-snap-shot|hyprland-snap-shot)\//;
 const TEST_ONLY_DEPS = {
   // Evals import the server's source to test its real model-facing text.
   "@aprende/evals": ["aprende"],
-  "@aprende/provider-pi": ["@aprende/client-runtime"],
   "@aprende/scripts": [
     "@aprende/desktop",
     "@aprende/mobile",

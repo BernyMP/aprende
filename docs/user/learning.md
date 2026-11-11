@@ -76,14 +76,23 @@ topics you are working through, in order, and each lesson is a session on one to
 
 aprende opens on **Notebooks**. The notebook you studied last comes first, under **Pick up where
 you left off**, and the rest follow, each with how much of it you have learned and the topic to
-study next. The button on each card takes you to its next step. Come back with **Notebooks** in
-the sidebar or `mod+alt+l` (customize `notebooks.open` in **Settings → Keybindings**).
+study next. The button on each card takes you to its next step. Come back with the aprende mark
+at the top left of any page or `mod+alt+l` (customize `notebooks.open` in
+**Settings → Keybindings**). **Search**, **Knowledge**, **Usage** and **Settings** are at the top
+of this page.
+
+aprende keeps track of your lessons for you: you pick a notebook and a topic, and it opens the
+right lesson. There is no list of lessons to manage. To see and arrange every lesson yourself,
+turn on **Settings → General → Sidebar → Lesson list**
+(see [Working with threads](./thread-sidebar.md)).
 
 **Ask a quick question** starts a session outside any notebook. Its empty page lists five
 questions to try, each a different way to use the tutor: finding where your understanding breaks,
 planning a path to a goal, studying from your own notes, being quizzed, and reviewing. Picking one
-puts a fuller request in the message box for you to edit and send. They appear under **Quick
-questions** in the sidebar.
+puts a fuller request in the message box for you to edit and send. The questions you are still
+using are listed under **Quick questions** on the Notebooks page. A question leaves the list a day
+after you last used it, or when you choose **Done**; search still finds it, and sending it a
+message brings it back.
 
 **New notebook** opens a session right away. You don't need to know yet what you want to study:
 the tutor asks, one question at a time, what you want to learn, why, and what you are working
@@ -92,13 +101,16 @@ the notebook's settings. To bring in a session from outside any notebook, use **
 in its menu.
 
 Open one notebook by clicking its name, the notebook name above a session, **Open notebook** in the
-command palette or a session's menu in the sidebar, or `mod+alt+o` (customize `notebook.open`).
+command palette, or `mod+alt+o` (customize `notebook.open`).
 
-- **Start lesson** on a topic starts a session that teaches it. **Start** or **Continue** at the
-  top picks the next topic: the one you are learning, or else the first one not started.
+- Each topic has one button. **Start** begins a lesson on it, **Continue** returns to the lesson
+  you are in, and **Revisit** reopens the lesson of a topic you have learned. **Start** or
+  **Continue** at the top picks the next topic: the one you are learning, or else the first one
+  not started. To begin a topic again, choose **Start a new lesson** in its menu.
 - The outline is yours. Add, rename, reorder or remove topics as you go. Removing a topic keeps its
-  lessons; they move to **Other lessons**. To file a lesson under another topic, or under none,
-  use the topic button next to it.
+  lessons.
+- **All lessons**, below the outline, lists every lesson in the notebook. To file a lesson under
+  another topic, or under none, use the topic button next to it there.
 - **I already know this** marks a topic known. The tutor still checks it when a lesson builds on
   it, so marking it does not skip what you need.
 - The tutor marks a topic learned once a lesson's checks pass. In your first lesson it suggests an
@@ -109,8 +121,8 @@ Sessions started outside a notebook have no outline.
 
 ## Knowledge
 
-**Knowledge** lists everything your sessions have recorded, newest first. Open it from the sidebar
-or the command palette, or press `mod+alt+k` (customize `knowledge.open` in
+**Knowledge** lists everything your sessions have recorded, newest first. Open it from the
+Notebooks page or the command palette, or press `mod+alt+k` (customize `knowledge.open` in
 **Settings → Keybindings**). Each idea shows what it follows from and the sessions that taught it;
 open a session to reread how it was taught. Search, or pick a subject, to narrow the list.
 

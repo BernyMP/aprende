@@ -90,6 +90,11 @@ link; the Settled shelf reads pages below the cut; searches return the rows of
 older matches. A missing shell row therefore does not prove a thread is gone:
 code that deletes data on absence must check the family or the server first.
 
+aprende's server does not advertise `shellOlderSettled`. A notebook finds its lessons in the
+shell, and lessons settle on their own after a few idle days, so a trimmed shell would drop a
+learner's older lessons from their notebook. Advertise it again only once notebooks load their
+lessons another way.
+
 The Settled count is local Settled rows, minus local rows below the cut, plus the
 server's counts
 ([older settled threads](../../packages/client-runtime/src/state/olderSettledThreads.ts)).

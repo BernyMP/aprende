@@ -116,6 +116,7 @@ vi.mock("./useSettings", () => ({
       confirmThreadDelete: true,
       confirmThreadArchive: true,
       timestampFormat: "12-hour",
+      sidebarLessonListEnabled: true,
     }),
 }));
 vi.mock("./useThreadActions", () => ({

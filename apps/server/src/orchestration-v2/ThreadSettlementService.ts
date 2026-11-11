@@ -6,6 +6,7 @@ import { resolveProjectSettings } from "@aprende/shared/projectSettings";
 import {
   CommandId,
   isOrchestrationV2WorkActive,
+  type ProjectId,
   type ThreadId,
   type OrchestrationV2DomainEvent,
   type OrchestrationV2ThreadShell,
@@ -22,6 +23,7 @@ import * as Semaphore from "effect/Semaphore";
 import type * as Scope from "effect/Scope";
 import * as Stream from "effect/Stream";
 
+import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as Orchestrator from "./Orchestrator.ts";
@@ -29,6 +31,14 @@ import * as ProjectionStore from "./ProjectionStore.ts";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const QUEUED_TURN_START_GRACE_MS = 2 * 60 * 1_000;
+const QUICK_QUESTION_SETTLE_AFTER_DAYS = 1;
+
+/** A quick question is done when the learner stops using it, so it settles sooner than a lesson. */
+function settleAfterDays(configured: number | null, isQuickQuestion: boolean): number | null {
+  return configured !== null && isQuickQuestion
+    ? Math.min(configured, QUICK_QUESTION_SETTLE_AFTER_DAYS)
+    : configured;
+}
 
 function toMillis(value: DateTime.Utc | null | undefined): number | null {
   return value == null ? null : DateTime.toEpochMillis(value);
@@ -162,6 +172,7 @@ export const make = Effect.gen(function* () {
   const projections = yield* ProjectionStore.ProjectionStoreV2;
 
   const settingsService = yield* ServerSettings.ServerSettingsService;
+  const managedFolders = yield* ManagedProjectFolders.ManagedProjectFolders;
   const random = yield* SecureRandom.SecureRandom;
 
   const sweep = Effect.fn("ThreadSettlementServiceV2.sweep")(function* (threadId?: ThreadId) {
@@ -172,13 +183,24 @@ export const make = Effect.gen(function* () {
     const threads = yield* projections.getSettlementCandidates(threadId);
     if (threads.length === 0) return;
     const nowMs = DateTime.toEpochMillis(yield* DateTime.now);
+    const quickQuestionProjects = new Set<ProjectId>();
+    for (const projectId of new Set(threads.map((thread) => thread.projectId))) {
+      if (yield* managedFolders.isScratchProject(projectId)) quickQuestionProjects.add(projectId);
+    }
+    const autoSettleAfterDays = (
+      current: import("@aprende/contracts").ServerSettings,
+      projectId: ProjectId,
+    ) =>
+      settleAfterDays(
+        resolveProjectSettings(current, projectId).settings.sidebarAutoSettleAfterDays,
+        quickQuestionProjects.has(projectId),
+      );
     const candidates = threads.filter(
       (thread) =>
         resolveAutoSettlementAt({
           thread,
           nowMs,
-          autoSettleAfterDays: resolveProjectSettings(settings, thread.projectId).settings
-            .sidebarAutoSettleAfterDays,
+          autoSettleAfterDays: autoSettleAfterDays(settings, thread.projectId),
         }) !== null,
     );
 
@@ -186,15 +208,12 @@ export const make = Effect.gen(function* () {
     const settleThread = Effect.fnUntraced(
       function* (thread: (typeof candidates)[number]) {
         // thread.auto-settle does not recheck settings, so read them per decision; reads are cached.
-        const currentSettings = resolveProjectSettings(
-          yield* settingsService.getSettings,
-          thread.projectId,
-        ).settings;
+        const currentSettings = yield* settingsService.getSettings;
         const decisionNow = yield* DateTime.now;
         const settledAt = resolveAutoSettlementAt({
           thread,
           nowMs: DateTime.toEpochMillis(decisionNow),
-          autoSettleAfterDays: currentSettings.sidebarAutoSettleAfterDays,
+          autoSettleAfterDays: autoSettleAfterDays(currentSettings, thread.projectId),
         });
         if (settledAt === null) return;
         const uuid = yield* random.uuidV4();
