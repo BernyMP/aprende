@@ -58,9 +58,10 @@ You do not need to install a language to practice in Python, JavaScript, TypeScr
 brings its own `node`, and the first Python problem downloads Python once (about 40 MB, so it needs
 the internet that one time) into `runtimes` in your aprende home. **Run check** uses aprende's
 `python3` and `node` even if you have your own. Deleting `runtimes` only makes the next Python
-problem download it again. For any other language, such as Go, install it yourself: the tutor tells
-you when a problem needs something your computer does not have. On Windows, aprende brings nothing
-yet, so every language needs your own install.
+problem download it again. For any other language, such as Go, install it yourself, then quit and
+reopen aprende so it finds the new program. The tutor tells you when a problem needs something your
+computer does not have. On Windows, aprende brings nothing yet, so every language needs your own
+install.
 
 **Terminal** opens a shell in the practice folder for programs that read what you type, running on
 your computer with your permissions like **Run check**. Hiding the panel keeps it running with its
