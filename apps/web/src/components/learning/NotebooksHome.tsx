@@ -18,6 +18,12 @@ import { ProjectFavicon } from "../ProjectFavicon";
 import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import {
+  HomeHeaderActions,
+  HomeQuickQuestions,
+  HomeStatusBar,
+  TutorStateLabel,
+} from "./HomeChrome";
 import { useNewNotebook } from "./useNewNotebook";
 import { notebookLessons, notebookNextStep, notebookToResume } from "./notebook.logic";
 import { useNotebook } from "./useNotebook";
@@ -28,11 +34,16 @@ const SECTION_HEADING_CLASS = "font-medium text-muted-foreground text-xs upperca
 
 const notebookKey = (project: EnvironmentProject) => `${project.environmentId}:${project.id}`;
 
-/** Where aprende opens: how to start, the notebook studied last, then the rest. */
+/**
+ * Where aprende opens: how to start, the notebook studied last, the rest, then the quick
+ * questions still in use. It is also where search, Knowledge and Settings are found.
+ */
 export function NotebooksHome(props: {
   /** Most recently studied first. */
   readonly notebooks: ReadonlyArray<EnvironmentProject>;
   readonly threadsByNotebook: ReadonlyMap<string, ReadonlyArray<EnvironmentThreadShell>>;
+  /** Latest first. */
+  readonly quickQuestions: ReadonlyArray<EnvironmentThreadShell>;
 }) {
   const contentArea = workspaceAreaProps("home", 1, "Home");
   const primaryEnvironmentId = usePrimaryEnvironmentId();
@@ -54,6 +65,7 @@ export function NotebooksHome(props: {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
         <WorkspacePageHeader electron={isElectron} className="border-b border-border">
           <span className="text-sm font-medium text-foreground">Notebooks</span>
+          <HomeHeaderActions />
         </WorkspacePageHeader>
         <div className="scrollbar-gutter-both min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-10 sm:px-6">
@@ -108,8 +120,13 @@ export function NotebooksHome(props: {
                 </ul>
               </section>
             )}
+            <HomeQuickQuestions
+              questions={props.quickQuestions}
+              headingClassName={SECTION_HEADING_CLASS}
+            />
           </div>
         </div>
+        <HomeStatusBar />
       </div>
     </SidebarInset>
   );
@@ -161,6 +178,7 @@ function NotebookCard(props: {
         >
           {project.title}
         </Link>
+        <TutorStateLabel threads={lessonState.lessons} />
         {lastStudied === undefined ? null : (
           <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
             {formatRelativeTimeLabel(lastStudied)}

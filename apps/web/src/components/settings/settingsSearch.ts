@@ -227,6 +227,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["long lines code blocks diffs file previews"],
   },
   {
+    id: "lesson-list",
+    title: "Lesson list",
+    to: "/settings/general",
+    searchTerms: ["sidebar threads lessons pin snooze settle notebooks advanced"],
+  },
+  {
     id: "project-order",
     title: "Notebook order",
     to: "/settings/general",

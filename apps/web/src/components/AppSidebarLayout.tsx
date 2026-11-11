@@ -7,7 +7,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { useLocation, useRouter, type AnyRouter } from "@tanstack/react-router";
+import { Link, useLocation, useRouter, type AnyRouter } from "@tanstack/react-router";
 
 import { moveWorkspaceFocus, workspaceAreaProps } from "../lib/workspaceFocus";
 import { isCommandPaletteOpen } from "../commandPaletteBus";
@@ -27,17 +27,19 @@ import { isEditableFocused } from "../lib/editableFocus";
 import { isModelPickerOpen } from "../modelPickerVisibility";
 import { cn, isMacPlatform } from "../lib/utils";
 import { primaryServerKeybindingsAtom } from "../state/server";
-import { useEnvironmentIdentificationMode } from "../hooks/useSettings";
+import { useClientSettings, useEnvironmentIdentificationMode } from "../hooks/useSettings";
 import {
   PanelAnimationSuppressionProvider,
   usePanelAnimationSettings,
   usePanelNavigationSuppression,
 } from "../panelAnimations";
+import { AppLogo } from "./AppMark";
 import { BackgroundThreadAnnouncer } from "./BackgroundThreadAnnouncer";
 import { HistorySwipeNavigation } from "./HistorySwipeNavigation";
 import ThreadSidebar from "./Sidebar";
 import { SidebarBrandWidthProbe } from "./sidebar/SidebarChrome";
 import { isAppModalPage } from "./sidebar/mainAppLocation";
+import { SidebarThreadUndoNotice } from "./sidebar/SidebarThreadUndoNotice";
 import type { SidebarRouteReveal } from "./sidebar/routeReveal";
 import { useSidebarStageBackdropVariant } from "./SidebarStageBackdrop";
 import {
@@ -240,12 +242,18 @@ function registerThreadUndoCommands(
 }
 
 /** Keyboard and menu commands that live as long as the app shell. */
-function registerAppShellCommands(router: AnyRouter, shellElement: Element): () => void {
+function registerAppShellCommands(
+  router: AnyRouter,
+  shellElement: Element,
+  hasSidebar: boolean,
+): () => void {
   // The provider mirrors the visibility it renders onto its wrapper, so the
-  // committed state is readable when a key arrives.
+  // committed state is readable when a key arrives. Without a sidebar, the undo
+  // notice floats over every page, so mod+z is claimed as beside an open sidebar.
   const readSidebarVisible = () =>
+    !hasSidebar ||
     shellElement.closest('[data-slot="sidebar-wrapper"]')?.getAttribute("data-sidebar-state") ===
-    "expanded";
+      "expanded";
   const disposers = [
     registerThreadUndoCommands(router, readSidebarVisible),
     registerNavigationHistoryCommands(router),
@@ -316,7 +324,7 @@ function SidebarControl() {
   // once so re-renders never re-register them.
   const [appShellCommandsRef] = useState(
     () => (node: HTMLDivElement | null) =>
-      node === null ? undefined : registerAppShellCommands(router, node),
+      node === null ? undefined : registerAppShellCommands(router, node, true),
   );
 
   return (
@@ -349,7 +357,44 @@ function SidebarControl() {
   );
 }
 
+/** With no sidebar, the corner control leads home in place of the sidebar toggle. */
+function HomeControl() {
+  const router = useRouter();
+  const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const shortcutLabel = shortcutLabelForCommand(keybindings, "notebooks.open");
+  // Created once so re-renders never re-register the shell's commands.
+  const [appShellCommandsRef] = useState(
+    () => (node: HTMLDivElement | null) =>
+      node === null ? undefined : registerAppShellCommands(router, node, false),
+  );
+
+  return (
+    <div
+      ref={appShellCommandsRef}
+      className="pointer-events-none fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 ml-px flex h-[var(--workspace-topbar-height)] items-center"
+    >
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Link
+              to="/"
+              aria-label="Notebooks"
+              className="pointer-events-auto flex size-[var(--workspace-titlebar-control-size)] items-center justify-center rounded-md outline-hidden ring-ring [-webkit-app-region:no-drag] hover:bg-accent focus-visible:ring-2 focus-visible:ring-inset"
+            />
+          }
+        >
+          <AppLogo aria-hidden className="size-4" />
+        </TooltipTrigger>
+        <TooltipPopup side="bottom">
+          Notebooks{shortcutLabel ? ` (${shortcutLabel})` : ""}
+        </TooltipPopup>
+      </Tooltip>
+    </div>
+  );
+}
+
 export function AppSidebarLayout({ children }: { children: ReactNode }) {
+  const lessonListEnabled = useClientSettings((settings) => settings.sidebarLessonListEnabled);
   const sidebarArea = workspaceAreaProps("sidebar", 0, "Lessons");
   const [sidebarRouteReveal] = useState<SidebarRouteReveal>(() => ({
     observedKey: null,
@@ -396,33 +441,48 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         className="h-dvh! min-h-0!"
         data-panel-animations={routePanelAnimationsActive ? "true" : "false"}
         defaultOpen
+        forceCollapsed={!lessonListEnabled}
         style={sidebarProviderStyle}
       >
-        <SidebarBrandWidthProbe isElectron={isElectron} onWidthChange={setBrandWidth} />
-        <Sidebar
-          side="left"
-          collapsible="offcanvas"
-          data-app-sidebar=""
-          {...sidebarArea}
-          role="navigation"
-          aria-label="Lessons"
-          resizable={{
-            maxWidth: sidebarMaximumWidth,
-            minWidth: sidebarMinimumWidth,
-            shouldAcceptWidth: ({ currentWidth, nextWidth, wrapper }) =>
-              nextWidth <= currentWidth ||
-              wrapper.clientWidth - nextWidth >= THREAD_MAIN_CONTENT_MIN_WIDTH,
-            storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
-            onResize: setSidebarWidth,
-          }}
-          style={windowControlsInsetStyle}
-        >
-          <ThreadSidebar routeReveal={sidebarRouteReveal} />
-          <SidebarRail onDoubleClick={resetSidebarWidth} />
-        </Sidebar>
+        {lessonListEnabled ? (
+          <>
+            <SidebarBrandWidthProbe isElectron={isElectron} onWidthChange={setBrandWidth} />
+            <Sidebar
+              side="left"
+              collapsible="offcanvas"
+              data-app-sidebar=""
+              {...sidebarArea}
+              role="navigation"
+              aria-label="Lessons"
+              resizable={{
+                maxWidth: sidebarMaximumWidth,
+                minWidth: sidebarMinimumWidth,
+                shouldAcceptWidth: ({ currentWidth, nextWidth, wrapper }) =>
+                  nextWidth <= currentWidth ||
+                  wrapper.clientWidth - nextWidth >= THREAD_MAIN_CONTENT_MIN_WIDTH,
+                storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
+                onResize: setSidebarWidth,
+              }}
+              style={windowControlsInsetStyle}
+            >
+              <ThreadSidebar routeReveal={sidebarRouteReveal} />
+              <SidebarRail onDoubleClick={resetSidebarWidth} />
+            </Sidebar>
+          </>
+        ) : null}
         {children}
         <BackgroundThreadAnnouncer />
-        <SidebarControl />
+        {lessonListEnabled ? (
+          <SidebarControl />
+        ) : (
+          <>
+            <HomeControl />
+            {/* The sidebar footer held this notice; without one it floats, so it shows on any page. */}
+            <ul className="fixed bottom-3 left-4 z-40 flex w-44 items-center rounded-md border bg-popover px-2.5 py-0.5 shadow-sm [&:not(:has(li))]:hidden">
+              <SidebarThreadUndoNotice />
+            </ul>
+          </>
+        )}
         {isElectron ? <HistorySwipeNavigation /> : null}
       </SidebarProvider>
     </PanelAnimationSuppressionProvider>

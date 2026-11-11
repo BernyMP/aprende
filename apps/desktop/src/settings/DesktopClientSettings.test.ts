@@ -56,6 +56,7 @@ const clientSettings: ClientSettings = {
   threadDetailsItems: {},
   legacySidebarEnabled: false,
   sidebarWorkingShelfEnabled: false,
+  sidebarLessonListEnabled: false,
   loadBalancingEnabled: false,
   loadBalancingWeights: { "environment-1": 75, "environment-2": 0 },
   timestampFormat: "24-hour",

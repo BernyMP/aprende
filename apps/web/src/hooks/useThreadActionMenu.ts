@@ -92,6 +92,7 @@ export function useThreadActionMenu(input: {
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
+  const lessonListEnabled = useClientSettings((s) => s.sidebarLessonListEnabled);
   const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
     onCopy: ({ path }) => {
       toastManager.add({ type: "success", title: "Path copied", description: path });
@@ -139,6 +140,18 @@ export function useThreadActionMenu(input: {
         snoozePresets,
         canTurnIntoProject: canTurnThreadIntoProject(threadRef),
         moveTargets,
+        ...(lessonListEnabled
+          ? {}
+          : {
+              withoutLessonList: {
+                isQuickQuestion: projects.some(
+                  (project) =>
+                    project.environmentId === thread.environmentId &&
+                    project.id === thread.projectId &&
+                    project.isScratch === true,
+                ),
+              },
+            }),
       });
       const clicked = await settlePromise(() => api.contextMenu.show(items, position));
       if (clicked._tag === "Failure" || clicked.value === null) return;
@@ -206,7 +219,9 @@ export function useThreadActionMenu(input: {
           return;
         }
         case "settle":
-          await reportFailure("Failed to settle lesson", () => settleThread(threadRef));
+          await reportFailure("Failed to settle lesson", () =>
+            settleThread(threadRef, lessonListEnabled ? {} : { notice: "Done" }),
+          );
           return;
         case "unsettle":
           await reportFailure("Failed to un-settle lesson", () => unsettleThread(threadRef));

@@ -3,6 +3,7 @@ import type { EnvironmentThreadShell } from "@aprende/client-runtime/state/shell
 import type { Dispatch } from "react";
 import type { ComposerHandleRef } from "../../composerHandleContext";
 import { isThreadWokeUnseen, makeThreadErrorSetter } from "../ChatView.logic";
+import { useClientSettings } from "../../hooks/useSettings";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import { useDeadlinePassed, useNowAfter } from "../../hooks/useDeadline";
 import type { usePendingThreadRequests } from "./usePendingThreadRequests";
@@ -28,7 +29,11 @@ import { useAcknowledgeThreadWoke, useThreadActions } from "../../hooks/useThrea
 import { settleAndAdvance } from "../../settleAndAdvance";
 import type { ChatShortcutCommands } from "./useChatShortcuts";
 import { resolveThreadLastVisitedAt } from "../Sidebar.logic";
-import { scopedThreadKey, scopeThreadRef } from "@aprende/client-runtime/environment";
+import {
+  scopedThreadKey,
+  scopeProjectRef,
+  scopeThreadRef,
+} from "@aprende/client-runtime/environment";
 import { type SetStateAction, useRef, useState } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import {
@@ -43,7 +48,12 @@ import { stackedThreadToast, toastManager } from "../ui/toast";
 import { newMessageId } from "~/lib/utils";
 import { buildThreadRouteParams } from "../../threadRoutes";
 import { threadEnvironment } from "../../state/threads";
-import { useChildThreadInputs, readThreadShell, waitForThreadShell } from "../../state/entities";
+import {
+  useChildThreadInputs,
+  useProject,
+  readThreadShell,
+  waitForThreadShell,
+} from "../../state/entities";
 import { serverEnvironment } from "../../state/server";
 import { environmentShell } from "../../state/shell";
 import { ThreadStatusLine } from "./ThreadStatusLine";
@@ -196,6 +206,15 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
   });
   const activeThreadSettled =
     serverConfigLoaded && activeThreadShell?.settledOverride === "settled";
+  // Without the lesson list, nothing shows a pin, and settling only means something for a
+  // quick question, which the home page lists.
+  const lessonListEnabled = useClientSettings((settings) => settings.sidebarLessonListEnabled);
+  const activeProject = useProject(
+    activeThreadShell === null
+      ? null
+      : scopeProjectRef(activeThreadShell.environmentId, activeThreadShell.projectId),
+  );
+  const settleApplies = lessonListEnabled || activeProject?.isScratch === true;
   const unsettleThreadMutation = useOrchestrationCommand(threadEnvironment.unsettle, {
     reportFailure: false,
   });
@@ -486,7 +505,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
       actionDisabled={!canOperateThread || isUnsnoozing}
       onAction={() => void handleUnsnoozeActiveThreadStable()}
     />
-  ) : activeThreadSettled ? (
+  ) : activeThreadSettled && lessonListEnabled ? (
     <ThreadStatusLine
       icon={<CheckCircle2Icon />}
       label={settledAt ? `Settled ${formatRelativeTimeLabel(settledAt)}` : "Settled"}
@@ -519,12 +538,15 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
     "thread.settle": () => {
       if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return false;
       if (!activeThreadShell || !activeThreadRef || !serverConfigLoaded) return;
+      if (!settleApplies) return false;
       if (activeThreadSettled) {
         void handleUnsettleActiveThread();
         return;
       }
       if (settleAndAdvance(activeThreadRef)) return;
-      void settleThread(activeThreadRef).then(toastThreadActionFailure("Failed to settle thread"));
+      void settleThread(activeThreadRef, lessonListEnabled ? {} : { notice: "Done" }).then(
+        toastThreadActionFailure("Failed to settle thread"),
+      );
     },
     "thread.pin": ({ event }) => {
       // An open project list pins its highlighted project with this key instead.
@@ -535,6 +557,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
         return false;
       }
       if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return false;
+      if (!lessonListEnabled) return false;
       if (!activeThreadShell || !activeThreadRef || !serverConfigLoaded) return;
       void (
         activeThreadPinned ? confirmAndUnpinThread(activeThreadRef) : pinThread(activeThreadRef)

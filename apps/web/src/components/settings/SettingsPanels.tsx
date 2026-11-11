@@ -421,6 +421,9 @@ export function useSettingsRestore(onRestored?: () => void) {
     ...(settings.sidebarWorkingShelfEnabled !== DEFAULT_UNIFIED_SETTINGS.sidebarWorkingShelfEnabled
       ? ["Working section"]
       : []),
+    ...(settings.sidebarLessonListEnabled !== DEFAULT_UNIFIED_SETTINGS.sidebarLessonListEnabled
+      ? ["Lesson list"]
+      : []),
     ...(settings.sidebarAutoSettleAfterDays !== DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays
       ? ["Auto-settle inactive lessons"]
       : []),
@@ -533,6 +536,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       sidebarProjectGroupingMode: DEFAULT_UNIFIED_SETTINGS.sidebarProjectGroupingMode,
       sidebarProjectSortOrder: DEFAULT_UNIFIED_SETTINGS.sidebarProjectSortOrder,
       sidebarWorkingShelfEnabled: DEFAULT_UNIFIED_SETTINGS.sidebarWorkingShelfEnabled,
+      sidebarLessonListEnabled: DEFAULT_UNIFIED_SETTINGS.sidebarLessonListEnabled,
       sidebarAutoSettleAfterDays: DEFAULT_UNIFIED_SETTINGS.sidebarAutoSettleAfterDays,
       autoResumeLimitedThreads: DEFAULT_UNIFIED_SETTINGS.autoResumeLimitedThreads,
       snoozeLimitedThreads: DEFAULT_UNIFIED_SETTINGS.snoozeLimitedThreads,
@@ -602,8 +606,34 @@ export function GeneralSettingsPanel() {
 
       <SettingsSection id="sidebar" title="Sidebar">
         <SettingsRow
+          {...searchableSetting("lesson-list")}
+          description="Show a sidebar that lists every lesson, with pin, snooze and settle. When off, aprende has no sidebar and your notebooks keep track of the lessons."
+          resetAction={
+            settings.sidebarLessonListEnabled !==
+            DEFAULT_UNIFIED_SETTINGS.sidebarLessonListEnabled ? (
+              <SettingResetButton
+                label="lesson list"
+                onClick={() =>
+                  updateSettings({
+                    sidebarLessonListEnabled: DEFAULT_UNIFIED_SETTINGS.sidebarLessonListEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Switch
+              checked={settings.sidebarLessonListEnabled}
+              onCheckedChange={(checked) =>
+                updateSettings({ sidebarLessonListEnabled: Boolean(checked) })
+              }
+              aria-label="Lesson list"
+            />
+          }
+        />
+        <SettingsRow
           {...searchableSetting("project-order")}
-          description="Order of notebooks in the sidebar notebook picker and command palette."
+          description="Order of notebooks in notebook pickers and the command palette."
           resetAction={
             settings.sidebarProjectSortOrder !==
             DEFAULT_UNIFIED_SETTINGS.sidebarProjectSortOrder ? (

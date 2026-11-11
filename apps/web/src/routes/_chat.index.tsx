@@ -2,6 +2,8 @@ import type { EnvironmentThreadShell } from "@aprende/client-runtime/state/model
 import { createFileRoute } from "@tanstack/react-router";
 
 import { HostedEmptyState } from "../components/HostedEmptyState";
+import { HomeHeaderActions, HomeStatusBar } from "../components/learning/HomeChrome";
+import { listedQuickQuestions } from "../components/learning/notebook.logic";
 import { NotebooksHome } from "../components/learning/NotebooksHome";
 import { NoProjectsHero } from "../components/NoProjectsHero";
 import { sortScopedProjectsForSidebar } from "../components/Sidebar.logic";
@@ -37,9 +39,19 @@ function IndexLanding() {
     visibleThreads,
     "updated_at",
   );
-  if (notebooks.length === 0) {
+  const quickQuestionProjects = new Set(
+    projects
+      .filter((project) => project.isScratch === true)
+      .map((project) => `${project.environmentId}:${project.id}`),
+  );
+  const quickQuestions = listedQuickQuestions(visibleThreads, (thread) =>
+    quickQuestionProjects.has(`${thread.environmentId}:${thread.projectId}`),
+  );
+  if (notebooks.length === 0 && quickQuestions.length === 0) {
     // A pending environment cannot prove the learner has no notebooks.
-    return bootstrapped ? <NoProjectsHero /> : null;
+    return bootstrapped ? (
+      <NoProjectsHero chrome={{ actions: <HomeHeaderActions />, footer: <HomeStatusBar /> }} />
+    ) : null;
   }
   // Each card scans only its own notebook's threads.
   const threadsByNotebook = new Map<string, Array<EnvironmentThreadShell>>();
@@ -49,7 +61,13 @@ function IndexLanding() {
     if (group === undefined) threadsByNotebook.set(key, [thread]);
     else group.push(thread);
   }
-  return <NotebooksHome notebooks={notebooks} threadsByNotebook={threadsByNotebook} />;
+  return (
+    <NotebooksHome
+      notebooks={notebooks}
+      threadsByNotebook={threadsByNotebook}
+      quickQuestions={quickQuestions}
+    />
+  );
 }
 
 export const Route = createFileRoute("/_chat/")({

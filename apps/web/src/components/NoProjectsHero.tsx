@@ -1,5 +1,6 @@
 import { workspaceAreaProps } from "../lib/workspaceFocus";
 import { MessageSquareDashedIcon, PlusIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { useNewNotebook } from "./learning/useNewNotebook";
 import { isElectron } from "../env";
@@ -10,7 +11,10 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import { SidebarInset } from "./ui/sidebar";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
-export function NoProjectsHero() {
+/** The home page before the learner has anything; `chrome` adds what the home page offers. */
+export function NoProjectsHero(props: {
+  readonly chrome?: { readonly actions: ReactNode; readonly footer: ReactNode };
+}) {
   const contentArea = workspaceAreaProps("home", 1, "Home");
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const { scratchEnvironmentId, startScratchThread } = useScratchProject();
@@ -25,7 +29,9 @@ export function NoProjectsHero() {
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
         {/* The desktop window only moves where CSS opts in, so keep a titlebar strip. */}
-        {isElectron ? <WorkspacePageHeader electron /> : null}
+        {isElectron || props.chrome ? (
+          <WorkspacePageHeader electron={isElectron}>{props.chrome?.actions}</WorkspacePageHeader>
+        ) : null}
         <Empty size="hero" className="flex-1">
           <div className="w-full max-w-lg px-8 py-12">
             <EmptyHeader className="max-w-none">
@@ -54,6 +60,7 @@ export function NoProjectsHero() {
             </EmptyHeader>
           </div>
         </Empty>
+        {props.chrome?.footer}
       </div>
     </SidebarInset>
   );

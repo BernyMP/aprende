@@ -223,7 +223,7 @@ export function ProjectSettingsPanel({
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-sm text-muted-foreground">
         {groups.length === 0
-          ? "Add a project from the sidebar to configure it here."
+          ? "Create a notebook to configure it here."
           : "This project is no longer available."}
       </div>
     );

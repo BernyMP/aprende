@@ -58,7 +58,7 @@ export function useNewProject() {
         stackedThreadToast({
           type: "error",
           title: "Failed to open project",
-          description: `${errorMessage(error)} It will appear in the sidebar once this client catches up.`,
+          description: `${errorMessage(error)} It will appear under Notebooks once this client catches up.`,
         }),
       );
       return null;

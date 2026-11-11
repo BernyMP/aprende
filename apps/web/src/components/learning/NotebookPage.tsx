@@ -6,10 +6,12 @@ import {
   type LearningNotebook,
   type LearningOutlineOp,
   type LearningOutlineTopic,
+  NEW_NOTEBOOK_TITLE,
   type ProjectId,
 } from "@aprende/contracts";
 import { Link } from "@tanstack/react-router";
 import {
+  ChevronRightIcon,
   CircleCheckIcon,
   CircleDashedIcon,
   CircleDotIcon,
@@ -23,12 +25,14 @@ import { useState } from "react";
 import { requestConfirmDialog } from "~/confirmDialog";
 import { isElectron } from "~/env";
 import { useNewThreadHandler } from "~/hooks/useHandleNewThread";
+import { cn } from "~/lib/utils";
 import { useProject, useThreadShells } from "~/state/entities";
 import { serverEnvironment } from "~/state/server";
 import { useAtomCommand } from "~/state/use-atom-command";
 
 import { ProjectFavicon } from "../ProjectFavicon";
 import { Button } from "../ui/button";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
 import { Input } from "../ui/input";
 import {
@@ -53,8 +57,8 @@ import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import {
   TOPIC_PROGRESS_LABEL,
   neighborPlacement,
-  nextTopic,
   notebookLessons,
+  notebookNextStep,
   topicProgress,
   type TopicProgress,
 } from "./notebook.logic";
@@ -155,12 +159,8 @@ function NotebookBody(props: {
     projectId: project.id,
     links: notebook.lessons,
   });
-  const lessonsOf = (topicId: string) =>
-    lessons.filter((thread) => topicOfLesson.get(thread.id) === topicId);
-  const topicIds = new Set(topics.map((topic) => topic.id));
-  const looseLessons = lessons.filter(
-    (thread) => !topicIds.has(topicOfLesson.get(thread.id) ?? ""),
-  );
+  const latestLessonOf = (topicId: string) =>
+    lessons.find((thread) => topicOfLesson.get(thread.id) === topicId);
 
   const edit = async (ops: ReadonlyArray<LearningOutlineOp>) => {
     const result = await editOutline({ environmentId, input: { projectId: project.id, ops } });
@@ -196,8 +196,13 @@ function NotebookBody(props: {
       void relink(thread, topicId),
   };
 
-  const next = nextTopic(topics, startedTopicIds);
-  const nextLessons = next === undefined ? [] : lessonsOf(next.id);
+  const step = notebookNextStep({
+    topics,
+    hasProposal: notebook.proposal !== null,
+    lessons,
+    topicOfLesson,
+    startedTopicIds,
+  });
   const counts = {
     learned: topics.filter((topic) => topic.status === "learned").length,
     known: topics.filter((topic) => topic.status === "known").length,
@@ -216,32 +221,35 @@ function NotebookBody(props: {
                 `${remaining} to go`,
               ].join(" · ")}
         </span>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void handleNewThread(scopeProjectRef(environmentId, project.id))}
-        >
-          New lesson
-        </Button>
-        {next !== undefined ? (
-          nextLessons[0] !== undefined ? (
-            <Button
-              size="sm"
-              render={
-                <Link
-                  to="/$environmentId/$threadId"
-                  params={{ environmentId, threadId: nextLessons[0].id }}
-                />
-              }
-            >
-              Continue: {next.title}
-            </Button>
-          ) : (
-            <Button size="sm" disabled={starting} onClick={() => void startLesson(next)}>
-              {starting ? "Starting…" : `Start: ${next.title}`}
-            </Button>
-          )
-        ) : null}
+        {step.kind === "resume" ? (
+          <Button
+            size="sm"
+            render={
+              <Link
+                to="/$environmentId/$threadId"
+                params={{ environmentId, threadId: step.lesson.id }}
+              />
+            }
+          >
+            {step.topic !== null
+              ? `Continue: ${step.topic.title}`
+              : project.title === NEW_NOTEBOOK_TITLE
+                ? "Continue setup"
+                : "Continue"}
+          </Button>
+        ) : step.kind === "start" ? (
+          <Button size="sm" disabled={starting} onClick={() => void startLesson(step.topic)}>
+            {starting ? "Starting…" : `Start: ${step.topic.title}`}
+          </Button>
+        ) : step.kind === "review" ? null : (
+          <Button
+            size="sm"
+            variant={step.kind === "firstLesson" ? "default" : "outline"}
+            onClick={() => void handleNewThread(scopeProjectRef(environmentId, project.id))}
+          >
+            {step.kind === "firstLesson" ? "Start your first lesson" : "New lesson"}
+          </Button>
+        )}
       </div>
       <div className="scrollbar-gutter-both min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-4 sm:px-6">
@@ -253,8 +261,9 @@ function NotebookBody(props: {
               <EmptyHeader>
                 <EmptyTitle>No outline yet</EmptyTitle>
                 <EmptyDescription>
-                  Start a lesson and the tutor suggests an outline for this subject once it knows
-                  where you are. Or add topics yourself.
+                  {lessons.length === 0
+                    ? "Start a lesson and the tutor suggests an outline for this subject once it knows where you are. Or add topics yourself."
+                    : "The tutor suggests an outline for this subject once it knows where you are. Or add topics yourself."}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -266,8 +275,7 @@ function NotebookBody(props: {
                   environmentId={environmentId}
                   topic={topic}
                   progress={topicProgress(topic, startedTopicIds)}
-                  lessons={lessonsOf(topic.id)}
-                  lessonProps={lessonProps}
+                  latestLesson={latestLessonOf(topic.id)}
                   canMoveUp={neighborPlacement(topics, topic.id, "up") !== undefined}
                   canMoveDown={neighborPlacement(topics, topic.id, "down") !== undefined}
                   starting={starting}
@@ -284,18 +292,7 @@ function NotebookBody(props: {
             </ol>
           )}
           <AddTopic onAdd={(title) => edit([{ type: "add", title }])} />
-          {looseLessons.length > 0 ? (
-            <section aria-label="Other lessons" className="flex flex-col gap-1.5 pt-2">
-              <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                Other lessons
-              </p>
-              <ul className="flex flex-col gap-1 text-sm">
-                {looseLessons.map((thread) => (
-                  <LessonLink key={thread.id} thread={thread} {...lessonProps} />
-                ))}
-              </ul>
-            </section>
-          ) : null}
+          {lessons.length > 0 ? <AllLessons lessons={lessons} lessonProps={lessonProps} /> : null}
         </div>
       </div>
     </div>
@@ -306,8 +303,8 @@ function TopicRow(props: {
   readonly environmentId: EnvironmentId;
   readonly topic: LearningOutlineTopic;
   readonly progress: TopicProgress;
-  readonly lessons: ReadonlyArray<EnvironmentThreadShell>;
-  readonly lessonProps: LessonTopicProps;
+  /** The lesson the topic's button returns to; without one, the button starts a lesson. */
+  readonly latestLesson: EnvironmentThreadShell | undefined;
   readonly canMoveUp: boolean;
   readonly canMoveDown: boolean;
   readonly starting: boolean;
@@ -316,7 +313,7 @@ function TopicRow(props: {
   readonly onMove: (direction: "up" | "down") => void;
   readonly onRemove: () => void;
 }) {
-  const { topic } = props;
+  const { topic, latestLesson } = props;
   const [renaming, setRenaming] = useState(false);
   const Icon = PROGRESS_ICON[props.progress];
   const markAs = (status: LearningOutlineTopic["status"]) =>
@@ -351,18 +348,26 @@ function TopicRow(props: {
         {topic.status === "known" ? (
           <p className="text-muted-foreground text-xs">Known, not checked by a lesson yet</p>
         ) : null}
-        {props.lessons.length > 0 ? (
-          <ul className="flex flex-col gap-0.5 text-xs">
-            {props.lessons.map((thread) => (
-              <LessonLink key={thread.id} thread={thread} {...props.lessonProps} />
-            ))}
-          </ul>
-        ) : null}
       </div>
       <div className="flex shrink-0 items-start gap-1">
-        <Button size="xs" variant="outline" disabled={props.starting} onClick={props.onStart}>
-          Start lesson
-        </Button>
+        {latestLesson === undefined ? (
+          <Button size="xs" variant="outline" disabled={props.starting} onClick={props.onStart}>
+            Start
+          </Button>
+        ) : (
+          <Button
+            size="xs"
+            variant="outline"
+            render={
+              <Link
+                to="/$environmentId/$threadId"
+                params={{ environmentId: props.environmentId, threadId: latestLesson.id }}
+              />
+            }
+          >
+            {topic.status === "todo" ? "Continue" : "Revisit"}
+          </Button>
+        )}
         <Menu>
           <MenuTrigger
             render={
@@ -372,6 +377,14 @@ function TopicRow(props: {
             <EllipsisIcon />
           </MenuTrigger>
           <MenuPopup align="end">
+            {latestLesson === undefined ? null : (
+              <>
+                <MenuItem disabled={props.starting} onClick={props.onStart}>
+                  Start a new lesson
+                </MenuItem>
+                <MenuSeparator />
+              </>
+            )}
             <MenuItem onClick={() => setRenaming(true)}>Rename</MenuItem>
             <MenuItem disabled={!props.canMoveUp} onClick={() => props.onMove("up")}>
               Move up
@@ -448,6 +461,35 @@ function AddTopic(props: { readonly onAdd: (title: string) => Promise<boolean> }
   );
 }
 
+/** Every lesson in the notebook, folded away: topics are how a learner gets to one. */
+function AllLessons(props: {
+  readonly lessons: ReadonlyArray<EnvironmentThreadShell>;
+  readonly lessonProps: LessonTopicProps;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="mt-2">
+      <CollapsibleTrigger className="flex items-center gap-1.5 rounded-sm font-medium text-muted-foreground text-xs uppercase tracking-wide outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+        <ChevronRightIcon
+          aria-hidden
+          className={cn(
+            "size-3.5 shrink-0 transition-transform duration-150 motion-reduce:transition-none",
+            open && "rotate-90",
+          )}
+        />
+        All lessons ({props.lessons.length})
+      </CollapsibleTrigger>
+      <CollapsiblePanel>
+        <ul className="flex flex-col gap-1 pt-1.5 text-sm">
+          {props.lessons.map((thread) => (
+            <LessonLink key={thread.id} thread={thread} {...props.lessonProps} />
+          ))}
+        </ul>
+      </CollapsiblePanel>
+    </Collapsible>
+  );
+}
+
 interface LessonTopicProps {
   readonly topics: ReadonlyArray<LearningOutlineTopic>;
   readonly topicOfLesson: ReadonlyMap<string, string>;
@@ -470,6 +512,11 @@ function LessonLink(props: LessonTopicProps & { readonly thread: EnvironmentThre
         {thread.title}
       </Link>
       <span className="shrink-0 tabular-nums">{shortDate(thread.createdAt)}</span>
+      {value === NO_TOPIC ? null : (
+        <span className="min-w-0 shrink truncate">
+          {props.topics.find((topic) => topic.id === value)?.title}
+        </span>
+      )}
       {props.topics.length > 0 ? (
         <Menu>
           <MenuTrigger

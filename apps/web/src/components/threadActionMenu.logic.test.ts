@@ -25,6 +25,20 @@ const baseState: ThreadActionMenuState = {
 };
 
 describe("buildThreadActionMenuItems", () => {
+  it.each([
+    [false, ["rename", "regenerate-title", "copy", "project-settings", "archive", "delete"]],
+    [
+      true,
+      ["settle", "rename", "regenerate-title", "copy", "project-settings", "archive", "delete"],
+    ],
+  ])("keeps only what works without a lesson list (quick question: %s)", (isQuickQuestion, ids) => {
+    const items = buildThreadActionMenuItems({
+      ...baseState,
+      withoutLessonList: { isQuickQuestion },
+    });
+    expect(items.map((item) => item.id)).toEqual(ids);
+  });
+
   it.each([false, true])(
     "disables both lifecycle directions without permission (reversed: %s)",
     (reversed) => {
