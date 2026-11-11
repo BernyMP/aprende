@@ -44,8 +44,9 @@ const sha256 = (bytes: Uint8Array) =>
     Effect.map((digest) => Hex.encode(new Uint8Array(digest))),
   );
 
-const host = (env: NodeJS.ProcessEnv, executable = "/opt/aprende/aprende") =>
+const host = (env: NodeJS.ProcessEnv, executable = "/opt/aprende/aprende", standalone = false) =>
   Layer.mergeAll(
+    Layer.succeed(HostProcess.IsExecutable)(standalone),
     Layer.succeed(HostProcess.Platform)("linux"),
     Layer.succeed(HostProcess.Architecture)("x64"),
     Layer.succeed(HostProcess.Environment)(env),
@@ -140,7 +141,7 @@ it.effect("downloads uv once behind its checksum and installs Python with it", (
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 
-it.live("puts a node on PATH that runs the server's own runtime, as Node under Electron", () =>
+it.live("puts a node on PATH that runs the server's own runtime as Node", () =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -158,13 +159,18 @@ it.live("puts a node on PATH that runs the server's own runtime, as Node under E
     );
     yield* fileSystem.chmod(executable, 0o755);
 
-    const run = (env: NodeJS.ProcessEnv) =>
+    const baseDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-runtimes-" });
+    const shim = path.join(baseDir, "runtimes", "bin", "node");
+    const run = (standalone: boolean) =>
       Effect.gen(function* () {
         const runtimes = yield* PracticeRuntimes.PracticeRuntimes;
+        const env = yield* runtimes.env;
+        assert.equal(env["PATH"], `${path.dirname(shim)}:/usr/bin:/bin`);
         const result = yield* processRunner.run({
           command: "/bin/sh",
-          args: ["-c", "node --test 'a b'"],
-          env: { ELECTRON_RUN_AS_NODE: "", ...(yield* runtimes.env) },
+          // By path, so a node the machine has cannot answer for a shim that was not written.
+          args: ["-c", '"$0" --test "a b"', shim],
+          env: { ELECTRON_RUN_AS_NODE: "", ...env },
         });
         return result.stdout;
       }).pipe(
@@ -176,17 +182,16 @@ it.live("puts a node on PATH that runs the server's own runtime, as Node under E
                 HttpClient.make(() => Effect.die("no request")),
               ),
             ),
-            Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "aprende-runtimes-" })),
-            Layer.provide(host(env, executable)),
+            Layer.provide(ServerConfig.layerTest(process.cwd(), baseDir)),
+            Layer.provide(host({ PATH: "/usr/bin:/bin" }, executable, standalone)),
           ),
         ),
       );
 
-    assert.equal(
-      yield* run({ PATH: "/usr/bin:/bin", ELECTRON_RUN_AS_NODE: "1" }),
-      "node=1 args=--test a b\n",
-    );
-    assert.equal(yield* run({ PATH: "/usr/bin:/bin" }), "node= args=--test a b\n");
+    assert.equal(yield* run(false), "node=1 args=--test a b\n");
+    // A standalone executable would run aprende's CLI with the script's arguments, so no shim stays.
+    assert.equal(yield* run(true), "");
+    assert.isFalse(yield* fileSystem.exists(shim));
   }).pipe(Effect.provide(Layer.provideMerge(ProcessRunner.layer, NodeServices.layer))),
 );
 

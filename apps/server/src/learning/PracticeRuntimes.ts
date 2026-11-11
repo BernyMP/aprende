@@ -92,6 +92,7 @@ const make = Effect.fn("PracticeRuntimes.make")(function* (archives: UvArchives)
   const { baseDir } = yield* ServerConfig;
   const hostEnv = yield* HostProcess.Environment;
   const executable = yield* HostProcess.ExecutablePath;
+  const standalone = yield* HostProcess.IsExecutable;
   const archive = archives[`${platform}-${yield* HostProcess.Architecture}`];
   const scope = yield* Effect.scope;
   const root = path.join(baseDir, "runtimes");
@@ -102,10 +103,12 @@ const make = Effect.fn("PracticeRuntimes.make")(function* (archives: UvArchives)
 
   const writeNodeShim = Effect.gen(function* () {
     const shim = path.join(bin, "node");
+    // A standalone aprende executable runs its own CLI, not scripts, so it cannot stand in for node.
+    if (standalone) return yield* fileSystem.remove(shim, { force: true });
     const text = [
       "#!/bin/sh",
       // The desktop app runs this server on Electron, which acts as Node only with this set.
-      ...(hostEnv["ELECTRON_RUN_AS_NODE"] === "1" ? ["export ELECTRON_RUN_AS_NODE=1"] : []),
+      "export ELECTRON_RUN_AS_NODE=1",
       `exec ${shellWord(executable)} "$@"`,
       "",
     ].join("\n");
