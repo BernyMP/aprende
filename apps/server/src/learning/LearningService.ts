@@ -1152,11 +1152,11 @@ export const layer = Layer.effect(
           exitCode,
           timedOut: run.timedOut,
           truncated: read.truncated,
-          // A check that failed for want of Python says so before its own output.
+          // A check that may have failed for want of Python says so before its own output.
           output:
             noPython === undefined || exitCode === 0
               ? read.output
-              : `${noPython}\n\n${read.output}`,
+              : `${noPython} This check ran without aprende's Python:\n\n${read.output}`,
         } satisfies LearningCheckRun;
       },
     );
