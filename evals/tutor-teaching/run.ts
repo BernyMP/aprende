@@ -11,6 +11,7 @@ import { TUTOR_MCP_TOOL_NAMES } from "@aprende/contracts";
 import { Tool } from "effect/ai";
 
 import { learnerProfileSection } from "../../apps/server/src/learning/learnerProfile.ts";
+import { missingProgramMessage } from "../../apps/server/src/learning/learningLogic.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
 import { HtmlToolkit } from "../../apps/server/src/mcp/toolkits/html/tools.ts";
 import { LEARN_TOOL_MESSAGES } from "../../apps/server/src/mcp/toolkits/learn/handlers.ts";
@@ -102,6 +103,12 @@ const stubConfig = (entry: TutorCase): StubConfig => ({
     html_render: { message: "The learner sees the render now." },
     html_preview: { message: "Previewed." },
   },
+  missingPrograms: Object.fromEntries(
+    (entry.mocks?.missingPrograms ?? []).map((program) => [
+      program,
+      missingProgramMessage(program),
+    ]),
+  ),
 });
 
 interface CliResult {
@@ -154,7 +161,13 @@ const runClaude = (input: {
           if (block.type === "tool_result") {
             const call = pending.get(String(block.tool_use_id));
             if (call === undefined) continue;
-            const content = Array.isArray(block.content) ? block.content : [];
+            // A failed call's content arrives as one string, not as parts.
+            const content =
+              typeof block.content === "string"
+                ? [{ text: block.content }]
+                : Array.isArray(block.content)
+                  ? block.content
+                  : [];
             const raw = content
               .map((part: { text?: string }) => part.text ?? "")
               .join("")

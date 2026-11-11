@@ -195,6 +195,11 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return made.some((call) => call.name === "propose_outline");
     case "guidedNotebookStart":
       return made.some((call) => call.name === "name_notebook");
+    case "recoversFromMissingProgram":
+      // The refusal and what the tutor did about it are in the same turn.
+      return refusedForProgram(turns) !== -1;
+    case "posesWithBroughtRuntime":
+      return made.some((call) => call.name === "pose_problem");
     case "keepsNotebookName":
     case "noHandout":
     case "noLearningStyles":
@@ -203,6 +208,33 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return false;
   }
 }
+
+const allEvents = (turns: ReadonlyArray<Turn>) => turns.flatMap((turn) => turn.events);
+
+const checkCommandOf = (call: Call) =>
+  text((call.input.workspace as { checkCommand?: unknown } | undefined)?.checkCommand);
+
+const usesBroughtRuntime = (call: Call) => /^\s*(python3?|node)\b/.test(checkCommandOf(call));
+
+const mentionsInstalling = (event: TurnEvent) =>
+  /install/i.test(
+    event.kind === "text"
+      ? event.text
+      : event.name === "ask_question"
+        ? [text(event.input.question), ...strings(event.input.options)].join(" ")
+        : "",
+  );
+
+/** Where pose_problem was first refused because the check's program is not installed. */
+const refusedForProgram = (turns: ReadonlyArray<Turn>) =>
+  allEvents(turns).findIndex(
+    (event) =>
+      event.kind === "call" &&
+      event.name === "pose_problem" &&
+      event.isError &&
+      // A failure that is not JSON arrives under `text`, so search the whole result.
+      JSON.stringify(event.result).includes("is not installed"),
+  );
 
 const collectsProfile = (made: ReadonlyArray<Call>, fields: ReadonlyArray<string>) => {
   const saved = made.filter((call) => call.name === "set_profile");
@@ -318,6 +350,42 @@ export function ruleVerdict(
         ? { pass: true, reason: "Kept the name." }
         : { pass: false, reason: `Renamed it: ${JSON.stringify(naming.input)}` };
     }
+    case "recoversFromMissingProgram": {
+      const refused = refusedForProgram(turns);
+      if (refused === -1)
+        return {
+          pass: false,
+          reason: "Never posed a check that starts with the missing program.",
+          inconclusive: true,
+        };
+      const after = allEvents(turns).slice(refused + 1);
+      const reposed = after.find(
+        (event): event is Call =>
+          event.kind === "call" && event.name === "pose_problem" && !event.isError,
+      );
+      if (reposed !== undefined && usesBroughtRuntime(reposed))
+        return { pass: true, reason: `Posed it again with ${checkCommandOf(reposed)}.` };
+      return after.some((event) => event.kind === "text" && mentionsInstalling(event))
+        ? { pass: true, reason: "Told the learner what to install." }
+        : {
+            pass: false,
+            reason:
+              "After the refusal it neither said what to install nor posed with python3 or node.",
+          };
+    }
+    case "posesWithBroughtRuntime": {
+      const events = allEvents(turns);
+      const posed = events.findIndex(
+        (event) => event.kind === "call" && event.name === "pose_problem" && !event.isError,
+      );
+      if (posed === -1) return { pass: false, reason: "No problem posed." };
+      const problem = events[posed] as Call;
+      if (!usesBroughtRuntime(problem))
+        return { pass: false, reason: `Check: ${checkCommandOf(problem) || "none"}` };
+      return events.slice(0, posed).some(mentionsInstalling)
+        ? { pass: false, reason: "Talked about installing before posing." }
+        : { pass: true, reason: `Posed with ${checkCommandOf(problem)}.` };
+    }
     case "approach":
       return teachingWindow(turns).events.length === 0
         ? { pass: false, reason: "Never reached a plan within the turn cap.", inconclusive: true }
@@ -406,6 +474,8 @@ ${JSON_ONLY} {"oneThing": true|false, "noLecture": true|false, "reason": "one se
     case "outlineAfterMeasuring":
     case "noOutlineProposal":
     case "keepsNotebookName":
+    case "recoversFromMissingProgram":
+    case "posesWithBroughtRuntime":
       return undefined;
   }
 }

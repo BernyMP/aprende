@@ -24,6 +24,7 @@ import * as Stream from "effect/Stream";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import { forkParked } from "../serverActivation.ts";
 import * as LearningService from "./LearningService.ts";
+import * as PracticeRuntimes from "./PracticeRuntimes.ts";
 
 export class PracticeTerminalService extends Context.Service<
   PracticeTerminalService,
@@ -96,6 +97,7 @@ const shellCandidates = (platform: NodeJS.Platform, env: NodeJS.ProcessEnv) =>
 const make = Effect.gen(function* () {
   const pty = yield* PtyAdapter.PtyAdapter;
   const learning = yield* LearningService.LearningService;
+  const runtimes = yield* PracticeRuntimes.PracticeRuntimes;
   const threads = yield* ThreadManagementService.ThreadManagementService;
   const platform = yield* HostProcess.Platform;
   const hostEnv = yield* HostProcess.Environment;
@@ -195,10 +197,11 @@ const make = Effect.gen(function* () {
     size: { readonly cols: number; readonly rows: number },
   ) {
     const shells = shellCandidates(platform, env);
+    const shellEnv = { ...env, ...(yield* runtimes.env) };
     let lastError: PtyAdapter.PtySpawnError | undefined;
     for (const shell of shells) {
       const spawned = yield* pty
-        .spawn({ shell, cwd, cols: size.cols, rows: size.rows, env })
+        .spawn({ shell, cwd, cols: size.cols, rows: size.rows, env: shellEnv })
         .pipe(Effect.result);
       if (spawned._tag === "Success") return spawned.success;
       lastError = spawned.failure;

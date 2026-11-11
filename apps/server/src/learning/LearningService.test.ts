@@ -33,6 +33,7 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import { learnerProfileSection } from "./learnerProfile.ts";
 import * as LearningService from "./LearningService.ts";
+import * as PracticeRuntimes from "./PracticeRuntimes.ts";
 import { readTutorInstructions } from "./tutorPrompt.ts";
 
 const threadId = ThreadId.make("thread-learning");
@@ -40,7 +41,7 @@ const otherThreadId = ThreadId.make("thread-learning-other");
 
 interface Spawned {
   readonly args: ReadonlyArray<string>;
-  readonly options: { readonly cwd?: string };
+  readonly options: { readonly cwd?: string; readonly env?: NodeJS.ProcessEnv };
 }
 
 const makeHandle = (input: {
@@ -75,9 +76,19 @@ const makeLayer = (
     readonly scratch?: boolean;
     readonly notebook?: { readonly title: string; readonly projectIcon?: unknown };
     readonly projectUpdates?: Ref.Ref<ReadonlyArray<ProjectService.ProjectUpdateInput>>;
+    /** Waiting for aprende's Python; succeeds unless given. */
+    readonly python?: Effect.Effect<void, PracticeRuntimes.PracticeRuntimeError>;
   },
 ) =>
   LearningService.layer.pipe(
+    Layer.provide(
+      Layer.mock(PracticeRuntimes.PracticeRuntimes)({
+        env: Effect.succeed({ PATH: "/aprende/bin:/usr/bin" }),
+        python: options?.python ?? Effect.void,
+        warmPython: Effect.void,
+        isMissing: (program) => Effect.succeed(program === "go"),
+      }),
+    ),
     Layer.provide(
       Layer.mock(ThreadManagementService.ThreadManagementService)({
         getThreadShell: () =>
@@ -603,6 +614,16 @@ it.effect("writes starter files into a fresh practice folder and never into an e
     const dispatched = yield* Ref.make<ReadonlyArray<OrchestrationV2ServerCommand>>([]);
     yield* Effect.gen(function* () {
       const learning = yield* LearningService.LearningService;
+      // A check whose program the learner lacks is refused before anything is written.
+      const lacking = yield* Effect.flip(
+        learning.poseProblem(threadId, {
+          ...codingProblem,
+          workspace: { ...codingProblem.workspace, checkCommand: "go test ./..." },
+        }),
+      );
+      assert.include(lacking.message, "`go` is not installed");
+      assert.isFalse(yield* fileSystem.exists(path.join(root, "practice")));
+
       const first = yield* learning.poseProblem(threadId, codingProblem);
       assert.deepInclude((yield* Ref.get(dispatched))[0], {
         type: "thread.metadata.update",
@@ -656,6 +677,14 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
     const spawned = yield* Ref.make<ReadonlyArray<Spawned>>([]);
     const spawnedAt = yield* Ref.make<ReadonlyArray<number>>([]);
     const hang = yield* Ref.make(false);
+    const pythonDown = yield* Ref.make(false);
+    const python = Ref.get(pythonDown).pipe(
+      Effect.flatMap((down) =>
+        down
+          ? Effect.fail(new PracticeRuntimes.PracticeRuntimeError({ step: "download" }))
+          : Effect.void,
+      ),
+    );
     const drained = yield* Deferred.make<void>();
     const spawn = (command: Spawned) =>
       Effect.gen(function* () {
@@ -691,6 +720,7 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
         path.join(root, folder),
       );
       assert.include(command!.args.join(" "), "python3 -m unittest");
+      assert.equal(command!.options.env?.["PATH"], "/aprende/bin:/usr/bin");
 
       yield* Ref.set(hang, true);
       const running = yield* learning
@@ -713,11 +743,20 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
       assert.equal((yield* Fiber.join(overlapping)).exitCode, 1);
       assert.isAtLeast((yield* Ref.get(spawnedAt))[2]!, 30_000);
 
+      // Without aprende's Python the check still runs, on the learner's own if they have one.
+      // When it fails, the learner reads why before its output.
+      yield* Ref.set(pythonDown, true);
+      const noPython = yield* learning.runCheck({ threadId, problemId });
+      assert.equal(noPython.exitCode, 1);
+      assert.match(noPython.output, /^aprende could not set up Python.*\n\nx/);
+      assert.equal((yield* Ref.get(spawned)).length, 4);
+      yield* Ref.set(pythonDown, false);
+
       yield* fileSystem.remove(path.join(root, folder), { recursive: true });
       const gone = yield* learning.runCheck({ threadId, problemId });
       assert.isNull(gone.exitCode);
       assert.include(gone.output, "is gone");
-      assert.equal((yield* Ref.get(spawned)).length, 3);
+      assert.equal((yield* Ref.get(spawned)).length, 4);
       assert.include(
         (yield* Effect.flip(learning.practiceFolder({ threadId, problemId }))).message,
         "is gone",
@@ -734,7 +773,7 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
         (yield* Effect.flip(learning.practiceFolder({ threadId, problemId: plain.id }))).message,
         "This problem has no practice folder.",
       );
-    }).pipe(Effect.provide(makeLayer(sent, { root, spawn })));
+    }).pipe(Effect.provide(makeLayer(sent, { root, spawn, python })));
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 

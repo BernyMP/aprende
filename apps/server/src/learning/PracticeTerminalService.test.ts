@@ -21,6 +21,7 @@ import * as TestClock from "effect/testing/TestClock";
 
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as LearningService from "./LearningService.ts";
+import * as PracticeRuntimes from "./PracticeRuntimes.ts";
 import * as PracticeTerminalService from "./PracticeTerminalService.ts";
 
 const threadId = ThreadId.make("thread-terminal");
@@ -138,6 +139,11 @@ const makeHarness = Effect.fn(function* (
       }),
     ),
     Layer.provide(
+      Layer.mock(PracticeRuntimes.PracticeRuntimes)({
+        env: Effect.succeed({ PATH: "/aprende/bin:/usr/bin" }),
+      }),
+    ),
+    Layer.provide(
       Layer.succeed(HostProcess.Environment)({
         SHELL: "/bin/test-shell",
         HOME: "/home/learner",
@@ -163,6 +169,7 @@ it.effect("opens one shell per problem in its practice folder and forwards input
       assert.equal(pty.input.shell, "/bin/test-shell");
       assert.equal(pty.input.env["HOME"], "/home/learner");
       assert.isUndefined(pty.input.env["APRENDE_HOME"]);
+      assert.equal(pty.input.env["PATH"], "/aprende/bin:/usr/bin");
 
       yield* terminals.write({ ...target("prob-a"), data: "python3 main.py\r" });
       yield* terminals.resize({ ...target("prob-a"), cols: 120, rows: 40 });

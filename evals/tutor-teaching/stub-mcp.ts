@@ -14,6 +14,8 @@ export interface StubConfig {
   }>;
   /** Results keyed by tool name. A string is the `message` field; `{ id }` names the card. */
   readonly results: Readonly<Record<string, unknown>>;
+  /** Programs the learner's computer lacks, each with the failure pose_problem gives for it. */
+  readonly missingPrograms?: Readonly<Record<string, string>>;
 }
 
 export interface StubCall {
@@ -38,6 +40,14 @@ const resultFor = (name: string): unknown => {
   if (name === "set_plan") return { version: 1, message: config.results[name] };
   const canned = config.results[name];
   return typeof canned === "string" ? { message: canned } : (canned ?? { message: "Done." });
+};
+
+/** The failure for a problem whose check starts with a missing program, as the server refuses it. */
+const refusalFor = (name: string, input: unknown): string | undefined => {
+  if (name !== "pose_problem") return undefined;
+  const command = (input as { workspace?: { checkCommand?: unknown } }).workspace?.checkCommand;
+  const program = typeof command === "string" ? command.trim().split(/\s+/)[0] : undefined;
+  return program === undefined ? undefined : config.missingPrograms?.[program];
 };
 
 const send = (message: unknown) => process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -65,6 +75,26 @@ NodeReadline.createInterface({ input: process.stdin }).on("line", (line) => {
       return send({ jsonrpc: "2.0", id: request.id, result: { tools: config.tools } });
     case "tools/call": {
       const name = request.params?.name ?? "";
+      const refusal = refusalFor(name, request.params?.arguments ?? {});
+      // A refused call shows no card, so it is not logged and takes no card number.
+      if (refusal !== undefined)
+        return send({
+          jsonrpc: "2.0",
+          id: request.id,
+          result: {
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  _tag: "OrchestratorMcpFailure",
+                  code: "invalid_request",
+                  message: refusal,
+                }),
+              },
+            ],
+          },
+        });
       const result = resultFor(name);
       const call: StubCall = { name, input: request.params?.arguments ?? {}, result };
       NodeFS.appendFileSync(logFile, `${JSON.stringify(call)}\n`);

@@ -50,6 +50,7 @@ import * as ThreadLaunchService from "./ThreadLaunchService.ts";
 import * as ThreadForkService from "./ThreadForkService.ts";
 import * as TurnItemPositionStore from "./TurnItemPositionStore.ts";
 import * as LearningService from "../learning/LearningService.ts";
+import * as PracticeRuntimes from "../learning/PracticeRuntimes.ts";
 
 export const layerEventInfrastructure = Layer.mergeAll(
   OrchestrationEventStore.layer,
@@ -343,6 +344,7 @@ export const layerProduction = Layer.mergeAll(
         layerThreadManagementProvided,
         layerProjectService,
         layerManagedProjectFoldersProvided,
+        PracticeRuntimes.layer,
       ),
     ),
   ),
