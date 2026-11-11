@@ -31,6 +31,7 @@ import * as Ws from "./ws.ts";
 import * as AgentScopeLive from "./process/agentScope.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
 import * as NodePtyAdapter from "./process/NodePtyAdapter.ts";
+import * as PracticeRuntimes from "./learning/PracticeRuntimes.ts";
 import * as PracticeTerminals from "./learning/PracticeTerminalService.ts";
 import * as SqlitePersistence from "./persistence/Sqlite.ts";
 import * as ServerLifecycleEvents from "./serverLifecycleEvents.ts";
@@ -313,7 +314,7 @@ const layerRuntimeCoreDependenciesBase = Layer.mergeAll(
   layerLegacyCredentialCleanup,
   ReplayMarkers.layer,
   Layer.effectDiscard(ProjectSettingsOverrideSweep.sweep),
-  PracticeTerminals.layer,
+  PracticeTerminals.layer.pipe(Layer.provide(PracticeRuntimes.layer)),
 ).pipe(
   Layer.provideMerge(layerOrchestrationV2Runtime),
   Layer.provideMerge(RuntimeLayer.layerEventInfrastructure),

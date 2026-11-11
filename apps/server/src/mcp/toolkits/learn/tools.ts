@@ -123,7 +123,7 @@ const PoseProblemTool = Tool.make("pose_problem", {
         }),
         checkCommand: Schema.optional(
           Schema.String.annotate({
-            description: `Run in the folder by the learner and on submit, stopped after ${LEARNING_CHECK_TIMEOUT_SECONDS} s. Test the behavior asked for, like \`python3 -m unittest\`.`,
+            description: `Run in the folder by the learner and on submit, stopped after ${LEARNING_CHECK_TIMEOUT_SECONDS} s. Test the behavior asked for, like \`python3 -m unittest\`. aprende brings \`python3\` and \`node\`, each with its standard library only. The call fails when the learner's computer lacks any other program you start the check with.`,
           }),
         ),
       }),

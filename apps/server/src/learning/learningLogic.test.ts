@@ -7,6 +7,7 @@ import {
 import {
   applyOutlineOps,
   answerProblem,
+  checkProgram,
   formatAnswerMessage,
   formatSolutionMessage,
   gradeAnswer,
@@ -15,6 +16,7 @@ import {
   problemDraftProblem,
   questionDraftProblem,
   shuffleOptions,
+  workspaceUsesPython,
   type StoredQuestion,
 } from "./learningLogic.ts";
 
@@ -187,6 +189,32 @@ describe("practiceFolderName", () => {
       "fizz-buzz-dia-1-1a2b3c4d",
     );
     expect(practiceFolderName("¿?", "prob-0000aaaa-1")).toBe("problem-0000aaaa");
+  });
+});
+
+describe("checkProgram", () => {
+  it.each([
+    ["go test ./...", "go"],
+    ["  python3 -m unittest", "python3"],
+    ["cargo", "cargo"],
+    // Paths, assignments and quoting are left to the shell, so nothing is looked up.
+    ["./run.sh", undefined],
+    ["FOO=1 go test", undefined],
+    ['"my tool" --check', undefined],
+    ["", undefined],
+  ])("reads the program of %j", (command, program) => {
+    expect(checkProgram(command)).toBe(program);
+  });
+});
+
+describe("workspaceUsesPython", () => {
+  it.each([
+    [["main.py"], null, true],
+    [["main.js"], "python3 -m unittest", true],
+    [["main.js"], "node --test", false],
+    [["copy.txt"], "cpython-lint", false],
+  ])("for files %j and check %j is %j", (files, checkCommand, uses) => {
+    expect(workspaceUsesPython({ files, checkCommand })).toBe(uses);
   });
 });
 

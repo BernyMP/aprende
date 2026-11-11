@@ -166,6 +166,47 @@ describe("ruleVerdict", () => {
   });
 });
 
+describe("practice runtimes", () => {
+  const posed = (checkCommand: string) => call("pose_problem", { workspace: { checkCommand } });
+  const refused = {
+    ...posed("go test ./..."),
+    result: { message: "`go` is not installed on the learner's computer." },
+    isError: true,
+  };
+
+  it("needs an explanation or a brought language after a missing program", () => {
+    const check = { type: "recoversFromMissingProgram" as const };
+    const after = (...events: Turn["events"]) => [
+      { user: "practice", events: [refused, ...events] },
+    ];
+    expect(ruleVerdict(check, after({ kind: "text", text: "Install Go from go.dev." }))?.pass).toBe(
+      true,
+    );
+    expect(ruleVerdict(check, after(posed("node --test")))?.pass).toBe(true);
+    expect(ruleVerdict(check, after(refused))?.pass).toBe(false);
+    expect(ruleVerdict(check, after(call("pose_problem", { statement: "x" })))?.pass).toBe(false);
+    expect(isDone(check, after())).toBe(true);
+    // Another refusal, such as a draft the server rejects, is not this one.
+    const invalid = { ...posed("go test"), result: { message: "hints must be 1 to 3." } };
+    const other = [{ user: "practice", events: [{ ...invalid, isError: true }] }];
+    expect(ruleVerdict(check, other)?.inconclusive).toBe(true);
+    expect(isDone(check, other)).toBe(false);
+  });
+
+  it("needs a python3 or node check posed with no talk of installing", () => {
+    const check = { type: "posesWithBroughtRuntime" as const };
+    const turn = (...events: Turn["events"]) => [{ user: "practice", events }];
+    expect(ruleVerdict(check, turn(posed("python3 -m unittest")))?.pass).toBe(true);
+    expect(ruleVerdict(check, turn(posed("go test")))?.pass).toBe(false);
+    expect(
+      ruleVerdict(
+        check,
+        turn({ kind: "text", text: "Is Python installed?" }, posed("python3 -m unittest")),
+      )?.pass,
+    ).toBe(false);
+  });
+});
+
 describe("untilNamed", () => {
   it("stops at the naming call, even mid-turn", () => {
     const goal = call("ask_question", { purpose: "goal", question: "What do you want to learn?" });

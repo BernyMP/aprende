@@ -75,16 +75,19 @@ import { forgetRemovedThreadWorktree } from "../workspace/threadWorktree.ts";
 import {
   answerProblem,
   applyOutlineOps,
+  checkProgram,
   conclusionProblem,
   formatAnswerMessage,
   formatSolutionMessage,
   gradeAnswer,
+  missingProgramMessage,
   planProblem,
   practiceFolderName,
   problemDraftProblem,
   questionDraftProblem,
   shuffleOptions,
   solutionProblem,
+  workspaceUsesPython,
   type ProblemDraft,
   type QuestionDraft,
   type StoredProblem,
@@ -92,6 +95,7 @@ import {
   type WorkspaceDraft,
 } from "./learningLogic.ts";
 import { applyProfilePatch, readLearnerProfile, writeLearnerProfile } from "./learnerProfile.ts";
+import * as PracticeRuntimes from "./PracticeRuntimes.ts";
 import { nextReview, reviewView, type ReviewRow } from "./reviewSchedule.ts";
 import { DEFAULT_TUTOR_PROMPT, readTutorPrompt, writeTutorPrompt } from "./tutorPrompt.ts";
 
@@ -502,6 +506,7 @@ export const layer = Layer.effect(
     const projects = yield* ProjectService.ProjectService;
     const managedFolders = yield* ManagedProjectFolders.ManagedProjectFolders;
     const processRunner = yield* ProcessRunner.ProcessRunner;
+    const runtimes = yield* PracticeRuntimes.PracticeRuntimes;
     const serverConfig = yield* ServerConfig;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -1069,6 +1074,8 @@ export const layer = Layer.effect(
         files: draft.files.map((file) => file.path),
         checkCommand: draft.checkCommand?.trim() || null,
       };
+      // Started now, so Python is usually there by the time the learner first runs the check.
+      if (workspaceUsesPython(workspace)) yield* runtimes.warmPython;
       return { workspace, absolute };
     });
 
@@ -1116,13 +1123,17 @@ export const layer = Layer.effect(
         });
         const cwd = yield* existingWorkspaceFolder(threadId, workspace);
         if (cwd === null) return failed(`The practice folder ${workspace.folder} is gone.`);
+        if (workspaceUsesPython(workspace)) {
+          const python = yield* runtimes.python.pipe(Effect.result);
+          if (python._tag === "Failure") return failed(python.failure.message);
+        }
         const output = cappedOutput(LEARNING_CHECK_MAX_OUTPUT_BYTES);
         const result = yield* processRunner
           .run({
             ...checkInvocation(yield* HostProcess.Platform, workspace.checkCommand),
             cwd,
             // Unbuffered, so Python's prints and tracebacks arrive in order and survive a timeout.
-            env: { PYTHONUNBUFFERED: "1" },
+            env: { PYTHONUNBUFFERED: "1", ...(yield* runtimes.env) },
             timeout: `${LEARNING_CHECK_TIMEOUT_SECONDS} seconds`,
             timeoutBehavior: "timedOutResult",
             maxOutputBytes: LEARNING_CHECK_MAX_OUTPUT_BYTES,
@@ -1146,6 +1157,9 @@ export const layer = Layer.effect(
     )(function* (threadId, draft) {
       const problem = problemDraftProblem(draft);
       if (problem !== undefined) return yield* fail(problem);
+      const program = checkProgram(draft.workspace?.checkCommand ?? "");
+      if (program !== undefined && (yield* runtimes.isMissing(program)))
+        return yield* fail(missingProgramMessage(program));
       const existing = yield* sql<{ problem_id: string; status: string }>`
         SELECT problem_id, status FROM learning_problems WHERE thread_id = ${threadId}
       `.pipe(Effect.mapError(dbError("Could not read the problems.")));
@@ -1309,6 +1323,7 @@ export const layer = Layer.effect(
       if (workspace === null) return yield* fail("This problem has no practice folder.");
       const folder = yield* existingWorkspaceFolder(input.threadId, workspace);
       if (folder === null) return yield* fail(`The practice folder ${workspace.folder} is gone.`);
+      if (workspaceUsesPython(workspace)) yield* runtimes.warmPython;
       return folder;
     });
 

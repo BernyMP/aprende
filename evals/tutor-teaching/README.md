@@ -4,8 +4,9 @@ Plays short learning sessions against the tutor prompt and the `learn` tools, an
 tutor teaches: worked examples first for a novice, a problem first for an experienced learner,
 checks and hints kept whatever the learner profile says, no learning-styles talk, the first-session
 profile questions, review problems that name the due propositions, notebook outline suggestions
-made after measuring and only inside a notebook, and a new notebook set up one question at a time
-before the tutor names it.
+made after measuring and only inside a notebook, a new notebook set up one question at a time
+before the tutor names it, and coding practice: Python posed without talk of installing, and a
+language the computer lacks explained instead of posed blind.
 
 Each sample runs your own `claude` CLI, with your login, once per tutor turn, resuming the same
 session. The system prompt is the tutor prompt plus the learner profile's section, composed by the

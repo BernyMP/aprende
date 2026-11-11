@@ -54,6 +54,14 @@ stopping it after 30 seconds. It runs on your computer with your permissions, as
 would, so read the command before you run it. **Submit** runs the check once more and sends your code
 to the tutor. The folder stays after the problem ends.
 
+You do not need to install a language to practice in Python, JavaScript, TypeScript or SQL. aprende
+brings its own `node`, and the first Python problem downloads Python once (about 40 MB, so it needs
+the internet that one time) into `runtimes` in your aprende home. **Run check** uses aprende's
+`python3` and `node` even if you have your own. Deleting `runtimes` only makes the next Python
+problem download it again. For any other language, such as Go, install it yourself: the tutor tells
+you when a problem needs something your computer does not have. On Windows, aprende brings nothing
+yet, so every language needs your own install.
+
 **Terminal** opens a shell in the practice folder for programs that read what you type, running on
 your computer with your permissions like **Run check**. Hiding the panel keeps it running with its
 recent output; closing its tab ends the shell.

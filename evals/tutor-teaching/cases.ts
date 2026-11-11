@@ -50,7 +50,11 @@ export type Check =
   /** A new notebook: one thing per card, no lecture, then name_notebook with a short name. */
   | { readonly type: "guidedNotebookStart" }
   /** No name_notebook call on a notebook that already has a name. */
-  | { readonly type: "keepsNotebookName" };
+  | { readonly type: "keepsNotebookName" }
+  /** After a problem is refused for a missing program: says what to install, or poses with python3 or node. */
+  | { readonly type: "recoversFromMissingProgram" }
+  /** A coding problem checked with python3 or node, posed without any talk of installing. */
+  | { readonly type: "posesWithBroughtRuntime" };
 
 /** What get_outline returns; cases without one run outside any notebook. */
 export interface OutlineMock {
@@ -75,6 +79,8 @@ export interface TutorCase {
     readonly graph_search?: LearningKnowledge;
     readonly review_due?: LearningDueReviews;
     readonly get_outline?: OutlineMock;
+    /** Programs the learner's computer lacks; pose_problem refuses a check that starts with one. */
+    readonly missingPrograms?: ReadonlyArray<string>;
   };
   readonly check: Check;
 }
@@ -126,6 +132,28 @@ const newNotebook: OutlineMock = {
   pendingProposal: false,
   needsName: true,
 };
+
+const RUNTIMES_SOURCE =
+  "PR bringing python3 and node to practice folders and refusing a check whose program is missing";
+
+/** A practice session on one proposition, as the Knowledge page starts it, asking for code. */
+const codePractice = (id: string, name: string, statement: string, language: string): Persona => ({
+  opening: learningSessionStartMessage(
+    `Let's practice these propositions:\n\n- ${id}: ${name}: ${statement}\n\nI want to write real ${language} code for this, with tests I can run.`,
+  ),
+  goal: `Practice writing ${language}.`,
+  choose: [],
+  knowsFirst: 1,
+  problems: "solve",
+  reply: "Okay.",
+});
+
+const codeKnowledge = (id: string, name: string, statement: string): LearningKnowledge => ({
+  propositions: [
+    { id, name, statement, createdAt: "2026-10-01T00:00:00.000Z", sourceThreadIds: [] },
+  ],
+  chains: [],
+});
 
 export const cases: ReadonlyArray<TutorCase> = [
   {
@@ -477,5 +505,52 @@ export const cases: ReadonlyArray<TutorCase> = [
     },
     maxTurns: 4,
     check: { type: "keepsNotebookName" },
+  },
+  {
+    id: "missing-language-explained",
+    kind: "guard",
+    source: RUNTIMES_SOURCE,
+    experience:
+      "A check in a language the learner never installed used to reach them as a card whose Run check only said the command was not found.",
+    profile: savedProfile,
+    persona: codePractice(
+      "p-go-reverse",
+      "Reversing a slice in Go",
+      "Swap elements from both ends of the slice, moving inward until the indexes meet.",
+      "Go",
+    ),
+    mocks: {
+      graph_search: codeKnowledge(
+        "p-go-reverse",
+        "Reversing a slice in Go",
+        "Swap elements from both ends of the slice, moving inward until the indexes meet.",
+      ),
+      missingPrograms: ["go", "gofmt"],
+    },
+    maxTurns: 2,
+    check: { type: "recoversFromMissingProgram" },
+  },
+  {
+    id: "brought-language-posed-directly",
+    kind: "control",
+    source: RUNTIMES_SOURCE,
+    experience:
+      "Python comes with aprende, so a Python problem is posed with its check and no question about installing.",
+    profile: savedProfile,
+    persona: codePractice(
+      "p-py-comprehension",
+      "List comprehensions in Python",
+      "[f(x) for x in xs if p(x)] builds a list from the items of xs that pass p.",
+      "Python",
+    ),
+    mocks: {
+      graph_search: codeKnowledge(
+        "p-py-comprehension",
+        "List comprehensions in Python",
+        "[f(x) for x in xs if p(x)] builds a list from the items of xs that pass p.",
+      ),
+    },
+    maxTurns: 2,
+    check: { type: "posesWithBroughtRuntime" },
   },
 ];

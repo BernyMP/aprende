@@ -293,6 +293,22 @@ function workspaceDraftProblem(workspace: WorkspaceDraft): string | undefined {
   return undefined;
 }
 
+/** Whether a practice folder's files or check run Python, which aprende downloads on first use. */
+export const workspaceUsesPython = (workspace: {
+  readonly files: ReadonlyArray<string>;
+  readonly checkCommand: string | null;
+}): boolean =>
+  workspace.files.some((file) => /\.py$/i.test(file)) ||
+  /\bpython3?\b/.test(workspace.checkCommand ?? "");
+
+/** The program a check starts with, when it is a bare name a shell looks up, like `go` in `go test`. */
+export const checkProgram = (command: string): string | undefined =>
+  /^\s*([\w.+-]+)(?=\s|$)/.exec(command)?.[1];
+
+/** Tells the tutor why a problem whose check cannot start was not shown. */
+export const missingProgramMessage = (program: string) =>
+  `\`${program}\` is not installed on the learner's computer, so this check cannot run and the problem was not shown. aprende brings \`python3\` and \`node\`: pose the problem with one of them, or tell the learner what to install and pose it again once they have.`;
+
 /** A readable, unique folder name for a problem's workspace, such as `fizzbuzz-1a2b3c4d`. */
 export function practiceFolderName(name: string, problemId: string): string {
   const slug =
