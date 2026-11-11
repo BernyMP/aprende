@@ -122,13 +122,18 @@ it.effect("downloads uv once behind its checksum and installs Python with it", (
       assert.deepEqual(install!.args.slice(0, 4), ["python", "install", "3.14", "--default"]);
       assert.equal(install!.options.env?.["UV_PYTHON_BIN_DIR"], bin);
       assert.equal((yield* Ref.get(spawned)).length, 2);
+
+      // A learner who deletes the folder gets it back on the next use, without a restart.
+      yield* fileSystem.remove(path.join(baseDir, "runtimes"), { recursive: true });
+      yield* runtimes.python;
+      assert.equal((yield* Ref.get(requests)).length, 3);
     }).pipe(Effect.provide(layerWith(good)));
 
     // A restarted server finds the finished install and downloads nothing.
     yield* Effect.gen(function* () {
       yield* (yield* PracticeRuntimes.PracticeRuntimes).python;
-      assert.equal((yield* Ref.get(requests)).length, 2);
-      assert.equal((yield* Ref.get(spawned)).length, 2);
+      assert.equal((yield* Ref.get(requests)).length, 3);
+      assert.equal((yield* Ref.get(spawned)).length, 4);
     }).pipe(Effect.provide(layerWith(good)));
 
     // An archive that does not match its pinned checksum is never unpacked or run.
@@ -136,7 +141,7 @@ it.effect("downloads uv once behind its checksum and installs Python with it", (
     yield* Effect.gen(function* () {
       const failure = yield* Effect.flip((yield* PracticeRuntimes.PracticeRuntimes).python);
       assert.equal(failure.step, "verify");
-      assert.equal((yield* Ref.get(spawned)).length, 2);
+      assert.equal((yield* Ref.get(spawned)).length, 4);
     }).pipe(Effect.provide(layerWith("0".repeat(64))));
   }).pipe(Effect.provide(NodeServices.layer)),
 );
@@ -161,9 +166,12 @@ it.live("puts a node on PATH that runs the server's own runtime as Node", () =>
 
     const baseDir = yield* fileSystem.makeTempDirectoryScoped({ prefix: "aprende-runtimes-" });
     const shim = path.join(baseDir, "runtimes", "bin", "node");
-    const run = (standalone: boolean) =>
+    const run = (standalone: boolean, hostEnv: NodeJS.ProcessEnv = { PATH: "/bin" }) =>
       Effect.gen(function* () {
         const runtimes = yield* PracticeRuntimes.PracticeRuntimes;
+        assert.equal((yield* runtimes.env)["PATH"], `${path.dirname(shim)}:/bin`);
+        // The desktop app learns the login shell's PATH after the server has started.
+        hostEnv["PATH"] = "/usr/bin:/bin";
         const env = yield* runtimes.env;
         assert.equal(env["PATH"], `${path.dirname(shim)}:/usr/bin:/bin`);
         const result = yield* processRunner.run({
@@ -183,7 +191,7 @@ it.live("puts a node on PATH that runs the server's own runtime as Node", () =>
               ),
             ),
             Layer.provide(ServerConfig.layerTest(process.cwd(), baseDir)),
-            Layer.provide(host({ PATH: "/usr/bin:/bin" }, executable, standalone)),
+            Layer.provide(host(hostEnv, executable, standalone)),
           ),
         ),
       );

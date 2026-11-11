@@ -743,19 +743,20 @@ it.effect("runs the check in the practice folder, capping its output and stoppin
       assert.equal((yield* Fiber.join(overlapping)).exitCode, 1);
       assert.isAtLeast((yield* Ref.get(spawnedAt))[2]!, 30_000);
 
-      // A Python check never starts without Python; the learner reads why in the check's output.
+      // Without aprende's Python the check still runs, on the learner's own if they have one.
+      // When it fails, the learner reads why before its output.
       yield* Ref.set(pythonDown, true);
       const noPython = yield* learning.runCheck({ threadId, problemId });
-      assert.isNull(noPython.exitCode);
-      assert.include(noPython.output, "could not set up Python");
-      assert.equal((yield* Ref.get(spawned)).length, 3);
+      assert.equal(noPython.exitCode, 1);
+      assert.match(noPython.output, /^aprende could not set up Python.*\n\nx/);
+      assert.equal((yield* Ref.get(spawned)).length, 4);
       yield* Ref.set(pythonDown, false);
 
       yield* fileSystem.remove(path.join(root, folder), { recursive: true });
       const gone = yield* learning.runCheck({ threadId, problemId });
       assert.isNull(gone.exitCode);
       assert.include(gone.output, "is gone");
-      assert.equal((yield* Ref.get(spawned)).length, 3);
+      assert.equal((yield* Ref.get(spawned)).length, 4);
       assert.include(
         (yield* Effect.flip(learning.practiceFolder({ threadId, problemId }))).message,
         "is gone",

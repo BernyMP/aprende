@@ -121,9 +121,9 @@ const make = Effect.fn("PracticeRuntimes.make")(function* (archives: UvArchives)
     yield* fileSystem.chmod(staged, 0o755);
     yield* fileSystem.rename(staged, shim);
   }).pipe(Effect.ignore({ log: true, message: "Could not write the practice node shim." }));
-  const nodeShim = yield* Effect.cached(writeNodeShim);
-  const env = nodeShim.pipe(
-    Effect.as({ PATH: `${bin}:${hostEnv["PATH"] || "/usr/bin:/bin"}` } as NodeJS.ProcessEnv),
+  // Read on every use: the desktop app fills in the login shell's PATH after the server starts.
+  const env = writeNodeShim.pipe(
+    Effect.map((): NodeJS.ProcessEnv => ({ PATH: `${bin}:${hostEnv["PATH"] || "/usr/bin:/bin"}` })),
   );
 
   const installUv = Effect.fn("PracticeRuntimes.installUv")(function* (archive: UvArchive) {
@@ -220,21 +220,8 @@ const make = Effect.fn("PracticeRuntimes.make")(function* (archives: UvArchives)
 
   // One install at a time; a caller that waited finds the marker and returns.
   const installing = Semaphore.makeUnsafe(1);
-  let ready = false;
   const python =
-    archive === undefined
-      ? Effect.void
-      : Effect.suspend(() =>
-          ready
-            ? Effect.void
-            : Semaphore.withPermit(installing, installPython(archive)).pipe(
-                Effect.tap(() =>
-                  Effect.sync(() => {
-                    ready = true;
-                  }),
-                ),
-              ),
-        );
+    archive === undefined ? Effect.void : Semaphore.withPermit(installing, installPython(archive));
   const warmPython = python.pipe(
     Effect.ignore({ log: true, message: "Could not set up Python for practice." }),
     Effect.forkIn(scope),

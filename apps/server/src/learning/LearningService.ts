@@ -1123,10 +1123,12 @@ export const layer = Layer.effect(
         });
         const cwd = yield* existingWorkspaceFolder(threadId, workspace);
         if (cwd === null) return failed(`The practice folder ${workspace.folder} is gone.`);
-        if (workspaceUsesPython(workspace)) {
-          const python = yield* runtimes.python.pipe(Effect.result);
-          if (python._tag === "Failure") return failed(python.failure.message);
-        }
+        // Without aprende's Python the check still runs, since the learner may have their own.
+        const noPython = workspaceUsesPython(workspace)
+          ? yield* runtimes.python.pipe(
+              Effect.match({ onFailure: (error) => error.message, onSuccess: () => undefined }),
+            )
+          : undefined;
         const output = cappedOutput(LEARNING_CHECK_MAX_OUTPUT_BYTES);
         const result = yield* processRunner
           .run({
@@ -1144,10 +1146,17 @@ export const layer = Layer.effect(
         if (result._tag === "Failure") return failed(result.failure.message);
         const run = result.success;
         if (run.stderr.length > 0) output.push(Buffer.from(run.stderr));
+        const exitCode = run.timedOut || run.code === null ? null : Number(run.code);
+        const read = output.read();
         return {
-          exitCode: run.timedOut || run.code === null ? null : Number(run.code),
+          exitCode,
           timedOut: run.timedOut,
-          ...output.read(),
+          truncated: read.truncated,
+          // A check that failed for want of Python says so before its own output.
+          output:
+            noPython === undefined || exitCode === 0
+              ? read.output
+              : `${noPython}\n\n${read.output}`,
         } satisfies LearningCheckRun;
       },
     );
