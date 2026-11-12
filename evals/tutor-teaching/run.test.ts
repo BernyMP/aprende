@@ -2,7 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 
 import type { Persona } from "./cases.ts";
 import {
+  firstGuess,
   isDone,
+  judgePrompt,
   judgeVerdict,
   learnerReply,
   partAnswers,
@@ -89,6 +91,47 @@ describe("teachingWindow", () => {
 
   it("is incomplete before any plan", () => {
     expect(teachingWindow([{ user: "a", events: [measure("q-1")] }]).complete).toBe(false);
+  });
+});
+
+describe("firstGuess", () => {
+  it("reads what the tutor wrote from the plan's turn through the first guess's turn", () => {
+    const check = { type: "frameBeforeGuess" as const };
+    const say = (text: string) => ({ kind: "text", text }) as const;
+    const predict = call("ask_question", {
+      purpose: "predict",
+      format: "choice",
+      question: "What does f(0) return?",
+      options: ["0", "It never returns"],
+      correctOptions: [1],
+    });
+    const turns: Array<Turn> = [
+      { user: "a", events: [say("Before the plan"), measure("q-1")] },
+      {
+        user: "b",
+        events: [say("Your answer"), call("set_plan", {}), say("The plan"), measure("q-2")],
+      },
+      // The app shows the card last, so text after the call is read before it.
+      { user: "Go on.", events: [say("A call waits for its own call."), predict, say("After")] },
+      { user: "answer", events: [say("Explained"), measure("q-3")] },
+    ];
+    expect(firstGuess(turns)).toEqual({
+      card: predict,
+      said: ["Your answer", "The plan", "A call waits for its own call.", "After"],
+    });
+    // A measure card after the plan is not a guess.
+    expect(isDone(check, turns.slice(0, 2))).toBe(false);
+    expect(ruleVerdict(check, turns.slice(0, 2))?.inconclusive).toBe(true);
+    expect(isDone(check, turns)).toBe(true);
+    expect(ruleVerdict(check, turns)).toBeUndefined();
+    const prompt = judgePrompt(check, turns)!;
+    expect(prompt).toContain("TUTOR: A call waits for its own call.");
+    expect(prompt).toContain("cannot see: It never returns");
+    expect(prompt).not.toContain("Before the plan");
+    const verdict = (flags: string) => judgeVerdict(check, `{${flags}, "reason": "x"}`).pass;
+    expect(verdict('"givesGrounding": true, "statesAnswer": false')).toBe(true);
+    expect(verdict('"givesGrounding": false, "statesAnswer": false')).toBe(false);
+    expect(verdict('"givesGrounding": true, "statesAnswer": true')).toBe(false);
   });
 });
 

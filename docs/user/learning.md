@@ -14,10 +14,11 @@ A session starts with what you want to understand. Type your goal in the compose
 3. **Your path.** The tutor draws a map from what you already know to the goal. An arrow means one
    idea has to come before the next. The map changes when teaching shows it was wrong, and it
    highlights the step you are on.
-4. **One step at a time.** For each step you first guess what comes next, then get the explanation,
-   then check yourself with a question that applies it. Check questions stay folded until you choose
+4. **One step at a time.** Before each guess you get what you need to think it through: the picture
+   and the terms, never the answer. You then guess what comes next, get the explanation, and check
+   yourself with a question that applies it. Check questions stay folded until you choose
    **Check your understanding**, so you can finish reading first. Where you are new to the subject,
-   steps start with a fully worked example and hand more of each next example to you. Where you
+   the explanation is a fully worked example, and each next example hands more to you. Where you
    already know the ground, steps start with a problem for you to try.
 
 ## Answering

@@ -2,7 +2,8 @@
 
 Plays short learning sessions against the tutor prompt and the `learn` tools, and checks how the
 tutor teaches: worked examples first for a novice, a problem first for an experienced learner,
-checks and hints kept whatever the learner profile says, no learning-styles talk, the first-session
+the picture a guess needs given before the tutor asks for it, without its answer, checks and
+hints kept whatever the learner profile says, no learning-styles talk, the first-session
 profile questions, review problems that name the due propositions, notebook outline suggestions
 made after measuring and only inside a notebook, a notebook's first session ending at its outline,
 a starting point written in short levelled phrases, a new notebook set up one question at a time

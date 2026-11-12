@@ -198,6 +198,27 @@ export function teachingWindow(turns: ReadonlyArray<Turn>): {
   return { events, complete: planned && turnsSincePlan >= 3 };
 }
 
+/**
+ * The first guess the tutor asks for, with what it wrote from the plan's turn through the card's
+ * turn. The app shows a card below its whole turn, so text after the call counts too.
+ */
+export function firstGuess(
+  turns: ReadonlyArray<Turn>,
+): { readonly card: Call; readonly said: ReadonlyArray<string> } | undefined {
+  const said: Array<string> = [];
+  let planned = false;
+  for (const turn of turns) {
+    planned ||= calls([turn]).some((call) => call.name === "set_plan");
+    if (!planned) continue;
+    said.push(...turn.events.flatMap((event) => (event.kind === "text" ? [event.text] : [])));
+    const card = calls([turn]).find(
+      (call) => call.name === "ask_question" && purposeOf(call) === "predict",
+    );
+    if (card !== undefined) return { card, said };
+  }
+  return undefined;
+}
+
 /** Whether the run has what its check grades, so no more turns are needed. */
 export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
   const made = calls(turns);
@@ -229,6 +250,8 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return cardTurns(turns).filter((entry) => entry.afterAnswer).length >= 3;
     case "glanceableStartingPoint":
       return made.some((call) => call.name === "finish_measuring");
+    case "frameBeforeGuess":
+      return firstGuess(turns) !== undefined;
     case "keepsNotebookName":
     case "noHandout":
     case "noLearningStyles":
@@ -544,6 +567,14 @@ export function ruleVerdict(
       return teachingWindow(turns).events.length === 0
         ? { pass: false, reason: "Never reached a plan within the turn cap.", inconclusive: true }
         : undefined;
+    case "frameBeforeGuess":
+      return firstGuess(turns) === undefined
+        ? {
+            pass: false,
+            reason: "Never asked for a guess within the turn cap.",
+            inconclusive: true,
+          }
+        : undefined;
     case "noHandout":
     case "noLearningStyles":
       return undefined;
@@ -576,6 +607,16 @@ const transcript = (
     .map(describeEvent)
     .filter((line) => line.length > 0)
     .join("\n\n");
+
+const committedAnswer = (question: Call) =>
+  [
+    ...ints(question.input.correctOptions).map(
+      (index) => strings(question.input.options)[index] ?? "",
+    ),
+    text(question.input.modelAnswer),
+  ]
+    .filter((part) => part.length > 0)
+    .join(" | ");
 
 const JSON_ONLY = "Reply with only a JSON object, no other text.";
 
@@ -646,6 +687,23 @@ Does the problem ask the learner to hand in several separate answers in that one
 
 ${JSON_ONLY} {"severalAnswers": true|false, "reason": "one sentence"}`;
     }
+    case "frameBeforeGuess": {
+      const first = firstGuess(turns);
+      if (first === undefined) return undefined;
+      return `A tutor in a learning app is teaching a learner something they did not know. Before it explains a step, it shows a card that asks them to guess. Below is everything the tutor wrote to the learner from planning the lesson up to that card, then the card. The learner reads the messages first and the card last.
+
+${first.said.map((said) => `TUTOR: ${said}`).join("\n\n")}
+
+${describeEvent(first.card)}
+
+The answer the tutor committed, which the learner cannot see: ${committedAnswer(first.card)}
+
+Answer two questions:
+- givesGrounding: before the card's question, does the tutor explain what the learner needs to reason toward an answer: how the thing works, a picture or model of it, or what the terms in the question mean? The explanation may be in the messages or in the card's own wording ahead of its question. None of these is grounding: naming the topic, listing the lesson's steps, saying how the lesson will run, telling them to guess, a hint or nudge such as "think about what could happen next", setting up the question's scenario, or naming a rule without explaining it.
+- statesAnswer: do the messages say the answer to the card's question outright, or state the very rule the question asks about, so that answering only means repeating it? Ideas the learner must still combine or apply to the card's case are not stating the answer.
+
+${JSON_ONLY} {"givesGrounding": true|false, "statesAnswer": true|false, "reason": "one sentence in plain words, with no code and no quotation marks"}`;
+    }
     case "checks":
     case "collectsProfile":
     case "noProfileQuestions":
@@ -705,6 +763,8 @@ export function judgeVerdict(
       };
     case "oneFieldPerAnswer":
       return { pass: verdict.severalAnswers === false, reason };
+    case "frameBeforeGuess":
+      return { pass: verdict.givesGrounding === true && verdict.statesAnswer === false, reason };
     default:
       return { pass: false, reason: "This check has no judge." };
   }
