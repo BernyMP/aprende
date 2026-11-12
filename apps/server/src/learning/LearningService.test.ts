@@ -175,8 +175,6 @@ it.effect("keeps the committed answer on the server until the learner answers on
         questionId,
         selectedOptions: [correctIndex],
         dontKnow: false,
-        confidence: "fairlySure",
-        thinking: "Prerequisites first.",
       });
       assert.isTrue(result.question.answer?.correct);
       assert.deepEqual(result.question.reveal?.correctOptions, [correctIndex]);
@@ -184,7 +182,6 @@ it.effect("keeps the committed answer on the server until the learner answers on
       const texts = yield* Ref.get(sent);
       assert.equal(texts.length, 1);
       assert.equal(learningAnswerMessageQuestionId(texts[0]!), questionId);
-      assert.include(texts[0]!, "Confidence: Fairly sure");
 
       const again = yield* learning
         .answer({ threadId, questionId, selectedOptions: [correctIndex], dontKnow: false })
@@ -319,6 +316,7 @@ it.effect("keeps the solution and unrevealed hints on the server until the tutor
       const posed = yield* problemOf;
       assert.equal(posed.status, "open");
       assert.isNull(posed.workspace);
+      assert.deepEqual(posed.parts, []);
       assert.deepEqual(posed.hints, []);
       assert.equal(posed.hintCount, 2);
       assert.isNull(posed.modelSolution);
@@ -338,7 +336,7 @@ it.effect("keeps the solution and unrevealed hints on the server until the tutor
       assert.isTrue(Exit.isFailure(early));
 
       const work = { threadId, problemId, text: "Build, test, deploy.", gaveUp: false };
-      const submitted = yield* learning.submitSolution({ ...work, confidence: "guessing" });
+      const submitted = yield* learning.submitSolution(work);
       assert.equal(submitted.problem.status, "submitted");
       assert.isNull(submitted.problem.modelSolution);
       assert.isTrue(Exit.isFailure(yield* learning.submitSolution(work).pipe(Effect.exit)));
@@ -349,7 +347,6 @@ it.effect("keeps the solution and unrevealed hints on the server until the tutor
       assert.equal(texts.length, 1);
       assert.equal(learningSolutionMessageProblemId(texts[0]!), problemId);
       assert.include(texts[0]!, "Hints used: 2 of 2");
-      assert.include(texts[0]!, "Confidence: Guessing");
 
       const wrongThread = yield* learning
         .concludeProblem(otherThreadId, {
@@ -381,6 +378,31 @@ it.effect("keeps the solution and unrevealed hints on the server until the tutor
             })
             .pipe(Effect.exit),
         ),
+      );
+    }).pipe(Effect.provide(makeLayer(sent)));
+  }),
+);
+
+it.effect("takes one answer per part and hands the tutor each beside its part", () =>
+  Effect.gen(function* () {
+    const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+    yield* Effect.gen(function* () {
+      const learning = yield* LearningService.LearningService;
+      const parts = ["Type of `a`", "Type of `theme.mode`"];
+      const { problemId } = yield* learning.poseProblem(threadId, { ...problemDraft, parts });
+      assert.deepEqual((yield* learning.getThreadState(threadId)).problems[0]!.parts, parts);
+
+      const work = { threadId, problemId, gaveUp: false };
+      for (const refused of [{ text: "number" }, { answers: ["number"] }, { answers: ["", " "] }])
+        assert.isTrue(
+          Exit.isFailure(yield* learning.submitSolution({ ...work, ...refused }).pipe(Effect.exit)),
+        );
+      const { problem } = yield* learning.submitSolution({ ...work, answers: [" number ", ""] });
+      assert.deepEqual(problem.attempt?.answers, ["number", ""]);
+      assert.isUndefined(problem.attempt?.text);
+      assert.include(
+        (yield* Ref.get(sent))[0]!,
+        "1. Type of `a`: number\n2. Type of `theme.mode`: (left blank)",
       );
     }).pipe(Effect.provide(makeLayer(sent)));
   }),
@@ -827,7 +849,6 @@ it.effect("runs the check once more on submit and hands the tutor the folder and
         threadId,
         problemId,
         gaveUp: false,
-        confidence: "certain",
       });
       assert.equal(problem.status, "submitted");
       assert.deepEqual(problem.attempt?.check, { exitCode: 0, timedOut: false });

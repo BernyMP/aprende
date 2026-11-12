@@ -91,6 +91,7 @@ import Migration0084 from "./Migrations/084_DropScheduledTasksAndPullRequests.ts
 import Migration0085 from "./Migrations/085_LearningReviews.ts";
 import Migration0086 from "./Migrations/086_LearningConfidenceLevels.ts";
 import Migration0087 from "./Migrations/087_LearningOutlines.ts";
+import Migration0088 from "./Migrations/088_LearningProblemParts.ts";
 
 const migrationEntries = [
   [1, "OrchestrationEvents", Migration0001],
@@ -181,6 +182,7 @@ const migrationEntries = [
   [85, "LearningReviews", Migration0085],
   [86, "LearningConfidenceLevels", Migration0086],
   [87, "LearningOutlines", Migration0087],
+  [88, "LearningProblemParts", Migration0088],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

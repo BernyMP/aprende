@@ -5,6 +5,7 @@ import {
   isDone,
   judgeVerdict,
   learnerReply,
+  partAnswers,
   ruleVerdict,
   teachingWindow,
   type Turn,
@@ -277,6 +278,49 @@ describe("practice runtimes", () => {
         turn({ kind: "text", text: "Is Python installed?" }, posed("python3 -m unittest")),
       )?.pass,
     ).toBe(false);
+  });
+});
+
+describe("answer fields", () => {
+  const posed = (parts?: ReadonlyArray<string>) => [
+    {
+      user: "practice",
+      events: [call("pose_problem", { statement: "Give each type.", ...(parts ? { parts } : {}) })],
+    },
+  ];
+
+  it("passes parts by rule and leaves a single box to the judge", () => {
+    const check = { type: "oneFieldPerAnswer" as const };
+    expect(ruleVerdict(check, posed(["Type of `a`", "Type of `b`"]))?.pass).toBe(true);
+    expect(ruleVerdict(check, posed())).toBeUndefined();
+    expect(ruleVerdict(check, [{ user: "hi", events: [measure("q-1")] }])?.inconclusive).toBe(true);
+    expect(judgeVerdict(check, '{"severalAnswers": true, "reason": "a to e"}').pass).toBe(false);
+    expect(judgeVerdict(check, '{"severalAnswers": false, "reason": "one"}').pass).toBe(true);
+  });
+
+  it("answers each part from the matching item of the tutor's solution", () => {
+    const solution = "1. `number`. A `let` widens.\n2. `3`, the literal type.";
+    expect(partAnswers(["Type of `a`", "Type of `b`"], solution)).toEqual([
+      "`number`.",
+      "`3`, the literal type.",
+    ]);
+    expect(partAnswers(["a", "b"], "Both are numbers.")).toEqual(["Both are numbers.", ""]);
+  });
+
+  it("fails a verdict that runs on as one block", () => {
+    const check = { type: "verdictInShortPieces" as const };
+    const concluded = (verdict: string) => [
+      { user: "work", events: [call("conclude_problem", { verdict })] },
+    ];
+    expect(ruleVerdict(check, concluded("1. Right.\n2. Wrong: `let` widens."))?.pass).toBe(true);
+    expect(ruleVerdict(check, concluded("Parts 1 to 4 are right. ".repeat(20)))?.pass).toBe(false);
+    expect(ruleVerdict(check, posed())?.inconclusive).toBe(true);
+  });
+
+  it("fails one piece of work split into parts", () => {
+    const check = { type: "noParts" as const };
+    expect(ruleVerdict(check, posed())?.pass).toBe(true);
+    expect(ruleVerdict(check, posed(["State the rule", "Name each term"]))?.pass).toBe(false);
   });
 });
 

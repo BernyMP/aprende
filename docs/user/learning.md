@@ -23,11 +23,6 @@ A session starts with what you want to understand. Type your goal in the compose
 ## Answering
 
 - Pick an option, or write your answer for questions that ask you to recall it in your own words.
-- Optionally pick how sure you are: **Guessing**, **Fairly sure** or **Certain**. A confident wrong
-  answer tells the tutor about a misconception; a lucky guess tells it the idea is still fragile.
-  Choose **Hide** to stop being asked, and turn it back on in **Settings > Tutor**.
-- Write your thinking out loud in the thinking field. It can be rough or dictated. The tutor reads
-  it to find where a confusion starts.
 - **I don't know** is a useful answer, not a failure.
 
 After you answer, the card shows the correct answer and why.
@@ -38,7 +33,7 @@ Practice problems make you use what you learned, not just recognise it. The tuto
 teaching a step and near the end of a session. To start whenever you like, ask for it, for example
 "Let me practice this" or "Give me problems on eigenvectors".
 
-- Work the problem in the card. Your work, how sure you are (if you say) and your thinking all go to the tutor.
+- Work the problem in the card. A problem with several separate answers gives you a field for each.
 - **Hint** shows one hint at a time, gentlest first. The tutor sees how many you used.
 - **Give up** sends what you have so far. It tells the tutor where to help.
 - After the tutor judges your work, the card shows its verdict and a complete solution. Choose

@@ -1,7 +1,5 @@
 import {
   LEARNING_CHECK_TIMEOUT_SECONDS,
-  LEARNING_CONFIDENCE_LABELS,
-  type LearningConfidence,
   type LearningCheckOutcome,
   type LearningCheckRun,
   type LearningProblemView,
@@ -22,7 +20,7 @@ import { toastManager } from "../ui/toast";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
-import { ConfidenceField } from "./QuestionCard";
+import { LabelMarkdown } from "./QuestionCard";
 
 const MODE_LABEL: Record<LearningProblemView["mode"], string> = {
   recall: "Recall",
@@ -38,8 +36,8 @@ const OUTCOME = {
 
 interface WorkDraft {
   readonly text: string;
-  readonly confidence: LearningConfidence | undefined;
-  readonly thinking: string;
+  /** One per part, for a problem with parts. */
+  readonly answers: ReadonlyArray<string>;
 }
 
 // The timeline unmounts rows scrolled out of view; keep unsent work until it is submitted.
@@ -63,7 +61,7 @@ export function ProblemCard(props: {
       )}
       aria-label="Practice problem"
     >
-      <div className="mb-1.5 flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <p className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
           Practice · {MODE_LABEL[problem.mode]}
         </p>
@@ -73,10 +71,10 @@ export function ProblemCard(props: {
           </Badge>
         ) : null}
       </div>
-      <ChatMarkdown text={problem.statement} cwd={props.markdownCwd} />
-      <p className="mt-1.5 text-muted-foreground text-xs">
+      <p className="mb-2 text-muted-foreground text-xs">
         Practices {problem.targets.map((target) => target.name).join(" · ")}
       </p>
+      <ChatMarkdown text={problem.statement} cwd={props.markdownCwd} />
       {problem.workspace !== null ? (
         <Workspace
           problem={problem}
@@ -103,9 +101,62 @@ export function ProblemCard(props: {
           onNextProblem={props.onNextProblem}
         />
       ) : (
-        <p className="mt-2 text-muted-foreground text-sm">Replaced before you submitted it.</p>
+        <div className="mt-3 flex flex-col gap-2 text-sm">
+          <Parts problem={problem} answers={undefined} />
+          <p className="text-muted-foreground">Replaced before you submitted it.</p>
+        </div>
       )}
     </section>
+  );
+}
+
+/** A problem's parts: a field each while it is open, then what was handed in for each. */
+function Parts(props: {
+  readonly problem: LearningProblemView;
+  readonly answers: ReadonlyArray<string> | undefined;
+  readonly onChange?: (answers: ReadonlyArray<string>) => void;
+}) {
+  const { problem, answers, onChange } = props;
+  if (problem.parts.length === 0) return null;
+  return (
+    <ol className="flex flex-col gap-3 text-sm">
+      {problem.parts.map((part, index) => {
+        const labelId = `${problem.id}-part-${index}`;
+        const answer = answers?.[index] ?? "";
+        return (
+          // Parts never reorder, so the position names one.
+          // oxlint-disable-next-line react/no-array-index-key
+          <li key={index} className="flex flex-col gap-1.5">
+            <div id={labelId} className="flex gap-2">
+              <span className="text-muted-foreground tabular-nums">{index + 1}.</span>
+              <LabelMarkdown text={part} />
+            </div>
+            {onChange !== undefined ? (
+              <Textarea
+                aria-labelledby={labelId}
+                size="line"
+                value={answer}
+                onChange={(event) =>
+                  onChange(
+                    problem.parts.map((_, at) =>
+                      at === index ? event.target.value : (answers?.[at] ?? ""),
+                    ),
+                  )
+                }
+              />
+            ) : answers !== undefined ? (
+              <blockquote className="whitespace-pre-wrap border-l-2 pl-3">
+                {answer.length > 0 ? (
+                  answer
+                ) : (
+                  <span className="text-muted-foreground">Left blank</span>
+                )}
+              </blockquote>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -280,7 +331,7 @@ function OpenProblem(props: {
 }) {
   const { problem } = props;
   const [draft, setDraftState] = useState<WorkDraft>(
-    () => workDrafts.get(problem.id) ?? { text: "", confidence: undefined, thinking: "" },
+    () => workDrafts.get(problem.id) ?? { text: "", answers: [] },
   );
   const [pending, setPending] = useState(false);
   const [revealing, setRevealing] = useState(false);
@@ -305,6 +356,11 @@ function OpenProblem(props: {
   };
 
   const coding = problem.workspace !== null;
+  const hasParts = problem.parts.length > 0;
+  const answers = problem.parts.map((_, index) => draft.answers[index] ?? "");
+  const hasWork = hasParts
+    ? answers.some((answer) => answer.trim().length > 0)
+    : draft.text.trim().length > 0;
   const submit = async (gaveUp: boolean) => {
     if (pending) return;
     setPending(true);
@@ -317,9 +373,7 @@ function OpenProblem(props: {
       input: {
         ...target,
         gaveUp,
-        ...(draft.text.trim() ? { text: draft.text } : {}),
-        ...(gaveUp || draft.confidence === undefined ? {} : { confidence: draft.confidence }),
-        ...(draft.thinking.trim() ? { thinking: draft.thinking } : {}),
+        ...(hasParts ? { answers } : draft.text.trim() ? { text: draft.text } : {}),
       },
     });
     if (result._tag === "Failure") setPending(false);
@@ -337,7 +391,13 @@ function OpenProblem(props: {
       }}
     >
       <HintList hints={problem.hints} markdownCwd={props.markdownCwd} />
-      {coding ? null : (
+      {coding ? null : hasParts ? (
+        <Parts
+          problem={problem}
+          answers={answers}
+          onChange={(next) => setDraft({ answers: next })}
+        />
+      ) : (
         <Textarea
           aria-label="Your work"
           size="lg"
@@ -346,23 +406,8 @@ function OpenProblem(props: {
           onChange={(event) => setDraft({ text: event.target.value })}
         />
       )}
-      <ConfidenceField
-        value={draft.confidence}
-        onChange={(confidence) => setDraft({ confidence })}
-      />
-      <Textarea
-        aria-label="Your thinking"
-        size="sm"
-        placeholder="Your thinking, out loud (optional)"
-        value={draft.thinking}
-        onChange={(event) => setDraft({ thinking: event.target.value })}
-      />
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          type="submit"
-          disabled={(!coding && draft.text.trim().length === 0) || pending}
-        >
+        <Button size="sm" type="submit" disabled={(!coding && !hasWork) || pending}>
           {pending && (problem.workspace?.checkCommand ?? null) !== null
             ? "Running the check…"
             : "Submit"}
@@ -397,6 +442,7 @@ function SubmittedWork(props: { readonly problem: LearningProblemView }) {
   if (attempt === null) return null;
   return (
     <>
+      <Parts problem={props.problem} answers={attempt.answers ?? []} />
       {attempt.text !== undefined ? (
         <blockquote className="whitespace-pre-wrap border-l-2 pl-3">{attempt.text}</blockquote>
       ) : null}
@@ -406,9 +452,6 @@ function SubmittedWork(props: { readonly problem: LearningProblemView }) {
           attempt.check === undefined
             ? null
             : `Check on submit: ${checkLabel(attempt.check).label}.`,
-          attempt.confidence === undefined
-            ? null
-            : `You were ${LEARNING_CONFIDENCE_LABELS[attempt.confidence].toLowerCase()}.`,
           props.problem.hintCount === 0
             ? null
             : `You used ${props.problem.hintsUsed} of ${props.problem.hintCount} hints.`,
@@ -416,11 +459,6 @@ function SubmittedWork(props: { readonly problem: LearningProblemView }) {
           .filter((part) => part !== null)
           .join(" ")}
       </p>
-      {attempt.thinking ? (
-        <p className="text-muted-foreground">
-          <span className="font-medium">Your thinking:</span> {attempt.thinking}
-        </p>
-      ) : null}
     </>
   );
 }

@@ -1,6 +1,7 @@
 import {
   LEARNING_CHECK_TIMEOUT_SECONDS,
   LEARNING_MAX_OPTIONS,
+  LEARNING_MAX_PROBLEM_PARTS,
   LEARNING_MAX_WORKSPACE_FILES,
   LearnerProfile,
   LearnerProfilePatch,
@@ -35,7 +36,7 @@ const dependencies = [
 ];
 
 const AskQuestionTool = Tool.make("ask_question", {
-  description: `Show the learner one question as a card, placed below everything you write in this turn. Commit the answer before they see it. Their answer, their confidence (guessing, fairly sure or certain) if they rated it, and their thinking arrive as their next message. Asking a new question replaces an unanswered one.`,
+  description: `Show the learner one question as a card, placed below everything you write in this turn. Commit the answer before they see it. Their answer arrives as their next message. Asking a new question replaces an unanswered one.`,
   parameters: Schema.Struct({
     purpose: LearningQuestionPurpose.annotate({
       description:
@@ -84,19 +85,28 @@ const AskQuestionTool = Tool.make("ask_question", {
   .annotate(Tool.OpenWorld, false);
 
 const PoseProblemTool = Tool.make("pose_problem", {
-  description: `Show the learner one practice problem as a card. Commit a complete model solution and graded hints before they see it. For programming practice, add a workspace: the app writes your starter files into a new project folder, where the learner edits and runs them. The card is placed below everything you write in this turn. Their work, the hints they used, their confidence (guessing, fairly sure or certain) if they rated it, and their thinking arrive as their next message. Posing replaces an unanswered question or problem.`,
+  description: `Show the learner one practice problem as a card. Commit a complete model solution and graded hints before they see it. For programming practice, add a workspace: the app writes your starter files into a new project folder, where the learner edits and runs them. Otherwise the card gives one text box, so ask for one piece of work, or name each separate answer in parts and the card gives a field for each. The card is placed below everything you write in this turn. Their work and the hints they used arrive as their next message. Posing replaces an unanswered question or problem.`,
   parameters: Schema.Struct({
     mode: LearningProblemMode.annotate({
       description:
         "recall: produce a fact, definition or derivation from memory. discriminate: tell apart cases that look alike, or spot which idea applies. compose: combine several ideas to solve something new.",
     }),
-    statement: Text,
+    statement: Text.annotate({
+      description:
+        "The task, and what to hand in. With parts: only what they share, such as the code they refer to.",
+    }),
+    parts: Schema.optional(
+      Schema.Array(Text).annotate({
+        description: `Only when the problem wants several separate answers: 2 to ${LEARNING_MAX_PROBLEM_PARTS} short prompts, each asking for exactly one answer, like "The type of \`theme.mode\`" or "Does line 4 compile? Say why." The card shows an answer field under each. Say in the prompt what it refers to, never by a letter in a code comment. Never the steps of one solution, and never with a workspace.`,
+      }),
+    ),
     targets: Schema.Array(Text).annotate({
       description:
         "What it practices: proposition ids from graph_search, or short names for ideas not in the graph.",
     }),
     modelSolution: Text.annotate({
-      description: "A complete worked solution. Shown after you conclude.",
+      description:
+        "A complete worked solution; with parts, the answer to each in order. Shown after you conclude.",
     }),
     hints: Schema.Array(Text).annotate({
       description:
@@ -151,7 +161,8 @@ const ConcludeProblemTool = Tool.make("conclude_problem", {
         "solved: right and complete. partial: the right idea with a gap or an error. missed: wrong, or no real attempt.",
     }),
     verdict: Text.annotate({
-      description: "Short feedback to the learner: what held, and where their work went wrong.",
+      description:
+        "Feedback the learner reads on the card, in Markdown. Open with one sentence on the outcome. For a problem with parts, follow with a numbered list: one short line per part, in order, saying right or not and why in a clause. Otherwise short paragraphs: what held, then where the work went wrong. The model solution shows right below, so do not restate it.",
     }),
     missType: Schema.optional(
       LearningMissType.annotate({
@@ -161,7 +172,7 @@ const ConcludeProblemTool = Tool.make("conclude_problem", {
     ),
     retest: Schema.Boolean.annotate({
       description:
-        "true to pose it again in a new form before practice ends: after a miss, or a right answer given with low confidence.",
+        "true to pose it again in a new form before practice ends: after a miss, or a right answer that needed hints.",
     }),
   }),
   success: Schema.Struct({ message: Schema.String }),

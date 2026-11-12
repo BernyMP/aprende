@@ -1,10 +1,11 @@
 import {
   isBlankStrandPhrase,
   LEARNING_ASSESSMENT_SUMMARY_MAX_CHARS,
-  LEARNING_CONFIDENCE_LABELS,
   LEARNING_CHECK_TIMEOUT_SECONDS,
   LEARNING_MAX_OPTIONS,
   LEARNING_MAX_OUTLINE_TOPICS,
+  LEARNING_MAX_PROBLEM_PART_CHARS,
+  LEARNING_MAX_PROBLEM_PARTS,
   LEARNING_MAX_WORKSPACE_FILE_CHARS,
   LEARNING_MAX_WORKSPACE_FILES,
   LEARNING_STRAND_PHRASE_MAX_CHARS,
@@ -266,11 +267,6 @@ export function formatAnswerMessage(question: StoredQuestion, answer: LearningAn
   } else if (question.format === "recall" && question.purpose !== "goal") {
     lines.push("Result: not graded by the app. Grade it against your model answer.");
   }
-  if (answer.confidence !== undefined && !answer.dontKnow) {
-    lines.push(`Confidence: ${LEARNING_CONFIDENCE_LABELS[answer.confidence]}`);
-  }
-  const thinking = answer.thinking?.trim();
-  if (thinking) lines.push(`Their thinking: ${thinking}`);
   return lines.join("\n");
 }
 
@@ -285,6 +281,7 @@ export interface WorkspaceDraft {
 export interface ProblemDraft {
   readonly mode: LearningProblemMode;
   readonly statement: string;
+  readonly parts?: ReadonlyArray<string> | undefined;
   readonly targets: ReadonlyArray<string>;
   readonly modelSolution: string;
   readonly hints: ReadonlyArray<string>;
@@ -383,6 +380,16 @@ export function problemDraftProblem(draft: ProblemDraft): string | undefined {
   if (draft.hints.length === 0 || draft.hints.length > LEARNING_MAX_HINTS)
     return `Give 1 to ${LEARNING_MAX_HINTS} hints, gentlest first.`;
   if (draft.hints.some((hint) => hint.trim().length === 0)) return "A hint is empty.";
+  const parts = draft.parts ?? [];
+  if (parts.length > 0) {
+    if (draft.workspace !== undefined)
+      return "A workspace problem is answered in its files, so it takes no parts.";
+    if (parts.length < 2 || parts.length > LEARNING_MAX_PROBLEM_PARTS)
+      return `Give 2 to ${LEARNING_MAX_PROBLEM_PARTS} parts, or none for one piece of work.`;
+    if (parts.some((part) => part.trim().length === 0)) return "A part is empty.";
+    if (parts.some((part) => part.trim().length > LEARNING_MAX_PROBLEM_PART_CHARS))
+      return `Keep each part to ${LEARNING_MAX_PROBLEM_PART_CHARS} characters: it names one answer. The shared setup belongs in the statement.`;
+  }
   return draft.workspace === undefined ? undefined : workspaceDraftProblem(draft.workspace);
 }
 
@@ -400,11 +407,20 @@ export function conclusionProblem(input: {
 export function solutionProblem(
   input: {
     readonly text?: string | undefined;
+    readonly answers?: ReadonlyArray<string> | undefined;
     readonly gaveUp: boolean;
   },
-  hasWorkspace: boolean,
+  problem: { readonly hasWorkspace: boolean; readonly partCount: number },
 ): string | undefined {
-  return !hasWorkspace && !input.gaveUp && (input.text ?? "").trim().length === 0
+  if (problem.partCount > 0) {
+    const answers = input.answers ?? [];
+    if (answers.length > 0 && answers.length !== problem.partCount)
+      return `This problem has ${problem.partCount} parts; send one answer for each.`;
+    return !input.gaveUp && answers.every((answer) => answer.trim().length === 0)
+      ? "Answer at least one part, or give up."
+      : undefined;
+  }
+  return !problem.hasWorkspace && !input.gaveUp && (input.text ?? "").trim().length === 0
     ? "Write your work, or give up."
     : undefined;
 }
@@ -413,6 +429,7 @@ export interface StoredProblem {
   readonly id: string;
   readonly mode: LearningProblemMode;
   readonly statement: string;
+  readonly parts: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<LearningProblemTarget>;
   readonly hintCount: number;
   readonly retestOf: string | null;
@@ -460,7 +477,19 @@ export function formatSolutionMessage(
   if (problem.retestOf !== null) lines.push(`Retest of: ${problem.retestOf}`);
   const work = attempt.text?.trim();
   const { workspace } = problem;
-  if (attempt.gaveUp) {
+  if (problem.parts.length > 0) {
+    const answers = problem.parts.map((_, index) => attempt.answers?.[index]?.trim() ?? "");
+    const answered = answers.some((answer) => answer.length > 0);
+    if (attempt.gaveUp)
+      lines.push(
+        answered ? "They gave up. Their answers so far:" : "They gave up without an attempt.",
+      );
+    else lines.push("Their answer to each part:");
+    if (answered)
+      problem.parts.forEach((part, index) =>
+        lines.push(`${index + 1}. ${part}: ${answers[index] || "(left blank)"}`),
+      );
+  } else if (attempt.gaveUp) {
     lines.push(
       work
         ? `They gave up. Their work so far: ${work}`
@@ -479,11 +508,11 @@ export function formatSolutionMessage(
       lines.push(...describeCheck(workspace.checkCommand, check));
   }
   lines.push(`Hints used: ${hintsUsed} of ${problem.hintCount}`);
-  if (attempt.confidence !== undefined)
-    lines.push(`Confidence: ${LEARNING_CONFIDENCE_LABELS[attempt.confidence]}`);
-  const thinking = attempt.thinking?.trim();
-  if (thinking) lines.push(`Their thinking: ${thinking}`);
-  lines.push("Judge it against your model solution, then call conclude_problem.");
+  lines.push(
+    problem.parts.length > 0
+      ? "Judge each part against your model solution, then call conclude_problem with a verdict that gives each part its own line."
+      : "Judge it against your model solution, then call conclude_problem.",
+  );
   return lines.join("\n");
 }
 

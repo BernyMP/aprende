@@ -7,8 +7,9 @@ profile questions, review problems that name the due propositions, notebook outl
 made after measuring and only inside a notebook, a notebook's first session ending at its outline,
 a starting point written in short levelled phrases, a new notebook set up one question at a time
 before the tutor names it, coding practice: Python posed without talk of installing, and a
-language the computer lacks explained instead of posed blind, and a reply around each card that
-neither points at the card nor asks its question again.
+language the computer lacks explained instead of posed blind, a reply around each card that
+neither points at the card nor asks its question again, and a problem with several separate
+answers posed as parts, one answer field each.
 
 Each sample runs your own `claude` CLI, with your login, once per tutor turn, resuming the same
 session. The system prompt is the tutor prompt plus the learner profile's section, composed by the

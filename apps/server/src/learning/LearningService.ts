@@ -292,6 +292,7 @@ interface ProblemRow {
   readonly thread_id: string;
   readonly mode: string;
   readonly statement: string;
+  readonly parts_json: string | null;
   readonly targets_json: string;
   readonly model_solution: string;
   readonly hints_json: string;
@@ -439,6 +440,7 @@ const storedProblem = (row: ProblemRow): StoredProblem => ({
   id: row.problem_id,
   mode: row.mode as StoredProblem["mode"],
   statement: row.statement,
+  parts: row.parts_json === null ? [] : decodeStrings(row.parts_json),
   targets: decodeTargets(row.targets_json),
   hintCount: decodeStrings(row.hints_json).length,
   retestOf: row.retest_of,
@@ -455,6 +457,7 @@ const problemView = (row: ProblemRow): LearningProblemView => {
     threadId: row.thread_id as ThreadId,
     mode: problem.mode,
     statement: problem.statement,
+    parts: problem.parts,
     targets: problem.targets,
     retestOf: problem.retestOf,
     status: row.status as LearningProblemView["status"],
@@ -998,10 +1001,6 @@ export const layer = Layer.effect(
           selectedOptions: input.dontKnow ? [] : [...input.selectedOptions].toSorted(),
           ...(input.text?.trim() ? { text: input.text.trim() } : {}),
           dontKnow: input.dontKnow,
-          ...(input.confidence === undefined || input.dontKnow
-            ? {}
-            : { confidence: input.confidence }),
-          ...(input.thinking?.trim() ? { thinking: input.thinking.trim() } : {}),
           correct: gradeAnswer(question, input.selectedOptions, input.dontKnow),
           answeredAt: yield* nowIso,
         };
@@ -1233,6 +1232,10 @@ export const layer = Layer.effect(
                 thread_id: threadId,
                 mode: draft.mode,
                 statement: draft.statement.trim(),
+                parts_json:
+                  draft.parts === undefined || draft.parts.length === 0
+                    ? null
+                    : encodeStrings(draft.parts.map((part) => part.trim())),
                 targets_json: encodeTargets(targets),
                 model_solution: draft.modelSolution.trim(),
                 hints_json: encodeStrings(draft.hints.map((hint) => hint.trim())),
@@ -1287,8 +1290,11 @@ export const layer = Layer.effect(
       const current = yield* readProblem(input.threadId, input.problemId);
       if (current.status !== "open")
         return yield* fail("That problem was already submitted or replaced.");
-      const { workspace } = storedProblem(current);
-      const problem = solutionProblem(input, workspace !== null);
+      const { workspace, parts } = storedProblem(current);
+      const problem = solutionProblem(input, {
+        hasWorkspace: workspace !== null,
+        partCount: parts.length,
+      });
       if (problem !== undefined) return yield* fail(problem);
       const checkCommand = workspace?.checkCommand ?? null;
       const check =
@@ -1299,13 +1305,15 @@ export const layer = Layer.effect(
               checkCommand,
             });
       const attempt: LearningProblemAttempt = {
-        ...(input.text?.trim() ? { text: input.text.trim() } : {}),
+        ...(parts.length > 0
+          ? { answers: parts.map((_, index) => input.answers?.[index]?.trim() ?? "") }
+          : input.text?.trim()
+            ? { text: input.text.trim() }
+            : {}),
         ...(check === undefined
           ? {}
           : { check: { exitCode: check.exitCode, timedOut: check.timedOut } }),
         gaveUp: input.gaveUp,
-        ...(input.confidence === undefined || input.gaveUp ? {} : { confidence: input.confidence }),
-        ...(input.thinking?.trim() ? { thinking: input.thinking.trim() } : {}),
         submittedAt: yield* nowIso,
       };
       const claimed = yield* sql<ProblemRow>`
