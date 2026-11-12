@@ -25,9 +25,11 @@ checkout you work in. The agent runs a copy of the script from `~/.aprende-autod
 
 ## What to expect
 
-- If aprende is open when a build finishes, a dialog asks once whether to restart into it.
-  **Restart now** quits the app, installs the build and reopens it. **Later** waits until you quit
-  the app yourself, so a running session is never interrupted without asking.
+- If aprende is open when a build finishes, the agent quits it, installs the build and reopens it,
+  without asking. A notification names the commit. A turn that is running when the app quits is cut
+  off.
+- `scripts/desktop-autodeploy.sh deploy` starts a check now instead of waiting up to five minutes.
+  Run it right after merging to `main`.
 - A failed build notifies you once and is not retried until `main` moves.
 - `scripts/desktop-autodeploy.sh status` shows the installed, staged and failed commits, plus the
   last log lines. The full log is `~/.aprende-autodeploy/autodeploy.log`.

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds every new origin/main commit on this Mac and installs it as the desktop app.
-# Usage: desktop-autodeploy.sh install [checkout] | uninstall | status | run
+# Usage: desktop-autodeploy.sh install [checkout] | uninstall | status | deploy | run
 set -euo pipefail
 
 LABEL="dev.aprende.desktop-autodeploy"
@@ -70,22 +70,6 @@ app_running() {
     awk -v p="$APP_DIR/$1/Contents/MacOS/" 'index($0, p) == 1 { found = 1 } END { exit !found }'
 }
 
-# Asks once per build; "Later" (or no answer within the hour) waits until the app is quit.
-ask_to_restart() {
-  local target=$1 subject=$2
-  [ "$(read_state notified-sha)" != "$target" ] || return 1
-  echo "$target" >"$STATE_DIR/notified-sha"
-  local clean=${subject//[\"\\]/}
-  local message="A new build from main is ready: ${clean}. Restart aprende to use it?"
-  local answer
-  if ! answer=$(osascript -e "display dialog \"$message\" with title \"aprende\" buttons {\"Later\", \"Restart now\"} default button \"Restart now\" giving up after 3600" \
-    -e 'button returned of result' 2>/dev/null); then
-    notify "A new build from main is ready. Quit aprende and it installs within 5 minutes."
-    return 1
-  fi
-  [ "$answer" = "Restart now" ]
-}
-
 install_staged() {
   local target=$1 app name subject relaunch=false
   app=$(find "$STATE_DIR/staged" -maxdepth 1 -name '*.app' | head -1)
@@ -93,10 +77,7 @@ install_staged() {
   name=$(basename "$app")
   subject=$(git -C "$CHECKOUT" log -1 --format=%s "$target")
   if app_running "$name"; then
-    if ! ask_to_restart "$target" "$subject"; then
-      log "$name is running; install of ${target:0:10} waits for it to quit"
-      return 0
-    fi
+    notify "Restarting into ${target:0:7}: ${subject//[\"\\]/}"
     osascript -e "tell application \"${name%.app}\" to quit" >/dev/null 2>&1 || true
     for _ in $(seq 1 60); do
       app_running "$name" || break
@@ -205,11 +186,12 @@ status() {
 
 case "${1:-}" in
   run) run ;;
+  deploy) launchctl kickstart "gui/$(id -u)/$LABEL" ;;
   install) install_agent "${2:-}" ;;
   uninstall) uninstall_agent ;;
   status) status ;;
   *)
-    echo "usage: $0 install [checkout] | uninstall | status | run" >&2
+    echo "usage: $0 install [checkout] | uninstall | status | deploy | run" >&2
     exit 2
     ;;
 esac
