@@ -47,22 +47,10 @@ export type LearningQuestionFormat = typeof LearningQuestionFormat.Type;
 export const LearningQuestionStatus = Schema.Literals(["open", "answered", "skipped"]);
 export type LearningQuestionStatus = typeof LearningQuestionStatus.Type;
 
-/** How sure the learner was. Optional: learners may skip it or hide it in settings. */
-export const LearningConfidence = Schema.Literals(["guessing", "fairlySure", "certain"]);
-export type LearningConfidence = typeof LearningConfidence.Type;
-
-export const LEARNING_CONFIDENCE_LABELS: Record<LearningConfidence, string> = {
-  guessing: "Guessing",
-  fairlySure: "Fairly sure",
-  certain: "Certain",
-};
-
 export const LearningAnswer = Schema.Struct({
   selectedOptions: Schema.Array(Schema.Int),
   text: Schema.optional(Schema.String),
   dontKnow: Schema.Boolean,
-  confidence: Schema.optional(LearningConfidence),
-  thinking: Schema.optional(Schema.String),
   /** null when the app does not grade the question (goal and recall questions). */
   correct: Schema.NullOr(Schema.Boolean),
   answeredAt: IsoDateTime,
@@ -211,13 +199,17 @@ export const LearningCheckRun = Schema.Struct({
 });
 export type LearningCheckRun = typeof LearningCheckRun.Type;
 
+/** A problem with several separate answers lists them as parts; each gets its own answer field. */
+export const LEARNING_MAX_PROBLEM_PARTS = 8;
+export const LEARNING_MAX_PROBLEM_PART_CHARS = 300;
+
 export const LearningProblemAttempt = Schema.Struct({
   text: Schema.optional(Schema.String),
+  /** One answer per part, in order, empty where the learner left a part blank. */
+  answers: Schema.optional(Schema.Array(Schema.String)),
   /** How the check ran on submit. */
   check: Schema.optional(LearningCheckOutcome),
   gaveUp: Schema.Boolean,
-  confidence: Schema.optional(LearningConfidence),
-  thinking: Schema.optional(Schema.String),
   submittedAt: IsoDateTime,
 });
 export type LearningProblemAttempt = typeof LearningProblemAttempt.Type;
@@ -237,6 +229,8 @@ export const LearningProblemView = Schema.Struct({
   threadId: ThreadId,
   mode: LearningProblemMode,
   statement: Schema.String,
+  /** What each separate answer is, in order; empty for a problem that is one piece of work. */
+  parts: Schema.Array(Schema.String),
   targets: Schema.Array(LearningProblemTarget),
   retestOf: Schema.NullOr(Schema.String),
   status: LearningProblemStatus,
@@ -429,8 +423,6 @@ export const LearningAnswerInput = Schema.Struct({
   selectedOptions: Schema.Array(Schema.Int),
   text: Schema.optional(Schema.String.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS))),
   dontKnow: Schema.Boolean,
-  confidence: Schema.optional(LearningConfidence),
-  thinking: Schema.optional(Schema.String.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS))),
 });
 export type LearningAnswerInput = typeof LearningAnswerInput.Type;
 
@@ -447,9 +439,13 @@ export const LearningSubmitSolutionInput = Schema.Struct({
   threadId: ThreadId,
   problemId: TrimmedNonEmptyString,
   text: Schema.optional(Schema.String.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS))),
+  /** For a problem with parts: one answer per part, in order. */
+  answers: Schema.optional(
+    Schema.Array(Schema.String.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS))).check(
+      Schema.isMaxLength(LEARNING_MAX_PROBLEM_PARTS),
+    ),
+  ),
   gaveUp: Schema.Boolean,
-  confidence: Schema.optional(LearningConfidence),
-  thinking: Schema.optional(Schema.String.check(Schema.isMaxLength(LEARNING_MAX_TEXT_CHARS))),
 });
 export type LearningSubmitSolutionInput = typeof LearningSubmitSolutionInput.Type;
 

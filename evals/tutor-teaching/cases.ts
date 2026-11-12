@@ -15,7 +15,7 @@ export interface Persona {
   readonly goal: string;
   /** Picks a choice goal card's option: the first keyword found in an option wins. */
   readonly choose: ReadonlyArray<string>;
-  /** How many measure questions it gets right, confidently, before it says "I don't know". */
+  /** How many measure questions it gets right before it says "I don't know". */
   readonly knowsFirst: number;
   /** Practice problems: solve them with the tutor's own solution, or give up. */
   readonly problems: "solve" | "giveUp";
@@ -60,7 +60,13 @@ export type Check =
   /** finish_measuring gives every strand a level and short phrases. */
   | { readonly type: "glanceableStartingPoint" }
   /** A turn with a card replies to the answer and leaves the card alone: no pointing, no asking twice. */
-  | { readonly type: "quietAroundCard" };
+  | { readonly type: "quietAroundCard" }
+  /** A problem that wants several separate answers lists them as parts, one answer field each. */
+  | { readonly type: "oneFieldPerAnswer" }
+  /** A problem that is one piece of work has no parts. */
+  | { readonly type: "noParts" }
+  /** conclude_problem's verdict comes in short lines or paragraphs, never one block. */
+  | { readonly type: "verdictInShortPieces" };
 
 /** What get_outline returns; cases without one run outside any notebook. */
 export interface OutlineMock {
@@ -162,6 +168,85 @@ const codeKnowledge = (id: string, name: string, statement: string): LearningKno
   ],
   chains: [],
 });
+
+const PARTS_SOURCE =
+  "A TypeScript practice card that asked for the type of each of a to e, lettered in code comments, with one text box for all five";
+
+const bayesReview: Persona = {
+  opening: learningSessionStartMessage(
+    "Let's review these propositions, which are due for review:\n\n- p-bayes: Bayes' rule: P(A|B) equals P(B|A) times P(A) divided by P(B).",
+  ),
+  goal: "Review.",
+  choose: [],
+  knowsFirst: 1,
+  problems: "solve",
+  reply: "Okay.",
+};
+
+// A calculation whose natural steps (the evidence, then the posterior) tempt a split into parts.
+const bayesCalculation: Persona = {
+  opening: learningSessionStartMessage(
+    "Let's practice these propositions:\n\n- p-bayes: Bayes' rule: P(A|B) equals P(B|A) times P(A) divided by P(B).\n\nGive me one problem where I work a full calculation: a test for a condition, from its base rate, hit rate and false alarm rate.",
+  ),
+  goal: "Practice.",
+  choose: [],
+  knowsFirst: 1,
+  problems: "solve",
+  reply: "Okay.",
+};
+
+const bayesKnowledge: LearningKnowledge = {
+  propositions: [
+    {
+      id: "p-bayes",
+      name: "Bayes' rule",
+      statement: "P(A|B) equals P(B|A) times P(A) divided by P(B).",
+      createdAt: "2026-10-01T00:00:00.000Z",
+      sourceThreadIds: [],
+    },
+  ],
+  chains: [],
+};
+
+const inferencePropositions = [
+  {
+    id: "p-ts-let-const",
+    name: "let and const literals",
+    statement: "`let x = 3` infers `number`; `const x = 3` infers the literal type `3`.",
+  },
+  {
+    id: "p-ts-object-props",
+    name: "Object properties widen",
+    statement: '`const o = { mode: "dark" }` gives `mode` the type `string`.',
+  },
+  {
+    id: "p-ts-params",
+    name: "Parameters are not inferred from calls",
+    statement: "An unannotated parameter is implicitly `any`, an error under `strict`.",
+  },
+];
+
+const inferenceExamPractice: Persona = {
+  opening: learningSessionStartMessage(
+    `Let's practice these propositions:\n\n${inferencePropositions
+      .map(({ id, name, statement }) => `- ${id}: ${name}: ${statement}`)
+      .join("\n")}\n\nMy exam is close. Give me one exam-style problem that mixes all three.`,
+  ),
+  goal: "Practice type inference for my exam.",
+  choose: ["exam"],
+  knowsFirst: 1,
+  problems: "solve",
+  reply: "Okay.",
+};
+
+const inferenceKnowledge: LearningKnowledge = {
+  propositions: inferencePropositions.map((proposition) => ({
+    ...proposition,
+    createdAt: "2026-10-01T00:00:00.000Z",
+    sourceThreadIds: [],
+  })),
+  chains: [],
+};
 
 export const cases: ReadonlyArray<TutorCase> = [
   {
@@ -325,30 +410,8 @@ export const cases: ReadonlyArray<TutorCase> = [
     experience:
       "A review session must pose problems that name the due propositions, or the outcome never reaches the schedule.",
     profile: savedProfile,
-    persona: {
-      opening: learningSessionStartMessage(
-        "Let's review these propositions, which are due for review:\n\n- p-bayes: Bayes' rule: P(A|B) equals P(B|A) times P(A) divided by P(B).",
-      ),
-      goal: "Review.",
-      choose: [],
-      knowsFirst: 1,
-      problems: "solve",
-      reply: "Okay.",
-    },
-    mocks: {
-      graph_search: {
-        propositions: [
-          {
-            id: "p-bayes",
-            name: "Bayes' rule",
-            statement: "P(A|B) equals P(B|A) times P(A) divided by P(B).",
-            createdAt: "2026-10-01T00:00:00.000Z",
-            sourceThreadIds: [],
-          },
-        ],
-        chains: [],
-      },
-    },
+    persona: bayesReview,
+    mocks: { graph_search: bayesKnowledge },
     maxTurns: 2,
     check: { type: "reviewTargets", ids: ["p-bayes"] },
   },
@@ -608,5 +671,42 @@ export const cases: ReadonlyArray<TutorCase> = [
     persona: eigenLearner,
     maxTurns: 7,
     check: { type: "quietAroundCard" },
+  },
+  {
+    id: "several-answers-get-a-field-each",
+    kind: "bad",
+    source: PARTS_SOURCE,
+    experience:
+      "A learner got one problem that wanted five answers and one text box to put them in, so they had to guess which letter meant what and invent a format. Each separate answer should be its own part with its own field.",
+    profile: { goalKind: "exam", returnCadence: "daily" },
+    persona: inferenceExamPractice,
+    mocks: { graph_search: inferenceKnowledge },
+    maxTurns: 2,
+    check: { type: "oneFieldPerAnswer" },
+  },
+  {
+    id: "verdict-in-short-pieces",
+    kind: "bad",
+    source:
+      "The verdict on a five-part TypeScript problem: one 560-character paragraph that ran through every part",
+    experience:
+      "The learner reads the verdict to find which parts they got wrong. It should come as a line per part, or as short paragraphs, not as one block of text.",
+    profile: { goalKind: "exam", returnCadence: "daily" },
+    persona: inferenceExamPractice,
+    mocks: { graph_search: inferenceKnowledge },
+    maxTurns: 4,
+    check: { type: "verdictInShortPieces" },
+  },
+  {
+    id: "one-piece-of-work-stays-whole",
+    kind: "control",
+    source: PARTS_SOURCE,
+    experience:
+      "A calculation with several steps is one piece of work. Splitting it into parts would hand the learner the steps they should find.",
+    profile: savedProfile,
+    persona: bayesCalculation,
+    mocks: { graph_search: bayesKnowledge },
+    maxTurns: 2,
+    check: { type: "noParts" },
   },
 ];

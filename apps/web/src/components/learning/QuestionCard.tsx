@@ -1,21 +1,13 @@
-import {
-  LEARNING_CONFIDENCE_LABELS,
-  LearningConfidence,
-  type LearningQuestionView,
-  type ScopedThreadRef,
-} from "@aprende/contracts";
+import type { LearningQuestionView, ScopedThreadRef } from "@aprende/contracts";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
-import { updateClientSettings, useClientSettings } from "~/hooks/useSettings";
 import { cn } from "~/lib/utils";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import ChatMarkdown from "../ChatMarkdown";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
-import { toastManager } from "../ui/toast";
-import { Toggle, ToggleGroup } from "../ui/toggle-group";
 import { OPTION_MARKDOWN_PLUGINS } from "./QuestionCard.logic";
 
 const PURPOSE_LABEL: Record<LearningQuestionView["purpose"], string> = {
@@ -27,8 +19,8 @@ const PURPOSE_LABEL: Record<LearningQuestionView["purpose"], string> = {
 
 const optionLabel = (index: number) => String.fromCharCode(65 + index);
 
-// No cwd, so relative paths stay code rather than file-link chips nested in the button.
-function OptionText(props: { readonly text: string }) {
+// No cwd, so relative paths stay code rather than file-link chips nested in a button or label.
+export function LabelMarkdown(props: { readonly text: string }) {
   return (
     <ChatMarkdown
       inline
@@ -78,15 +70,11 @@ function OpenQuestion(props: {
   const [unfolded, setUnfolded] = useState(question.purpose !== "check");
   const [selected, setSelected] = useState<ReadonlyArray<number>>([]);
   const [text, setText] = useState("");
-  const [confidence, setConfidence] = useState<LearningConfidence>();
-  const [thinking, setThinking] = useState("");
   const [pending, setPending] = useState(false);
   const answer = useAtomCommand(serverEnvironment.answerLearningQuestion, {
     label: "answer question",
   });
   const graded = question.purpose !== "goal";
-  // A prediction is a guess by design, so how sure the learner is says nothing.
-  const ratesConfidence = graded && question.purpose !== "predict";
 
   if (!unfolded) {
     return (
@@ -118,8 +106,6 @@ function OpenQuestion(props: {
         selectedOptions: dontKnow ? [] : selected,
         dontKnow,
         ...(question.format === "recall" && !dontKnow ? { text } : {}),
-        ...(confidence === undefined || dontKnow ? {} : { confidence }),
-        ...(thinking.trim() ? { thinking } : {}),
       },
     });
     if (result._tag === "Failure") setPending(false);
@@ -163,7 +149,7 @@ function OpenQuestion(props: {
                   {optionLabel(index)}
                 </span>
                 <span className="min-w-0">
-                  <OptionText text={option} />
+                  <LabelMarkdown text={option} />
                 </span>
               </button>
             );
@@ -180,14 +166,6 @@ function OpenQuestion(props: {
           onChange={(event) => setText(event.target.value)}
         />
       )}
-      {ratesConfidence ? <ConfidenceField value={confidence} onChange={setConfidence} /> : null}
-      <Textarea
-        aria-label="Your thinking"
-        size="sm"
-        placeholder="Your thinking, out loud (optional)"
-        value={thinking}
-        onChange={(event) => setThinking(event.target.value)}
-      />
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" type="submit" disabled={!ready || pending}>
           Answer
@@ -205,53 +183,6 @@ function OpenQuestion(props: {
         ) : null}
       </div>
     </form>
-  );
-}
-
-const CONFIDENCE_LEVELS = LearningConfidence.literals;
-
-export function ConfidenceField(props: {
-  readonly value: LearningConfidence | undefined;
-  readonly onChange: (value: LearningConfidence | undefined) => void;
-}) {
-  const enabled = useClientSettings((settings) => settings.confidenceRatingEnabled);
-  if (!enabled) return null;
-  const hide = () => {
-    props.onChange(undefined);
-    void updateClientSettings({ confidenceRatingEnabled: false });
-    const toastId = toastManager.add({
-      type: "info",
-      title: "Confidence hidden",
-      description: "Turn it back on in Settings, under Tutor.",
-      actionProps: {
-        children: "Undo",
-        onClick: () => {
-          toastManager.close(toastId);
-          void updateClientSettings({ confidenceRatingEnabled: true });
-        },
-      },
-    });
-  };
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="text-muted-foreground">How sure are you?</span>
-      <ToggleGroup
-        aria-label="How sure are you?"
-        value={props.value === undefined ? [] : [props.value]}
-        onValueChange={(next) =>
-          props.onChange(CONFIDENCE_LEVELS.find((level) => level === next[0]))
-        }
-      >
-        {CONFIDENCE_LEVELS.map((level) => (
-          <Toggle key={level} value={level}>
-            {LEARNING_CONFIDENCE_LABELS[level]}
-          </Toggle>
-        ))}
-      </ToggleGroup>
-      <Button size="compact" type="button" variant="ghost" onClick={hide}>
-        Hide
-      </Button>
-    </div>
   );
 }
 
@@ -283,7 +214,7 @@ function AnsweredQuestion(props: {
               >
                 <span className="mt-px font-medium tabular-nums">{optionLabel(index)}</span>
                 <span className="min-w-0 flex-1">
-                  <OptionText text={option} />
+                  <LabelMarkdown text={option} />
                 </span>
                 {chosen ? (
                   correct || !graded ? (
@@ -299,21 +230,13 @@ function AnsweredQuestion(props: {
       ) : answer.text !== undefined ? (
         <blockquote className="border-l-2 pl-3">{answer.text}</blockquote>
       ) : null}
-      <p className="text-muted-foreground">
-        {answer.dontKnow
-          ? "You said you don't know yet."
-          : [
-              answer.correct === true ? "Correct." : answer.correct === false ? "Not quite." : null,
-              answer.confidence === undefined
-                ? null
-                : `You were ${LEARNING_CONFIDENCE_LABELS[answer.confidence].toLowerCase()}.`,
-            ]
-              .filter((part) => part !== null)
-              .join(" ")}
-      </p>
-      {answer.thinking ? (
+      {answer.dontKnow || answer.correct !== null ? (
         <p className="text-muted-foreground">
-          <span className="font-medium">Your thinking:</span> {answer.thinking}
+          {answer.dontKnow
+            ? "You said you don't know yet."
+            : answer.correct
+              ? "Correct."
+              : "Not quite."}
         </p>
       ) : null}
       {question.reveal?.modelAnswer ? (

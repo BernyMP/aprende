@@ -4,8 +4,7 @@ aprende is an open-source desktop app for learning difficult things.
 
 You tell it what you want to understand. A tutor finds where your understanding ends, shows you a
 map from there to your goal, and teaches one reasoning step at a time: you predict, it explains,
-then you check yourself. You answer with a confidence rating and your thinking out loud, so
-confusions get repaired before anything is built on them.
+then you check yourself. Confusions get repaired before anything is built on them.
 
 aprende runs the AI coding CLI you already have, `claude` (Claude Code) or `codex` (Codex CLI),
 with your own login. It never asks for or stores API keys or account credentials. Your learning

@@ -16,6 +16,7 @@ import {
   problemDraftProblem,
   questionDraftProblem,
   shuffleOptions,
+  solutionProblem,
   workspaceUsesPython,
   type StoredQuestion,
 } from "./learningLogic.ts";
@@ -167,16 +168,12 @@ describe("formatAnswerMessage", () => {
     const text = formatAnswerMessage(question, {
       selectedOptions: [0],
       dontKnow: false,
-      confidence: "certain",
-      thinking: "  I guessed  ",
       correct: false,
       answeredAt: "2026-11-04T00:00:00.000Z",
     });
     expect(learningAnswerMessageQuestionId(text)).toBe("q-123");
     expect(text).toContain("Their answer: A) One");
     expect(text).toContain("Result: incorrect. Correct: B) Two");
-    expect(text).toContain("Confidence: Certain");
-    expect(text).toContain("Their thinking: I guessed");
     expect(learningAnswerMessageQuestionId("Hello [Answer to question q-1]")).toBeNull();
   });
 });
@@ -271,10 +268,41 @@ describe("problemDraftProblem", () => {
       { ...base, workspace: { files: [file("x.py")], checkCommand: " " } },
       "checkCommand",
     ],
+    ["accepts parts", { ...base, parts: ["Type of `a`", "Type of `b`"] }, undefined],
+    ["refuses a single part", { ...base, parts: ["Type of `a`"] }, "2 to 8"],
+    [
+      "takes at most eight parts",
+      { ...base, parts: Array.from({ length: 9 }, (_, i) => `Part ${i}`) },
+      "2 to 8",
+    ],
+    ["refuses an empty part", { ...base, parts: ["Type of `a`", " "] }, "empty"],
+    ["refuses a part that carries the setup", { ...base, parts: ["a", "x".repeat(301)] }, "300"],
+    [
+      "refuses parts on a workspace problem",
+      { ...base, parts: ["a", "b"], workspace: { files: [file("main.py")] } },
+      "files",
+    ],
   ] as const)("%s", (_name, draft, expected) => {
     const problem = problemDraftProblem(draft);
     if (expected === undefined) expect(problem).toBeUndefined();
     else expect(problem).toContain(expected);
+  });
+});
+
+describe("solutionProblem", () => {
+  const parts = { hasWorkspace: false, partCount: 2 };
+  it.each([
+    ["needs text for one piece of work", { gaveUp: false }, { ...parts, partCount: 0 }, "Write"],
+    ["takes one answered part", { gaveUp: false, answers: ["3", " "] }, parts, undefined],
+    ["needs an answered part", { gaveUp: false, answers: [" ", ""] }, parts, "at least one"],
+    // A text box's work cannot stand in for the fields the learner was shown.
+    ["ignores text when there are parts", { gaveUp: false, text: "3" }, parts, "at least one"],
+    ["needs an answer per part", { gaveUp: false, answers: ["3"] }, parts, "2 parts"],
+    ["lets them give up with nothing", { gaveUp: true }, parts, undefined],
+  ] as const)("%s", (_name, input, problem, expected) => {
+    const refusal = solutionProblem(input, problem);
+    if (expected === undefined) expect(refusal).toBeUndefined();
+    else expect(refusal).toContain(expected);
   });
 });
 
@@ -283,6 +311,7 @@ describe("formatSolutionMessage", () => {
     id: "prob-1",
     mode: "discriminate" as const,
     statement: "Which graph is a valid plan?",
+    parts: [],
     targets: [
       { name: "Edges", propositionId: "p-1" },
       { name: "cycles", propositionId: null },
@@ -292,14 +321,12 @@ describe("formatSolutionMessage", () => {
     workspace: null,
   };
 
-  it("names the problem and carries the work, hints and confidence", () => {
+  it("names the problem and carries the work and hints", () => {
     const text = formatSolutionMessage(
       problem,
       {
         text: "The second one.",
         gaveUp: false,
-        confidence: "guessing",
-        thinking: " no cycle ",
         submittedAt: "2026-11-04T00:00:00.000Z",
       },
       2,
@@ -311,8 +338,6 @@ describe("formatSolutionMessage", () => {
     expect(text).toContain("Retest of: prob-0");
     expect(text).toContain("Their work: The second one.");
     expect(text).toContain("Hints used: 2 of 3");
-    expect(text).toContain("Confidence: Guessing");
-    expect(text).toContain("Their thinking: no cycle");
   });
 
   it("names the practice folder and carries the check's output in a fence it cannot close", () => {
@@ -348,7 +373,31 @@ describe("formatSolutionMessage", () => {
       0,
     );
     expect(text).toContain("They gave up without an attempt.");
-    expect(text).not.toContain("Confidence");
+  });
+
+  it("pairs each part with its answer and marks the ones left blank", () => {
+    const parts = { ...problem, parts: ["Type of `a`", "Type of `theme.mode`"] };
+    const submittedAt = "2026-11-04T00:00:00.000Z";
+    const answered = formatSolutionMessage(
+      parts,
+      { answers: ["number,\nI think", ""], gaveUp: false, submittedAt },
+      0,
+    );
+    expect(answered).toContain(
+      "Their answer to each part:\n1. Type of `a`\n   Answer: number,\n   I think\n2. Type of `theme.mode`\n   Answer: (left blank)",
+    );
+    expect(answered).not.toContain("Their work:");
+    const gaveUp = formatSolutionMessage(
+      parts,
+      { answers: ["number", ""], gaveUp: true, submittedAt },
+      0,
+    );
+    expect(gaveUp).toContain(
+      "They gave up. Their answers so far:\n1. Type of `a`\n   Answer: number",
+    );
+    expect(
+      formatSolutionMessage(parts, { answers: ["", ""], gaveUp: true, submittedAt }, 0),
+    ).toContain("They gave up without an attempt.");
   });
 });
 

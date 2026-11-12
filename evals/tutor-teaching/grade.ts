@@ -1,6 +1,5 @@
 import type {
   LearningAnswer,
-  LearningConfidence,
   LearningProblemMode,
   LearningQuestionPurpose,
 } from "@aprende/contracts";
@@ -10,6 +9,8 @@ import {
   formatAnswerMessage,
   formatSolutionMessage,
   gradeAnswer,
+  problemDraftProblem,
+  type ProblemDraft,
   type StoredQuestion,
 } from "../../apps/server/src/learning/learningLogic.ts";
 import type { Check, Persona } from "./cases.ts";
@@ -69,8 +70,6 @@ function answerQuestion(persona: Persona, call: Call, measuresBefore: number): s
     readonly selected?: ReadonlyArray<number>;
     readonly text?: string;
     readonly dontKnow?: boolean;
-    readonly confidence?: LearningConfidence;
-    readonly thinking?: string;
   }): LearningAnswer => {
     const dontKnow = input.dontKnow === true;
     const selected = dontKnow ? [] : (input.selected ?? []);
@@ -78,8 +77,6 @@ function answerQuestion(persona: Persona, call: Call, measuresBefore: number): s
       selectedOptions: selected,
       ...(input.text === undefined ? {} : { text: input.text }),
       dontKnow,
-      ...(input.confidence === undefined ? {} : { confidence: input.confidence }),
-      ...(input.thinking === undefined ? {} : { thinking: input.thinking }),
       correct: gradeAnswer(question, selected, dontKnow),
       answeredAt,
     };
@@ -97,27 +94,47 @@ function answerQuestion(persona: Persona, call: Call, measuresBefore: number): s
   }
   const knows =
     question.purpose === "measure" ? measuresBefore < persona.knowsFirst : persona.knowsFirst > 0;
-  if (!knows)
-    return formatAnswerMessage(
-      question,
-      answer({ dontKnow: true, thinking: "I have no idea where to start with this." }),
-    );
+  if (!knows) return formatAnswerMessage(question, answer({ dontKnow: true }));
   return formatAnswerMessage(
     question,
     answer({
       selected: question.correctOptions,
       ...(question.format === "recall" ? { text: question.modelAnswer ?? "" } : {}),
-      confidence: "certain",
-      thinking: "I've worked with this kind of thing a lot.",
     }),
   );
 }
 
+const NUMBERED_ITEM = /^\s*\d+[.)]\s+/;
+
+/**
+ * A solver's answer to each part: the first sentence of the matching numbered item in the tutor's
+ * own solution. A solution not numbered like the parts goes whole into the first field.
+ */
+export function partAnswers(
+  parts: ReadonlyArray<string>,
+  modelSolution: string,
+): ReadonlyArray<string> {
+  const items = modelSolution
+    .split("\n")
+    .filter((line) => NUMBERED_ITEM.test(line))
+    .map((line) =>
+      line
+        .replace(NUMBERED_ITEM, "")
+        .split(/(?<=[.!?])\s/)[0]!
+        .trim(),
+    );
+  return items.length === parts.length
+    ? items
+    : parts.map((_, index) => (index === 0 ? modelSolution : ""));
+}
+
 function answerProblem(persona: Persona, call: Call): string {
+  const parts = strings(call.input.parts);
   const problem = {
     id: text(call.result.problemId),
     mode: (call.input.mode ?? "recall") as LearningProblemMode,
     statement: text(call.input.statement),
+    parts,
     targets: strings(call.input.targets).map((name) => ({ name, propositionId: null })),
     hintCount: strings(call.input.hints).length,
     retestOf: text(call.input.retestOf) || null,
@@ -126,9 +143,10 @@ function answerProblem(persona: Persona, call: Call): string {
   const attempt =
     persona.problems === "solve"
       ? {
-          text: text(call.input.modelSolution),
+          ...(parts.length > 0
+            ? { answers: partAnswers(parts, text(call.input.modelSolution)) }
+            : { text: text(call.input.modelSolution) }),
           gaveUp: false,
-          confidence: "certain" as const,
           submittedAt: answeredAt,
         }
       : { gaveUp: true, submittedAt: answeredAt };
@@ -200,7 +218,11 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       // The refusal and what the tutor did about it are in the same turn.
       return refusedForProgram(turns) !== -1;
     case "posesWithBroughtRuntime":
+    case "oneFieldPerAnswer":
+    case "noParts":
       return made.some((call) => call.name === "pose_problem");
+    case "verdictInShortPieces":
+      return made.some((call) => call.name === "conclude_problem");
     case "oneLineCodeOptions":
       return made.some(isCodeChoice);
     case "quietAroundCard":
@@ -217,6 +239,9 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
 }
 
 const allEvents = (turns: ReadonlyArray<Turn>) => turns.flatMap((turn) => turn.events);
+
+// About four sentences: more than that in one line reads as a wall of text on the card.
+const MAX_VERDICT_LINE_CHARS = 350;
 
 const checkCommandOf = (call: Call) =>
   text((call.input.workspace as { checkCommand?: unknown } | undefined)?.checkCommand);
@@ -441,6 +466,40 @@ export function ruleVerdict(
         ? { pass: false, reason: "Talked about installing before posing." }
         : { pass: true, reason: `Posed with ${checkCommandOf(problem)}.` };
     }
+    case "oneFieldPerAnswer":
+    case "noParts": {
+      const problem = made.find((call) => call.name === "pose_problem");
+      if (problem === undefined)
+        return { pass: false, reason: "No problem posed.", inconclusive: true };
+      const parts = strings(problem.input.parts);
+      if (check.type === "noParts")
+        return parts.length === 0
+          ? { pass: true, reason: "One piece of work, no parts." }
+          : { pass: false, reason: `Split into parts: ${JSON.stringify(parts)}` };
+      // The stub takes any parts; the server refuses some, such as one part or parts with a workspace.
+      const refusal =
+        parts.length > 0
+          ? problemDraftProblem(problem.input as unknown as ProblemDraft)
+          : undefined;
+      if (refusal !== undefined) return { pass: false, reason: `The app refuses it: ${refusal}` };
+      // Without parts the card has one text box, so the judge reads what the statement asks for.
+      return parts.length >= 2
+        ? { pass: true, reason: `${parts.length} parts, a field each.` }
+        : undefined;
+    }
+    case "verdictInShortPieces": {
+      const concluded = made.find((call) => call.name === "conclude_problem");
+      if (concluded === undefined)
+        return { pass: false, reason: "No verdict within the turn cap.", inconclusive: true };
+      const longest = Math.max(
+        ...text(concluded.input.verdict)
+          .split("\n")
+          .map((line) => line.trim().length),
+      );
+      return longest <= MAX_VERDICT_LINE_CHARS
+        ? { pass: true, reason: `Longest line: ${longest} characters.` }
+        : { pass: false, reason: `One block of ${longest} characters.` };
+    }
     case "oneLineCodeOptions": {
       if (!made.some(isCodeChoice))
         return { pass: false, reason: "No choice question about code.", inconclusive: true };
@@ -502,7 +561,11 @@ const describeEvent = (event: TurnEvent | { readonly kind: "learner"; readonly t
         : ""
     }`;
   if (event.name === "pose_problem")
-    return `TUTOR CARD (practice problem): ${text(event.input.statement)}`;
+    return `TUTOR CARD (practice problem): ${text(event.input.statement)}${
+      strings(event.input.parts).length > 0
+        ? `\nParts: ${strings(event.input.parts).join(" | ")}`
+        : ""
+    }`;
   return "";
 };
 
@@ -569,10 +632,20 @@ ${transcript(turns.flatMap((turn) => [{ kind: "learner" as const, text: turn.use
 
 Answer three questions about the TUTOR messages only, never the cards:
 - pointsAtCard: does any message announce a card or say where it is, such as "the card above", "I've put a question on a card", "on the card" or "the next card"? Saying that an earlier card was marked wrongly is not this.
-- tellsToAnswer: does any message tell the learner to answer or how to answer (pick an option, rate how sure they are, write their thinking), or say the tutor is waiting for their answer?
+- tellsToAnswer: does any message tell the learner to answer or how to answer (pick an option, write their answer), or say the tutor is waiting for their answer?
 - restatesQuestion: does any message ask the learner a question, or restate the question that the card in the same turn asks?
 
 ${JSON_ONLY} {"pointsAtCard": true|false, "tellsToAnswer": true|false, "restatesQuestion": true|false, "reason": "one sentence"}`;
+    case "oneFieldPerAnswer": {
+      const problem = calls(turns).find((call) => call.name === "pose_problem");
+      return `A tutor showed a learner this practice problem in a learning app. Below it, the app gives the learner one text box for their work.
+
+Problem: ${text(problem?.input.statement)}
+
+Does the problem ask the learner to hand in several separate answers in that one box: an answer for each of several items, or lettered or numbered sub-questions? One derivation, explanation, proof or program is one answer, however many steps it takes.
+
+${JSON_ONLY} {"severalAnswers": true|false, "reason": "one sentence"}`;
+    }
     case "checks":
     case "collectsProfile":
     case "noProfileQuestions":
@@ -584,6 +657,8 @@ ${JSON_ONLY} {"pointsAtCard": true|false, "tellsToAnswer": true|false, "restates
     case "posesWithBroughtRuntime":
     case "oneLineCodeOptions":
     case "glanceableStartingPoint":
+    case "noParts":
+    case "verdictInShortPieces":
       return undefined;
   }
 }
@@ -628,6 +703,8 @@ export function judgeVerdict(
           verdict.restatesQuestion === false,
         reason,
       };
+    case "oneFieldPerAnswer":
+      return { pass: verdict.severalAnswers === false, reason };
     default:
       return { pass: false, reason: "This check has no judge." };
   }

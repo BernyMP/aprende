@@ -98,7 +98,7 @@ describe("nextReview", () => {
       expected: reviewed(2),
     },
     {
-      name: "a right but unsure solve stays in its box",
+      name: "a solve marked for retest stays in its box",
       outcome: "solved",
       retest: true,
       expected: reviewed(2),

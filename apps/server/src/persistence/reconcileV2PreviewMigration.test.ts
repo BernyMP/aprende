@@ -67,6 +67,7 @@ describe("V2 preview upgrade", () => {
         [85, "LearningReviews"],
         [86, "LearningConfidenceLevels"],
         [87, "LearningOutlines"],
+        [88, "LearningProblemParts"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -171,6 +172,7 @@ describe("V2 preview upgrade", () => {
         [85, "LearningReviews"],
         [86, "LearningConfidenceLevels"],
         [87, "LearningOutlines"],
+        [88, "LearningProblemParts"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );
