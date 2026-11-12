@@ -15,7 +15,7 @@ export interface Persona {
   readonly goal: string;
   /** Picks a choice goal card's option: the first keyword found in an option wins. */
   readonly choose: ReadonlyArray<string>;
-  /** How many measure questions it gets right, confidently, before it says "I don't know". */
+  /** How many measure questions it gets right before it says "I don't know". */
   readonly knowsFirst: number;
   /** Practice problems: solve them with the tutor's own solution, or give up. */
   readonly problems: "solve" | "giveUp";
@@ -177,6 +177,18 @@ const bayesReview: Persona = {
     "Let's review these propositions, which are due for review:\n\n- p-bayes: Bayes' rule: P(A|B) equals P(B|A) times P(A) divided by P(B).",
   ),
   goal: "Review.",
+  choose: [],
+  knowsFirst: 1,
+  problems: "solve",
+  reply: "Okay.",
+};
+
+// A calculation whose natural steps (the evidence, then the posterior) tempt a split into parts.
+const bayesCalculation: Persona = {
+  opening: learningSessionStartMessage(
+    "Let's practice these propositions:\n\n- p-bayes: Bayes' rule: P(A|B) equals P(B|A) times P(A) divided by P(B).\n\nGive me one problem where I work a full calculation: a test for a condition, from its base rate, hit rate and false alarm rate.",
+  ),
+  goal: "Practice.",
   choose: [],
   knowsFirst: 1,
   problems: "solve",
@@ -690,9 +702,9 @@ export const cases: ReadonlyArray<TutorCase> = [
     kind: "control",
     source: PARTS_SOURCE,
     experience:
-      "Recalling one idea is one piece of work. Splitting it into parts would hand the learner the structure they should produce.",
+      "A calculation with several steps is one piece of work. Splitting it into parts would hand the learner the steps they should find.",
     profile: savedProfile,
-    persona: bayesReview,
+    persona: bayesCalculation,
     mocks: { graph_search: bayesKnowledge },
     maxTurns: 2,
     check: { type: "noParts" },

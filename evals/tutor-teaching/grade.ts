@@ -9,6 +9,8 @@ import {
   formatAnswerMessage,
   formatSolutionMessage,
   gradeAnswer,
+  problemDraftProblem,
+  type ProblemDraft,
   type StoredQuestion,
 } from "../../apps/server/src/learning/learningLogic.ts";
 import type { Check, Persona } from "./cases.ts";
@@ -474,6 +476,12 @@ export function ruleVerdict(
         return parts.length === 0
           ? { pass: true, reason: "One piece of work, no parts." }
           : { pass: false, reason: `Split into parts: ${JSON.stringify(parts)}` };
+      // The stub takes any parts; the server refuses some, such as one part or parts with a workspace.
+      const refusal =
+        parts.length > 0
+          ? problemDraftProblem(problem.input as unknown as ProblemDraft)
+          : undefined;
+      if (refusal !== undefined) return { pass: false, reason: `The app refuses it: ${refusal}` };
       // Without parts the card has one text box, so the judge reads what the statement asks for.
       return parts.length >= 2
         ? { pass: true, reason: `${parts.length} parts, a field each.` }

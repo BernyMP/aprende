@@ -380,11 +380,11 @@ describe("formatSolutionMessage", () => {
     const submittedAt = "2026-11-04T00:00:00.000Z";
     const answered = formatSolutionMessage(
       parts,
-      { answers: ["number", ""], gaveUp: false, submittedAt },
+      { answers: ["number,\nI think", ""], gaveUp: false, submittedAt },
       0,
     );
     expect(answered).toContain(
-      "Their answer to each part:\n1. Type of `a`: number\n2. Type of `theme.mode`: (left blank)",
+      "Their answer to each part:\n1. Type of `a`\n   Answer: number,\n   I think\n2. Type of `theme.mode`\n   Answer: (left blank)",
     );
     expect(answered).not.toContain("Their work:");
     const gaveUp = formatSolutionMessage(
@@ -392,7 +392,9 @@ describe("formatSolutionMessage", () => {
       { answers: ["number", ""], gaveUp: true, submittedAt },
       0,
     );
-    expect(gaveUp).toContain("They gave up. Their answers so far:\n1. Type of `a`: number");
+    expect(gaveUp).toContain(
+      "They gave up. Their answers so far:\n1. Type of `a`\n   Answer: number",
+    );
     expect(
       formatSolutionMessage(parts, { answers: ["", ""], gaveUp: true, submittedAt }, 0),
     ).toContain("They gave up without an attempt.");

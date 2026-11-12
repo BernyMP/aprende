@@ -487,7 +487,10 @@ export function formatSolutionMessage(
     else lines.push("Their answer to each part:");
     if (answered)
       problem.parts.forEach((part, index) =>
-        lines.push(`${index + 1}. ${part}: ${answers[index] || "(left blank)"}`),
+        lines.push(
+          `${index + 1}. ${part}`,
+          `   Answer: ${(answers[index] || "(left blank)").replaceAll("\n", "\n   ")}`,
+        ),
       );
   } else if (attempt.gaveUp) {
     lines.push(

@@ -106,7 +106,7 @@ const PoseProblemTool = Tool.make("pose_problem", {
     }),
     modelSolution: Text.annotate({
       description:
-        "A complete worked solution; with parts, the answer to each in order. Shown after you conclude.",
+        "A complete worked solution; with parts, a numbered list with the answer to each. Shown after you conclude.",
     }),
     hints: Schema.Array(Text).annotate({
       description:
@@ -171,8 +171,7 @@ const ConcludeProblemTool = Tool.make("conclude_problem", {
       }),
     ),
     retest: Schema.Boolean.annotate({
-      description:
-        "true to pose it again in a new form before practice ends: after a miss, or a right answer that needed hints.",
+      description: "true to pose it again in a new form before practice ends, after a miss.",
     }),
   }),
   success: Schema.Struct({ message: Schema.String }),

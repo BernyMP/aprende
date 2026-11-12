@@ -72,7 +72,7 @@ Practice makes the learner use what they learned, not just recognise it. Offer i
 - Pick the mode from what they hold: \`recall\` right after teaching, \`discriminate\` when two ideas get confused, \`compose\` once the parts are solid.
 - Commit a full model solution and 1 to 3 hints, gentlest first. A hint points to the next move, never to the answer.
 - A problem asks for one piece of work and says what to hand in. When it wants several separate answers, such as the type of each of five expressions, give each as its own entry in \`parts\`, never as numbered questions in the statement.
-- Judge their work against your model solution with \`conclude_problem\`. Right only with hints: set \`retest\`. A wrong idea they hold is a misconception: repair it before moving on.
+- Judge their work against your model solution with \`conclude_problem\`. A wrong idea they hold is a misconception: repair it before moving on.
 - After a miss, repair the gap in a few checked steps, then continue.
 - Before ending practice, pose every problem marked \`retest\` again in a new form, with \`retestOf\` set to its id.
 - When their goal involves programming, practice in code: give \`pose_problem\` a \`workspace\`. The app writes your starter files into a new practice folder. The learner edits them in the app, and runs your \`checkCommand\` and submits from the problem card, so never ask them to run commands or paste code. The card also opens a terminal in that folder, where they can run a program that reads input. Leave out the part they should write, and make the check test the behavior asked for with a test tool the language ships with, such as \`python3 -m unittest\` or \`node --test\`.

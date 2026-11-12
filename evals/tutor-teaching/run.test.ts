@@ -285,13 +285,23 @@ describe("answer fields", () => {
   const posed = (parts?: ReadonlyArray<string>) => [
     {
       user: "practice",
-      events: [call("pose_problem", { statement: "Give each type.", ...(parts ? { parts } : {}) })],
+      events: [
+        call("pose_problem", {
+          mode: "compose",
+          statement: "Give each type.",
+          targets: ["p-ts-let-const"],
+          modelSolution: "1. `number`\n2. `3`",
+          hints: ["Which one can be reassigned?"],
+          ...(parts ? { parts } : {}),
+        }),
+      ],
     },
   ];
 
   it("passes parts by rule and leaves a single box to the judge", () => {
     const check = { type: "oneFieldPerAnswer" as const };
     expect(ruleVerdict(check, posed(["Type of `a`", "Type of `b`"]))?.pass).toBe(true);
+    expect(ruleVerdict(check, posed(["Type of `a`"]))?.pass).toBe(false);
     expect(ruleVerdict(check, posed())).toBeUndefined();
     expect(ruleVerdict(check, [{ user: "hi", events: [measure("q-1")] }])?.inconclusive).toBe(true);
     expect(judgeVerdict(check, '{"severalAnswers": true, "reason": "a to e"}').pass).toBe(false);
