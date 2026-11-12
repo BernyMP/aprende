@@ -118,6 +118,30 @@ describe("ruleVerdict", () => {
     expect(ruleVerdict(check, [{ user: "a", events: [measure("q-1")] }])?.inconclusive).toBe(true);
   });
 
+  it("needs levelled strands in short phrases", () => {
+    const check = { type: "glanceableStartingPoint" as const };
+    const verdict = (strand: Record<string, unknown>) =>
+      ruleVerdict(check, [
+        { user: "a", events: [call("finish_measuring", { goal: "g", strands: [strand] })] },
+      ]);
+    expect(verdict({ name: "Vectors", level: "solid", solid: "Adding and scaling" })?.pass).toBe(
+      true,
+    );
+    expect(verdict({ name: "Vectors", solid: "Adding", breaksAt: "Spans" })?.reason).toContain(
+      "no level",
+    );
+    expect(
+      verdict({ name: "Vectors", level: "solid", solid: "Adding", breaksAt: "Not found" })?.pass,
+    ).toBe(true);
+    expect(
+      verdict({ name: "Spans", level: "new", breaksAt: "word ".repeat(21) })?.reason,
+    ).toContain("21 words");
+    expect(
+      verdict({ name: "Vectors", level: "solid", solid: "Adding", breaksAt: "Spans" })?.reason,
+    ).toContain("solid but has a gap");
+    expect(ruleVerdict(check, [{ user: "a", events: [measure("q-1")] }])?.inconclusive).toBe(true);
+  });
+
   it("needs a goal question before a short notebook name, then leaves the rest to the judge", () => {
     const check = { type: "guidedNotebookStart" as const };
     const goal = call("ask_question", { purpose: "goal", question: "What do you want to learn?" });

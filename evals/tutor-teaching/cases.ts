@@ -56,7 +56,9 @@ export type Check =
   /** A coding problem checked with python3 or node, posed without any talk of installing. */
   | { readonly type: "posesWithBroughtRuntime" }
   /** A choice card about code, with every option on one line and no fenced block. */
-  | { readonly type: "oneLineCodeOptions" };
+  | { readonly type: "oneLineCodeOptions" }
+  /** finish_measuring gives every strand a level and short phrases. */
+  | { readonly type: "glanceableStartingPoint" };
 
 /** What get_outline returns; cases without one run outside any notebook. */
 export interface OutlineMock {
@@ -573,5 +575,17 @@ export const cases: ReadonlyArray<TutorCase> = [
     },
     maxTurns: 4,
     check: { type: "oneLineCodeOptions" },
+  },
+  {
+    id: "starting-point-reads-at-a-glance",
+    kind: "bad",
+    source:
+      'A TypeScript lesson whose starting point read as a text dump: four labelled lines per strand, with filler like "Breaks at: Not found" and notes to self like "Start from: Use as the base for examples"',
+    experience:
+      "The learner reads the starting point, so each strand says how much holds and names the idea in one short phrase, and a strand that holds or is new leaves the other side out.",
+    profile: savedProfile,
+    persona: eigenLearner,
+    maxTurns: 9,
+    check: { type: "glanceableStartingPoint" },
   },
 ];

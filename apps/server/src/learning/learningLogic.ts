@@ -1,10 +1,13 @@
 import {
+  isBlankStrandPhrase,
+  LEARNING_ASSESSMENT_SUMMARY_MAX_CHARS,
   LEARNING_CONFIDENCE_LABELS,
   LEARNING_CHECK_TIMEOUT_SECONDS,
   LEARNING_MAX_OPTIONS,
   LEARNING_MAX_OUTLINE_TOPICS,
   LEARNING_MAX_WORKSPACE_FILE_CHARS,
   LEARNING_MAX_WORKSPACE_FILES,
+  LEARNING_STRAND_PHRASE_MAX_CHARS,
   learningAnswerMessageHeader,
   learningSolutionMessageHeader,
   type LearningAnswer,
@@ -21,6 +24,8 @@ import {
   type LearningPlanNode,
   type LearningQuestionFormat,
   type LearningQuestionPurpose,
+  type LearningStrand,
+  type LearningStrandLevel,
 } from "@aprende/contracts";
 
 export interface QuestionDraft {
@@ -85,6 +90,48 @@ export function questionDraftProblem(
       return "Predict and check questions need the planNodeId they teach.";
   }
   return undefined;
+}
+
+export interface StrandDraft {
+  readonly name: string;
+  readonly level: LearningStrandLevel;
+  readonly solid?: string | undefined;
+  readonly breaksAt?: string | undefined;
+  readonly misconceptions?: string | undefined;
+}
+
+const STRAND_PHRASES = ["name", "solid", "breaksAt", "misconceptions"] as const;
+
+/** The reason an assessment is refused, or undefined when the learner can read it at a glance. */
+export function assessmentProblem(input: {
+  readonly strands: ReadonlyArray<StrandDraft>;
+  readonly summary?: string | undefined;
+}): string | undefined {
+  for (const strand of input.strands) {
+    for (const field of STRAND_PHRASES) {
+      if ((strand[field]?.trim().length ?? 0) > LEARNING_STRAND_PHRASE_MAX_CHARS)
+        return `Shorten ${field} of "${strand.name.trim().slice(0, 40)}" to one phrase, ${LEARNING_STRAND_PHRASE_MAX_CHARS} characters at most. The learner reads it at a glance; keep the detail for teaching.`;
+    }
+  }
+  if ((input.summary?.trim().length ?? 0) > LEARNING_ASSESSMENT_SUMMARY_MAX_CHARS)
+    return `Shorten the summary to one or two sentences, ${LEARNING_ASSESSMENT_SUMMARY_MAX_CHARS} characters at most.`;
+  return undefined;
+}
+
+/** A strand as stored: trimmed, without phrases that say nothing, like "None observed." */
+export function assessedStrand(draft: StrandDraft): LearningStrand {
+  const phrase = (value: string | undefined) =>
+    isBlankStrandPhrase(value) ? undefined : value?.trim();
+  const solid = phrase(draft.solid);
+  const breaksAt = phrase(draft.breaksAt);
+  const misconceptions = phrase(draft.misconceptions);
+  return {
+    name: draft.name.trim(),
+    level: draft.level,
+    ...(solid === undefined ? {} : { solid }),
+    ...(breaksAt === undefined ? {} : { breaksAt }),
+    ...(misconceptions === undefined ? {} : { misconceptions }),
+  };
 }
 
 /** The reason a plan is invalid, or undefined when it is a DAG over unique node ids. */

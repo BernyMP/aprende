@@ -113,14 +113,40 @@ export const LearningPlan = Schema.Struct({
 });
 export type LearningPlan = typeof LearningPlan.Type;
 
+/**
+ * How much of a strand holds. `solid` needs no teaching, `partial` holds up to a point, and `new`
+ * has nothing to build on yet.
+ */
+export const LearningStrandLevel = Schema.Literals(["solid", "partial", "new"]);
+export type LearningStrandLevel = typeof LearningStrandLevel.Type;
+
+/** A strand phrase is one line the learner reads, so longer text is refused. */
+export const LEARNING_STRAND_PHRASE_MAX_CHARS = 140;
+export const LEARNING_ASSESSMENT_SUMMARY_MAX_CHARS = 320;
+
+/** Assessments saved before strands had a level carry `startFrom` and no `level`. */
 export const LearningStrand = Schema.Struct({
   name: BoundedText,
-  solid: Schema.String.annotate({ description: "What the learner reliably gets right." }),
-  breaksAt: Schema.String.annotate({ description: "Where their understanding stops." }),
+  level: Schema.optional(LearningStrandLevel),
+  solid: Schema.optional(Schema.String),
+  breaksAt: Schema.optional(Schema.String),
   misconceptions: Schema.optional(Schema.String),
-  startFrom: Schema.String.annotate({ description: "Where teaching should begin." }),
+  startFrom: Schema.optional(Schema.String),
 });
 export type LearningStrand = typeof LearningStrand.Type;
+
+const BLANK_PHRASE = /^((not found|not applicable|none|nothing|unknown|n\/a|-)(\W.{0,24})?)?$/i;
+
+/** Whether a strand phrase says nothing, like "Not found" or "None observed." */
+export const isBlankStrandPhrase = (phrase: string | undefined): boolean =>
+  BLANK_PHRASE.test(phrase?.trim() ?? "");
+
+/** A strand's level; older assessments said it in their text, such as "Not found". */
+export const learningStrandLevel = (strand: LearningStrand): LearningStrandLevel => {
+  if (strand.level !== undefined) return strand.level;
+  if (isBlankStrandPhrase(strand.breaksAt)) return "solid";
+  return isBlankStrandPhrase(strand.solid) ? "new" : "partial";
+};
 
 export const LearningAssessment = Schema.Struct({
   goal: BoundedText,

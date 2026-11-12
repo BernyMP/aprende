@@ -225,11 +225,37 @@ it.effect("replaces an unanswered question and derives the phase and current nod
       const first = yield* learning.askQuestion(threadId, measureQuestion);
       assert.equal((yield* learning.getThreadState(threadId)).phase, "measure");
 
+      const dump = yield* learning
+        .finishMeasuring(threadId, {
+          goal: "Understand plans",
+          strands: [{ name: "Graphs", level: "new", breaksAt: "Edges. ".repeat(40) }],
+        })
+        .pipe(Effect.exit);
+      assert.include(JSON.stringify(dump), "Shorten breaksAt");
+      assert.equal((yield* learning.getThreadState(threadId)).phase, "measure");
+
       yield* learning.finishMeasuring(threadId, {
         goal: "Understand plans",
-        strands: [{ name: "Graphs", solid: "Nodes", breaksAt: "Edges", startFrom: "Edges" }],
+        strands: [
+          {
+            name: "Graphs",
+            level: "partial",
+            solid: " Nodes ",
+            breaksAt: "Edges",
+            misconceptions: "None observed.",
+          },
+        ],
+        summary: " ",
       });
-      assert.equal((yield* learning.getThreadState(threadId)).phase, "plan");
+      const measured = yield* learning.getThreadState(threadId);
+      assert.equal(measured.phase, "plan");
+      assert.deepEqual(
+        { strands: measured.assessment?.strands, summary: measured.assessment?.summary },
+        {
+          strands: [{ name: "Graphs", level: "partial", solid: "Nodes", breaksAt: "Edges" }],
+          summary: undefined,
+        },
+      );
 
       const cycle = yield* learning
         .setPlan(threadId, {

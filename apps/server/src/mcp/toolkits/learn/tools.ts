@@ -16,6 +16,7 @@ import {
   LearningProblemOutcome,
   LearningQuestionFormat,
   LearningQuestionPurpose,
+  LearningStrandLevel,
   OrchestratorMcpFailure,
 } from "@aprende/contracts";
 import * as Schema from "effect/Schema";
@@ -176,19 +177,44 @@ const ConcludeProblemTool = Tool.make("conclude_problem", {
 
 const FinishMeasuringTool = Tool.make("finish_measuring", {
   description:
-    "Record where the learner's understanding ends, once measuring is done. Shown to them as a summary card. Then plan with set_plan.",
+    "Record where the learner's understanding ends, once measuring is done. They read it at a glance as their starting point. Write each phrase as the idea itself in ten words or fewer, never as a report on the learner: `Narrowing a union with typeof`, not `Doesn't know how to narrow` or `Not yet tested`. Then plan with set_plan.",
   parameters: Schema.Struct({
     goal: Text.annotate({ description: "The concrete goal, in a sentence." }),
     strands: Schema.Array(
       Schema.Struct({
-        name: Text,
-        solid: Schema.String.annotate({ description: "What they reliably get right." }),
-        breaksAt: Schema.String.annotate({ description: "Where their understanding stops." }),
-        misconceptions: Schema.optional(Schema.String),
-        startFrom: Schema.String.annotate({ description: "Where teaching should begin." }),
+        name: Text.annotate({ description: "The idea or skill, in a few words." }),
+        level: LearningStrandLevel.annotate({
+          description:
+            "solid: it holds. partial: part holds and part does not. new: they have not met it.",
+        }),
+        solid: Schema.optional(
+          Schema.String.annotate({
+            description:
+              "The ideas that hold, like `Adding and scaling vectors`. Leave out when new.",
+          }),
+        ),
+        breaksAt: Schema.optional(
+          Schema.String.annotate({
+            description:
+              "The first idea that does not hold yet, like `What a zero determinant means`. Leave out when solid.",
+          }),
+        ),
+        misconceptions: Schema.optional(
+          Schema.String.annotate({
+            description:
+              "A wrong idea they were sure of, like `Optional means loosely checked`. Leave out if none.",
+          }),
+        ),
+      }),
+    ).annotate({
+      description: "What the goal depends on, six at most, from what holds best to what is new.",
+    }),
+    summary: Schema.optional(
+      Schema.String.annotate({
+        description:
+          "One or two sentences to the learner: what they bring, and what you will build on it.",
       }),
     ),
-    summary: Schema.optional(Schema.String),
   }),
   success: Schema.Struct({ message: Schema.String }),
   failure: OrchestratorMcpFailure,
