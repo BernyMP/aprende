@@ -24,6 +24,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { EnvironmentId, MessageId, RunId } from "@aprende/contracts";
 import { serializeAssistantCitation } from "@aprende/shared/assistantCitations";
 import {
+  answerCardsLastInTurn,
   computeStableMessagesTimelineRows,
   deriveMessagesTimelineRows,
   timelineTurnFoldRunIdsByEntryId,
@@ -2547,6 +2548,69 @@ describe("deriveMessagesTimelineRows", () => {
       }
     },
   );
+});
+
+describe("answerCardsLastInTurn", () => {
+  const at = "2026-01-01T00:00:00Z";
+  const message = (id: string, role: "user" | "assistant", run: string): TimelineEntry => ({
+    kind: "message",
+    id,
+    createdAt: at,
+    message: {
+      id: MessageId.make(id),
+      role,
+      text: id,
+      runId: RunId.make(run),
+      streaming: false,
+      createdAt: at,
+      updatedAt: at,
+    },
+  });
+  const card = (id: string, run: string, tool: "ask_question" | "set_plan"): TimelineEntry => ({
+    kind: "learning",
+    id,
+    createdAt: at,
+    runId: RunId.make(run),
+    tool,
+    recordId: id,
+    latest: false,
+  });
+  const ids = (entries: ReadonlyArray<TimelineEntry>) => entries.map((entry) => entry.id);
+
+  it("moves a question card below the text its turn wrote after it", () => {
+    const entries = [
+      message("hello", "user", "run-1"),
+      card("plan", "run-1", "set_plan"),
+      card("q-1", "run-1", "ask_question"),
+      message("reply-1", "assistant", "run-1"),
+      message("answer", "user", "run-2"),
+      card("q-2", "run-2", "ask_question"),
+      message("reply-2", "assistant", "run-2"),
+    ];
+    expect(ids(answerCardsLastInTurn(entries, null))).toEqual([
+      "hello",
+      "plan",
+      "reply-1",
+      "q-1",
+      "answer",
+      "reply-2",
+      "q-2",
+    ]);
+    // The running turn's card waits for the turn to finish.
+    expect(ids(answerCardsLastInTurn(entries, RunId.make("run-2"))).slice(-2)).toEqual([
+      "answer",
+      "reply-2",
+    ]);
+  });
+
+  it("returns the same entries when every card is already last", () => {
+    const entries = [
+      message("hello", "user", "run-1"),
+      message("reply-1", "assistant", "run-1"),
+      card("q-1", "run-1", "ask_question"),
+    ];
+    expect(answerCardsLastInTurn(entries, null)).toBe(entries);
+  });
 });
 
 describe("v2 run and attempt history", () => {

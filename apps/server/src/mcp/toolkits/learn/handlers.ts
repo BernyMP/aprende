@@ -10,9 +10,9 @@ import { LearnToolkit } from "./tools.ts";
 /** What the tutor reads back from each tool; exported so evals replay the same text. */
 export const LEARN_TOOL_MESSAGES = {
   ask_question:
-    "The learner sees the question now. End your turn without writing more; their answer arrives as their next message.",
+    "The learner reads everything you write in this turn, including anything you write now, and then the question below it. They cannot read your thinking. If your reply to their last answer, your teaching, or news such as a problem you could not pose is still unwritten, write it now. If it is written, add one short sentence at most, with nothing about the card, its question or how to answer. Their answer arrives as their next message.",
   pose_problem:
-    "The learner sees the problem now. End your turn without writing more; their work arrives as their next message.",
+    "The learner reads everything you write in this turn, including anything you write now, and then the problem below it. They cannot read your thinking. If your reply or your teaching is still unwritten, write it now. If it is written, add one short sentence at most, with nothing about the card, the problem or how to solve it. Their work arrives as their next message.",
   conclude_problem:
     "The learner sees your verdict and the model solution now. After a miss, repair before the next problem.",
   finish_measuring: "Recorded and shown to the learner. Plan next with set_plan.",

@@ -213,6 +213,30 @@ describe("ruleVerdict", () => {
     expect(ruleVerdict(check, asked(["`string`", "`T`"]))?.pass).toBe(true);
     expect(ruleVerdict(check, asked(["```ts\nconst a = 1;\n```", "`T`"]))?.pass).toBe(false);
   });
+
+  it("needs a reply to the answer before the judge reads a card turn", () => {
+    const check = { type: "quietAroundCard" as const };
+    const say = (text: string) => ({ kind: "text", text }) as const;
+    const after = (...events: Turn["events"]) => [
+      { user: "hi", events: [measure("q-1")] },
+      { user: "answer", events },
+    ];
+    // The app shows the card last, so text on either side of the call counts as the reply.
+    expect(ruleVerdict(check, after(measure("q-2"), say("Right: f(3) is 6.")))).toBeUndefined();
+    expect(ruleVerdict(check, after(measure("q-2")))?.reason).toContain("without replying");
+    // The first card of a session answers nothing.
+    expect(ruleVerdict(check, [{ user: "hi", events: [measure("q-1")] }])?.inconclusive).toBe(true);
+    const reply = { user: "answer", events: [say("Yes."), measure("q-2")] };
+    expect(isDone(check, [...after(say("Yes."), measure("q-2")), reply])).toBe(false);
+    expect(isDone(check, [...after(say("Yes."), measure("q-2")), reply, reply])).toBe(true);
+    const verdict = (flags: string) => judgeVerdict(check, `{${flags}, "reason": "x"}`).pass;
+    expect(
+      verdict('"pointsAtCard": false, "tellsToAnswer": false, "restatesQuestion": false'),
+    ).toBe(true);
+    expect(verdict('"pointsAtCard": false, "tellsToAnswer": true, "restatesQuestion": false')).toBe(
+      false,
+    );
+  });
 });
 
 describe("practice runtimes", () => {

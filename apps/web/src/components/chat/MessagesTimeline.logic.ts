@@ -829,7 +829,7 @@ function deriveSupersededAttemptFolds(
 }
 
 // After send, the previous turn stays active until the server creates its replacement.
-function deriveUnsettledRunId(
+export function deriveUnsettledRunId(
   latestRun: TimelineLatestRun | null,
   runningRunId: RunId | null = null,
 ): RunId | null {
@@ -843,6 +843,45 @@ function deriveUnsettledRunId(
     latestRun.status !== "starting" &&
     latestRun.status !== "waiting";
   return isSettled ? null : latestRun.runId;
+}
+
+const isAnswerCard = (
+  entry: TimelineEntry,
+): entry is Extract<TimelineEntry, { kind: "learning" }> =>
+  entry.kind === "learning" && (entry.tool === "ask_question" || entry.tool === "pose_problem");
+
+/**
+ * Puts each question or problem card after the rest of its turn. Tutors write their reply after
+ * the card call as often as before it, and the learner answers the card, so it reads last.
+ * The unsettled turn's card waits, so streamed text never pushes a card the learner is using.
+ */
+export function answerCardsLastInTurn(
+  entries: ReadonlyArray<TimelineEntry>,
+  unsettledRunId: RunId | null,
+): ReadonlyArray<TimelineEntry> {
+  const ordered: Array<TimelineEntry> = [];
+  let held: Array<Extract<TimelineEntry, { kind: "learning" }>> = [];
+  let changed = false;
+  for (const entry of entries) {
+    const runId = timelineEntryRunId(entry);
+    const leavesTurn =
+      held.length > 0 &&
+      ((entry.kind === "message" && entry.message.role === "user") ||
+        (runId !== null && runId !== held[0]!.runId));
+    if (leavesTurn) {
+      ordered.push(...held);
+      held = [];
+    }
+    if (isAnswerCard(entry)) {
+      if (entry.runId !== null && entry.runId === unsettledRunId) changed = true;
+      else held.push(entry);
+      continue;
+    }
+    if (held.length > 0) changed = true;
+    ordered.push(entry);
+  }
+  ordered.push(...held);
+  return changed ? ordered : entries;
 }
 
 // Children can outlive their launching turn; keep cards visible while the footer counts them.

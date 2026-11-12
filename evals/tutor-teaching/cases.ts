@@ -58,7 +58,9 @@ export type Check =
   /** A choice card about code, with every option on one line and no fenced block. */
   | { readonly type: "oneLineCodeOptions" }
   /** finish_measuring gives every strand a level and short phrases. */
-  | { readonly type: "glanceableStartingPoint" };
+  | { readonly type: "glanceableStartingPoint" }
+  /** A turn with a card replies to the answer and leaves the card alone: no pointing, no asking twice. */
+  | { readonly type: "quietAroundCard" };
 
 /** What get_outline returns; cases without one run outside any notebook. */
 export interface OutlineMock {
@@ -594,5 +596,17 @@ export const cases: ReadonlyArray<TutorCase> = [
     persona: eigenLearner,
     maxTurns: 9,
     check: { type: "glanceableStartingPoint" },
+  },
+  {
+    id: "quiet-around-the-card",
+    // Opus: 0/3 before, 6/7 after. Haiku still fails 0/5: it adds a closing line about the card.
+    kind: "bad",
+    source: "A maintainer's lessons: every one of 84 question cards had tutor text below it",
+    experience:
+      'Below each question card the tutor wrote lines like "I\'m waiting for your answer on the card above. It asks what types TypeScript infers. Pick an option and say why." The app now shows the card last; the text should not point at it, restate it or say how to answer.',
+    profile: savedProfile,
+    persona: eigenLearner,
+    maxTurns: 7,
+    check: { type: "quietAroundCard" },
   },
 ];

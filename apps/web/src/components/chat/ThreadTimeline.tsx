@@ -10,6 +10,7 @@ import {
   timelineHasEphemeralPreviewUrls,
 } from "../ChatView.logic";
 import { MessagesTimeline } from "./MessagesTimeline";
+import { answerCardsLastInTurn, deriveUnsettledRunId } from "./MessagesTimeline.logic";
 
 /**
  * The timeline with the streamed text. ChatView reads the thread through its quiet
@@ -54,5 +55,9 @@ export function ThreadTimeline({
     }
     rememberReadyThreadTimeline({ threadKey: activeThreadKey, entries });
   }, [activeThreadKey, detailLoading, entries]);
-  return <MessagesTimeline {...timelineProps} timelineEntries={displayedEntries} />;
+  const orderedEntries = answerCardsLastInTurn(
+    displayedEntries,
+    deriveUnsettledRunId(timelineProps.latestRun ?? null, timelineProps.runningRunId ?? null),
+  );
+  return <MessagesTimeline {...timelineProps} timelineEntries={orderedEntries} />;
 }
