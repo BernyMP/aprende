@@ -47,7 +47,11 @@ export function LearningTimelineRow({ row }: { row: Extract<TimelineRow, { kind:
     const proposal = state.proposals.find((entry) => entry.id === row.recordId);
     return proposal === undefined ? null : (
       <div className="min-w-0 px-1">
-        <OutlineProposalCard proposal={proposal} environmentId={ctx.threadRef.environmentId} />
+        <OutlineProposalCard
+          proposal={proposal}
+          environmentId={ctx.threadRef.environmentId}
+          session={state.plan === null ? "setup" : "lesson"}
+        />
       </div>
     );
   }

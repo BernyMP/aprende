@@ -17,6 +17,12 @@ Prefer simple systems and software that feels obvious. Do not preserve complexit
 
 Think of these instructions as good defaults. The developer's preferences override anything here.
 
+## Where you work
+
+Each new agent session does its work on a new branch in its own worktree, started from `origin/main`. The main checkout is shared: the maintainer runs their dev app from it, and other sessions leave uncommitted work there. Do not edit, stash, commit or switch branches in it.
+
+If your session opened in the main checkout, make the worktree before your first edit, next to the main checkout and not in `/tmp`: `git worktree add -b <branch> ../aprende-<topic> origin/main`. Then run its setup, which installs and links `.env`: `APRENDE_PROJECT_ROOT=<main checkout> node scripts/setup-worktree.ts`. Remove the worktree when the work is merged or dropped.
+
 ## A small glossary
 
 - **you** means the agent reading this file and changing aprende.
@@ -59,7 +65,6 @@ The most common defect in this repo is a change that works on the path you teste
 - Sharing over the tailnet is three steps: run `vp run dev --share` in the background, wait for the `pairingUrl:` line in its output, then give that full URL to an unpaired browser. Do not wire up `tailscale serve` by hand, open the URL yourself, or consume the user's pairing link. A browser with the reusable dev cookie can use the bare origin. If a normal one-time token was consumed, mint a fresh one with `node apps/server/src/bin.ts pair`. It carries standard scopes, while the startup URL carries admin scopes.
 - To reuse web dev auth across worktrees, configure one fixed `APRENDE_DEV_AUTH_TOKEN` in the main checkout's gitignored `.env`. The `t3.json` setup links that file into worktrees. Never commit or publish the token or a startup URL. See [Reusable dev credential](docs/operations/development.md#reusable-dev-credential).
 - Stop what you started, by the PID you tracked. See rule 1.
-- Need a second checkout? `git worktree add` it next to this worktree, not in `/tmp`. Remove it when done.
 
 ## Test data
 

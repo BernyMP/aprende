@@ -133,6 +133,11 @@ export interface TutorOutline {
   readonly pendingProposal: boolean;
   /** A notebook just created, still waiting for the tutor to name it. */
   readonly needsName: boolean;
+  /**
+   * This session sets the notebook up and ends at its first outline: the outline is empty with
+   * no suggestion waiting, and the session has neither planned nor had its outline dismissed.
+   */
+  readonly needsOutline: boolean;
 }
 
 const MONOGRAM_COLORS = ProjectIconColor.literals.filter((color) => color !== "gray");
@@ -246,11 +251,18 @@ export class LearningService extends Context.Service<
       input: LearningSetLessonTopicInput,
     ) => Effect.Effect<void, LearningError>;
     readonly tutorOutline: (threadId: ThreadId) => Effect.Effect<TutorOutline, LearningError>;
-    /** The tutor's suggested change, which waits for the learner and replaces a pending one. */
+    /**
+     * The tutor's suggested change, which waits for the learner and replaces a pending one.
+     * `firstOutline` says it drafts an outline for a notebook that has none, from a session
+     * that has not planned: the learner goes on from the notebook, not from this session.
+     */
     readonly proposeOutline: (
       threadId: ThreadId,
       input: { readonly ops: ReadonlyArray<LearningOutlineOp>; readonly reason: string },
-    ) => Effect.Effect<{ readonly proposalId: string }, LearningError>;
+    ) => Effect.Effect<
+      { readonly proposalId: string; readonly firstOutline: boolean },
+      LearningError
+    >;
     /** The tutor marks its own lesson's topic learned. */
     readonly markTopicLearned: (threadId: ThreadId) => Effect.Effect<void, LearningError>;
     /** The tutor names a new notebook once it knows what the learner wants to learn. */
@@ -1508,12 +1520,18 @@ export const layer = Layer.effect(
           lessonTopicId: null,
           pendingProposal: false,
           needsName: false,
+          needsOutline: false,
         } satisfies TutorOutline;
       const read = dbError("Could not read the outline.");
       const project = yield* projects.getById(projectId).pipe(Effect.mapError(read));
       const outline = yield* readOutline(projectId).pipe(Effect.mapError(read));
       const lesson = yield* lessonOf(threadId).pipe(Effect.mapError(read));
       const pending = yield* pendingProposal(projectId).pipe(Effect.mapError(read));
+      const plan = yield* readPlan(threadId).pipe(Effect.mapError(read));
+      const dismissed = yield* sql<{ proposal_id: string }>`
+        SELECT proposal_id FROM learning_outline_proposals
+        WHERE thread_id = ${threadId} AND status = 'dismissed' LIMIT 1
+      `.pipe(Effect.mapError(read));
       // Only lessons whose session exists count; archived ones still happened.
       const links = yield* sql<{ topic_id: string }>`
         SELECT l.topic_id FROM learning_lesson_topics l
@@ -1530,6 +1548,11 @@ export const layer = Layer.effect(
         lessonTopicId: lesson?.topic.id ?? null,
         pendingProposal: pending !== null,
         needsName: Option.isSome(project) && project.value.title === NEW_NOTEBOOK_TITLE,
+        needsOutline:
+          outline.topics.length === 0 &&
+          pending === null &&
+          plan === null &&
+          dismissed.length === 0,
       } satisfies TutorOutline;
     });
 
@@ -1546,6 +1569,9 @@ export const layer = Layer.effect(
       // Checked now so the tutor can fix a bad id; on accept, ops the learner made moot are skipped.
       const check = applyOutlineOps(outline.topics, input.ops, () => "new");
       if (check.skipped.length > 0) return yield* fail(check.skipped.join(" "));
+      const plan = yield* readPlan(threadId).pipe(
+        Effect.mapError(dbError("Could not read the plan.")),
+      );
       const proposalId = yield* newId("op");
       const createdAt = yield* nowIso;
       const replaced = yield* sql
@@ -1570,7 +1596,7 @@ export const layer = Layer.effect(
         )
         .pipe(Effect.mapError(dbError("Could not save the suggestion.")));
       yield* notebookChanged(projectId, [threadId, ...replaced]);
-      return { proposalId };
+      return { proposalId, firstOutline: outline.topics.length === 0 && plan === null };
     });
 
     const markTopicLearned: LearningService["Service"]["markTopicLearned"] = Effect.fn(

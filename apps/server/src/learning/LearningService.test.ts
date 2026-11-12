@@ -876,6 +876,9 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
       // Nothing applies until the learner accepts, and only the newest proposal waits.
       const empty = (yield* learning.tutorOutline(threadId)).topics;
       assert.deepEqual(empty, []);
+      // Until one is accepted, each drafts the notebook's first outline, and none is needed.
+      assert.deepEqual([first.firstOutline, second.firstOutline], [true, true]);
+      assert.isFalse((yield* learning.tutorOutline(threadId)).needsOutline);
       const replaced = yield* learning
         .resolveProposal({ proposalId: first.proposalId, accept: true })
         .pipe(Effect.exit);
@@ -912,6 +915,7 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
         ],
         reason: "They already hold vectors.",
       });
+      assert.isFalse(late.firstOutline);
       yield* learning.editOutline({
         projectId,
         ops: [{ type: "remove", topicId: matrices!.id }],
@@ -982,6 +986,38 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
       assert.isNull((yield* learning.getThreadState(threadId)).topic);
     }).pipe(Effect.provide(makeLayer(sent)));
   }),
+);
+
+it.effect(
+  "ends a notebook's first session at its outline unless it planned or was turned down",
+  () =>
+    Effect.gen(function* () {
+      const sent = yield* Ref.make<ReadonlyArray<string>>([]);
+      const draft = {
+        ops: [{ type: "add" as const, title: "Vectors" }],
+        reason: "A first outline.",
+      };
+
+      yield* Effect.gen(function* () {
+        const learning = yield* LearningService.LearningService;
+        assert.isTrue((yield* learning.tutorOutline(threadId)).needsOutline);
+        const first = yield* learning.proposeOutline(threadId, draft);
+        assert.isTrue(first.firstOutline);
+        // Dismissed: the tutor is not sent to draft again, but a draft the learner asks for
+        // still leads to the notebook.
+        yield* learning.resolveProposal({ proposalId: first.proposalId, accept: false });
+        assert.isFalse((yield* learning.tutorOutline(threadId)).needsOutline);
+        assert.isTrue((yield* learning.proposeOutline(threadId, draft)).firstOutline);
+      }).pipe(Effect.provide(makeLayer(sent)));
+
+      // A session that planned is teaching: its outline suggestion does not end it.
+      yield* Effect.gen(function* () {
+        const learning = yield* LearningService.LearningService;
+        yield* learning.setPlan(threadId, { nodes: [{ id: "a", title: "A" }], edges: [] });
+        assert.isFalse((yield* learning.tutorOutline(threadId)).needsOutline);
+        assert.isFalse((yield* learning.proposeOutline(threadId, draft)).firstOutline);
+      }).pipe(Effect.provide(makeLayer(sent)));
+    }),
 );
 
 it.effect("lets the tutor name only a new notebook, keeping an icon the learner chose", () =>
