@@ -43,7 +43,6 @@ import {
   type LearningRunCheckInput,
   type LearningSetTutorPromptInput,
   type LearningSnoozeReviewInput,
-  type LearningStrand,
   type LearningSubmitSolutionInput,
   type LearningThreadState,
   type LearningTutorPrompt,
@@ -75,6 +74,8 @@ import { forgetRemovedThreadWorktree } from "../workspace/threadWorktree.ts";
 import {
   answerProblem,
   applyOutlineOps,
+  assessedStrand,
+  assessmentProblem,
   checkProgram,
   conclusionProblem,
   formatAnswerMessage,
@@ -92,6 +93,7 @@ import {
   type QuestionDraft,
   type StoredProblem,
   type StoredQuestion,
+  type StrandDraft,
   type WorkspaceDraft,
 } from "./learningLogic.ts";
 import { applyProfilePatch, readLearnerProfile, writeLearnerProfile } from "./learnerProfile.ts";
@@ -173,7 +175,7 @@ export class LearningService extends Context.Service<
       threadId: ThreadId,
       input: {
         readonly goal: string;
-        readonly strands: ReadonlyArray<Omit<LearningStrand, never>>;
+        readonly strands: ReadonlyArray<StrandDraft>;
         readonly summary?: string | undefined;
       },
     ) => Effect.Effect<void, LearningError>;
@@ -815,10 +817,13 @@ export const layer = Layer.effect(
       "LearningService.finishMeasuring",
     )(function* (threadId, input) {
       if (input.strands.length === 0) return yield* fail("Describe at least one strand.");
+      const problem = assessmentProblem(input);
+      if (problem !== undefined) return yield* fail(problem);
+      const summary = input.summary?.trim() ?? "";
       const assessment: LearningAssessment = {
         goal: input.goal.trim(),
-        strands: input.strands,
-        ...(input.summary === undefined ? {} : { summary: input.summary }),
+        strands: input.strands.map(assessedStrand),
+        ...(summary.length === 0 ? {} : { summary }),
         updatedAt: yield* nowIso,
       };
       yield* sql`

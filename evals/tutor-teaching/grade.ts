@@ -6,6 +6,7 @@ import type {
 } from "@aprende/contracts";
 
 import {
+  assessedStrand,
   formatAnswerMessage,
   formatSolutionMessage,
   gradeAnswer,
@@ -202,6 +203,8 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return made.some((call) => call.name === "pose_problem");
     case "oneLineCodeOptions":
       return made.some(isCodeChoice);
+    case "glanceableStartingPoint":
+      return made.some((call) => call.name === "finish_measuring");
     case "keepsNotebookName":
     case "noHandout":
     case "noLearningStyles":
@@ -268,6 +271,35 @@ export function untilNamed(
     }
   }
   return events;
+}
+
+const STRAND_PHRASES = ["solid", "breaksAt", "misconceptions"] as const;
+const STRAND_LEVELS = ["solid", "partial", "new"] as const;
+/** About twice the ten words the tool asks for. */
+const MAX_PHRASE_WORDS = 20;
+
+/** Why a learner could not read these strands at a glance, or undefined when they can. */
+function startingPointProblem(strands: unknown): string | undefined {
+  for (const raw of Array.isArray(strands) ? (strands as Array<Record<string, unknown>>) : []) {
+    const name = text(raw.name);
+    const level = STRAND_LEVELS.find((candidate) => candidate === raw.level);
+    if (level === undefined) return `"${name}" has no level.`;
+    // The app drops phrases that say nothing, so grade what the learner would read.
+    const strand = assessedStrand({
+      name,
+      level,
+      solid: text(raw.solid),
+      breaksAt: text(raw.breaksAt),
+      misconceptions: text(raw.misconceptions),
+    });
+    for (const field of STRAND_PHRASES) {
+      const words = (strand[field] ?? "").split(/\s+/).length;
+      if (words > MAX_PHRASE_WORDS) return `${field} of "${name}" runs to ${words} words.`;
+    }
+    if (level === "solid" && strand.breaksAt !== undefined)
+      return `"${name}" is solid but has a gap: "${strand.breaksAt}".`;
+  }
+  return undefined;
 }
 
 /** The verdict for checks that need no judge, or undefined when a judge decides. */
@@ -405,6 +437,19 @@ export function ruleVerdict(
         ? { pass: true, reason: "Every option fits one line." }
         : { pass: false, reason: `Multi-line option: ${JSON.stringify(multiLine)}` };
     }
+    case "glanceableStartingPoint": {
+      const measured = made.find((call) => call.name === "finish_measuring");
+      if (measured === undefined)
+        return {
+          pass: false,
+          reason: "Never finished measuring within the turn cap.",
+          inconclusive: true,
+        };
+      const problem = startingPointProblem(measured.input.strands);
+      return problem === undefined
+        ? { pass: true, reason: "Every strand has a level and short phrases." }
+        : { pass: false, reason: problem };
+    }
     case "approach":
       return teachingWindow(turns).events.length === 0
         ? { pass: false, reason: "Never reached a plan within the turn cap.", inconclusive: true }
@@ -496,6 +541,7 @@ ${JSON_ONLY} {"oneThing": true|false, "noLecture": true|false, "reason": "one se
     case "recoversFromMissingProgram":
     case "posesWithBroughtRuntime":
     case "oneLineCodeOptions":
+    case "glanceableStartingPoint":
       return undefined;
   }
 }
