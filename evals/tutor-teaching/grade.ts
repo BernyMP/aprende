@@ -200,6 +200,8 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return refusedForProgram(turns) !== -1;
     case "posesWithBroughtRuntime":
       return made.some((call) => call.name === "pose_problem");
+    case "oneLineCodeOptions":
+      return made.some(isCodeChoice);
     case "keepsNotebookName":
     case "noHandout":
     case "noLearningStyles":
@@ -235,6 +237,12 @@ const refusedForProgram = (turns: ReadonlyArray<Turn>) =>
       // A failure that is not JSON arrives under `text`, so search the whole result.
       JSON.stringify(event.result).includes("is not installed"),
   );
+
+const isCodeChoice = (call: Call) =>
+  isGradedCard(call) &&
+  call.name === "ask_question" &&
+  call.input.format === "choice" &&
+  [text(call.input.question), ...strings(call.input.options)].some((part) => part.includes("`"));
 
 const collectsProfile = (made: ReadonlyArray<Call>, fields: ReadonlyArray<string>) => {
   const saved = made.filter((call) => call.name === "set_profile");
@@ -386,6 +394,17 @@ export function ruleVerdict(
         ? { pass: false, reason: "Talked about installing before posing." }
         : { pass: true, reason: `Posed with ${checkCommandOf(problem)}.` };
     }
+    case "oneLineCodeOptions": {
+      if (!made.some(isCodeChoice))
+        return { pass: false, reason: "No choice question about code.", inconclusive: true };
+      const multiLine = made
+        .filter((call) => call.name === "ask_question")
+        .flatMap((call) => strings(call.input.options))
+        .find((option) => option.includes("\n") || option.includes("```"));
+      return multiLine === undefined
+        ? { pass: true, reason: "Every option fits one line." }
+        : { pass: false, reason: `Multi-line option: ${JSON.stringify(multiLine)}` };
+    }
     case "approach":
       return teachingWindow(turns).events.length === 0
         ? { pass: false, reason: "Never reached a plan within the turn cap.", inconclusive: true }
@@ -476,6 +495,7 @@ ${JSON_ONLY} {"oneThing": true|false, "noLecture": true|false, "reason": "one se
     case "keepsNotebookName":
     case "recoversFromMissingProgram":
     case "posesWithBroughtRuntime":
+    case "oneLineCodeOptions":
       return undefined;
   }
 }

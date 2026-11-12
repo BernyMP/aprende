@@ -46,7 +46,7 @@ const AskQuestionTool = Tool.make("ask_question", {
     question: Text,
     options: Schema.optional(
       Schema.Array(Text).annotate({
-        description: `choice only: 2 to ${LEARNING_MAX_OPTIONS} plain claims of similar length and form. The app shuffles graded options.`,
+        description: `choice only: 2 to ${LEARNING_MAX_OPTIONS} plain claims of similar length and form. Each shows as one line of Markdown: put code in backticks, and put a multi-line snippet in the question and name it in the options. The app shuffles graded options.`,
       }),
     ),
     correctOptions: Schema.optional(

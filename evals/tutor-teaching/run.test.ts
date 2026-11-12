@@ -164,6 +164,26 @@ describe("ruleVerdict", () => {
       true,
     );
   });
+
+  it("needs a choice card about code with every option on one line", () => {
+    const check = { type: "oneLineCodeOptions" as const };
+    const asked = (options: ReadonlyArray<string>) => [
+      {
+        user: "a",
+        events: [
+          call("ask_question", {
+            purpose: "check",
+            format: "choice",
+            question: "What type does `first` return?",
+            options,
+          }),
+        ],
+      },
+    ];
+    expect(ruleVerdict(check, [{ user: "a", events: [measure("q-1")] }])?.inconclusive).toBe(true);
+    expect(ruleVerdict(check, asked(["`string`", "`T`"]))?.pass).toBe(true);
+    expect(ruleVerdict(check, asked(["```ts\nconst a = 1;\n```", "`T`"]))?.pass).toBe(false);
+  });
 });
 
 describe("practice runtimes", () => {
