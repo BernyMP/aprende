@@ -203,6 +203,8 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return made.some((call) => call.name === "pose_problem");
     case "oneLineCodeOptions":
       return made.some(isCodeChoice);
+    case "quietAroundCard":
+      return cardTurns(turns).filter((entry) => entry.afterAnswer).length >= 3;
     case "glanceableStartingPoint":
       return made.some((call) => call.name === "finish_measuring");
     case "keepsNotebookName":
@@ -246,6 +248,14 @@ const isCodeChoice = (call: Call) =>
   call.name === "ask_question" &&
   call.input.format === "choice" &&
   [text(call.input.question), ...strings(call.input.options)].some((part) => part.includes("`"));
+
+/** Turns that showed a card, with whether the learner had just answered a graded one. */
+const cardTurns = (turns: ReadonlyArray<Turn>) =>
+  turns.flatMap((turn, index) => {
+    if (!calls([turn]).some(isCard)) return [];
+    const answered = index === 0 ? undefined : calls([turns[index - 1]!]).findLast(isCard);
+    return [{ turn, afterAnswer: answered !== undefined && isGradedCard(answered) }];
+  });
 
 const collectsProfile = (made: ReadonlyArray<Call>, fields: ReadonlyArray<string>) => {
   const saved = made.filter((call) => call.name === "set_profile");
@@ -442,6 +452,22 @@ export function ruleVerdict(
         ? { pass: true, reason: "Every option fits one line." }
         : { pass: false, reason: `Multi-line option: ${JSON.stringify(multiLine)}` };
     }
+    case "quietAroundCard": {
+      const shown = cardTurns(turns);
+      if (!shown.some((entry) => entry.afterAnswer))
+        return {
+          pass: false,
+          reason: "No card followed a graded answer within the turn cap.",
+          inconclusive: true,
+        };
+      const silent = shown.some(
+        ({ turn, afterAnswer }) =>
+          afterAnswer && !turn.events.some((event) => event.kind === "text"),
+      );
+      return silent
+        ? { pass: false, reason: "Showed the next card without replying to the answer." }
+        : undefined;
+    }
     case "glanceableStartingPoint": {
       const measured = made.find((call) => call.name === "finish_measuring");
       if (measured === undefined)
@@ -536,6 +562,17 @@ Answer two questions:
 - noLecture: did the tutor avoid citing sources or links, giving exam weights or statistics, and explaining or laying out the subject's contents in its own messages? Offering a few directions as a card's answer options is fine.
 
 ${JSON_ONLY} {"oneThing": true|false, "noLecture": true|false, "reason": "one sentence"}`;
+    case "quietAroundCard":
+      return `A tutor teaches in a learning app. Each of its turns ends with a card: the app shows the card below the tutor's messages, and the card itself carries the question, its options and how to answer. Here is a session:
+
+${transcript(turns.flatMap((turn) => [{ kind: "learner" as const, text: turn.user }, ...turn.events]))}
+
+Answer three questions about the TUTOR messages only, never the cards:
+- pointsAtCard: does any message announce a card or say where it is, such as "the card above", "I've put a question on a card", "on the card" or "the next card"? Saying that an earlier card was marked wrongly is not this.
+- tellsToAnswer: does any message tell the learner to answer or how to answer (pick an option, rate how sure they are, write their thinking), or say the tutor is waiting for their answer?
+- restatesQuestion: does any message ask the learner a question, or restate the question that the card in the same turn asks?
+
+${JSON_ONLY} {"pointsAtCard": true|false, "tellsToAnswer": true|false, "restatesQuestion": true|false, "reason": "one sentence"}`;
     case "checks":
     case "collectsProfile":
     case "noProfileQuestions":
@@ -583,6 +620,14 @@ export function judgeVerdict(
       return { pass: verdict.endorses === false, reason };
     case "guidedNotebookStart":
       return { pass: verdict.oneThing === true && verdict.noLecture === true, reason };
+    case "quietAroundCard":
+      return {
+        pass:
+          verdict.pointsAtCard === false &&
+          verdict.tellsToAnswer === false &&
+          verdict.restatesQuestion === false,
+        reason,
+      };
     default:
       return { pass: false, reason: "This check has no judge." };
   }
