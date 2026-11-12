@@ -54,7 +54,9 @@ export type Check =
   /** After a problem is refused for a missing program: says what to install, or poses with python3 or node. */
   | { readonly type: "recoversFromMissingProgram" }
   /** A coding problem checked with python3 or node, posed without any talk of installing. */
-  | { readonly type: "posesWithBroughtRuntime" };
+  | { readonly type: "posesWithBroughtRuntime" }
+  /** A choice card about code, with every option on one line and no fenced block. */
+  | { readonly type: "oneLineCodeOptions" };
 
 /** What get_outline returns; cases without one run outside any notebook. */
 export interface OutlineMock {
@@ -552,5 +554,24 @@ export const cases: ReadonlyArray<TutorCase> = [
     },
     maxTurns: 2,
     check: { type: "posesWithBroughtRuntime" },
+  },
+  {
+    id: "code-options-one-line",
+    kind: "guard",
+    source: "PR rendering Markdown in choice options",
+    experience:
+      "Choice options about TypeScript showed their backticks as text. Options render as one line each, so a multi-line snippet belongs in the question.",
+    profile: savedProfile,
+    persona: {
+      opening:
+        "I want to understand TypeScript generics. I write TypeScript at work, but I've always avoided generics.",
+      goal: "Read and write generic functions without guessing what type comes out.",
+      choose: ["understand", "weekly"],
+      knowsFirst: 1,
+      problems: "giveUp",
+      reply: "Okay.",
+    },
+    maxTurns: 4,
+    check: { type: "oneLineCodeOptions" },
   },
 ];

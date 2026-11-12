@@ -16,6 +16,7 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { toastManager } from "../ui/toast";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
+import { OPTION_MARKDOWN_PLUGINS } from "./QuestionCard.logic";
 
 const PURPOSE_LABEL: Record<LearningQuestionView["purpose"], string> = {
   goal: "About your goal",
@@ -25,6 +26,19 @@ const PURPOSE_LABEL: Record<LearningQuestionView["purpose"], string> = {
 };
 
 const optionLabel = (index: number) => String.fromCharCode(65 + index);
+
+// No cwd, so relative paths stay code rather than file-link chips nested in the button.
+function OptionText(props: { readonly text: string }) {
+  return (
+    <ChatMarkdown
+      inline
+      text={props.text}
+      cwd={undefined}
+      parseRawHtml={false}
+      extraRemarkPlugins={OPTION_MARKDOWN_PLUGINS}
+    />
+  );
+}
 
 export function QuestionCard(props: {
   readonly question: LearningQuestionView;
@@ -148,7 +162,9 @@ function OpenQuestion(props: {
                 >
                   {optionLabel(index)}
                 </span>
-                <span className="min-w-0">{option}</span>
+                <span className="min-w-0">
+                  <OptionText text={option} />
+                </span>
               </button>
             );
           })}
@@ -266,7 +282,9 @@ function AnsweredQuestion(props: {
                 )}
               >
                 <span className="mt-px font-medium tabular-nums">{optionLabel(index)}</span>
-                <span className="min-w-0 flex-1">{option}</span>
+                <span className="min-w-0 flex-1">
+                  <OptionText text={option} />
+                </span>
                 {chosen ? (
                   correct || !graded ? (
                     <CheckIcon aria-label="Your answer" className="size-4 text-success" />
