@@ -66,7 +66,9 @@ export type Check =
   /** A problem that is one piece of work has no parts. */
   | { readonly type: "noParts" }
   /** conclude_problem's verdict comes in short lines or paragraphs, never one block. */
-  | { readonly type: "verdictInShortPieces" };
+  | { readonly type: "verdictInShortPieces" }
+  /** Before the first guess the tutor asks for, the learner gets what they need to reason it out, and not its answer. */
+  | { readonly type: "frameBeforeGuess" };
 
 /** What get_outline returns; cases without one run outside any notebook. */
 export interface OutlineMock {
@@ -132,6 +134,19 @@ const eigenLearner: Persona = {
   knowsFirst: 2,
   problems: "solve",
   reply: "Sounds good, let's go.",
+};
+
+// Knows the first thing asked and misses the rest, like the lessons this comes from. A learner who
+// knows nothing also says "I don't know" after every explanation, and the tutor stops asking them
+// to guess.
+const inferenceLearner: Persona = {
+  opening:
+    "I write TypeScript at work, but I never learned how it decides a type when I don't write one. I want to understand type inference.",
+  goal: "Say which type TypeScript infers for a variable or a function's return value.",
+  choose: ["understand", "deep", "weekly"],
+  knowsFirst: 1,
+  problems: "giveUp",
+  reply: "Sounds good.",
 };
 
 const NEW_NOTEBOOK_SOURCE =
@@ -272,6 +287,20 @@ export const cases: ReadonlyArray<TutorCase> = [
     persona: recursionExpert,
     maxTurns: 14,
     check: { type: "approach", expect: "problem-first" },
+  },
+  {
+    id: "new-ground-framed-before-guess",
+    // Opus: 1 of 3 before the Frame step, 6 of 6 after. Haiku reaches a guess in under half its
+    // samples, too few to compare.
+    kind: "bad",
+    source:
+      'A maintainer\'s TypeScript lessons: 7 of 8 guess cards answered wrong, each after a line like "A guess first, before I explain anything"',
+    experience:
+      "A learner on new ground was asked to guess with nothing to reason from, so the guess was blind and the miss taught little. Before the first question of a step they should get the picture and the terms it needs, without the answer, so they still have to think.",
+    profile: savedProfile,
+    persona: inferenceLearner,
+    maxTurns: 12,
+    check: { type: "frameBeforeGuess" },
   },
   {
     id: "gist-profile-still-checks",
