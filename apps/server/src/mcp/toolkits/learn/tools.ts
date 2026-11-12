@@ -177,7 +177,7 @@ const ConcludeProblemTool = Tool.make("conclude_problem", {
 
 const FinishMeasuringTool = Tool.make("finish_measuring", {
   description:
-    "Record where the learner's understanding ends, once measuring is done. They read it at a glance as their starting point. Write each phrase as the idea itself in ten words or fewer, never as a report on the learner: `Narrowing a union with typeof`, not `Doesn't know how to narrow` or `Not yet tested`. Then plan with set_plan.",
+    "Record where the learner's understanding ends, once measuring is done. They read it at a glance as their starting point. Write each phrase as the idea itself in ten words or fewer, never as a report on the learner: `Narrowing a union with typeof`, not `Doesn't know how to narrow` or `Not yet tested`. Then plan with set_plan, unless the result asks for an outline instead.",
   parameters: Schema.Struct({
     goal: Text.annotate({ description: "The concrete goal, in a sentence." }),
     strands: Schema.Array(
@@ -364,7 +364,7 @@ const GetOutlineTool = Tool.make("get_outline", {
 
 const ProposeOutlineTool = Tool.make("propose_outline", {
   description:
-    "Suggest a change to the notebook outline. The learner owns it: they see your suggestion as a card and accept or dismiss it, so nothing changes until they do. A new suggestion replaces one still waiting. Name topics by id from get_outline; `after` places a topic after another, null puts it first, and leaving it out of add puts it last. Adds with the same `after` keep their order. Keep teaching after calling.",
+    "Suggest a change to the notebook outline. The learner owns it: they see your suggestion as a card and accept or dismiss it, so nothing changes until they do. A new suggestion replaces one still waiting. Name topics by id from get_outline; `after` places a topic after another, null puts it first, and leaving it out of add puts it last. Adds with the same `after` keep their order. The result says how to go on.",
   parameters: Schema.Struct({
     ops: Schema.Array(LearningOutlineOp).annotate({
       description:

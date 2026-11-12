@@ -192,7 +192,7 @@ export function isDone(check: Check, turns: ReadonlyArray<Turn>): boolean {
       return collectsProfile(made, check.fields);
     case "reviewTargets":
       return made.some((call) => call.name === "pose_problem");
-    case "outlineAfterMeasuring":
+    case "outlineEndsSetup":
       return made.some((call) => call.name === "propose_outline");
     case "guidedNotebookStart":
       return made.some((call) => call.name === "name_notebook");
@@ -341,12 +341,14 @@ export function ruleVerdict(
         reason: `mode ${String(problem.input.mode)}, targets ${JSON.stringify(targets)}`,
       };
     }
-    case "outlineAfterMeasuring": {
+    case "outlineEndsSetup": {
       const proposal = made.findIndex((call) => call.name === "propose_outline");
-      // Some models plan without calling finish_measuring; either marks the end of measuring.
-      const measured = made.findIndex(
-        (call) => call.name === "finish_measuring" || call.name === "set_plan",
-      );
+      const measured = made.findIndex((call) => call.name === "finish_measuring");
+      if (made.some((call) => call.name === "set_plan"))
+        return {
+          pass: false,
+          reason: "Planned a lesson in the session that sets the notebook up.",
+        };
       if (proposal === -1)
         return measured === -1
           ? {
@@ -361,9 +363,12 @@ export function ruleVerdict(
       ).length;
       if (measured === -1 || measured > proposal)
         return { pass: false, reason: "Suggested the outline before measuring." };
-      return adds >= 4
-        ? { pass: true, reason: `Suggested ${adds} topics after measuring.` }
-        : { pass: false, reason: `Suggested only ${adds} topics.` };
+      if (adds < 4) return { pass: false, reason: `Suggested only ${adds} topics.` };
+      // The run stops after the outline's turn, so these are the calls made in the same turn.
+      const next = made.slice(proposal + 1).find(isCard);
+      return next === undefined
+        ? { pass: true, reason: `Suggested ${adds} topics after measuring, then stopped.` }
+        : { pass: false, reason: `Went on with ${next.name} after the outline.` };
     }
     case "noOutlineProposal": {
       const proposal = made.find((call) => call.name === "propose_outline");
@@ -535,7 +540,7 @@ ${JSON_ONLY} {"oneThing": true|false, "noLecture": true|false, "reason": "one se
     case "collectsProfile":
     case "noProfileQuestions":
     case "reviewTargets":
-    case "outlineAfterMeasuring":
+    case "outlineEndsSetup":
     case "noOutlineProposal":
     case "keepsNotebookName":
     case "recoversFromMissingProgram":

@@ -14,7 +14,10 @@ import { learnerProfileSection } from "../../apps/server/src/learning/learnerPro
 import { missingProgramMessage } from "../../apps/server/src/learning/learningLogic.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
 import { HtmlToolkit } from "../../apps/server/src/mcp/toolkits/html/tools.ts";
-import { LEARN_TOOL_MESSAGES } from "../../apps/server/src/mcp/toolkits/learn/handlers.ts";
+import {
+  LEARN_TOOL_MESSAGES,
+  needsFirstOutline,
+} from "../../apps/server/src/mcp/toolkits/learn/handlers.ts";
 import { LearnToolkit } from "../../apps/server/src/mcp/toolkits/learn/tools.ts";
 import { cases, type TutorCase } from "./cases.ts";
 import {
@@ -71,9 +74,8 @@ const tools = [
   inputSchema: advertisedJsonSchema(tool),
 }));
 
-// The handler adds its nudge to an empty notebook outline; the stub replays the same text.
-const outlineResult = (entry: TutorCase) => {
-  const outline = entry.mocks?.get_outline ?? {
+const outlineOf = (entry: TutorCase) =>
+  entry.mocks?.get_outline ?? {
     inNotebook: false,
     notebook: null,
     topics: [],
@@ -81,8 +83,12 @@ const outlineResult = (entry: TutorCase) => {
     pendingProposal: false,
     needsName: false,
   };
+
+// The handlers add their nudges to an empty notebook outline; the stub replays the same text.
+const outlineResult = (entry: TutorCase) => {
+  const outline = outlineOf(entry);
   if (outline.needsName) return { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_needs_name };
-  return outline.inNotebook && outline.topics.length === 0 && !outline.pendingProposal
+  return needsFirstOutline(outline)
     ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_empty }
     : outline;
 };
@@ -95,10 +101,13 @@ const stubConfig = (entry: TutorCase): StubConfig => ({
     graph_record: { propositions: [] },
     review_due: entry.mocks?.review_due ?? { total: 0, propositions: [] },
     get_outline: outlineResult(entry),
-    set_plan:
-      "message" in outlineResult(entry)
-        ? LEARN_TOOL_MESSAGES.set_plan_outline_empty
-        : LEARN_TOOL_MESSAGES.set_plan,
+    ...(needsFirstOutline(outlineOf(entry))
+      ? {
+          finish_measuring: LEARN_TOOL_MESSAGES.finish_measuring_outline_empty,
+          set_plan: LEARN_TOOL_MESSAGES.set_plan_outline_empty,
+          propose_outline: LEARN_TOOL_MESSAGES.propose_outline_first,
+        }
+      : {}),
     set_profile: { profile: {}, message: LEARN_TOOL_MESSAGES.set_profile },
     html_render: { message: "The learner sees the render now." },
     html_preview: { message: "Previewed." },

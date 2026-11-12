@@ -246,11 +246,17 @@ export class LearningService extends Context.Service<
       input: LearningSetLessonTopicInput,
     ) => Effect.Effect<void, LearningError>;
     readonly tutorOutline: (threadId: ThreadId) => Effect.Effect<TutorOutline, LearningError>;
-    /** The tutor's suggested change, which waits for the learner and replaces a pending one. */
+    /**
+     * The tutor's suggested change, which waits for the learner and replaces a pending one.
+     * `firstOutline` says it drafts an outline for a notebook that has none.
+     */
     readonly proposeOutline: (
       threadId: ThreadId,
       input: { readonly ops: ReadonlyArray<LearningOutlineOp>; readonly reason: string },
-    ) => Effect.Effect<{ readonly proposalId: string }, LearningError>;
+    ) => Effect.Effect<
+      { readonly proposalId: string; readonly firstOutline: boolean },
+      LearningError
+    >;
     /** The tutor marks its own lesson's topic learned. */
     readonly markTopicLearned: (threadId: ThreadId) => Effect.Effect<void, LearningError>;
     /** The tutor names a new notebook once it knows what the learner wants to learn. */
@@ -1570,7 +1576,7 @@ export const layer = Layer.effect(
         )
         .pipe(Effect.mapError(dbError("Could not save the suggestion.")));
       yield* notebookChanged(projectId, [threadId, ...replaced]);
-      return { proposalId };
+      return { proposalId, firstOutline: outline.topics.length === 0 };
     });
 
     const markTopicLearned: LearningService["Service"]["markTopicLearned"] = Effect.fn(

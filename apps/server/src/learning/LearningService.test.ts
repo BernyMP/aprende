@@ -876,6 +876,8 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
       // Nothing applies until the learner accepts, and only the newest proposal waits.
       const empty = (yield* learning.tutorOutline(threadId)).topics;
       assert.deepEqual(empty, []);
+      // Until one is accepted, each drafts the notebook's first outline.
+      assert.deepEqual([first.firstOutline, second.firstOutline], [true, true]);
       const replaced = yield* learning
         .resolveProposal({ proposalId: first.proposalId, accept: true })
         .pipe(Effect.exit);
@@ -912,6 +914,7 @@ it.effect("applies the tutor's outline changes only once the learner accepts the
         ],
         reason: "They already hold vectors.",
       });
+      assert.isFalse(late.firstOutline);
       yield* learning.editOutline({
         projectId,
         ops: [{ type: "remove", topicId: matrices!.id }],

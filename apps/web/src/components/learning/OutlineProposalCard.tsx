@@ -1,4 +1,5 @@
 import type { EnvironmentId, LearningOutlineProposal } from "@aprende/contracts";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { cn } from "~/lib/utils";
@@ -18,29 +19,49 @@ const OUTCOME: Record<Exclude<LearningOutlineProposal["status"], "pending">, str
 export function OutlineProposalCard(props: {
   readonly proposal: LearningOutlineProposal;
   readonly environmentId: EnvironmentId;
+  /** In a session: accepting a first outline opens the notebook, where its lessons start. */
+  readonly leadsToNotebook?: boolean;
 }) {
   const { proposal } = props;
+  const navigate = useNavigate();
   const notebook = useNotebook(props.environmentId, proposal.projectId);
   const resolve = useAtomCommand(serverEnvironment.resolveOutlineProposal, {
     label: "change your outline",
     reportFailure: false,
   });
   const [pending, setPending] = useState(false);
+  // Accepted here and on the way to the notebook: the card holds still until the page changes.
+  const [opening, setOpening] = useState(false);
   const titles = new Map((notebook?.outline.topics ?? []).map((topic) => [topic.id, topic.title]));
   const first =
-    proposal.status === "pending" &&
-    notebook?.outline.topics.length === 0 &&
-    proposal.ops.every((op) => op.type === "add");
+    opening ||
+    (proposal.status === "pending" &&
+      notebook?.outline.topics.length === 0 &&
+      proposal.ops.every((op) => op.type === "add"));
+
+  const opensNotebook = props.leadsToNotebook === true && first;
+  const notebookParams = { environmentId: props.environmentId, projectId: proposal.projectId };
 
   const decide = async (accept: boolean) => {
     setPending(true);
-    reportNotebookResult(
+    setOpening(accept && opensNotebook);
+    const applied = reportNotebookResult(
       await resolve({
         environmentId: props.environmentId,
         input: { proposalId: proposal.id, accept },
       }),
       "Could not change your outline",
     );
+    if (applied && accept && opensNotebook) {
+      // No reset after this: the card leaves with the page, and resetting would redraw it mid-fade.
+      await navigate({
+        to: "/notebook/$environmentId/$projectId",
+        params: notebookParams,
+        viewTransition: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      });
+      return;
+    }
+    setOpening(false);
     setPending(false);
   };
 
@@ -69,17 +90,31 @@ export function OutlineProposalCard(props: {
           ))}
         </ul>
       )}
-      {proposal.status === "pending" ? (
+      {proposal.status === "pending" || opening ? (
         <div className="mt-3 flex gap-2">
           <Button size="sm" disabled={pending} onClick={() => void decide(true)}>
-            Accept
+            {opensNotebook ? "Accept and open notebook" : "Accept"}
           </Button>
           <Button size="sm" variant="ghost" disabled={pending} onClick={() => void decide(false)}>
             Dismiss
           </Button>
         </div>
       ) : (
-        <p className="mt-2 text-muted-foreground">{OUTCOME[proposal.status]}</p>
+        <p className="mt-2 text-muted-foreground">
+          {OUTCOME[proposal.status]}
+          {props.leadsToNotebook === true && proposal.status === "accepted" ? (
+            <>
+              {" "}
+              <Link
+                className="text-foreground underline underline-offset-2"
+                to="/notebook/$environmentId/$projectId"
+                params={notebookParams}
+              >
+                Open notebook
+              </Link>
+            </>
+          ) : null}
+        </p>
       )}
     </section>
   );

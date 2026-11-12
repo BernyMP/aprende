@@ -107,9 +107,10 @@ for your answer.
 
 **New notebook** opens a session right away. You don't need to know yet what you want to study:
 the tutor asks, one question at a time, what you want to learn, why, and what you are working
-toward, such as an exam. Then it names the notebook and suggests an outline. You can rename it in
-the notebook's settings. To bring in a session from outside any notebook, use **Move to notebook**
-in its menu.
+toward, such as an exam. Then it names the notebook, finds your starting point and suggests an
+outline. Accept the outline and your notebook opens, ready for a lesson on its first topic. You can
+rename the notebook in its settings. To bring in a session from outside any notebook, use
+**Move to notebook** in its menu.
 
 Open one notebook by clicking its name, the notebook name above a session, **Open notebook** in the
 command palette, or `mod+alt+o` (customize `notebook.open`).
@@ -124,9 +125,10 @@ command palette, or `mod+alt+o` (customize `notebook.open`).
   another topic, or under none, use the topic button next to it there.
 - **I already know this** marks a topic known. The tutor still checks it when a lesson builds on
   it, so marking it does not skip what you need.
-- The tutor marks a topic learned once a lesson's checks pass. In your first lesson it suggests an
-  outline, and later it may suggest changes, such as a missing topic. A suggestion shows as a card
-  in the lesson and on the notebook; nothing changes until you choose **Accept**.
+- The tutor marks a topic learned once a lesson's checks pass. A notebook's first session ends
+  with a suggested outline, and later lessons may suggest changes, such as a missing topic. A
+  suggestion shows as a card in the lesson and on the notebook; nothing changes until you choose
+  **Accept**.
 
 Sessions started outside a notebook have no outline.
 

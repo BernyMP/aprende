@@ -44,7 +44,7 @@ export type Check =
   /** A review poses a recall problem naming the due proposition. */
   | { readonly type: "reviewTargets"; readonly ids: ReadonlyArray<string> }
   /** propose_outline drafts several topics, after finish_measuring or set_plan. */
-  | { readonly type: "outlineAfterMeasuring" }
+  | { readonly type: "outlineEndsSetup" }
   /** No propose_outline call. */
   | { readonly type: "noOutlineProposal" }
   /** A new notebook: one thing per card, no lecture, then name_notebook with a short name. */
@@ -351,9 +351,9 @@ export const cases: ReadonlyArray<TutorCase> = [
   {
     id: "empty-notebook-drafts-outline",
     kind: "bad",
-    source: NOTEBOOK_SOURCE,
+    source: `${NOTEBOOK_SOURCE}; PR opening the notebook once its first session has an outline`,
     experience:
-      "A learner's first lesson in a new notebook leaves the outline empty, so the notebook never shows where the subject goes; the tutor should suggest one once it knows where they stand.",
+      "A learner's first session in a notebook left the outline empty, and later planned and taught on past the starting point, so the first topic was learned outside the outline; the tutor should suggest an outline once it knows where they stand and stop there, so lessons start from the notebook.",
     profile: savedProfile,
     persona: eigenLearner,
     mocks: {
@@ -367,7 +367,7 @@ export const cases: ReadonlyArray<TutorCase> = [
       },
     },
     maxTurns: 9,
-    check: { type: "outlineAfterMeasuring" },
+    check: { type: "outlineEndsSetup" },
   },
   {
     id: "known-topic-still-measured",

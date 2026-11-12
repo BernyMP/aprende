@@ -102,8 +102,8 @@ describe("ruleVerdict", () => {
     expect(ruleVerdict(check, posed("recall", ["Bayes"]))?.pass).toBe(false);
   });
 
-  it("needs an outline of several topics suggested after measuring", () => {
-    const check = { type: "outlineAfterMeasuring" as const };
+  it("needs an outline of several topics after measuring, with no plan or card after it", () => {
+    const check = { type: "outlineEndsSetup" as const };
     const adds = (count: number) =>
       call("propose_outline", {
         ops: Array.from({ length: count }, (_, index) => ({ type: "add", title: `t${index}` })),
@@ -114,7 +114,12 @@ describe("ruleVerdict", () => {
     expect(ruleVerdict(check, [{ user: "a", events: [adds(5), measured] }])?.pass).toBe(false);
     expect(ruleVerdict(check, [{ user: "a", events: [measured, adds(2)] }])?.pass).toBe(false);
     const planned = call("set_plan", { nodes: [], edges: [] });
-    expect(ruleVerdict(check, [{ user: "a", events: [planned, adds(5)] }])?.pass).toBe(true);
+    expect(ruleVerdict(check, [{ user: "a", events: [measured, planned, adds(5)] }])?.pass).toBe(
+      false,
+    );
+    expect(
+      ruleVerdict(check, [{ user: "a", events: [measured, adds(5), measure("q-1")] }])?.pass,
+    ).toBe(false);
     expect(ruleVerdict(check, [{ user: "a", events: [measure("q-1")] }])?.inconclusive).toBe(true);
   });
 
