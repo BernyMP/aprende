@@ -68,6 +68,7 @@ export interface OutlineMock {
   readonly lessonTopicId: string | null;
   readonly pendingProposal: boolean;
   readonly needsName: boolean;
+  readonly needsOutline: boolean;
 }
 
 export interface TutorCase {
@@ -135,6 +136,7 @@ const newNotebook: OutlineMock = {
   lessonTopicId: null,
   pendingProposal: false,
   needsName: true,
+  needsOutline: true,
 };
 
 const RUNTIMES_SOURCE =
@@ -364,6 +366,7 @@ export const cases: ReadonlyArray<TutorCase> = [
         lessonTopicId: null,
         pendingProposal: false,
         needsName: false,
+        needsOutline: true,
       },
     },
     maxTurns: 9,
@@ -395,6 +398,7 @@ export const cases: ReadonlyArray<TutorCase> = [
         lessonTopicId: "t-eigen",
         pendingProposal: false,
         needsName: false,
+        needsOutline: false,
       },
     },
     maxTurns: 3,
@@ -427,6 +431,7 @@ export const cases: ReadonlyArray<TutorCase> = [
         lessonTopicId: "t-eigen",
         pendingProposal: false,
         needsName: false,
+        needsOutline: false,
       },
     },
     maxTurns: 6,
@@ -447,6 +452,7 @@ export const cases: ReadonlyArray<TutorCase> = [
         lessonTopicId: null,
         pendingProposal: false,
         needsName: false,
+        needsOutline: false,
       },
     },
     maxTurns: 6,
@@ -505,6 +511,7 @@ export const cases: ReadonlyArray<TutorCase> = [
         lessonTopicId: null,
         pendingProposal: false,
         needsName: false,
+        needsOutline: true,
       },
     },
     maxTurns: 4,

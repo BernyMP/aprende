@@ -19,8 +19,11 @@ const OUTCOME: Record<Exclude<LearningOutlineProposal["status"], "pending">, str
 export function OutlineProposalCard(props: {
   readonly proposal: LearningOutlineProposal;
   readonly environmentId: EnvironmentId;
-  /** In a session: accepting a first outline opens the notebook, where its lessons start. */
-  readonly leadsToNotebook?: boolean;
+  /**
+   * The session showing the card; none on the notebook page. A `setup` session has no plan, so
+   * accepting a first outline there opens the notebook, where its lessons start.
+   */
+  readonly session?: "setup" | "lesson";
 }) {
   const { proposal } = props;
   const navigate = useNavigate();
@@ -39,7 +42,7 @@ export function OutlineProposalCard(props: {
       notebook?.outline.topics.length === 0 &&
       proposal.ops.every((op) => op.type === "add"));
 
-  const opensNotebook = props.leadsToNotebook === true && first;
+  const opensNotebook = props.session === "setup" && first;
   const notebookParams = { environmentId: props.environmentId, projectId: proposal.projectId };
 
   const decide = async (accept: boolean) => {
@@ -53,13 +56,16 @@ export function OutlineProposalCard(props: {
       "Could not change your outline",
     );
     if (applied && accept && opensNotebook) {
-      // No reset after this: the card leaves with the page, and resetting would redraw it mid-fade.
-      await navigate({
+      const opened = await navigate({
         to: "/notebook/$environmentId/$projectId",
         params: notebookParams,
         viewTransition: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-      });
-      return;
+      }).then(
+        () => true,
+        () => false,
+      );
+      // No reset once it opens: the card leaves with the page, and a reset would redraw it mid-fade.
+      if (opened) return;
     }
     setOpening(false);
     setPending(false);
@@ -102,7 +108,7 @@ export function OutlineProposalCard(props: {
       ) : (
         <p className="mt-2 text-muted-foreground">
           {OUTCOME[proposal.status]}
-          {props.leadsToNotebook === true && proposal.status === "accepted" ? (
+          {props.session !== undefined && proposal.status === "accepted" ? (
             <>
               {" "}
               <Link
@@ -114,6 +120,9 @@ export function OutlineProposalCard(props: {
               </Link>
             </>
           ) : null}
+          {props.session === "setup" && proposal.status === "dismissed"
+            ? " Tell the tutor what to change, or add topics in your notebook."
+            : null}
         </p>
       )}
     </section>

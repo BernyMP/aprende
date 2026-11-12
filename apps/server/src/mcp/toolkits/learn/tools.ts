@@ -348,7 +348,11 @@ const GetOutlineTool = Tool.make("get_outline", {
     pendingProposal: Schema.Boolean,
     needsName: Schema.Boolean.annotate({
       description:
-        "true for a notebook the learner just created: this session sets it up, then names it with name_notebook.",
+        "true for a notebook the learner just created: find out what they want, then name it with name_notebook.",
+    }),
+    needsOutline: Schema.Boolean.annotate({
+      description:
+        "true when this session sets the notebook up: its outline is empty and you have not planned here. After finish_measuring, suggest the outline with propose_outline and end the session there.",
     }),
     message: Schema.optional(Schema.String),
   }),

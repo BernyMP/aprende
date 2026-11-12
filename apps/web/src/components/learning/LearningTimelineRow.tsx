@@ -50,7 +50,7 @@ export function LearningTimelineRow({ row }: { row: Extract<TimelineRow, { kind:
         <OutlineProposalCard
           proposal={proposal}
           environmentId={ctx.threadRef.environmentId}
-          leadsToNotebook
+          session={state.plan === null ? "setup" : "lesson"}
         />
       </div>
     );

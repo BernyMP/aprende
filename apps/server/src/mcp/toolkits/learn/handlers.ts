@@ -1,4 +1,4 @@
-import { OrchestratorMcpFailure, type LearningError, type ThreadId } from "@aprende/contracts";
+import { OrchestratorMcpFailure, type LearningError } from "@aprende/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -16,7 +16,7 @@ export const LEARN_TOOL_MESSAGES = {
   conclude_problem:
     "The learner sees your verdict and the model solution now. After a miss, repair before the next problem.",
   finish_measuring: "Recorded and shown to the learner. Plan next with set_plan.",
-  finish_measuring_outline_empty:
+  finish_measuring_needs_outline:
     "Recorded and shown to the learner. Their notebook outline is still empty, so do not plan here: call propose_outline now with 4 to 12 topics for the whole subject.",
   set_plan: "The learner sees this plan now.",
   set_profile:
@@ -24,16 +24,13 @@ export const LEARN_TOOL_MESSAGES = {
   propose_outline:
     "The learner sees your suggestion as a card and decides. Keep teaching without asking them about it; get_outline shows what they chose.",
   propose_outline_first:
-    "The learner sees the outline as a card. When they accept it, the app opens their notebook, where each topic starts its own lesson. Say so in a sentence or two and end your turn. Do not plan, ask a question or teach in this session unless they ask to keep learning here.",
+    "The learner sees the outline as a card. When they accept it, the app opens their notebook, where each topic starts its own lesson. Say so in a sentence or two and end your turn: no plan, no further question and no teaching in this session, unless they ask to keep learning here.",
   mark_topic_learned: "The learner sees the topic marked learned in their notebook.",
-  name_notebook:
-    "The learner sees the new name now. Go on: measure where they stand, then suggest the outline.",
+  name_notebook: "The learner sees the new name now. Go on: measure where they stand.",
   get_outline_needs_name:
     "The learner just created this notebook. Before measuring, find out what they want to learn, then what it is for. One short goal question per card, about one thing: ask which exam, then when, never both at once. Then name it with name_notebook.",
-  get_outline_empty:
+  get_outline_needs_outline:
     "The outline is empty, so this session sets the notebook up. Find the goal and measure as usual. After finish_measuring, suggest an outline for the whole subject with propose_outline instead of planning.",
-  set_plan_outline_empty:
-    "The learner sees this plan now. Their notebook outline is still empty: unless they dismissed your outline, call propose_outline now with 4 to 12 topics for the whole subject.",
 } as const;
 
 const toFailure = (error: LearningError) =>
@@ -43,19 +40,6 @@ const callerThread = Effect.fn("LearnTools.callerThread")(function* (tool: strin
   const scope = yield* McpInvocationContext.McpInvocationContext;
   const { thread } = yield* McpInvocationContext.requireThreadScope(scope, tool);
   return thread.threadId;
-});
-
-/** An empty notebook with no outline waiting: this session sets it up and ends at the outline. */
-export const needsFirstOutline = (outline: LearningService.TutorOutline) =>
-  outline.inNotebook && outline.topics.length === 0 && !outline.pendingProposal;
-
-// Reminds the tutor at the moment it can act; the outline read at the start is turns behind.
-const callerNeedsFirstOutline = Effect.fn("LearnTools.callerNeedsFirstOutline")(function* (
-  threadId: ThreadId,
-) {
-  const learning = yield* LearningService.LearningService;
-  const outline = yield* learning.tutorOutline(threadId).pipe(Effect.option);
-  return Option.isSome(outline) && needsFirstOutline(outline.value);
 });
 
 // These tools change only the caller's own learning record, so read-only sandboxes may use them.
@@ -101,10 +85,13 @@ const handlers = {
       const threadId = yield* callerThread("finish_measuring");
       const learning = yield* LearningService.LearningService;
       yield* learning.finishMeasuring(threadId, input).pipe(Effect.mapError(toFailure));
+      // Reminds the tutor at the moment it can act; the outline read at the start is turns behind.
+      const outline = yield* learning.tutorOutline(threadId).pipe(Effect.option);
       return {
-        message: (yield* callerNeedsFirstOutline(threadId))
-          ? LEARN_TOOL_MESSAGES.finish_measuring_outline_empty
-          : LEARN_TOOL_MESSAGES.finish_measuring,
+        message:
+          Option.isSome(outline) && outline.value.needsOutline
+            ? LEARN_TOOL_MESSAGES.finish_measuring_needs_outline
+            : LEARN_TOOL_MESSAGES.finish_measuring,
       };
     }),
   ),
@@ -113,12 +100,7 @@ const handlers = {
       const threadId = yield* callerThread("set_plan");
       const learning = yield* LearningService.LearningService;
       const { version } = yield* learning.setPlan(threadId, input).pipe(Effect.mapError(toFailure));
-      return {
-        version,
-        message: (yield* callerNeedsFirstOutline(threadId))
-          ? LEARN_TOOL_MESSAGES.set_plan_outline_empty
-          : LEARN_TOOL_MESSAGES.set_plan,
-      };
+      return { version, message: LEARN_TOOL_MESSAGES.set_plan };
     }),
   ),
   graph_search: McpToolAccess.readsAsCaller((input) =>
@@ -158,8 +140,8 @@ const handlers = {
       const outline = yield* learning.tutorOutline(threadId).pipe(Effect.mapError(toFailure));
       if (outline.needsName)
         return { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_needs_name };
-      return needsFirstOutline(outline)
-        ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_empty }
+      return outline.needsOutline
+        ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_needs_outline }
         : outline;
     }),
   ),

@@ -14,10 +14,7 @@ import { learnerProfileSection } from "../../apps/server/src/learning/learnerPro
 import { missingProgramMessage } from "../../apps/server/src/learning/learningLogic.ts";
 import { advertisedJsonSchema } from "../../apps/server/src/mcp/advertisedJsonSchema.ts";
 import { HtmlToolkit } from "../../apps/server/src/mcp/toolkits/html/tools.ts";
-import {
-  LEARN_TOOL_MESSAGES,
-  needsFirstOutline,
-} from "../../apps/server/src/mcp/toolkits/learn/handlers.ts";
+import { LEARN_TOOL_MESSAGES } from "../../apps/server/src/mcp/toolkits/learn/handlers.ts";
 import { LearnToolkit } from "../../apps/server/src/mcp/toolkits/learn/tools.ts";
 import { cases, type TutorCase } from "./cases.ts";
 import {
@@ -82,14 +79,15 @@ const outlineOf = (entry: TutorCase) =>
     lessonTopicId: null,
     pendingProposal: false,
     needsName: false,
+    needsOutline: false,
   };
 
-// The handlers add their nudges to an empty notebook outline; the stub replays the same text.
+// The handlers nudge a session that sets its notebook up; the stub replays the same text.
 const outlineResult = (entry: TutorCase) => {
   const outline = outlineOf(entry);
   if (outline.needsName) return { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_needs_name };
-  return needsFirstOutline(outline)
-    ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_empty }
+  return outline.needsOutline
+    ? { ...outline, message: LEARN_TOOL_MESSAGES.get_outline_needs_outline }
     : outline;
 };
 
@@ -101,10 +99,9 @@ const stubConfig = (entry: TutorCase): StubConfig => ({
     graph_record: { propositions: [] },
     review_due: entry.mocks?.review_due ?? { total: 0, propositions: [] },
     get_outline: outlineResult(entry),
-    ...(needsFirstOutline(outlineOf(entry))
+    ...(outlineOf(entry).needsOutline
       ? {
-          finish_measuring: LEARN_TOOL_MESSAGES.finish_measuring_outline_empty,
-          set_plan: LEARN_TOOL_MESSAGES.set_plan_outline_empty,
+          finish_measuring: LEARN_TOOL_MESSAGES.finish_measuring_needs_outline,
           propose_outline: LEARN_TOOL_MESSAGES.propose_outline_first,
         }
       : {}),
