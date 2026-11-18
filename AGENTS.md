@@ -123,6 +123,10 @@ An empty database is a bad test. Seed your worktree's `.aprende` with a copy of 
 
 `evals/` checks how real models behave with aprende's model-facing text: agent instructions, MCP tool descriptions and schemas, and generated titles. Before you change that text, read [evals/README.md](evals/README.md) and run the evals it names. When you fix a model behavior bug, add a case that fails before the fix.
 
+## Domain agents
+
+A domain agent lives in `.agents/domains/<name>/`: the paths it owns, a short brief that a hook adds to your context when you edit one of them, and its settled rules. Ask its read-only subagent before you change behavior there. When the developer settles a product decision in that area, add it to the agent's `rules.md` as one line: `YYYY-MM-DD: <rule>. Receipt: <PR or issue URL>`.
+
 ## Pull requests
 
 - Never make a PR unless the developer explicitly asks you to do so.

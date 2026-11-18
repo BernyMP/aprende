@@ -1,0 +1,6 @@
+# Paths the learning domain agent owns, one glob per line, relative to the repo root.
+apps/server/src/learning/**
+apps/server/src/mcp/toolkits/learn/**
+apps/web/src/components/learning/**
+packages/contracts/src/learning*.ts
+evals/tutor-teaching/**
